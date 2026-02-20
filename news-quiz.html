@@ -845,6 +845,50 @@
     margin-top: 4px;
   }
 
+  .q-review-card input[type=text],
+  .q-review-card textarea {
+    width: 100%;
+    font-family: 'Source Serif 4', serif;
+    font-size: 14px;
+    color: var(--ink);
+    background: var(--paper);
+    border: 1px solid #ccc;
+    border-radius: 2px;
+    padding: 6px 8px;
+    margin-top: 4px;
+    box-sizing: border-box;
+  }
+  .q-review-card textarea { min-height: 56px; resize: vertical; }
+  .q-review-card input[type=text]:focus,
+  .q-review-card textarea:focus { outline: 2px solid var(--gold); border-color: var(--gold); }
+  .q-options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
+  .q-option-row { display: flex; align-items: center; gap: 6px; }
+  .q-option-row label { font-family: 'Courier Prime', monospace; font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .q-option-row input[type=radio] { accent-color: var(--green); }
+  .q-edit-label { font-family: 'Courier Prime', monospace; font-size: 11px; letter-spacing: 1px; color: var(--muted); margin-top: 10px; margin-bottom: 2px; }
+
+  .q-review-card input[type=text],
+  .q-review-card textarea {
+    width: 100%;
+    font-family: 'Source Serif 4', serif;
+    font-size: 14px;
+    color: var(--ink);
+    background: var(--paper);
+    border: 1px solid #ccc;
+    border-radius: 2px;
+    padding: 6px 8px;
+    margin-top: 4px;
+    box-sizing: border-box;
+  }
+  .q-review-card textarea { min-height: 56px; resize: vertical; }
+  .q-review-card input[type=text]:focus,
+  .q-review-card textarea:focus { outline: 2px solid var(--gold); border-color: var(--gold); }
+  .q-options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
+  .q-option-row { display: flex; align-items: center; gap: 6px; }
+  .q-option-row label { font-family: 'Courier Prime', monospace; font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .q-option-row input[type=radio] { accent-color: var(--green); }
+  .q-edit-label { font-family: 'Courier Prime', monospace; font-size: 11px; letter-spacing: 1px; color: var(--muted); margin-top: 10px; margin-bottom: 2px; }
+
   .status-msg {
     padding: 12px 16px;
     font-family: 'Courier Prime', monospace;
@@ -1954,21 +1998,52 @@ function showDraftPreview(questions) {
   let html = '';
   questions.forEach((q, i) => {
     const diff = q.difficulty || (i < 4 ? 'easy' : i < 7 ? 'medium' : i < 10 ? 'hard' : 'bonus');
-    const opts = q.options.map((o, oi) => `${String.fromCharCode(65+oi)}) ${o}`).join(' · ');
-    const correct = q.options[q.correctIndex] || '?';
+    const optLetters = ['A','B','C','D'];
+    let optionsHtml = '<div class="q-options-grid">';
+    q.options.forEach((opt, oi) => {
+      optionsHtml += `<div class="q-option-row">
+        <input type="radio" name="correct-${i}" id="correct-${i}-${oi}" value="${oi}" ${oi === q.correctIndex ? 'checked' : ''} onchange="updateDraftCorrect(${i}, ${oi})">
+        <label for="correct-${i}-${oi}">${optLetters[oi]}</label>
+        <input type="text" value="${escHtml(opt)}" oninput="updateDraftOption(${i}, ${oi}, this.value)" style="flex:1;">
+      </div>`;
+    });
+    optionsHtml += '</div>';
+
     html += `<div class="q-review-card">
       <div class="q-meta">
         <span><strong>${i === 10 ? 'BONUS' : ('Q'+(i+1))}</strong></span>
         <span class="diff-label ${diffMap[diff] || 'easy'}" style="display:inline-block">${diff.toUpperCase()}</span>
+        <span style="margin-left:auto;font-size:10px;color:var(--muted)">Select correct answer with radio button</span>
       </div>
-      <div class="q-preview">${escHtml(q.question)}</div>
-      <div class="options-preview">${escHtml(opts)}</div>
-      <div class="answer-preview">✓ ${escHtml(correct)}</div>
-      ${q.sourceUrl ? `<div style="font-family:'Courier Prime',monospace;font-size:10px;color:var(--muted);margin-top:6px;word-break:break-all;">🔗 ${escHtml(q.sourceUrl)}</div>` : ''}
+      <div class="q-edit-label">QUESTION</div>
+      <textarea oninput="updateDraftQuestion(${i}, this.value)">${escHtml(q.question)}</textarea>
+      <div class="q-edit-label">OPTIONS — click radio button to mark correct answer</div>
+      ${optionsHtml}
+      <div class="q-edit-label">EXPLANATION</div>
+      <input type="text" value="${escHtml(q.explanation || '')}" oninput="updateDraftExplanation(${i}, this.value)">
+      ${q.sourceUrl ? `<div style="font-family:'Courier Prime',monospace;font-size:10px;color:var(--muted);margin-top:8px;word-break:break-all;">🔗 ${escHtml(q.sourceUrl)}</div>` : ''}
     </div>`;
   });
   document.getElementById('q-preview-list').innerHTML = html;
   document.getElementById('preview-section').style.display = 'block';
+}
+
+// Live-edit helpers — update the draft in localStorage as admin types
+function updateDraftQuestion(i, val) {
+  const draft = getDraftQuiz();
+  if (draft && draft.questions[i]) { draft.questions[i].question = val; saveDraftQuiz(draft); }
+}
+function updateDraftOption(i, oi, val) {
+  const draft = getDraftQuiz();
+  if (draft && draft.questions[i]) { draft.questions[i].options[oi] = val; saveDraftQuiz(draft); }
+}
+function updateDraftCorrect(i, oi) {
+  const draft = getDraftQuiz();
+  if (draft && draft.questions[i]) { draft.questions[i].correctIndex = oi; saveDraftQuiz(draft); }
+}
+function updateDraftExplanation(i, val) {
+  const draft = getDraftQuiz();
+  if (draft && draft.questions[i]) { draft.questions[i].explanation = val; saveDraftQuiz(draft); }
 }
 
 function publishQuestions() {
