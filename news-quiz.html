@@ -1706,25 +1706,55 @@ function checkAdminPw() {
   }
 }
 
-function showAdminScreen() {
+async function showAdminScreen() {
   showScreen('screen-admin');
-  refreshAdminPreviews();
+  await refreshAdminPreviews();
 }
 
-// ─── Saved news sites ────────────────────────────────────────────────────
-function getSavedSites() { return lsGet('dnq_saved_sites') || ''; }
-function saveSites() {
+// ─── Saved news sites (server-side) ──────────────────────────────────────
+async function saveSites() {
   const val = document.getElementById('urls-input').value.trim();
-  lsSet('dnq_saved_sites', val);
   const msg = document.getElementById('sites-saved-msg');
   msg.style.display = 'inline';
-  setTimeout(() => msg.style.display = 'none', 2500);
+  msg.style.color = 'var(--muted)';
+  msg.textContent = 'Saving…';
+  try {
+    const res = await fetch('/api/sites', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sites: val })
+    });
+    if (res.ok) {
+      msg.textContent = '✓ Sites saved!';
+      msg.style.color = 'var(--green)';
+    } else {
+      msg.textContent = '✗ Save failed';
+      msg.style.color = 'var(--red)';
+    }
+  } catch(e) {
+    msg.textContent = '✗ Save failed';
+    msg.style.color = 'var(--red)';
+  }
+  setTimeout(() => { msg.style.display = 'none'; }, 3000);
 }
 
-function refreshAdminPreviews() {
-  // Restore saved news sites into the textarea
-  const saved = getSavedSites();
-  if (saved) document.getElementById('urls-input').value = saved;
+async function loadSavedSites() {
+  try {
+    const res = await fetch('/api/sites');
+    if (res.ok) {
+      const data = await res.json();
+      if (data.sites) {
+        document.getElementById('urls-input').value = data.sites;
+      }
+    }
+  } catch(e) {
+    // Server not available — silently fall back to empty
+  }
+}
+
+async function refreshAdminPreviews() {
+  // Load saved news sites from server
+  await loadSavedSites();
 
   // Archive count
   const archive = getArchive();
@@ -1786,7 +1816,7 @@ async function generateQuestions() {
   document.getElementById('gen-progress-text').textContent = 'Sending to Claude API…';
 
   try {
-    const response = await fetch('http://localhost:3001/api/claude', {
+    const response = await fetch('/api/claude', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
