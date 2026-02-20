@@ -1810,24 +1810,31 @@ async function generateQuestions() {
     ? `Do NOT generate questions about these previously used topics: ${archive.slice(0, 30).join(' | ')}`
     : '';
 
+  const rssContent = '';
   const prompt = buildGenerationPrompt(urlList, manualText, archiveNote, rssContent);
   let rawResponse = '';
-
-  const rssContent = '';
 
   // ── Send to Claude ────────────────────────────────────────
   document.getElementById('gen-progress-text').textContent = 'Generating questions…';
 
   try {
-    const response = await fetch('/api/claude', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: CLAUDE_MODEL,
-        max_tokens: 4000,
-        messages: [{ role: 'user', content: prompt }]
-      })
-    });
+    const claudeController = new AbortController();
+    const claudeTimer = setTimeout(() => claudeController.abort(), 60000);
+    let response;
+    try {
+      response = await fetch('/api/claude', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: claudeController.signal,
+        body: JSON.stringify({
+          model: CLAUDE_MODEL,
+          max_tokens: 4000,
+          messages: [{ role: 'user', content: prompt }]
+        })
+      });
+    } finally {
+      clearTimeout(claudeTimer);
+    }
 
     const data = await response.json();
     if (data.error) throw new Error(`API error: ${data.error.message}`);
