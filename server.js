@@ -137,15 +137,22 @@ app.get('/api/rss', async (req, res) => {
   const allItems = [];
   const errors = [];
 
-  await Promise.allSettled(feedsToFetch.map(async ({ site, feedUrl }) => {
+  // Fetch all feeds in parallel with a 20s overall timeout
+  const fetchWithTimeout = (site, feedUrl) => new Promise(async (resolve) => {
+    const timer = setTimeout(() => resolve(), 8000); // 8s per feed
     try {
       const xml = await fetchUrl(feedUrl);
       const items = parseRSS(xml).filter(item => isRecent(item.pubDate));
       items.forEach(item => allItems.push({ ...item, source: site }));
     } catch(e) {
       errors.push(`${feedUrl}: ${e.message}`);
+    } finally {
+      clearTimeout(timer);
+      resolve();
     }
-  }));
+  });
+
+  await Promise.allSettled(feedsToFetch.map(({ site, feedUrl }) => fetchWithTimeout(site, feedUrl)));
 
   // Deduplicate by title
   const seen = new Set();
