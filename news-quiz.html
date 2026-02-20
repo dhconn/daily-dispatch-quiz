@@ -1,0 +1,1999 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Daily Dispatch Quiz</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Source+Serif+4:ital,wght@0,300;0,400;0,600;1,400&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1a1008;
+    --paper: #f5f0e8;
+    --cream: #ede8da;
+    --red: #c0392b;
+    --gold: #b8860b;
+    --gold-light: #f0c040;
+    --rule: #2c1f0e;
+    --muted: #6b5f4e;
+    --green: #1a6b3c;
+    --blue: #1a3a6b;
+    --bonus-bg: #0a0a1a;
+    --bonus-gold: #ffd700;
+    --bonus-glow: #ff8c00;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Source Serif 4', serif;
+    background: var(--paper);
+    color: var(--ink);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ─── MASTHEAD ─── */
+  #masthead {
+    background: var(--ink);
+    color: var(--paper);
+    text-align: center;
+    padding: 10px 20px 14px;
+    border-bottom: 4px double var(--gold);
+    position: relative;
+  }
+  #masthead .dateline {
+    font-family: 'Courier Prime', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--gold-light);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  #masthead h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(28px, 6vw, 52px);
+    font-weight: 900;
+    letter-spacing: -1px;
+    line-height: 1;
+    color: var(--paper);
+  }
+  #masthead h1 span { color: var(--gold-light); }
+  #masthead .city-label {
+    font-family: 'Courier Prime', monospace;
+    font-size: 11px;
+    letter-spacing: 6px;
+    text-transform: uppercase;
+    color: var(--gold-light);
+    opacity: 0.75;
+    margin-bottom: 2px;
+  }
+  #masthead .tagline {
+    font-family: 'Courier Prime', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--muted);
+    margin-top: 4px;
+    text-transform: uppercase;
+  }
+  #admin-btn {
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-family: 'Courier Prime', monospace;
+    font-size: 11px;
+    background: none;
+    border: 1px solid var(--muted);
+    color: var(--muted);
+    padding: 4px 10px;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: all .2s;
+  }
+  #admin-btn:hover { border-color: var(--gold-light); color: var(--gold-light); }
+
+  /* ─── MAIN CONTAINER ─── */
+  #app {
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 20px 16px 60px;
+  }
+
+  /* ─── SCREENS ─── */
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  /* ─── REGISTER SCREEN ─── */
+  #screen-register {
+    text-align: center;
+    padding: 40px 20px;
+  }
+  .edition-rule {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 20px 0;
+    color: var(--muted);
+    font-family: 'Courier Prime', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+  }
+  .edition-rule::before, .edition-rule::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--rule);
+  }
+  #screen-register h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 32px;
+    color: var(--ink);
+    margin-bottom: 8px;
+  }
+  #screen-register p {
+    color: var(--muted);
+    font-style: italic;
+    margin-bottom: 30px;
+    font-size: 15px;
+  }
+  .points-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin: 24px 0;
+    max-width: 500px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .points-card {
+    background: var(--cream);
+    border: 1px solid var(--rule);
+    padding: 12px 8px;
+    text-align: center;
+  }
+  .points-card .pts {
+    font-family: 'Playfair Display', serif;
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--red);
+  }
+  .points-card .pts.bonus-pts { color: var(--gold); }
+  .points-card .label {
+    font-family: 'Courier Prime', monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  .input-group {
+    display: flex;
+    gap: 0;
+    max-width: 420px;
+    margin: 0 auto 16px;
+    border: 2px solid var(--ink);
+  }
+  .input-group input {
+    flex: 1;
+    padding: 14px 16px;
+    font-family: 'Source Serif 4', serif;
+    font-size: 16px;
+    background: white;
+    border: none;
+    outline: none;
+    color: var(--ink);
+  }
+  .input-group input::placeholder { color: #aaa; font-style: italic; }
+  .btn-primary {
+    background: var(--ink);
+    color: var(--paper);
+    border: none;
+    padding: 14px 24px;
+    font-family: 'Courier Prime', monospace;
+    font-size: 13px;
+    letter-spacing: 2px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: background .2s;
+  }
+  .btn-primary:hover { background: var(--red); }
+  .btn-secondary {
+    background: none;
+    border: 2px solid var(--ink);
+    color: var(--ink);
+    padding: 10px 20px;
+    font-family: 'Courier Prime', monospace;
+    font-size: 12px;
+    letter-spacing: 2px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all .2s;
+  }
+  .btn-secondary:hover { background: var(--ink); color: var(--paper); }
+
+  /* ─── QUIZ SCREEN ─── */
+  #screen-quiz { padding: 10px 0; }
+  .quiz-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0 16px;
+    border-bottom: 2px solid var(--ink);
+    margin-bottom: 24px;
+  }
+  .quiz-header .player-name {
+    font-family: 'Courier Prime', monospace;
+    font-size: 12px;
+    letter-spacing: 1px;
+    color: var(--muted);
+  }
+  .quiz-header .player-name strong {
+    color: var(--ink);
+    font-size: 14px;
+  }
+  .score-display {
+    font-family: 'Playfair Display', serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--red);
+  }
+  .score-display span {
+    font-family: 'Courier Prime', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    vertical-align: middle;
+    margin-right: 4px;
+  }
+
+  /* Progress tracker */
+  .progress-track {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 24px;
+    align-items: center;
+  }
+  .progress-dot {
+    width: 28px;
+    height: 28px;
+    border: 2px solid var(--rule);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Courier Prime', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    transition: all .3s;
+    flex-shrink: 0;
+  }
+  .progress-dot.current { border-color: var(--ink); color: var(--ink); background: var(--cream); font-weight: 700; }
+  .progress-dot.correct { background: var(--green); border-color: var(--green); color: white; }
+  .progress-dot.wrong { background: var(--red); border-color: var(--red); color: white; }
+  .progress-dot.bonus { border-color: var(--gold); color: var(--gold); }
+  .progress-separator {
+    font-family: 'Courier Prime', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    margin: 0 4px;
+  }
+
+  /* Difficulty band */
+  .difficulty-band {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    align-items: center;
+  }
+  .diff-label {
+    font-family: 'Courier Prime', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border: 1px solid;
+  }
+  .diff-label.easy { color: var(--green); border-color: var(--green); }
+  .diff-label.medium { color: var(--gold); border-color: var(--gold); }
+  .diff-label.hard { color: var(--red); border-color: var(--red); }
+  .diff-label.bonus { color: var(--gold); border-color: var(--gold); background: #fff8e0; }
+  .pts-label {
+    font-family: 'Courier Prime', monospace;
+    font-size: 10px;
+    color: var(--muted);
+  }
+
+  /* Question card */
+  .question-card {
+    background: white;
+    border: 2px solid var(--ink);
+    padding: 28px 30px 24px;
+    margin-bottom: 20px;
+    position: relative;
+    box-shadow: 4px 4px 0 var(--ink);
+    animation: slideIn .3s ease;
+  }
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .q-number {
+    font-family: 'Courier Prime', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .q-text {
+    font-size: 19px;
+    line-height: 1.5;
+    color: var(--ink);
+    font-weight: 400;
+  }
+
+  /* Answer options */
+  .options-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 20px;
+  }
+  .option-btn {
+    background: var(--cream);
+    border: 2px solid var(--rule);
+    padding: 14px 16px;
+    text-align: left;
+    cursor: pointer;
+    font-family: 'Source Serif 4', serif;
+    font-size: 15px;
+    color: var(--ink);
+    transition: all .15s;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    line-height: 1.4;
+  }
+  .option-btn:hover:not(:disabled) { border-color: var(--ink); background: white; transform: translateY(-1px); }
+  .option-btn .opt-letter {
+    font-family: 'Courier Prime', monospace;
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--muted);
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .option-btn:disabled { cursor: default; transform: none; }
+  .option-btn.correct { background: #d4edda; border-color: var(--green); }
+  .option-btn.correct .opt-letter { color: var(--green); }
+  .option-btn.wrong { background: #f8d7da; border-color: var(--red); }
+  .option-btn.wrong .opt-letter { color: var(--red); }
+  .option-btn.reveal-correct { background: #d4edda; border-color: var(--green); }
+
+  /* Feedback */
+  .feedback-box {
+    margin-top: 16px;
+    padding: 14px 18px;
+    border-left: 4px solid;
+    background: var(--cream);
+    animation: slideIn .3s ease;
+  }
+  .feedback-box.correct { border-color: var(--green); }
+  .feedback-box.wrong { border-color: var(--red); }
+  .feedback-box .fb-headline {
+    font-family: 'Courier Prime', monospace;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+  .feedback-box.correct .fb-headline { color: var(--green); }
+  .feedback-box.wrong .fb-headline { color: var(--red); }
+  .feedback-box .fb-text { font-size: 14px; color: var(--ink); line-height: 1.5; font-style: italic; }
+  .feedback-box .pts-earned {
+    font-family: 'Playfair Display', serif;
+    font-size: 20px;
+    font-weight: 700;
+    margin-top: 6px;
+  }
+  .feedback-box.correct .pts-earned { color: var(--green); }
+
+  .next-btn {
+    display: block;
+    width: 100%;
+    margin-top: 16px;
+    background: var(--ink);
+    color: var(--paper);
+    border: none;
+    padding: 16px;
+    font-family: 'Courier Prime', monospace;
+    font-size: 14px;
+    letter-spacing: 3px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: background .2s;
+  }
+  .next-btn:hover { background: var(--red); }
+
+  /* ─── INTERSTITIAL SCREEN ─── */
+  #screen-interstitial {
+    text-align: center;
+    padding: 40px 20px;
+    background: var(--ink);
+    color: var(--paper);
+    min-height: 60vh;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin: -20px -16px;
+    padding: 60px 40px;
+    animation: fadeIn .5s ease;
+  }
+  #screen-interstitial.active { display: flex; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .interstitial-rule {
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--gold-light), transparent);
+    margin: 20px 0;
+    max-width: 500px;
+  }
+  #screen-interstitial .phase-label {
+    font-family: 'Courier Prime', monospace;
+    font-size: 11px;
+    letter-spacing: 4px;
+    color: var(--gold-light);
+    margin-bottom: 12px;
+  }
+  #screen-interstitial h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(28px, 6vw, 48px);
+    font-weight: 900;
+    line-height: 1.1;
+    margin-bottom: 20px;
+  }
+  #interstitial-score {
+    font-family: 'Playfair Display', serif;
+    font-size: 64px;
+    font-weight: 900;
+    color: var(--gold-light);
+    line-height: 1;
+  }
+  #screen-interstitial .score-subtext {
+    font-family: 'Courier Prime', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    margin-bottom: 30px;
+  }
+  #screen-interstitial p {
+    font-style: italic;
+    color: #c8b89a;
+    max-width: 420px;
+    line-height: 1.6;
+    margin-bottom: 30px;
+  }
+  .pulse-text {
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  /* ─── BONUS SCREEN ─── */
+  #screen-bonus {
+    background: var(--bonus-bg);
+    color: white;
+    margin: -20px -16px;
+    padding: 40px 30px;
+    min-height: 70vh;
+    animation: fadeIn .5s ease;
+  }
+  .bonus-header {
+    text-align: center;
+    margin-bottom: 30px;
+    position: relative;
+  }
+  .bonus-badge {
+    display: inline-block;
+    font-family: 'Courier Prime', monospace;
+    font-size: 11px;
+    letter-spacing: 4px;
+    color: var(--bonus-bg);
+    background: var(--bonus-gold);
+    padding: 6px 16px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    animation: shimmer 2s ease-in-out infinite;
+  }
+  @keyframes shimmer {
+    0%, 100% { box-shadow: 0 0 10px var(--bonus-gold); }
+    50% { box-shadow: 0 0 30px var(--bonus-glow), 0 0 60px var(--bonus-gold); }
+  }
+  .bonus-header h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(32px, 7vw, 56px);
+    font-weight: 900;
+    background: linear-gradient(135deg, var(--bonus-gold), var(--bonus-glow), var(--bonus-gold));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1.1;
+    margin-bottom: 6px;
+  }
+  .bonus-pts-label {
+    font-family: 'Courier Prime', monospace;
+    font-size: 13px;
+    letter-spacing: 2px;
+    color: rgba(255,215,0,0.6);
+  }
+  .bonus-question-card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,215,0,0.3);
+    padding: 28px;
+    margin: 24px 0;
+    box-shadow: 0 0 40px rgba(255,165,0,0.1), inset 0 0 40px rgba(255,215,0,0.02);
+  }
+  .bonus-question-card .q-text {
+    color: white;
+    font-size: 20px;
+    line-height: 1.55;
+  }
+  .bonus-options .option-btn {
+    background: rgba(255,255,255,0.06);
+    border-color: rgba(255,255,255,0.2);
+    color: white;
+  }
+  .bonus-options .option-btn .opt-letter { color: rgba(255,215,0,0.7); }
+  .bonus-options .option-btn:hover:not(:disabled) {
+    background: rgba(255,215,0,0.1);
+    border-color: var(--bonus-gold);
+  }
+  .bonus-options .option-btn.correct {
+    background: rgba(26,107,60,0.4);
+    border-color: #4caf7d;
+  }
+  .bonus-options .option-btn.wrong {
+    background: rgba(192,57,43,0.4);
+    border-color: var(--red);
+  }
+  .bonus-options .option-btn.reveal-correct {
+    background: rgba(26,107,60,0.4);
+    border-color: #4caf7d;
+  }
+  .bonus-feedback {
+    margin-top: 16px;
+    padding: 16px 20px;
+    border: 1px solid rgba(255,215,0,0.4);
+    background: rgba(255,215,0,0.05);
+  }
+  .bonus-feedback .fb-headline {
+    font-family: 'Courier Prime', monospace;
+    font-size: 14px;
+    letter-spacing: 2px;
+    color: var(--bonus-gold);
+    margin-bottom: 8px;
+  }
+  .bonus-feedback .fb-text { color: rgba(255,255,255,0.8); font-style: italic; font-size: 14px; line-height: 1.5; }
+  .bonus-feedback .pts-earned { color: var(--bonus-gold); font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 700; margin-top: 8px; }
+  .bonus-next-btn {
+    display: block;
+    width: 100%;
+    margin-top: 20px;
+    background: linear-gradient(135deg, #b8860b, #ffd700, #b8860b);
+    color: var(--bonus-bg);
+    border: none;
+    padding: 18px;
+    font-family: 'Courier Prime', monospace;
+    font-size: 15px;
+    letter-spacing: 3px;
+    cursor: pointer;
+    text-transform: uppercase;
+    font-weight: 700;
+    transition: opacity .2s;
+  }
+  .bonus-next-btn:hover { opacity: 0.9; }
+
+  /* ─── RESULTS SCREEN ─── */
+  #screen-results { text-align: center; padding: 30px 10px; }
+  #screen-results h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 36px;
+    margin-bottom: 8px;
+  }
+  .results-banner {
+    background: var(--ink);
+    color: var(--paper);
+    padding: 30px;
+    margin: 20px 0;
+    position: relative;
+    overflow: hidden;
+  }
+  .results-banner::before {
+    content: '★';
+    position: absolute;
+    font-size: 200px;
+    color: rgba(255,255,255,0.03);
+    top: -40px;
+    right: -20px;
+  }
+  .results-banner .today-score {
+    font-family: 'Playfair Display', serif;
+    font-size: 72px;
+    font-weight: 900;
+    color: var(--gold-light);
+    line-height: 1;
+  }
+  .results-banner .today-label {
+    font-family: 'Courier Prime', monospace;
+    font-size: 12px;
+    letter-spacing: 3px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+  .results-banner .all-time {
+    font-family: 'Courier Prime', monospace;
+    font-size: 13px;
+    color: #c8b89a;
+    margin-top: 16px;
+  }
+  .results-banner .all-time strong { color: var(--paper); font-size: 16px; }
+  .results-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin: 20px 0;
+  }
+  .stat-cell {
+    background: var(--cream);
+    border: 1px solid var(--rule);
+    padding: 16px 8px;
+    text-align: center;
+  }
+  .stat-cell .val {
+    font-family: 'Playfair Display', serif;
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .stat-cell .lbl {
+    font-family: 'Courier Prime', monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+  .results-breakdown {
+    text-align: left;
+    margin: 20px 0;
+    border: 2px solid var(--ink);
+  }
+  .breakdown-header {
+    background: var(--ink);
+    color: var(--paper);
+    padding: 10px 16px;
+    font-family: 'Courier Prime', monospace;
+    font-size: 12px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+  .breakdown-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--cream);
+    font-size: 14px;
+  }
+  .breakdown-row:last-child { border-bottom: none; }
+  .breakdown-row .q-label { color: var(--muted); font-family: 'Courier Prime', monospace; font-size: 12px; }
+  .breakdown-row .q-short { flex: 1; padding: 0 12px; color: var(--ink); }
+  .breakdown-row .q-result { font-family: 'Courier Prime', monospace; font-size: 13px; font-weight: 700; }
+  .breakdown-row .q-result.c { color: var(--green); }
+  .breakdown-row .q-result.w { color: var(--red); }
+
+  .result-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 24px; }
+
+  /* ─── LEADERBOARD ─── */
+  #screen-leaderboard { padding: 20px 0; }
+  .lb-tabs {
+    display: flex;
+    border-bottom: 2px solid var(--ink);
+    margin-bottom: 20px;
+  }
+  .lb-tab {
+    font-family: 'Courier Prime', monospace;
+    font-size: 12px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 10px 20px;
+    cursor: pointer;
+    color: var(--muted);
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    transition: all .2s;
+  }
+  .lb-tab.active { color: var(--ink); border-bottom-color: var(--red); font-weight: 700; }
+  .lb-table { width: 100%; border-collapse: collapse; }
+  .lb-table th {
+    font-family: 'Courier Prime', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 2px solid var(--ink);
+    background: var(--cream);
+  }
+  .lb-table td {
+    padding: 12px 12px;
+    border-bottom: 1px solid var(--cream);
+    font-size: 15px;
+  }
+  .lb-table tr.me td { background: rgba(192,57,43,0.08); }
+  .lb-table tr.me td:first-child { border-left: 3px solid var(--red); }
+  .lb-table .rank {
+    font-family: 'Playfair Display', serif;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--muted);
+    text-align: center;
+  }
+  .lb-table .rank.gold { color: #b8860b; }
+  .lb-table .rank.silver { color: #888; }
+  .lb-table .rank.bronze { color: #a0522d; }
+  .lb-table .score-val {
+    font-family: 'Playfair Display', serif;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--red);
+  }
+  .lb-back { margin-top: 20px; }
+
+  /* ─── ADMIN PANEL ─── */
+  #screen-admin { padding: 20px 0; }
+  #screen-admin h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 28px;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--ink);
+  }
+  .admin-section {
+    background: var(--cream);
+    border: 1px solid var(--rule);
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  .admin-section h3 {
+    font-family: 'Courier Prime', monospace;
+    font-size: 13px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+  .url-input-area {
+    width: 100%;
+    min-height: 120px;
+    padding: 12px;
+    font-family: 'Courier Prime', monospace;
+    font-size: 13px;
+    border: 2px solid var(--rule);
+    background: white;
+    color: var(--ink);
+    resize: vertical;
+  }
+  .url-input-area:focus { outline: none; border-color: var(--ink); }
+  .admin-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
+  .btn-generate {
+    background: var(--blue);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    font-family: 'Courier Prime', monospace;
+    font-size: 12px;
+    letter-spacing: 2px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: background .2s;
+  }
+  .btn-generate:hover { background: #0a2a5a; }
+  .btn-generate:disabled { background: var(--muted); cursor: wait; }
+  .btn-danger {
+    background: var(--red);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    font-family: 'Courier Prime', monospace;
+    font-size: 12px;
+    letter-spacing: 2px;
+    cursor: pointer;
+    text-transform: uppercase;
+  }
+
+  /* Question review */
+  .q-review-card {
+    background: white;
+    border: 1px solid var(--rule);
+    padding: 16px;
+    margin-bottom: 10px;
+  }
+  .q-review-card .q-meta {
+    font-family: 'Courier Prime', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 8px;
+    display: flex;
+    gap: 12px;
+  }
+  .q-review-card .q-preview { font-size: 15px; color: var(--ink); }
+  .q-review-card .answer-preview {
+    font-family: 'Courier Prime', monospace;
+    font-size: 12px;
+    color: var(--green);
+    margin-top: 6px;
+  }
+  .q-review-card .options-preview {
+    font-family: 'Courier Prime', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  .status-msg {
+    padding: 12px 16px;
+    font-family: 'Courier Prime', monospace;
+    font-size: 13px;
+    margin: 12px 0;
+    display: none;
+  }
+  .status-msg.show { display: block; }
+  .status-msg.info { background: #e8f4fd; border-left: 4px solid var(--blue); color: var(--blue); }
+  .status-msg.success { background: #d4edda; border-left: 4px solid var(--green); color: var(--green); }
+  .status-msg.error { background: #f8d7da; border-left: 4px solid var(--red); color: var(--red); }
+
+  /* Archive pill */
+  .archive-pill {
+    display: inline-block;
+    font-family: 'Courier Prime', monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
+    padding: 2px 8px;
+    background: var(--cream);
+    border: 1px solid var(--rule);
+    color: var(--muted);
+    margin-right: 4px;
+    margin-bottom: 4px;
+  }
+
+  /* No quiz today */
+  .no-quiz-card {
+    text-align: center;
+    padding: 60px 20px;
+    background: var(--cream);
+    border: 2px dashed var(--rule);
+    margin: 20px 0;
+  }
+  .no-quiz-card .big-text {
+    font-family: 'Playfair Display', serif;
+    font-size: 48px;
+    font-weight: 700;
+    color: var(--rule);
+    opacity: 0.3;
+  }
+  .no-quiz-card p {
+    color: var(--muted);
+    font-style: italic;
+    margin-top: 12px;
+  }
+
+  /* Admin login */
+  #admin-login-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  #admin-login-overlay.show { display: flex; }
+  .login-box {
+    background: white;
+    border: 3px solid var(--ink);
+    padding: 32px;
+    max-width: 360px;
+    width: 90%;
+    box-shadow: 6px 6px 0 var(--ink);
+  }
+  .login-box h3 {
+    font-family: 'Playfair Display', serif;
+    font-size: 24px;
+    margin-bottom: 20px;
+  }
+  .login-box input {
+    display: block;
+    width: 100%;
+    padding: 12px;
+    border: 2px solid var(--rule);
+    font-family: 'Courier Prime', monospace;
+    font-size: 14px;
+    margin-bottom: 12px;
+    outline: none;
+  }
+  .login-box input:focus { border-color: var(--ink); }
+  .login-error {
+    color: var(--red);
+    font-family: 'Courier Prime', monospace;
+    font-size: 12px;
+    margin-top: 8px;
+    display: none;
+  }
+
+  /* Responsive */
+  @media (max-width: 520px) {
+    .options-grid { grid-template-columns: 1fr; }
+    .points-grid { grid-template-columns: repeat(2, 1fr); }
+    .results-stats { grid-template-columns: repeat(2, 1fr); }
+    .progress-track { flex-wrap: wrap; }
+  }
+
+  .spin {
+    display: inline-block;
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+  .generating-overlay {
+    text-align: center;
+    padding: 40px;
+    display: none;
+  }
+  .generating-overlay.show { display: block; }
+  .generating-overlay .spinner { font-size: 32px; display: block; margin-bottom: 12px; }
+  .generating-overlay p {
+    font-family: 'Courier Prime', monospace;
+    color: var(--muted);
+    font-size: 13px;
+    letter-spacing: 1px;
+  }
+</style>
+</head>
+<body>
+
+<!-- MASTHEAD -->
+<div id="masthead">
+  <div class="dateline" id="today-dateline"></div>
+  <div class="city-label">Baltimore</div>
+  <h1>The Daily <span>Dispatch</span> Quiz</h1>
+  <div class="tagline">Local News · Daily Questions · Community Knowledge</div>
+  <button id="admin-btn" onclick="showAdminLogin()">Admin ▸</button>
+</div>
+
+<!-- APP -->
+<div id="app">
+
+  <!-- REGISTER -->
+  <div id="screen-register" class="screen active">
+    <div class="edition-rule">Today's Edition</div>
+    <h2>Know Your Community.</h2>
+    <p>11 questions drawn from today's local news — updated daily by your editor.</p>
+    <div class="points-grid">
+      <div class="points-card"><div class="pts">10</div><div class="label">Q1–4<br>Starter</div></div>
+      <div class="points-card"><div class="pts">20</div><div class="label">Q5–7<br>Feature</div></div>
+      <div class="points-card"><div class="pts">30</div><div class="label">Q8–10<br>Scoop</div></div>
+      <div class="points-card"><div class="pts bonus-pts">50</div><div class="label">Q11<br>Bonus</div></div>
+    </div>
+    <div class="edition-rule">Enter Your Byline</div>
+    <div class="input-group">
+      <input type="text" id="player-input" placeholder="Your name or pseudonym…" maxlength="30" />
+      <button class="btn-primary" onclick="registerPlayer()">Begin ▸</button>
+    </div>
+    <p style="font-size:13px; color:var(--muted); margin-top:8px;">Your name is saved across visits. Your score accumulates over time.</p>
+    <div id="reg-error" style="color:var(--red);font-family:'Courier Prime',monospace;font-size:13px;margin-top:8px;display:none;"></div>
+    <div style="margin-top:30px;">
+      <button class="btn-secondary" onclick="showLeaderboard()">View Leaderboard ▸</button>
+    </div>
+  </div>
+
+  <!-- QUIZ -->
+  <div id="screen-quiz" class="screen">
+    <div class="quiz-header">
+      <div class="player-name">Byline: <strong id="quiz-player-name"></strong></div>
+      <div class="score-display"><span>SCORE</span><span id="live-score">0</span></div>
+    </div>
+    <div class="progress-track" id="progress-track"></div>
+    <div id="question-area"></div>
+  </div>
+
+  <!-- INTERSTITIAL -->
+  <div id="screen-interstitial" class="screen">
+    <div class="phase-label">✦ Questions 1–10 Complete ✦</div>
+    <h2>Round One<br>Complete.</h2>
+    <div class="interstitial-rule"></div>
+    <div id="interstitial-score">0</div>
+    <div class="score-subtext">points earned so far</div>
+    <p>You've answered the day's news — from the straightforward to the substantive. But the hardest question still awaits.</p>
+    <div class="interstitial-rule"></div>
+    <div class="pulse-text" style="font-family:'Courier Prime',monospace;font-size:12px;letter-spacing:3px;color:var(--gold-light);margin-bottom:28px;">THE BONUS ROUND AWAITS</div>
+    <button class="btn-primary" style="font-size:14px;letter-spacing:3px;padding:18px 40px;" onclick="startBonusRound()">I'm Ready. Take Me In. ▸</button>
+  </div>
+
+  <!-- BONUS -->
+  <div id="screen-bonus" class="screen">
+    <div class="bonus-header">
+      <div class="bonus-badge">⭐ Bonus Round</div>
+      <h2>The Final<br>Dispatch</h2>
+      <div class="bonus-pts-label">50 POINTS · ONE CHANCE · NO HINTS</div>
+    </div>
+    <div id="bonus-area"></div>
+  </div>
+
+  <!-- RESULTS -->
+  <div id="screen-results" class="screen">
+    <div class="edition-rule">Final Score</div>
+    <h2>That's a Wrap.</h2>
+    <div class="results-banner">
+      <div class="today-score" id="result-today-score">0</div>
+      <div class="today-label">Today's Points</div>
+      <div class="all-time">All-Time Total: <strong id="result-alltime-score">0</strong> pts</div>
+    </div>
+    <div class="results-stats">
+      <div class="stat-cell"><div class="val" id="stat-correct">0</div><div class="lbl">Correct</div></div>
+      <div class="stat-cell"><div class="val" id="stat-pct">0%</div><div class="lbl">Accuracy</div></div>
+      <div class="stat-cell"><div class="val" id="stat-rank">#–</div><div class="lbl">Today's Rank</div></div>
+    </div>
+    <div class="results-breakdown" id="breakdown-table"></div>
+    <div class="result-actions">
+      <button class="btn-primary" onclick="showLeaderboard()">View Leaderboard ▸</button>
+      <button class="btn-secondary" onclick="showScreen('screen-register')">Play Again</button>
+    </div>
+  </div>
+
+  <!-- LEADERBOARD -->
+  <div id="screen-leaderboard" class="screen">
+    <div class="edition-rule">Standings</div>
+    <div class="lb-tabs">
+      <div class="lb-tab active" onclick="showLbTab('alltime',this)">All-Time</div>
+      <div class="lb-tab" onclick="showLbTab('today',this)">Today</div>
+    </div>
+    <div id="lb-content"></div>
+    <div class="lb-back">
+      <button class="btn-secondary" onclick="showScreen('screen-register')">◂ Back</button>
+    </div>
+  </div>
+
+  <!-- ADMIN -->
+  <div id="screen-admin" class="screen">
+    <h2>Editor's Desk</h2>
+
+    <div class="admin-section">
+      <h3>Step 1 — Paste News Article URLs</h3>
+      <div id="freshness-notice" style="background:#fff8e0;border:1px solid var(--gold);padding:10px 14px;margin-bottom:12px;font-family:'Courier Prime',monospace;font-size:12px;color:#7a5f00;line-height:1.6;">
+        <strong>⏱ Freshness filter is active.</strong> Claude will automatically skip any article published more than 24 hours ago and will not generate questions from stale content. Paste only links to <strong>today's</strong> articles for best results. If Claude skips articles, you'll see a warning below.
+      </div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:8px;">Enter your news websites once — they'll be saved and pre-filled every time you open the admin panel.</p>
+      <textarea class="url-input-area" id="urls-input" placeholder="Paste one news website URL per line…&#10;https://baltimorebrew.com&#10;https://marylandmatters.org&#10;…"></textarea>
+      <div style="display:flex;align-items:center;gap:12px;margin-top:8px;">
+        <button class="btn-secondary" style="font-size:11px;padding:7px 14px;" onclick="saveSites()">💾 Save Sites</button>
+        <span id="sites-saved-msg" style="font-family:'Courier Prime',monospace;font-size:11px;color:var(--green);display:none;">✓ Sites saved!</span>
+      </div>
+
+      <details style="margin-top:14px;">
+        <summary style="font-family:'Courier Prime',monospace;font-size:12px;letter-spacing:1px;cursor:pointer;color:var(--muted);">▸ Paywalled or JS-only site? Paste article text directly instead</summary>
+        <div style="margin-top:10px;">
+          <p style="font-size:13px;color:var(--muted);margin-bottom:6px;">If a site blocks automated fetching, copy-paste the article text here (one article after another, separated by a blank line). The URL box above can be left empty.</p>
+          <textarea class="url-input-area" id="manual-text-input" placeholder="Paste full article text here…&#10;&#10;(Date: February 18, 2026 — include the date so Claude can verify freshness)" style="min-height:160px;"></textarea>
+        </div>
+      </details>
+
+      <div class="admin-actions">
+        <button class="btn-generate" id="gen-btn" onclick="generateQuestions()">⚙ Fetch Articles &amp; Generate Questions</button>
+      </div>
+      <div class="status-msg" id="gen-status" style="white-space:pre-wrap;"></div>
+      <div class="generating-overlay" id="gen-overlay">
+        <span class="spinner spin">⚙</span>
+        <p id="gen-progress-text">Fetching articles…</p>
+      </div>
+
+      <!-- Raw API response debug panel -->
+      <div id="raw-debug" style="display:none;margin-top:16px;background:#f0f0f0;border:1px solid #ccc;padding:12px;">
+        <div style="font-family:'Courier Prime',monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:6px;">▾ RAW CLAUDE RESPONSE (for debugging)</div>
+        <pre id="raw-debug-text" style="font-family:'Courier Prime',monospace;font-size:11px;white-space:pre-wrap;word-break:break-all;max-height:200px;overflow:auto;color:#333;"></pre>
+      </div>
+    </div>
+
+    <div class="admin-section" id="preview-section" style="display:none;">
+      <h3>Step 2 — Review Questions</h3>
+      <div id="q-preview-list"></div>
+      <div class="admin-actions">
+        <button class="btn-generate" onclick="publishQuestions()">✓ Publish Today's Quiz</button>
+        <button class="btn-secondary" onclick="discardDraft()">✕ Discard Draft</button>
+      </div>
+    </div>
+
+    <div class="admin-section">
+      <h3>Question Archive</h3>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:10px;">Questions in the archive will not be regenerated. <strong id="archive-count">0</strong> questions archived.</p>
+      <div id="archive-preview"></div>
+      <div class="admin-actions" style="margin-top:12px;">
+        <button class="btn-danger" onclick="clearArchive()">Clear Archive</button>
+        <button class="btn-danger" onclick="resetDailyScores()">Reset Daily Scores</button>
+      </div>
+    </div>
+
+    <div class="admin-section">
+      <h3>Today's Published Quiz</h3>
+      <div id="published-preview">
+        <p style="font-size:13px;color:var(--muted);font-style:italic;">No quiz published today.</p>
+      </div>
+    </div>
+
+    <div style="margin-top:20px;">
+      <button class="btn-secondary" onclick="showScreen('screen-register')">◂ Exit Admin</button>
+    </div>
+  </div>
+
+</div><!-- #app -->
+
+<!-- ADMIN LOGIN OVERLAY -->
+<div id="admin-login-overlay">
+  <div class="login-box">
+    <h3>Editor Access</h3>
+    <input type="password" id="admin-pw-input" placeholder="Password" onkeydown="if(event.key==='Enter')checkAdminPw()" />
+    <div style="display:flex;gap:10px;">
+      <button class="btn-primary" onclick="checkAdminPw()">Enter ▸</button>
+      <button class="btn-secondary" onclick="document.getElementById('admin-login-overlay').classList.remove('show')">Cancel</button>
+    </div>
+    <div class="login-error" id="login-error">Incorrect password.</div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  CONFIGURATION
+// ═══════════════════════════════════════════════════════
+const ADMIN_PASSWORD = 'newsadmin2024'; // ← Change this
+const CLAUDE_MODEL = 'claude-sonnet-4-20250514';
+
+// Point values
+const POINTS = { easy: 10, medium: 20, hard: 30, bonus: 50 };
+
+// ═══════════════════════════════════════════════════════
+//  STATE (backed by localStorage via window.storage shim)
+// ═══════════════════════════════════════════════════════
+let state = {
+  playerName: '',
+  currentQ: 0,
+  sessionScore: 0,
+  answers: [],
+  phase: 'regular', // regular | bonus | done
+  todayKey: todayStr()
+};
+
+function todayStr() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+// ─── Storage helpers (localStorage fallback) ───
+function lsGet(key) {
+  try { return JSON.parse(localStorage.getItem(key)); } catch(e) { return null; }
+}
+function lsSet(key, val) {
+  try { localStorage.setItem(key, JSON.stringify(val)); } catch(e) {}
+}
+
+// ─── Players ───
+function getPlayers() { return lsGet('dnq_players') || {}; }
+function savePlayers(p) { lsSet('dnq_players', p); }
+
+function getOrCreatePlayer(name) {
+  const players = getPlayers();
+  const key = name.toLowerCase().trim();
+  if (!players[key]) {
+    players[key] = { displayName: name, allTime: 0, dailyScores: {}, streak: 0, lastPlayed: '' };
+  }
+  savePlayers(players);
+  return players[key];
+}
+
+function updatePlayerScore(name, todayScore) {
+  const players = getPlayers();
+  const key = name.toLowerCase().trim();
+  if (!players[key]) return;
+  players[key].allTime = (players[key].allTime || 0) + todayScore;
+  if (!players[key].dailyScores) players[key].dailyScores = {};
+  players[key].dailyScores[state.todayKey] = (players[key].dailyScores[state.todayKey] || 0) + todayScore;
+  savePlayers(players);
+}
+
+// ─── Quiz data ───
+function getTodayQuiz() { return lsGet('dnq_quiz_' + todayStr()); }
+function saveTodayQuiz(q) { lsSet('dnq_quiz_' + todayStr(), q); }
+function getDraftQuiz() { return lsGet('dnq_draft'); }
+function saveDraftQuiz(q) { lsSet('dnq_draft', q); }
+function clearDraftQuiz() { localStorage.removeItem('dnq_draft'); }
+
+// ─── Archive ───
+function getArchive() { return lsGet('dnq_archive') || []; }
+function addToArchive(questions) {
+  const archive = getArchive();
+  questions.forEach(q => { if (!archive.includes(q.question)) archive.push(q.question); });
+  lsSet('dnq_archive', archive);
+}
+
+// ═══════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('today-dateline').textContent =
+    new Date().toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' }).toUpperCase();
+
+  // Restore player from last session
+  const saved = lsGet('dnq_current_player');
+  if (saved) {
+    document.getElementById('player-input').value = saved;
+  }
+
+  // ── Load sample quiz for demo purposes if none exists today ──
+  if (!getTodayQuiz()) {
+    const sample = {
+      questions: [
+        {
+          question: "A major water main break disrupted traffic in which Baltimore neighborhood on Thursday morning?",
+          options: ["Federal Hill", "Hampden", "Canton", "Fells Point"],
+          correctIndex: 2,
+          explanation: "A 16-inch water main ruptured on Boston Street in Canton, causing significant flooding and closing several blocks to traffic Thursday morning.",
+          difficulty: "easy",
+          sourceUrl: "https://baltimorebrew.com"
+        },
+        {
+          question: "Baltimore City Schools announced it would close which school due to a heating system failure this week?",
+          options: ["Francis Scott Key Elementary", "Govans Elementary", "Harlem Park Elementary", "Cherry Hill Elementary"],
+          correctIndex: 1,
+          explanation: "Govans Elementary was closed Thursday after its boiler failed, displacing roughly 280 students who were relocated to a nearby recreation center.",
+          difficulty: "easy",
+          sourceUrl: "https://www.wbal.com"
+        },
+        {
+          question: "The Maryland General Assembly this week took up a bill dealing with which transportation issue?",
+          options: ["Speed cameras on I-695", "Red light cameras in school zones", "Toll increases on the Bay Bridge", "Electric scooter regulations in Baltimore City"],
+          correctIndex: 0,
+          explanation: "Legislators debated expanding the state's speed camera program to include sections of the Baltimore Beltway near active work zones.",
+          difficulty: "easy",
+          sourceUrl: "https://marylandmatters.org"
+        },
+        {
+          question: "A Baltimore City Council committee advanced legislation this week aimed at addressing what issue?",
+          options: ["Short-term rental regulations", "Vacant property tax penalties", "Noise ordinance enforcement", "Sidewalk repair liability"],
+          correctIndex: 1,
+          explanation: "The Housing and Community Development Committee voted to advance a bill that would double tax penalties on owners of long-vacant properties.",
+          difficulty: "easy",
+          sourceUrl: "https://baltimorebrew.com"
+        },
+        {
+          question: "Baltimore Police Commissioner Richard Worley announced a new deployment strategy this week focused on which district?",
+          options: ["Northern District", "Eastern District", "Western District", "Southern District"],
+          correctIndex: 2,
+          explanation: "Commissioner Worley announced a surge of approximately 40 additional officers into the Western District following a spike in carjackings over the past three weeks.",
+          difficulty: "medium",
+          sourceUrl: "https://www.wbaltv.com"
+        },
+        {
+          question: "Maryland Governor Wes Moore signed an executive order Thursday directing state agencies to do what?",
+          options: ["Freeze non-essential hiring through June", "Accelerate broadband permitting in rural counties", "Require diversity audits of all state contractors", "Expand Medicaid coverage for dental care"],
+          correctIndex: 1,
+          explanation: "Governor Moore signed an order directing the Maryland Department of Transportation and related agencies to cut permitting timelines for broadband infrastructure in the state's 10 least-connected counties.",
+          difficulty: "medium",
+          sourceUrl: "https://marylandmatters.org"
+        },
+        {
+          question: "The Baltimore Development Corporation voted this week to approve a tax increment financing deal for a project in which area?",
+          options: ["Port Covington", "Mondawmin", "Oldtown Mall site", "Cherry Hill"],
+          correctIndex: 2,
+          explanation: "The BDC board voted 6-1 to approve a $34 million TIF package to support a mixed-use redevelopment of the long-vacant Oldtown Mall site on Gay Street.",
+          difficulty: "medium",
+          sourceUrl: "https://thedailyrecord.com"
+        },
+        {
+          question: "What was the exact dollar amount Baltimore City requested in state aid for school infrastructure repairs in Thursday's Board of Estimates meeting?",
+          options: ["$112.4 million", "$87.6 million", "$143.2 million", "$98.8 million"],
+          correctIndex: 3,
+          explanation: "City budget officials requested $98.8 million in emergency state infrastructure funds, citing deteriorating HVAC and electrical systems across 34 school buildings.",
+          difficulty: "hard",
+          sourceUrl: "https://baltimorebrew.com"
+        },
+        {
+          question: "By what vote margin did the Maryland Senate Education Committee approve the school funding amendment on Wednesday?",
+          options: ["7-4", "8-3", "6-5", "9-2"],
+          correctIndex: 0,
+          explanation: "The committee approved the Kirwan funding amendment 7-4 after two hours of testimony, sending it to the full Senate floor for a vote expected next week.",
+          difficulty: "hard",
+          sourceUrl: "https://marylandmatters.org"
+        },
+        {
+          question: "A federal indictment unsealed Thursday charged a Baltimore County man with defrauding the Small Business Administration of exactly how much money?",
+          options: ["$2.1 million", "$4.7 million", "$3.3 million", "$1.9 million"],
+          correctIndex: 2,
+          explanation: "Federal prosecutors charged 44-year-old Randall T. Givens of Catonsville with wire fraud and money laundering after he allegedly submitted 11 fraudulent COVID-era SBA loan applications totaling $3.3 million.",
+          difficulty: "hard",
+          sourceUrl: "https://thedailyrecord.com"
+        },
+        {
+          question: "According to Thursday's Board of Estimates agenda, what was the precise per-square-foot lease rate the city agreed to pay for temporary office space at 100 S. Charles Street?",
+          options: ["$26.50", "$31.75", "$28.40", "$33.20"],
+          correctIndex: 2,
+          explanation: "The lease agreement approved Thursday set a rate of $28.40 per square foot annually for 14,200 square feet of swing space at 100 S. Charles Street, to house displaced Housing Authority staff during the Poe Homes redevelopment.",
+          difficulty: "bonus",
+          sourceUrl: "https://baltimorebrew.com"
+        }
+      ]
+    };
+    saveTodayQuiz(sample);
+  }
+});
+
+// ═══════════════════════════════════════════════════════
+//  SCREEN MANAGEMENT
+// ═══════════════════════════════════════════════════════
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+// ═══════════════════════════════════════════════════════
+//  REGISTER
+// ═══════════════════════════════════════════════════════
+function registerPlayer() {
+  const name = document.getElementById('player-input').value.trim();
+  const errEl = document.getElementById('reg-error');
+  if (!name) { errEl.textContent = 'Please enter a name or pseudonym.'; errEl.style.display='block'; return; }
+  errEl.style.display='none';
+
+  state.playerName = name;
+  lsSet('dnq_current_player', name);
+  getOrCreatePlayer(name);
+
+  const quiz = getTodayQuiz();
+  if (!quiz || !quiz.questions || quiz.questions.length < 11) {
+    // Show no-quiz state
+    showScreen('screen-quiz');
+    document.getElementById('quiz-player-name').textContent = name;
+    document.getElementById('live-score').textContent = '0';
+    document.getElementById('question-area').innerHTML = `
+      <div class="no-quiz-card">
+        <div class="big-text">📰</div>
+        <p>No quiz has been published for today yet. Check back soon!</p>
+        <p style="margin-top:16px;"><button class="btn-secondary" onclick="showScreen('screen-register')">◂ Back</button></p>
+      </div>`;
+    buildProgressTrack([]);
+    return;
+  }
+
+  // Check if already played today
+  const players = getPlayers();
+  const pkey = name.toLowerCase().trim();
+  if (players[pkey] && players[pkey].dailyScores && players[pkey].dailyScores[state.todayKey] !== undefined) {
+    if (!confirm(`You already played today's quiz (${players[pkey].dailyScores[state.todayKey]} pts). Play again? Your score won't be added twice.`)) {
+      showLeaderboard();
+      return;
+    }
+  }
+
+  startQuiz(quiz);
+}
+
+// ═══════════════════════════════════════════════════════
+//  QUIZ FLOW
+// ═══════════════════════════════════════════════════════
+let quizQuestions = [];
+let quizAnswered = false;
+
+function startQuiz(quiz) {
+  quizQuestions = quiz.questions;
+  state.currentQ = 0;
+  state.sessionScore = 0;
+  state.answers = [];
+  state.phase = 'regular';
+
+  document.getElementById('quiz-player-name').textContent = state.playerName;
+  document.getElementById('live-score').textContent = '0';
+  buildProgressTrack(quizQuestions);
+  showScreen('screen-quiz');
+  renderQuestion();
+}
+
+function buildProgressTrack(qs) {
+  const track = document.getElementById('progress-track');
+  if (!qs.length) { track.innerHTML = ''; return; }
+  let html = '';
+  for (let i = 0; i < 10; i++) {
+    const cls = i === 0 ? 'current' : '';
+    html += `<div class="progress-dot ${cls}" id="pd-${i}">${i+1}</div>`;
+    if (i === 3) html += `<span class="progress-separator">·</span>`;
+    if (i === 6) html += `<span class="progress-separator">·</span>`;
+  }
+  html += `<span class="progress-separator">◆</span>`;
+  html += `<div class="progress-dot bonus" id="pd-10">★</div>`;
+  track.innerHTML = html;
+}
+
+function getDifficultyLabel(idx) {
+  if (idx < 4) return { label: 'Starter', cls: 'easy', pts: 10 };
+  if (idx < 7) return { label: 'Feature', cls: 'medium', pts: 20 };
+  return { label: 'Scoop', cls: 'hard', pts: 30 };
+}
+
+function renderQuestion() {
+  const q = quizQuestions[state.currentQ];
+  const diff = getDifficultyLabel(state.currentQ);
+  quizAnswered = false;
+
+  const optLetters = ['A','B','C','D'];
+  let optHtml = '';
+  q.options.forEach((opt, i) => {
+    optHtml += `<button class="option-btn" onclick="selectAnswer(${i})" id="opt-${i}">
+      <span class="opt-letter">${optLetters[i]}</span>
+      <span>${escHtml(opt)}</span>
+    </button>`;
+  });
+
+  document.getElementById('question-area').innerHTML = `
+    <div class="difficulty-band">
+      <span class="diff-label ${diff.cls}">${diff.label}</span>
+      <span class="pts-label">+${diff.pts} pts if correct</span>
+    </div>
+    <div class="question-card">
+      <div class="q-number">Question ${state.currentQ + 1} of 10</div>
+      <div class="q-text">${escHtml(q.question)}</div>
+      <div class="options-grid">${optHtml}</div>
+      <div id="feedback-area"></div>
+    </div>
+  `;
+}
+
+function selectAnswer(idx) {
+  if (quizAnswered) return;
+  quizAnswered = true;
+
+  const q = quizQuestions[state.currentQ];
+  const correct = idx === q.correctIndex;
+  const diff = getDifficultyLabel(state.currentQ);
+  const pts = correct ? diff.pts : 0;
+
+  state.sessionScore += pts;
+  state.answers.push({ qIdx: state.currentQ, chosen: idx, correct, pts });
+  document.getElementById('live-score').textContent = state.sessionScore;
+
+  // Update progress dot
+  const pd = document.getElementById('pd-' + state.currentQ);
+  if (pd) { pd.className = 'progress-dot ' + (correct ? 'correct' : 'wrong'); }
+
+  // Style options
+  for (let i = 0; i < q.options.length; i++) {
+    const btn = document.getElementById('opt-' + i);
+    if (!btn) continue;
+    btn.disabled = true;
+    if (i === q.correctIndex) btn.classList.add('reveal-correct');
+    if (i === idx && !correct) btn.classList.add('wrong');
+    if (i === idx && correct) { btn.classList.remove('reveal-correct'); btn.classList.add('correct'); }
+  }
+
+  // Feedback
+  const fb = document.getElementById('feedback-area');
+  if (fb) {
+    fb.innerHTML = `
+      <div class="feedback-box ${correct ? 'correct' : 'wrong'}">
+        <div class="fb-headline">${correct ? '✓ CORRECT' : '✗ INCORRECT'}</div>
+        <div class="fb-text">${escHtml(q.explanation || (correct ? 'Well done!' : 'Better luck next time.'))}</div>
+        ${correct ? `<div class="pts-earned">+${pts} pts</div>` : ''}
+      </div>
+      <button class="next-btn" onclick="advanceQuestion()">
+        ${state.currentQ < 9 ? 'Next Question ▸' : 'See Results Tally ▸'}
+      </button>
+    `;
+  }
+}
+
+function advanceQuestion() {
+  state.currentQ++;
+  if (state.currentQ < 10) {
+    // Update progress dot
+    const pd = document.getElementById('pd-' + state.currentQ);
+    if (pd) pd.className = 'progress-dot current';
+    renderQuestion();
+  } else {
+    showInterstitial();
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  INTERSTITIAL
+// ═══════════════════════════════════════════════════════
+function showInterstitial() {
+  document.getElementById('interstitial-score').textContent = state.sessionScore;
+  showScreen('screen-interstitial');
+}
+
+function startBonusRound() {
+  showScreen('screen-bonus');
+  renderBonus();
+}
+
+// ═══════════════════════════════════════════════════════
+//  BONUS ROUND
+// ═══════════════════════════════════════════════════════
+let bonusAnswered = false;
+
+function renderBonus() {
+  const q = quizQuestions[10]; // bonus is index 10
+  bonusAnswered = false;
+  const optLetters = ['A','B','C','D'];
+  let optHtml = '';
+  q.options.forEach((opt, i) => {
+    optHtml += `<button class="option-btn" onclick="selectBonus(${i})" id="bopt-${i}">
+      <span class="opt-letter">${optLetters[i]}</span>
+      <span>${escHtml(opt)}</span>
+    </button>`;
+  });
+
+  document.getElementById('bonus-area').innerHTML = `
+    <div class="bonus-question-card">
+      <div class="q-number" style="color:rgba(255,215,0,0.5);">Bonus Question · 50 Points</div>
+      <div class="q-text">${escHtml(q.question)}</div>
+    </div>
+    <div class="bonus-options options-grid">${optHtml}</div>
+    <div id="bonus-feedback-area"></div>
+  `;
+}
+
+function selectBonus(idx) {
+  if (bonusAnswered) return;
+  bonusAnswered = true;
+
+  const q = quizQuestions[10];
+  const correct = idx === q.correctIndex;
+  const pts = correct ? 50 : 0;
+
+  state.sessionScore += pts;
+  state.answers.push({ qIdx: 10, chosen: idx, correct, pts });
+
+  // Style
+  for (let i = 0; i < q.options.length; i++) {
+    const btn = document.getElementById('bopt-' + i);
+    if (!btn) continue;
+    btn.disabled = true;
+    if (i === q.correctIndex) btn.classList.add('reveal-correct');
+    if (i === idx && !correct) btn.classList.add('wrong');
+    if (i === idx && correct) { btn.classList.remove('reveal-correct'); btn.classList.add('correct'); }
+  }
+
+  const fb = document.getElementById('bonus-feedback-area');
+  if (fb) {
+    fb.innerHTML = `
+      <div class="bonus-feedback">
+        <div class="fb-headline">${correct ? '⭐ CORRECT — EXCEPTIONAL!' : '✗ NOT QUITE'}</div>
+        <div class="fb-text">${escHtml(q.explanation || '')}</div>
+        ${correct ? `<div class="pts-earned">+50 pts</div>` : ''}
+      </div>
+      <button class="bonus-next-btn" onclick="finishQuiz()">View Final Results ▸</button>
+    `;
+  }
+
+  // Update bonus progress dot
+  const pd = document.getElementById('pd-10');
+  if (pd) pd.className = 'progress-dot bonus ' + (correct ? 'correct' : 'wrong');
+}
+
+// ═══════════════════════════════════════════════════════
+//  RESULTS
+// ═══════════════════════════════════════════════════════
+function finishQuiz() {
+  // Save scores
+  updatePlayerScore(state.playerName, state.sessionScore);
+
+  // Compute stats
+  const total = state.answers.length;
+  const correct = state.answers.filter(a => a.correct).length;
+  const pct = total ? Math.round(correct/total*100) : 0;
+
+  // Get rank
+  const players = getPlayers();
+  const todayScores = Object.values(players)
+    .map(p => (p.dailyScores || {})[state.todayKey] || 0)
+    .sort((a,b) => b-a);
+  const myScore = (players[state.playerName.toLowerCase().trim()]?.dailyScores || {})[state.todayKey] || state.sessionScore;
+  const rank = todayScores.findIndex(s => s <= myScore) + 1;
+
+  // All-time
+  const allTime = players[state.playerName.toLowerCase().trim()]?.allTime || state.sessionScore;
+
+  document.getElementById('result-today-score').textContent = state.sessionScore;
+  document.getElementById('result-alltime-score').textContent = allTime;
+  document.getElementById('stat-correct').textContent = correct;
+  document.getElementById('stat-pct').textContent = pct + '%';
+  document.getElementById('stat-rank').textContent = '#' + rank;
+
+  // Breakdown
+  let brows = `<div class="breakdown-header">Question Breakdown</div>`;
+  state.answers.forEach(a => {
+    const q = quizQuestions[a.qIdx];
+    const isBonus = a.qIdx === 10;
+    brows += `<div class="breakdown-row">
+      <span class="q-label">${isBonus ? 'BONUS' : ('Q' + (a.qIdx+1))}</span>
+      <span class="q-short">${escHtml(q.question.slice(0, 55))}${q.question.length > 55 ? '…' : ''}</span>
+      <span class="q-result ${a.correct ? 'c' : 'w'}">${a.correct ? '+'+a.pts : '0'}</span>
+    </div>`;
+  });
+  document.getElementById('breakdown-table').innerHTML = brows;
+
+  showScreen('screen-results');
+}
+
+// ═══════════════════════════════════════════════════════
+//  LEADERBOARD
+// ═══════════════════════════════════════════════════════
+let currentLbTab = 'alltime';
+
+function showLeaderboard() {
+  currentLbTab = 'alltime';
+  document.querySelectorAll('.lb-tab').forEach((t,i) => t.classList.toggle('active', i===0));
+  renderLeaderboard('alltime');
+  showScreen('screen-leaderboard');
+}
+
+function showLbTab(tab, el) {
+  currentLbTab = tab;
+  document.querySelectorAll('.lb-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderLeaderboard(tab);
+}
+
+function renderLeaderboard(tab) {
+  const players = getPlayers();
+  let rows = Object.entries(players).map(([key, p]) => ({
+    name: p.displayName || key,
+    score: tab === 'alltime' ? (p.allTime || 0) : ((p.dailyScores || {})[state.todayKey] || 0),
+    isMe: key === state.playerName.toLowerCase().trim()
+  }));
+  rows.sort((a,b) => b.score - a.score);
+  if (tab === 'today') rows = rows.filter(r => r.score > 0);
+
+  let html = `<table class="lb-table"><thead><tr>
+    <th style="width:40px">Rank</th>
+    <th>Name</th>
+    <th style="text-align:right">Score</th>
+  </tr></thead><tbody>`;
+
+  if (!rows.length) {
+    html += `<tr><td colspan="3" style="text-align:center;color:var(--muted);font-style:italic;padding:30px;">No scores yet today.</td></tr>`;
+  }
+  rows.forEach((r, i) => {
+    const rankCls = i===0 ? 'gold' : i===1 ? 'silver' : i===2 ? 'bronze' : '';
+    html += `<tr class="${r.isMe ? 'me' : ''}">
+      <td><div class="rank ${rankCls}">${i+1}</div></td>
+      <td style="font-weight:${r.isMe?'700':'400'}">${escHtml(r.name)}${r.isMe ? ' <span style="color:var(--red);font-family:\'Courier Prime\',monospace;font-size:11px;">◀ YOU</span>' : ''}</td>
+      <td style="text-align:right"><span class="score-val">${r.score}</span></td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  document.getElementById('lb-content').innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════
+//  ADMIN
+// ═══════════════════════════════════════════════════════
+function showAdminLogin() {
+  document.getElementById('admin-login-overlay').classList.add('show');
+  document.getElementById('admin-pw-input').value = '';
+  document.getElementById('login-error').style.display = 'none';
+  setTimeout(() => document.getElementById('admin-pw-input').focus(), 100);
+}
+
+function checkAdminPw() {
+  const pw = document.getElementById('admin-pw-input').value;
+  if (pw === ADMIN_PASSWORD) {
+    document.getElementById('admin-login-overlay').classList.remove('show');
+    showAdminScreen();
+  } else {
+    document.getElementById('login-error').style.display = 'block';
+  }
+}
+
+function showAdminScreen() {
+  showScreen('screen-admin');
+  refreshAdminPreviews();
+}
+
+// ─── Saved news sites ────────────────────────────────────────────────────
+function getSavedSites() { return lsGet('dnq_saved_sites') || ''; }
+function saveSites() {
+  const val = document.getElementById('urls-input').value.trim();
+  lsSet('dnq_saved_sites', val);
+  const msg = document.getElementById('sites-saved-msg');
+  msg.style.display = 'inline';
+  setTimeout(() => msg.style.display = 'none', 2500);
+}
+
+function refreshAdminPreviews() {
+  // Restore saved news sites into the textarea
+  const saved = getSavedSites();
+  if (saved) document.getElementById('urls-input').value = saved;
+
+  // Archive count
+  const archive = getArchive();
+  document.getElementById('archive-count').textContent = archive.length;
+
+  // Archive preview (first 20)
+  const prev = archive.slice(0,20);
+  document.getElementById('archive-preview').innerHTML = prev.map(q =>
+    `<span class="archive-pill">${escHtml(q.slice(0,50))}…</span>`
+  ).join('') + (archive.length > 20 ? `<span class="archive-pill">+${archive.length-20} more</span>` : '');
+
+  // Today's published
+  const today = getTodayQuiz();
+  if (today && today.questions) {
+    document.getElementById('published-preview').innerHTML =
+      `<p style="color:var(--green);font-family:'Courier Prime',monospace;font-size:12px;margin-bottom:8px;">✓ ${today.questions.length} questions published for ${todayStr()}</p>` +
+      today.questions.slice(0,3).map((q,i) => `<div class="q-review-card"><div class="q-meta"><span>Q${i+1}</span></div><div class="q-preview">${escHtml(q.question.slice(0,100))}…</div></div>`).join('');
+  } else {
+    document.getElementById('published-preview').innerHTML = `<p style="font-size:13px;color:var(--muted);font-style:italic;">No quiz published today.</p>`;
+  }
+
+  // Draft
+  const draft = getDraftQuiz();
+  if (draft && draft.questions) {
+    showDraftPreview(draft.questions);
+  }
+}
+
+function setStatus(msg, type) {
+  const el = document.getElementById('gen-status');
+  el.textContent = msg;
+  el.className = 'status-msg show ' + type;
+}
+
+async function generateQuestions() {
+  const urls = document.getElementById('urls-input').value.trim();
+  const manualText = document.getElementById('manual-text-input').value.trim();
+
+  if (!urls && !manualText) {
+    setStatus('Please paste at least one news site URL — or paste article text directly.', 'error');
+    return;
+  }
+
+  document.getElementById('gen-btn').disabled = true;
+  document.getElementById('gen-overlay').classList.add('show');
+  document.getElementById('preview-section').style.display = 'none';
+  document.getElementById('raw-debug').style.display = 'none';
+  setStatus('', '');
+
+  const urlList = urls ? urls.split('\n').map(u => u.trim()).filter(u => u.startsWith('http')) : [];
+  const archive = getArchive();
+  const archiveNote = archive.length > 0
+    ? `Do NOT generate questions about these previously used topics: ${archive.slice(0, 30).join(' | ')}`
+    : '';
+
+  const prompt = buildGenerationPrompt(urlList, manualText, archiveNote);
+  let rawResponse = '';
+
+  document.getElementById('gen-progress-text').textContent = 'Sending to Claude API…';
+
+  try {
+    const response = await fetch('http://localhost:3001/api/claude', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: CLAUDE_MODEL,
+        max_tokens: 4000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    const data = await response.json();
+    if (data.error) throw new Error(`API error: ${data.error.message}`);
+    if (!data.content || !data.content.length) throw new Error('API returned empty content. Check your API key.');
+
+    rawResponse = data.content.map(b => b.text || '').join('');
+    showRawDebug(rawResponse);
+
+    const questions = parseQuestions(rawResponse);
+
+    if (questions.length === 0) {
+      throw new Error('Claude returned a response but no questions were parsed. See Raw Response below.');
+    }
+
+    if (questions.length < 11) {
+      setStatus(`⚠ Only ${questions.length} questions generated — you need 11 to publish. Add more article URLs and regenerate.`, 'error');
+    } else if (!document.getElementById('gen-status').classList.contains('error')) {
+      setStatus(`✓ ${questions.length} questions generated. Review below, then publish.`, 'success');
+    }
+
+    if (questions.length > 0) {
+      saveDraftQuiz({ questions, generatedAt: new Date().toISOString(), urls: urlList });
+      showDraftPreview(questions);
+    }
+
+  } catch (err) {
+    setStatus('Error: ' + err.message, 'error');
+    if (rawResponse) showRawDebug(rawResponse);
+    console.error(err);
+  } finally {
+    document.getElementById('gen-btn').disabled = false;
+    document.getElementById('gen-overlay').classList.remove('show');
+  }
+}
+
+function showRawDebug(text) {
+  const el = document.getElementById('raw-debug');
+  el.style.display = 'block';
+  document.getElementById('raw-debug-text').textContent = text;
+}
+
+function buildGenerationPrompt(urlList, manualText, archiveNote) {
+  const now = new Date();
+  const todayFormatted = now.toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+  });
+  const cutoffFormatted = new Date(now - 86400000).toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+  });
+
+  const urlBlock = urlList.length
+    ? 'NEWS WEBSITES TO BROWSE FOR TODAY\'S STORIES:\n' + urlList.join('\n')
+    : '';
+
+  const manualBlock = manualText
+    ? 'ARTICLE TEXT PROVIDED DIRECTLY:\n' + manualText.slice(0, 6000)
+    : '';
+
+  return `You are generating questions for a LOCAL NEWS QUIZ about the Baltimore, Maryland area.
+
+TODAY'S DATE: ${todayFormatted}
+
+IMPORTANT: You have web browsing capability. Use it to visit the news websites below, find articles published TODAY (${todayFormatted}) or within the past 24 hours, read them, and generate quiz questions from what you find. Do not generate questions from articles older than ${cutoffFormatted}.
+
+${urlBlock}
+
+${manualBlock}
+
+${archiveNote ? 'PREVIOUSLY USED TOPICS — do not repeat these:\n' + archiveNote : ''}
+
+PROGRESSIVE DIFFICULTY — Q1 must be easiest, Q11 hardest, strictly ordered:
+- Q1-Q4  (easy,   10 pts): General — answerable from the headline alone. No names or numbers needed.
+- Q5-Q7  (medium, 20 pts): Specific — full name + title of real people, real institution names, key facts from the article body.
+- Q8-Q10 (hard,   30 pts): Precise — exact dollar amounts, vote tallies, specific dates, minor named officials.
+- Q11    (bonus,  50 pts): The single most granular buried detail across all articles. Exact vote count, precise dollar figure, a source's exact job title. Should stump careful readers.
+
+WRITING RULES:
+- Always full names + titles: "Fire Chief Sandra Kowalski" not "the fire chief"
+- Always real institutions: "Mervo High School" not "a Baltimore school"
+- Use exact numbers from articles — never round
+- Wrong choices must be plausible: nearby amounts, adjacent dates, similar names
+- Never fabricate any fact
+
+OUTPUT FORMAT: Respond with ONLY valid JSON. No preamble, no explanation, no markdown code fences. Your entire response must start with { and end with }.
+
+{"staleWarning":false,"staleArticles":[],"questions":[{"question":"Question text?","options":["A","B","C","D"],"correctIndex":0,"explanation":"Why correct.","difficulty":"easy","sourceUrl":"https://article-url.com"}]}
+
+Expanded format for clarity:
+{
+  "staleWarning": false,
+  "staleArticles": [],
+  "questions": [
+    {
+      "question": "Full question text?",
+      "options": ["Choice A", "Choice B", "Choice C", "Choice D"],
+      "correctIndex": 0,
+      "explanation": "Why this answer is correct, with context.",
+      "difficulty": "easy",
+      "sourceUrl": "https://the-article-url.com"
+    }
+  ]
+}
+
+difficulty values: "easy" | "medium" | "hard" | "bonus"
+correctIndex: 0-based integer (0=A, 1=B, 2=C, 3=D)
+Generate exactly 11 questions.`;
+}
+
+function parseQuestions(text) {
+  // Strip markdown fences if present
+  let clean = text.replace(/```json|```/g, '').trim();
+  // Find JSON object
+  const start = clean.indexOf('{');
+  const end = clean.lastIndexOf('}');
+  if (start === -1 || end === -1) throw new Error('No JSON found in response');
+  clean = clean.slice(start, end+1);
+  const parsed = JSON.parse(clean);
+
+  // Surface stale article warnings to the admin UI
+  if (parsed.staleWarning && parsed.staleArticles && parsed.staleArticles.length > 0) {
+    const staleMsg = `⚠ ${parsed.staleArticles.length} article(s) were skipped as older than 24 hours:\n• ${parsed.staleArticles.join('\n• ')}`;
+    setStatus(staleMsg, 'error');
+  }
+
+  return parsed.questions || [];
+}
+
+function showDraftPreview(questions) {
+  const diffMap = { easy:'easy', medium:'medium', hard:'hard', bonus:'bonus' };
+  let html = '';
+  questions.forEach((q, i) => {
+    const diff = q.difficulty || (i < 4 ? 'easy' : i < 7 ? 'medium' : i < 10 ? 'hard' : 'bonus');
+    const opts = q.options.map((o, oi) => `${String.fromCharCode(65+oi)}) ${o}`).join(' · ');
+    const correct = q.options[q.correctIndex] || '?';
+    html += `<div class="q-review-card">
+      <div class="q-meta">
+        <span><strong>${i === 10 ? 'BONUS' : ('Q'+(i+1))}</strong></span>
+        <span class="diff-label ${diffMap[diff] || 'easy'}" style="display:inline-block">${diff.toUpperCase()}</span>
+      </div>
+      <div class="q-preview">${escHtml(q.question)}</div>
+      <div class="options-preview">${escHtml(opts)}</div>
+      <div class="answer-preview">✓ ${escHtml(correct)}</div>
+      ${q.sourceUrl ? `<div style="font-family:'Courier Prime',monospace;font-size:10px;color:var(--muted);margin-top:6px;word-break:break-all;">🔗 ${escHtml(q.sourceUrl)}</div>` : ''}
+    </div>`;
+  });
+  document.getElementById('q-preview-list').innerHTML = html;
+  document.getElementById('preview-section').style.display = 'block';
+}
+
+function publishQuestions() {
+  const draft = getDraftQuiz();
+  if (!draft || !draft.questions) { setStatus('No draft to publish.', 'error'); return; }
+  if (draft.questions.length < 11) { setStatus('Draft has fewer than 11 questions.', 'error'); return; }
+
+  saveTodayQuiz(draft);
+  addToArchive(draft.questions);
+  clearDraftQuiz();
+  setStatus(`✓ Quiz published for ${todayStr()}! Players can now play.`, 'success');
+  document.getElementById('preview-section').style.display = 'none';
+  refreshAdminPreviews();
+}
+
+function discardDraft() {
+  clearDraftQuiz();
+  document.getElementById('preview-section').style.display = 'none';
+  document.getElementById('q-preview-list').innerHTML = '';
+  setStatus('Draft discarded.', 'info');
+}
+
+function clearArchive() {
+  if (!confirm('Clear the entire question archive? Past questions may be regenerated.')) return;
+  lsSet('dnq_archive', []);
+  refreshAdminPreviews();
+}
+
+function resetDailyScores() {
+  if (!confirm('Reset all daily scores for today? All-time scores will be preserved.')) return;
+  const players = getPlayers();
+  Object.values(players).forEach(p => {
+    if (p.dailyScores) delete p.dailyScores[state.todayKey];
+  });
+  savePlayers(players);
+  setStatus('Daily scores reset.', 'success');
+}
+
+// ═══════════════════════════════════════════════════════
+//  UTILITIES
+// ═══════════════════════════════════════════════════════
+function escHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Enter key for registration
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.getElementById('screen-register').classList.contains('active')) {
+    registerPlayer();
+  }
+});
+</script>
+</body>
+</html>
