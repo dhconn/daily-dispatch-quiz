@@ -1158,7 +1158,7 @@
 // ═══════════════════════════════════════════════════════
 //  CONFIGURATION
 // ═══════════════════════════════════════════════════════
-const ADMIN_PASSWORD = 'Sco0p$1#'; // ← Change this
+const ADMIN_PASSWORD = 'newsadmin2024'; // ← Change this
 const CLAUDE_MODEL = 'claude-sonnet-4-20250514';
 
 // Point values
@@ -1810,9 +1810,30 @@ async function generateQuestions() {
     ? `Do NOT generate questions about these previously used topics: ${archive.slice(0, 30).join(' | ')}`
     : '';
 
-  const prompt = buildGenerationPrompt(urlList, manualText, archiveNote);
+  const prompt = buildGenerationPrompt(urlList, manualText, archiveNote, rssContent);
   let rawResponse = '';
 
+  // ── Step 1: Fetch RSS feeds from server ──────────────────
+  document.getElementById('gen-progress-text').textContent = 'Fetching latest RSS feeds…';
+  let rssContent = '';
+  try {
+    const rssRes = await fetch('/api/rss');
+    if (rssRes.ok) {
+      const rssData = await rssRes.json();
+      if (rssData.items && rssData.items.length > 0) {
+        rssContent = rssData.items.map(item =>
+          `SOURCE: ${item.source}\nHEADLINE: ${item.title}\nSUMMARY: ${item.description}\nURL: ${item.link}\nDATE: ${item.pubDate}`
+        ).join('\n\n---\n\n');
+        setStatus(`✓ Fetched ${rssData.items.length} recent articles from RSS feeds. Generating questions…`, 'success');
+      } else {
+        setStatus('⚠ No recent RSS articles found — falling back to manual text or site knowledge.', 'error');
+      }
+    }
+  } catch(e) {
+    setStatus('⚠ RSS fetch failed — falling back to manual text.', 'error');
+  }
+
+  // ── Step 2: Send to Claude ────────────────────────────────
   document.getElementById('gen-progress-text').textContent = 'Sending to Claude API…';
 
   try {
