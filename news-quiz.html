@@ -1813,24 +1813,32 @@ async function generateQuestions() {
   const prompt = buildGenerationPrompt(urlList, manualText, archiveNote, rssContent);
   let rawResponse = '';
 
-  // ── Step 1: Fetch RSS feeds from server ──────────────────
+  // ── Step 1: Fetch RSS feeds from server (15s timeout) ────
   document.getElementById('gen-progress-text').textContent = 'Fetching latest RSS feeds…';
   let rssContent = '';
   try {
-    const rssRes = await fetch('/api/rss');
+    const rssController = new AbortController();
+    const rssTimer = setTimeout(() => rssController.abort(), 15000);
+    let rssRes;
+    try {
+      rssRes = await fetch('/api/rss', { signal: rssController.signal });
+    } finally {
+      clearTimeout(rssTimer);
+    }
     if (rssRes.ok) {
       const rssData = await rssRes.json();
       if (rssData.items && rssData.items.length > 0) {
         rssContent = rssData.items.map(item =>
           `SOURCE: ${item.source}\nHEADLINE: ${item.title}\nSUMMARY: ${item.description}\nURL: ${item.link}\nDATE: ${item.pubDate}`
         ).join('\n\n---\n\n');
-        setStatus(`✓ Fetched ${rssData.items.length} recent articles from RSS feeds. Generating questions…`, 'success');
+        setStatus(`✓ Fetched ${rssData.items.length} recent articles. Generating questions…`, 'success');
       } else {
-        setStatus('⚠ No recent RSS articles found — falling back to manual text or site knowledge.', 'error');
+        setStatus('⚠ No recent RSS articles found — generating from site knowledge.', 'error');
       }
     }
   } catch(e) {
-    setStatus('⚠ RSS fetch failed — falling back to manual text.', 'error');
+    // RSS timed out or failed — proceed to Claude anyway
+    setStatus('⚠ RSS fetch timed out — generating from site knowledge instead.', 'error');
   }
 
   // ── Step 2: Send to Claude ────────────────────────────────
