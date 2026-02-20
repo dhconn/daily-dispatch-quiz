@@ -96,7 +96,7 @@ function forwardToAnthropic(req, res, apiKey) {
 }
 
 function forwardToGemini(req, res, apiKey) {
-  const model = 'gemini-2.0-flash';
+  const model = 'gemini-1.5-flash-latest';
   const apiPath = `/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
   const messages = req.body.messages || [];
