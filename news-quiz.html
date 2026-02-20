@@ -1876,53 +1876,36 @@ function showRawDebug(text) {
   document.getElementById('raw-debug-text').textContent = text;
 }
 
-function buildGenerationPrompt(urlList, manualText, archiveNote) {
-  const now = new Date();
-  const todayFormatted = now.toLocaleDateString('en-US', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-  });
-  const cutoffFormatted = new Date(now - 86400000).toLocaleDateString('en-US', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-  });
-
-  const urlBlock = urlList.length
-    ? 'NEWS WEBSITES TO BROWSE FOR TODAY\'S STORIES:\n' + urlList.join('\n')
-    : '';
-
+function buildGenerationPrompt(urlList, manualText, archiveNote, rssContent) {
   const manualBlock = manualText
-    ? 'ARTICLE TEXT PROVIDED DIRECTLY:\n' + manualText.slice(0, 6000)
+    ? 'USE THIS ARTICLE TEXT AS YOUR PRIMARY SOURCE:\n' + manualText.slice(0, 6000)
     : '';
 
-  return `You are generating questions for a LOCAL NEWS QUIZ about the Baltimore, Maryland area.
+  const sourceBlock = manualBlock
+    ? manualBlock
+    : `Search for and read the most recent articles from these Baltimore news websites, then generate questions from what you find:\n${urlList.join('\n')}`;
 
-TODAY'S DATE: ${todayFormatted}
+  return `You are writing questions for a LOCAL NEWS QUIZ about Baltimore, Maryland.
 
-IMPORTANT: You have web browsing capability. Use it to visit the news websites below, find articles published TODAY (${todayFormatted}) or within the past 24 hours, read them, and generate quiz questions from what you find. Do not generate questions from articles older than ${cutoffFormatted}.
-
-${urlBlock}
-
-${manualBlock}
+${sourceBlock}
 
 ${archiveNote ? 'PREVIOUSLY USED TOPICS — do not repeat these:\n' + archiveNote : ''}
 
 PROGRESSIVE DIFFICULTY — Q1 must be easiest, Q11 hardest, strictly ordered:
 - Q1-Q4  (easy,   10 pts): General — answerable from the headline alone. No names or numbers needed.
-- Q5-Q7  (medium, 20 pts): Specific — full name + title of real people, real institution names, key facts from the article body.
+- Q5-Q7  (medium, 20 pts): Specific — full name + title of real people, real institution names, key facts.
 - Q8-Q10 (hard,   30 pts): Precise — exact dollar amounts, vote tallies, specific dates, minor named officials.
-- Q11    (bonus,  50 pts): The single most granular buried detail across all articles. Exact vote count, precise dollar figure, a source's exact job title. Should stump careful readers.
+- Q11    (bonus,  50 pts): The single most granular buried detail. Exact vote count, precise dollar figure, a source's exact job title.
 
 WRITING RULES:
 - Always full names + titles: "Fire Chief Sandra Kowalski" not "the fire chief"
-- Always real institutions: "Mervo High School" not "a Baltimore school"
-- Use exact numbers from articles — never round
-- Wrong choices must be plausible: nearby amounts, adjacent dates, similar names
+- Always real Baltimore institutions: "Mervo High School" not "a local school"
+- Use exact numbers — never round
+- Wrong answer choices must be plausible: nearby amounts, adjacent dates, similar names
 - Never fabricate any fact
 
-OUTPUT FORMAT: Respond with ONLY valid JSON. No preamble, no explanation, no markdown code fences. Your entire response must start with { and end with }.
+OUTPUT: Respond with ONLY valid JSON. No preamble, no explanation, no markdown fences. Start with { and end with }.
 
-{"staleWarning":false,"staleArticles":[],"questions":[{"question":"Question text?","options":["A","B","C","D"],"correctIndex":0,"explanation":"Why correct.","difficulty":"easy","sourceUrl":"https://article-url.com"}]}
-
-Expanded format for clarity:
 {
   "staleWarning": false,
   "staleArticles": [],
@@ -1931,12 +1914,16 @@ Expanded format for clarity:
       "question": "Full question text?",
       "options": ["Choice A", "Choice B", "Choice C", "Choice D"],
       "correctIndex": 0,
-      "explanation": "Why this answer is correct, with context.",
+      "explanation": "Why this answer is correct.",
       "difficulty": "easy",
-      "sourceUrl": "https://the-article-url.com"
+      "sourceUrl": "https://source-url.com"
     }
   ]
 }
+
+difficulty: "easy" | "medium" | "hard" | "bonus"
+correctIndex: 0-based (0=A, 1=B, 2=C, 3=D)
+Generate exactly 11 questions.\`
 
 difficulty values: "easy" | "medium" | "hard" | "bonus"
 correctIndex: 0-based integer (0=A, 1=B, 2=C, 3=D)
