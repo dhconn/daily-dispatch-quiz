@@ -62,8 +62,6 @@ app.post('/api/claude', (req, res) => {
 
   if (anthropicKey) {
     return forwardToAnthropic(req, res, anthropicKey);
-  } else if (geminiKey) {
-    return forwardToGemini(req, res, geminiKey);
   } else {
     return res.status(500).json({
       error: { message: 'No API key configured. Set either ANTHROPIC_API_KEY or GEMINI_API_KEY in Railway Variables.' }
