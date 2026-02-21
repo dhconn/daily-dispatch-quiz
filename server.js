@@ -1,4 +1,3 @@
-// Daily Dispatch Quiz v2
 const express = require('express');
 const https = require('https');
 const http = require('http');
@@ -109,26 +108,31 @@ function isRecent(pubDate) {
   } catch(e) { return true; }
 }
 
-// ── GET /api/rss — fetch RSS feeds and return recent article summaries ──
-app.get('/api/rss', async (req, res) => {
+// ── RSS cache ─────────────────────────────────────────────────
+// Articles are fetched in the background and cached in memory.
+// The cache is refreshed on startup and via the /api/rss/refresh endpoint.
+
+async function fetchAndCacheRSS() {
   const data = readData();
   const savedSites = (data.sites || '').split('\n').map(s => s.trim()).filter(Boolean);
+  if (!savedSites.length) {
+    console.log('RSS: No sites saved yet, skipping fetch.');
+    return;
+  }
 
-  // Match saved sites to known RSS feeds
+  console.log(`RSS: Fetching feeds for ${savedSites.length} sites…`);
+
   const feedsToFetch = [];
   for (const site of savedSites) {
+    let matched = false;
     for (const [key, feedUrl] of Object.entries(BALTIMORE_RSS_FEEDS)) {
       if (site.includes(key)) {
         feedsToFetch.push({ site, feedUrl });
+        matched = true;
         break;
       }
     }
-  }
-
-  // Also try /feed/ and /rss for any site not in our known list
-  for (const site of savedSites) {
-    const alreadyMapped = Object.keys(BALTIMORE_RSS_FEEDS).some(k => site.includes(k));
-    if (!alreadyMapped) {
+    if (!matched) {
       const base = site.replace(/\/$/, '');
       feedsToFetch.push({ site, feedUrl: base + '/feed/' });
       feedsToFetch.push({ site, feedUrl: base + '/rss' });
@@ -138,9 +142,8 @@ app.get('/api/rss', async (req, res) => {
   const allItems = [];
   const errors = [];
 
-  // Fetch all feeds in parallel with a 20s overall timeout
   const fetchWithTimeout = (site, feedUrl) => new Promise(async (resolve) => {
-    const timer = setTimeout(() => resolve(), 8000); // 8s per feed
+    const timer = setTimeout(() => resolve(), 8000);
     try {
       const xml = await fetchUrl(feedUrl);
       const items = parseRSS(xml).filter(item => isRecent(item.pubDate));
@@ -163,11 +166,36 @@ app.get('/api/rss', async (req, res) => {
     return true;
   });
 
-  res.json({
-    count: unique.count,
-    errors: errors.length ? errors : undefined,
-    items: unique.slice(0, 40) // cap at 40 articles
-  });
+  // Save to data file
+  const freshData = readData();
+  freshData.rssCache = {
+    items: unique.slice(0, 40),
+    fetchedAt: new Date().toISOString(),
+    errors: errors.length ? errors : []
+  };
+  writeData(freshData);
+  console.log(`RSS: Cached ${unique.length} articles. Errors: ${errors.length}`);
+}
+
+// Fetch RSS on startup (after a short delay to let the server settle)
+setTimeout(fetchAndCacheRSS, 5000);
+
+// ── GET /api/rss — return cached articles ─────────────────────
+app.get('/api/rss', (req, res) => {
+  const data = readData();
+  const cache = data.rssCache || { items: [], fetchedAt: null, errors: [] };
+  res.json(cache);
+});
+
+// ── POST /api/rss/refresh — manually trigger a fresh fetch ────
+app.post('/api/rss/refresh', async (req, res) => {
+  res.json({ ok: true, message: 'RSS refresh started in background.' });
+  fetchAndCacheRSS(); // run in background, don't await
+});
+
+// ── Redirect root to quiz ────────────────────────────────────
+app.get('/', (req, res) => {
+  res.redirect('/news-quiz.html');
 });
 
 // ── Save/load news sites ──────────────────────────────────────
