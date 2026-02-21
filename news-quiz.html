@@ -1136,9 +1136,11 @@
         </div>
       </details>
 
-      <div class="admin-actions">
-        <button class="btn-generate" id="gen-btn" onclick="generateQuestions()">⚙ Fetch Articles &amp; Generate Questions</button>
+      <div class="admin-actions" style="flex-wrap:wrap;gap:10px;">
+        <button class="btn-secondary" id="refresh-btn" onclick="refreshRSS()" style="font-size:12px;padding:8px 16px;">↻ Refresh Articles</button>
+        <button class="btn-generate" id="gen-btn" onclick="generateQuestions()">⚙ Generate Questions</button>
       </div>
+      <div id="rss-status" style="font-family:'Courier Prime',monospace;font-size:11px;color:var(--muted);margin-top:8px;"></div>
       <div class="status-msg" id="gen-status" style="white-space:pre-wrap;"></div>
       <div class="generating-overlay" id="gen-overlay">
         <span class="spinner spin">⚙</span>
@@ -1755,7 +1757,65 @@ async function showAdminScreen() {
   await refreshAdminPreviews();
 }
 
-// ─── Saved news sites (server-side) ──────────────────────────────────────
+// ─── RSS cache helpers ───────────────────────────────────────────────────
+async function refreshRSS() {
+  const btn = document.getElementById('refresh-btn');
+  const statusEl = document.getElementById('rss-status');
+  btn.disabled = true;
+  btn.textContent = '↻ Refreshing…';
+  statusEl.textContent = 'Fetching latest articles from RSS feeds…';
+  try {
+    await fetch('/api/rss/refresh', { method: 'POST' });
+    // Poll for completion — check every 2s for up to 30s
+    let attempts = 0;
+    const poll = setInterval(async () => {
+      attempts++;
+      const res = await fetch('/api/rss');
+      const data = await res.json();
+      if (data.fetchedAt) {
+        clearInterval(poll);
+        btn.disabled = false;
+        btn.textContent = '↻ Refresh Articles';
+        const count = data.items ? data.items.length : 0;
+        const when = new Date(data.fetchedAt).toLocaleTimeString();
+        statusEl.textContent = `✓ ${count} articles cached at ${when}. Ready to generate.`;
+        statusEl.style.color = 'var(--green)';
+      }
+      if (attempts > 15) {
+        clearInterval(poll);
+        btn.disabled = false;
+        btn.textContent = '↻ Refresh Articles';
+        statusEl.textContent = 'Refresh complete. Click Generate to create questions.';
+      }
+    }, 2000);
+  } catch(e) {
+    btn.disabled = false;
+    btn.textContent = '↻ Refresh Articles';
+    statusEl.textContent = 'Refresh failed: ' + e.message;
+    statusEl.style.color = 'var(--red)';
+  }
+}
+
+async function loadRSSStatus() {
+  try {
+    const res = await fetch('/api/rss');
+    const data = await res.json();
+    const statusEl = document.getElementById('rss-status');
+    if (statusEl) {
+      if (data.fetchedAt) {
+        const count = data.items ? data.items.length : 0;
+        const when = new Date(data.fetchedAt).toLocaleTimeString();
+        statusEl.textContent = `✓ ${count} articles cached at ${when}. Click Generate or Refresh Articles for latest.`;
+        statusEl.style.color = 'var(--green)';
+      } else {
+        statusEl.textContent = 'No articles cached yet. Click ↻ Refresh Articles first.';
+        statusEl.style.color = 'var(--muted)';
+      }
+    }
+  } catch(e) {}
+}
+
+// ─── Saved news sites (server-side) ───────────────────────────────────────
 async function saveSites() {
   const val = document.getElementById('urls-input').value.trim();
   const msg = document.getElementById('sites-saved-msg');
@@ -1799,6 +1859,7 @@ async function loadSavedSites() {
 async function refreshAdminPreviews() {
   // Load saved news sites from server
   await loadSavedSites();
+  loadRSSStatus();
 
   // Archive count
   const archive = getArchive();
@@ -1854,7 +1915,20 @@ async function generateQuestions() {
     ? `Do NOT generate questions about these previously used topics: ${archive.slice(0, 30).join(' | ')}`
     : '';
 
-  const rssContent = '';
+  // Pull from RSS cache if available
+  let rssContent = '';
+  try {
+    const rssRes = await fetch('/api/rss');
+    if (rssRes.ok) {
+      const rssData = await rssRes.json();
+      if (rssData.items && rssData.items.length > 0) {
+        rssContent = rssData.items.map(item =>
+          `SOURCE: ${item.source}\nHEADLINE: ${item.title}\nSUMMARY: ${item.description}\nDATE: ${item.pubDate}`
+        ).join('\n\n---\n\n');
+      }
+    }
+  } catch(e) { /* cache unavailable, proceed without */ }
+
   const prompt = buildGenerationPrompt(urlList, manualText, archiveNote, rssContent);
   let rawResponse = '';
 
