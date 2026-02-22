@@ -85,29 +85,29 @@ function parseRSS(xml) {
 
 // Known RSS feeds for Baltimore news sites
 const BALTIMORE_RSS_FEEDS = {
-  // Major outlets
-  'baltimoresun.com':           'https://www.baltimoresun.com/arcio/rss/',
-  'thebanner.com':              'https://www.thebaltimorebanner.com/feed/',
-  'thebaltimorebanner.com':     'https://www.thebaltimorebanner.com/feed/',
-  'baltimorebrew.com':          'https://baltimorebrew.com/feed/',
+  // Pure local outlets — confirmed working
   'baltimoretimes-online.com':  'https://baltimoretimes-online.com/feed/',
   'marylandmatters.org':        'https://marylandmatters.org/feed/',
   'thedailyrecord.com':         'https://thedailyrecord.com/feed/',
-  'wypr.org':                   'https://www.wypr.org/rss.xml',
-  'bizjournals.com/baltimore':  'https://www.bizjournals.com/baltimore/feed/news/local.rss',
-  'technical.ly':               'https://technical.ly/feed/',
   'baltimorefishbowl.com':      'https://baltimorefishbowl.com/feed/',
   'southbmore.com':             'https://www.southbmore.com/feed/',
-  // TV stations - local news feeds
-  'foxbaltimore.com':           'https://foxbaltimore.com/feed/rss2/news',
-  'wbaltv.com':                 'https://www.wbaltv.com/feed/rss2/news',
-  'wmar2news.com':              'https://www.wmar2news.com/news/local-news?format=rss',
-  'wbal.com':                   'https://www.wbal.com/rss/news/local',
-  'mytvbaltimore.com':          'https://foxbaltimore.com/feed/rss2/news',
-  'cwbaltimore.com':            'https://www.wmar2news.com/news/local-news?format=rss',
   'cbsnews.com/baltimore':      'https://www.cbsnews.com/baltimore/latest/rss/main',
-  // Community/neighborhood
-  'dailyvoice.com':             'https://dailyvoice.com/maryland/feed/',
+  // Pure local — feed URLs need alternate versions
+  'baltimorebrew.com':          'https://baltimorebrew.com/feed/rss/',
+  'thebanner.com':              'https://www.thebaltimorebanner.com/arc/outboundfeeds/rss/',
+  'thebaltimorebanner.com':     'https://www.thebaltimorebanner.com/arc/outboundfeeds/rss/',
+  'wypr.org':                   'https://www.wypr.org/podcast/news/rss.xml',
+  'baltimoresun.com':           'https://www.baltimoresun.com/arc/outboundfeeds/rss/',
+  'bizjournals.com/baltimore':  'https://www.bizjournals.com/baltimore/feed/news/local.rss',
+  'technical.ly':               'https://technical.ly/baltimore/feed/',
+  'dailyvoice.com':             'https://dailyvoice.com/maryland/feed.rss',
+  // TV stations — keyword filtered
+  'foxbaltimore.com':           'https://foxbaltimore.com/rss',
+  'wbaltv.com':                 'https://www.wbaltv.com/rss',
+  'wmar2news.com':              'https://www.wmar2news.com/rss',
+  'wbal.com':                   'https://www.wbal.com/rss',
+  'mytvbaltimore.com':          'https://foxbaltimore.com/rss',
+  'cwbaltimore.com':            'https://www.wmar2news.com/rss',
 };
 
 // Filter items to last 24 hours
