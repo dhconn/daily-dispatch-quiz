@@ -115,7 +115,8 @@ function isRecent(pubDate) {
   if (!pubDate) return true; // include if no date
   try {
     const d = new Date(pubDate);
-    return (Date.now() - d.getTime()) < 26 * 60 * 60 * 1000; // 26hr buffer
+    if (isNaN(d.getTime())) return true; // unparseable date — include it
+    return (Date.now() - d.getTime()) < 72 * 60 * 60 * 1000; // 72hr window
   } catch(e) { return true; }
 }
 
@@ -182,10 +183,13 @@ async function fetchAndCacheRSS() {
     const timer = setTimeout(() => resolve(), 8000);
     try {
       const xml = await fetchUrl(feedUrl);
-      const items = parseRSS(xml)
-        .filter(item => isRecent(item.pubDate))
-        .filter(item => isLocalStory(item, site));
-      console.log(`RSS OK: ${feedUrl} — ${items.length} local items`);
+      const parsed = parseRSS(xml);
+      const recent = parsed.filter(item => isRecent(item.pubDate));
+      const items = recent.filter(item => isLocalStory(item, site));
+      console.log(`RSS OK: ${feedUrl} — ${parsed.length} total, ${recent.length} recent, ${items.length} local`);
+      if (parsed.length > 0 && recent.length === 0) {
+        console.log(`  oldest item date: ${parsed[parsed.length-1].pubDate}`);
+      }
       items.forEach(item => allItems.push({ ...item, source: site }));
     } catch(e) {
       errors.push(`${feedUrl}: ${e.message}`);
