@@ -255,3 +255,125 @@ app.listen(PORT, () => {
     console.log('⚠ WARNING: ANTHROPIC_API_KEY is not set.');
   }
 });
+
+// ── Email helper (Resend) ─────────────────────────────────────
+async function sendEmail(to, subject, html) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    console.log('Email skipped: RESEND_API_KEY not set.');
+    return false;
+  }
+  const body = JSON.stringify({
+    from: 'Baltimore Daily Dispatch Quiz <onboarding@resend.dev>',
+    to: [to],
+    subject,
+    html
+  });
+  return new Promise((resolve) => {
+    const req = https.request({
+      hostname: 'api.resend.com',
+      path: '/emails',
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(body)
+      }
+    }, (res) => {
+      res.on('data', () => {});
+      res.on('end', () => resolve(res.statusCode < 300));
+    });
+    req.on('error', () => resolve(false));
+    req.write(body);
+    req.end();
+  });
+}
+
+// ── Message board ─────────────────────────────────────────────
+// Posts stored as data.posts = [{ id, playerName, text, createdAt, deleted }]
+
+app.get('/api/posts', (req, res) => {
+  const data = readData();
+  const posts = (data.posts || []).filter(p => !p.deleted);
+  res.json({ posts });
+});
+
+app.post('/api/posts', (req, res) => {
+  const { playerName, text } = req.body;
+  if (!playerName || !playerName.trim()) return res.status(400).json({ error: 'Player name required.' });
+  if (!text || !text.trim()) return res.status(400).json({ error: 'Message text required.' });
+  if (text.length > 500) return res.status(400).json({ error: 'Message too long (500 char max).' });
+
+  const data = readData();
+  if (!data.posts) data.posts = [];
+  const post = {
+    id: Date.now().toString(),
+    playerName: playerName.trim().slice(0, 40),
+    text: text.trim(),
+    createdAt: new Date().toISOString()
+  };
+  data.posts.unshift(post); // newest first
+  if (data.posts.length > 200) data.posts = data.posts.slice(0, 200); // cap at 200
+  writeData(data);
+  res.json({ ok: true, post });
+});
+
+app.delete('/api/posts/:id', (req, res) => {
+  const data = readData();
+  const post = (data.posts || []).find(p => p.id === req.params.id);
+  if (!post) return res.status(404).json({ error: 'Post not found.' });
+  post.deleted = true;
+  writeData(data);
+  res.json({ ok: true });
+});
+
+// ── Contact the Editor ────────────────────────────────────────
+// Messages stored as data.messages = [{ id, playerName, text, createdAt, read }]
+
+app.post('/api/contact', async (req, res) => {
+  const { playerName, text } = req.body;
+  if (!playerName || !playerName.trim()) return res.status(400).json({ error: 'Player name required.' });
+  if (!text || !text.trim()) return res.status(400).json({ error: 'Message required.' });
+  if (text.length > 1000) return res.status(400).json({ error: 'Message too long (1000 char max).' });
+
+  const data = readData();
+  if (!data.messages) data.messages = [];
+  const msg = {
+    id: Date.now().toString(),
+    playerName: playerName.trim().slice(0, 40),
+    text: text.trim(),
+    createdAt: new Date().toISOString(),
+    read: false
+  };
+  data.messages.unshift(msg);
+  writeData(data);
+
+  // Forward to editor's email
+  const editorEmail = process.env.EDITOR_EMAIL;
+  if (editorEmail) {
+    await sendEmail(
+      editorEmail,
+      `Quiz message from ${msg.playerName}`,
+      `<p><strong>From:</strong> ${msg.playerName}</p>
+       <p><strong>Sent:</strong> ${new Date(msg.createdAt).toLocaleString()}</p>
+       <hr>
+       <p>${msg.text.replace(/\n/g, '<br>')}</p>
+       <hr>
+       <p style="color:#999;font-size:12px;">Baltimore Daily Dispatch Quiz</p>`
+    );
+  }
+
+  res.json({ ok: true });
+});
+
+app.get('/api/messages', (req, res) => {
+  const data = readData();
+  res.json({ messages: data.messages || [] });
+});
+
+app.post('/api/messages/:id/read', (req, res) => {
+  const data = readData();
+  const msg = (data.messages || []).find(m => m.id === req.params.id);
+  if (msg) { msg.read = true; writeData(data); }
+  res.json({ ok: true });
+});
