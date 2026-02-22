@@ -180,19 +180,23 @@ async function fetchAndCacheRSS() {
 // Fetch RSS on startup (after a short delay to let the server settle)
 setTimeout(fetchAndCacheRSS, 5000);
 
-// ── GET /api/rss/debug — show first 3 cached article titles & dates ──
+// ── GET /api/rss/debug — show all cached articles grouped by source ──
 app.get('/api/rss/debug', (req, res) => {
   const data = readData();
   const cache = data.rssCache || { items: [], fetchedAt: null };
+  
+  // Group by source
+  const bySource = {};
+  for (const item of cache.items) {
+    const src = item.source || 'unknown';
+    if (!bySource[src]) bySource[src] = [];
+    bySource[src].push({ title: item.title, pubDate: item.pubDate, link: item.link });
+  }
+
   res.json({
     fetchedAt: cache.fetchedAt,
-    count: cache.items.length,
-    sample: cache.items.slice(0, 5).map(i => ({
-      title: i.title,
-      pubDate: i.pubDate,
-      source: i.source,
-      link: i.link
-    }))
+    totalCount: cache.items.length,
+    bySource
   });
 });
 
