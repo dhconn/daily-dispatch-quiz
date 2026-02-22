@@ -14,7 +14,6 @@
     --red: #c0392b;
     --gold: #b8860b;
     --gold-light: #f0c040;
-
     --rule: #2c1f0e;
     --muted: #6b5f4e;
     --green: #1a6b3c;
@@ -2510,15 +2509,14 @@ function buildGenerationPrompt(urlList, manualText, archiveNote, rssContent) {
     ? `Search for and read the most recent articles from these Baltimore news websites:\n${urlList.join('\n')}`
     : '';
 
-  return `You are writing questions for a LOCAL NEWS QUIZ about Baltimore, Maryland.
+  return `You are writing questions for a LOCAL NEWS QUIZ about Baltimore and the Central Maryland region (including Baltimore City, Baltimore County, Howard County, Anne Arundel County, Harford County, and Carroll County).
 
 CRITICAL INSTRUCTIONS:
-- Base EVERY question on one of the specific articles provided below
-- Use the exact sourceUrl from each article as the sourceUrl in your JSON output
-- Do NOT use your training knowledge or invent stories — only use the articles below
-- Do NOT use old or historical stories — only stories from the provided list
-- Use a DIFFERENT article for each question — never use the same article twice
-- Spread questions across as many different sources as possible
+- Use a DIFFERENT article for each of the 11 questions — one question per article, no exceptions
+- Every question must be about Baltimore or Central Maryland local news specifically (Baltimore City, Baltimore County, Howard County, Anne Arundel County, Harford County, Carroll County) — skip any national or non-regional stories
+- Use the exact URL from each article's URL field as the sourceUrl in your JSON output
+- Do NOT use your training knowledge or invent stories — only use the articles provided below
+- Vary the correctIndex across all 11 questions — do NOT put the correct answer in position A (index 0) more than 3 times; distribute correct answers across positions A, B, C, and D roughly equally
 
 ${rssBlock}
 
