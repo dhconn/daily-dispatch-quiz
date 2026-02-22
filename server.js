@@ -181,9 +181,11 @@ async function fetchAndCacheRSS() {
       const items = parseRSS(xml)
         .filter(item => isRecent(item.pubDate))
         .filter(item => isLocalStory(item, site));
+      console.log(`RSS OK: ${feedUrl} — ${items.length} local items`);
       items.forEach(item => allItems.push({ ...item, source: site }));
     } catch(e) {
       errors.push(`${feedUrl}: ${e.message}`);
+      console.log(`RSS FAIL: ${feedUrl} — ${e.message}`);
     } finally {
       clearTimeout(timer);
       resolve();
