@@ -165,11 +165,15 @@ async function fetchAndCacheRSS() {
   ];
 
   function isLocalStory(item, site) {
-    // Always trust hyper-local outlets
-    const localSites = ['baltimorebrew', 'baltimoretimes', 'marylandmatters', 'baltimorebanner',
-                        'thedailyrecord', 'baltimorefishbowl', 'bizjournals.com/baltimore'];
-    if (localSites.some(s => site.includes(s))) return true;
-    // For wire-heavy sites like WBAL, filter by keyword
+    // These outlets publish ONLY local Baltimore/Maryland content — trust everything
+    const pureLocalSites = [
+      'baltimorebrew', 'baltimoretimes', 'marylandmatters', 'thebaltimorebanner',
+      'thebanner.com', 'thedailyrecord', 'baltimorefishbowl', 'bizjournals.com/baltimore',
+      'technical.ly', 'southbmore', 'dailyvoice', 'wypr.org', 'baltimoresun.com'
+    ];
+    if (pureLocalSites.some(s => site.includes(s))) return true;
+
+    // TV stations mix local and national — require keyword match for these
     const text = ((item.title || '') + ' ' + (item.description || '')).toLowerCase();
     return LOCAL_KEYWORDS.some(kw => text.includes(kw));
   }
