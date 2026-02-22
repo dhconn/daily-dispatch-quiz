@@ -85,21 +85,28 @@ function parseRSS(xml) {
 
 // Known RSS feeds for Baltimore news sites
 const BALTIMORE_RSS_FEEDS = {
+  // Major outlets
   'baltimoresun.com':           'https://www.baltimoresun.com/arcio/rss/',
+  'thebanner.com':              'https://www.thebaltimorebanner.com/feed/',
   'thebaltimorebanner.com':     'https://www.thebaltimorebanner.com/feed/',
   'baltimorebrew.com':          'https://baltimorebrew.com/feed/',
   'baltimoretimes-online.com':  'https://baltimoretimes-online.com/feed/',
   'marylandmatters.org':        'https://marylandmatters.org/feed/',
   'thedailyrecord.com':         'https://thedailyrecord.com/feed/',
   'wypr.org':                   'https://www.wypr.org/rss.xml',
-  'foxbaltimore.com':           'https://foxbaltimore.com/rss',
-  'wbaltv.com':                 'https://www.wbaltv.com/feed/rss2/news',
-  'wmar2news.com':              'https://www.wmar2news.com/news/local-news?format=rss',
-  'wbal.com':                   'https://www.wbal.com/rss/news/local',
-  'cbsnews.com/baltimore':      'https://www.cbsnews.com/baltimore/latest/rss/main',
   'bizjournals.com/baltimore':  'https://www.bizjournals.com/baltimore/feed/news/local.rss',
   'technical.ly':               'https://technical.ly/feed/',
   'baltimorefishbowl.com':      'https://baltimorefishbowl.com/feed/',
+  'southbmore.com':             'https://www.southbmore.com/feed/',
+  // TV stations - local news feeds
+  'foxbaltimore.com':           'https://foxbaltimore.com/feed/rss2/news',
+  'wbaltv.com':                 'https://www.wbaltv.com/feed/rss2/news',
+  'wmar2news.com':              'https://www.wmar2news.com/news/local-news?format=rss',
+  'wbal.com':                   'https://www.wbal.com/rss/news/local',
+  'mytvbaltimore.com':          'https://foxbaltimore.com/feed/rss2/news',
+  'cwbaltimore.com':            'https://www.wmar2news.com/news/local-news?format=rss',
+  'cbsnews.com/baltimore':      'https://www.cbsnews.com/baltimore/latest/rss/main',
+  // Community/neighborhood
   'dailyvoice.com':             'https://dailyvoice.com/maryland/feed/',
 };
 
@@ -118,7 +125,8 @@ function isRecent(pubDate) {
 
 async function fetchAndCacheRSS() {
   const data = readData();
-  const savedSites = (data.sites || '').split('\n').map(s => s.trim()).filter(Boolean);
+  const savedSites = (data.sites || '').split('\n').map(s => s.trim()).filter(Boolean)
+    .filter(s => !s.includes('google.com') && !s.includes('therealnews.com')); // skip non-RSS sources
   if (!savedSites.length) {
     console.log('RSS: No sites saved yet, skipping fetch.');
     return;
