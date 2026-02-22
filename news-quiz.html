@@ -1112,6 +1112,56 @@
     </div>
   </div>
 
+  <!-- COMMUNITY -->
+  <div id="screen-community" class="screen">
+    <div class="edition-rule">Community Board</div>
+    <h2 style="margin-bottom:4px;">Player Discussion</h2>
+    <p style="font-family:'Courier Prime',monospace;font-size:12px;color:var(--muted);margin-bottom:20px;">Post reactions, debate answers, tip off fellow players.</p>
+
+    <!-- Post form -->
+    <div style="background:white;border:1px solid var(--rule);padding:16px;margin-bottom:20px;">
+      <div style="font-family:'Courier Prime',monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:8px;">YOUR PLAYER NAME</div>
+      <input id="board-name" type="text" maxlength="40" placeholder="Enter your player name…" style="width:100%;font-family:'Source Serif 4',serif;font-size:14px;padding:8px;border:1px solid #ccc;margin-bottom:12px;box-sizing:border-box;">
+      <div style="font-family:'Courier Prime',monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:8px;">YOUR MESSAGE</div>
+      <textarea id="board-text" maxlength="500" placeholder="What's on your mind?" style="width:100%;font-family:'Source Serif 4',serif;font-size:14px;padding:8px;border:1px solid #ccc;min-height:80px;resize:vertical;box-sizing:border-box;"></textarea>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+        <span id="board-char-count" style="font-family:'Courier Prime',monospace;font-size:11px;color:var(--muted);">0 / 500</span>
+        <button onclick="submitPost()" style="font-family:'Courier Prime',monospace;font-size:12px;letter-spacing:1px;padding:8px 20px;background:var(--ink);color:var(--paper);border:none;cursor:pointer;">POST ▸</button>
+      </div>
+      <div id="board-status" style="font-family:'Courier Prime',monospace;font-size:12px;margin-top:8px;display:none;"></div>
+    </div>
+
+    <!-- Posts list -->
+    <div id="posts-list"></div>
+
+    <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--rule);display:flex;gap:16px;flex-wrap:wrap;">
+      <button class="btn-secondary" onclick="showScreen('screen-results')">◂ Back to Results</button>
+      <button class="btn-secondary" onclick="showContactForm()">✉ Message the Editor</button>
+    </div>
+  </div>
+
+  <!-- CONTACT FORM -->
+  <div id="screen-contact" class="screen">
+    <div class="edition-rule">Private Message</div>
+    <h2 style="margin-bottom:4px;">Message the Editor</h2>
+    <p style="font-family:'Courier Prime',monospace;font-size:12px;color:var(--muted);margin-bottom:20px;">Your message goes directly to the editor. Your name and email are never shared.</p>
+
+    <div style="background:white;border:1px solid var(--rule);padding:16px;">
+      <div style="font-family:'Courier Prime',monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:8px;">YOUR PLAYER NAME</div>
+      <input id="contact-name" type="text" maxlength="40" placeholder="Enter your player name…" style="width:100%;font-family:'Source Serif 4',serif;font-size:14px;padding:8px;border:1px solid #ccc;margin-bottom:12px;box-sizing:border-box;">
+      <div style="font-family:'Courier Prime',monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:8px;">YOUR MESSAGE</div>
+      <textarea id="contact-text" maxlength="1000" placeholder="What would you like to tell the editor?" style="width:100%;font-family:'Source Serif 4',serif;font-size:14px;padding:8px;border:1px solid #ccc;min-height:120px;resize:vertical;box-sizing:border-box;"></textarea>
+      <div style="display:flex;justify-content:flex-end;margin-top:12px;">
+        <button onclick="submitContact()" style="font-family:'Courier Prime',monospace;font-size:12px;letter-spacing:1px;padding:8px 20px;background:var(--ink);color:var(--paper);border:none;cursor:pointer;">SEND MESSAGE ▸</button>
+      </div>
+      <div id="contact-status" style="font-family:'Courier Prime',monospace;font-size:12px;margin-top:8px;display:none;"></div>
+    </div>
+
+    <div style="margin-top:20px;">
+      <button class="btn-secondary" onclick="showScreen('screen-community')">◂ Back to Community</button>
+    </div>
+  </div>
+
   <!-- ADMIN -->
   <div id="screen-admin" class="screen">
     <h2>Editor's Desk</h2>
@@ -1815,6 +1865,448 @@ async function loadRSSStatus() {
   } catch(e) {}
 }
 
+// ─── Admin inbox & moderation ────────────────────────────────────────────
+
+async function loadAdminMessages() {
+  const el = document.getElementById('admin-messages');
+  if (!el) return;
+  try {
+    const res = await fetch('/api/messages');
+    const data = await res.json();
+    const msgs = data.messages || [];
+    const unread = msgs.filter(m => !m.read).length;
+    const badge = document.getElementById('unread-badge');
+    if (badge) {
+      badge.style.display = unread > 0 ? 'inline' : 'none';
+      badge.textContent = unread + ' new';
+    }
+    if (msgs.length === 0) {
+      el.innerHTML = '<p style="font-family:'Courier Prime',monospace;font-size:12px;color:var(--muted);">No messages yet.</p>';
+      return;
+    }
+    el.innerHTML = msgs.map(m => `
+      <div style="background:${m.read ? 'white' : 'var(--cream)'};border:1px solid var(--rule);padding:12px;margin-bottom:8px;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+          <strong style="font-family:'Courier Prime',monospace;font-size:12px;">${escHtml(m.playerName)}</strong>
+          <span style="font-family:'Courier Prime',monospace;font-size:10px;color:var(--muted);">${new Date(m.createdAt).toLocaleString()}${m.read ? '' : ' · <strong>NEW</strong>'}</span>
+        </div>
+        <p style="font-size:13px;margin:0 0 8px;">${escHtml(m.text)}</p>
+        ${!m.read ? `<button onclick="markRead('${m.id}')" style="font-family:'Courier Prime',monospace;font-size:11px;padding:4px 10px;cursor:pointer;">Mark read</button>` : ''}
+      </div>`).join('');
+  } catch(e) {
+    el.innerHTML = '<p style="color:var(--red);font-size:12px;">Could not load messages.</p>';
+  }
+}
+
+async function markRead(id) {
+  await fetch(`/api/messages/${id}/read`, { method: 'POST' });
+  loadAdminMessages();
+}
+
+async function loadAdminPosts() {
+  const el = document.getElementById('admin-posts');
+  if (!el) return;
+  try {
+    const res = await fetch('/api/posts');
+    const data = await res.json();
+    const posts = data.posts || [];
+    if (posts.length === 0) {
+      el.innerHTML = '<p style="font-family:'Courier Prime',monospace;font-size:12px;color:var(--muted);">No posts yet.</p>';
+      return;
+    }
+    el.innerHTML = posts.map(p => `
+      <div style="background:white;border:1px solid var(--rule);padding:12px;margin-bottom:8px;display:flex;gap:12px;align-items:flex-start;">
+        <div style="flex:1;">
+          <strong style="font-family:'Courier Prime',monospace;font-size:12px;">${escHtml(p.playerName)}</strong>
+          <span style="font-family:'Courier Prime',monospace;font-size:10px;color:var(--muted);margin-left:8px;">${new Date(p.createdAt).toLocaleString()}</span>
+          <p style="font-size:13px;margin:4px 0 0;">${escHtml(p.text)}</p>
+        </div>
+        <button onclick="deletePost('${p.id}')" style="font-family:'Courier Prime',monospace;font-size:11px;padding:4px 10px;background:var(--red);color:white;border:none;cursor:pointer;white-space:nowrap;">Delete</button>
+      </div>`).join('');
+  } catch(e) {
+    el.innerHTML = '<p style="color:var(--red);font-size:12px;">Could not load posts.</p>';
+  }
+}
+
+async function deletePost(id) {
+  if (!confirm('Delete this post?')) return;
+  await fetch(`/api/posts/${id}`, { method: 'DELETE' });
+  loadAdminPosts();
+}
+
+// ─── Admin inbox & moderation ────────────────────────────────────────────
+
+async function loadAdminMessages() {
+  const el = document.getElementById('admin-messages');
+  if (!el) return;
+  try {
+    const res = await fetch('/api/messages');
+    const data = await res.json();
+    const msgs = data.messages || [];
+    const unread = msgs.filter(m => !m.read).length;
+    const badge = document.getElementById('unread-badge');
+    if (badge) { badge.style.display = unread > 0 ? 'inline' : 'none'; badge.textContent = unread + ' new'; }
+    if (msgs.length === 0) { el.innerHTML = '<p style="font-family:\'Courier Prime\',monospace;font-size:12px;color:var(--muted);">No messages yet.</p>'; return; }
+    el.innerHTML = msgs.map(m => `
+      <div style="background:${m.read ? 'white' : 'var(--cream)'};border:1px solid var(--rule);padding:12px;margin-bottom:8px;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+          <strong style="font-family:'Courier Prime',monospace;font-size:12px;">${escHtml(m.playerName)}</strong>
+          <span style="font-family:'Courier Prime',monospace;font-size:10px;color:var(--muted);">${new Date(m.createdAt).toLocaleString()}${m.read ? '' : ' · NEW'}</span>
+        </div>
+        <p style="font-size:13px;margin:0 0 8px;">${escHtml(m.text)}</p>
+        ${!m.read ? `<button onclick="markRead('${m.id}')" style="font-family:'Courier Prime',monospace;font-size:11px;padding:4px 10px;cursor:pointer;">Mark read</button>` : ''}
+      </div>`).join('');
+  } catch(e) { el.innerHTML = '<p style="color:var(--red);font-size:12px;">Could not load messages.</p>'; }
+}
+
+async function markRead(id) {
+  await fetch('/api/messages/' + id + '/read', { method: 'POST' });
+  loadAdminMessages();
+}
+
+async function loadAdminPosts() {
+  const el = document.getElementById('admin-posts');
+  if (!el) return;
+  try {
+    const res = await fetch('/api/posts');
+    const data = await res.json();
+    const posts = data.posts || [];
+    if (posts.length === 0) { el.innerHTML = '<p style="font-family:\'Courier Prime\',monospace;font-size:12px;color:var(--muted);">No posts yet.</p>'; return; }
+    el.innerHTML = posts.map(p => `
+      <div style="background:white;border:1px solid var(--rule);padding:12px;margin-bottom:8px;display:flex;gap:12px;align-items:flex-start;">
+        <div style="flex:1;">
+          <strong style="font-family:'Courier Prime',monospace;font-size:12px;">${escHtml(p.playerName)}</strong>
+          <span style="font-family:'Courier Prime',monospace;font-size:10px;color:var(--muted);margin-left:8px;">${new Date(p.createdAt).toLocaleString()}</span>
+          <p style="font-size:13px;margin:4px 0 0;">${escHtml(p.text)}</p>
+        </div>
+        <button onclick="deletePost('${p.id}')" style="font-family:'Courier Prime',monospace;font-size:11px;padding:4px 10px;background:var(--red);color:white;border:none;cursor:pointer;white-space:nowrap;">Delete</button>
+      </div>`).join('');
+  } catch(e) { el.innerHTML = '<p style="color:var(--red);font-size:12px;">Could not load posts.</p>'; }
+}
+
+async function deletePost(id) {
+  if (!confirm('Delete this post?')) return;
+  await fetch('/api/posts/' + id, { method: 'DELETE' });
+  loadAdminPosts();
+}
+
+
+// ─── Community board ─────────────────────────────────────────────────────
+
+function showCommunity() {
+  showScreen('screen-community');
+  loadPosts();
+  // Pre-fill player name from leaderboard localStorage
+  const name = lsGet('dnq_player_name') || '';
+  if (name) {
+    document.getElementById('board-name').value = name;
+    document.getElementById('contact-name').value = name;
+  }
+}
+
+function showContactForm() {
+  showScreen('screen-contact');
+  const name = lsGet('dnq_player_name') || '';
+  if (name) document.getElementById('contact-name').value = name;
+}
+
+// Character counter for message board
+document.addEventListener('DOMContentLoaded', () => {
+  const ta = document.getElementById('board-text');
+  if (ta) {
+    ta.addEventListener('input', () => {
+      document.getElementById('board-char-count').textContent = `${ta.value.length} / 500`;
+    });
+  }
+});
+
+async function loadPosts() {
+  const list = document.getElementById('posts-list');
+  if (!list) return;
+  list.innerHTML = '<p style="font-family:'Courier Prime',monospace;font-size:12px;color:var(--muted);">Loading posts…</p>';
+  try {
+    const res = await fetch('/api/posts');
+    const data = await res.json();
+    if (!data.posts || data.posts.length === 0) {
+      list.innerHTML = '<p style="font-family:'Courier Prime',monospace;font-size:13px;color:var(--muted);text-align:center;padding:20px;">No posts yet — be the first!</p>';
+      return;
+    }
+    list.innerHTML = data.posts.map(p => `
+      <div style="background:white;border:1px solid var(--rule);padding:14px;margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">
+          <strong style="font-family:'Courier Prime',monospace;font-size:13px;">${escHtml(p.playerName)}</strong>
+          <span style="font-family:'Courier Prime',monospace;font-size:10px;color:var(--muted);">${new Date(p.createdAt).toLocaleString()}</span>
+        </div>
+        <p style="font-size:14px;line-height:1.5;margin:0;">${escHtml(p.text)}</p>
+      </div>`).join('');
+  } catch(e) {
+    list.innerHTML = '<p style="color:var(--red);font-family:'Courier Prime',monospace;font-size:12px;">Could not load posts.</p>';
+  }
+}
+
+async function submitPost() {
+  const name = document.getElementById('board-name').value.trim();
+  const text = document.getElementById('board-text').value.trim();
+  const status = document.getElementById('board-status');
+
+  if (!name) { showBoardStatus('Please enter your player name.', 'error'); return; }
+  if (!text)  { showBoardStatus('Please write something before posting.', 'error'); return; }
+
+  try {
+    const res = await fetch('/api/posts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ playerName: name, text })
+    });
+    const data = await res.json();
+    if (!res.ok) { showBoardStatus(data.error || 'Post failed.', 'error'); return; }
+    document.getElementById('board-text').value = '';
+    document.getElementById('board-char-count').textContent = '0 / 500';
+    showBoardStatus('✓ Posted!', 'success');
+    lsSet('dnq_player_name', name);
+    loadPosts();
+  } catch(e) {
+    showBoardStatus('Post failed. Try again.', 'error');
+  }
+}
+
+function showBoardStatus(msg, type) {
+  const el = document.getElementById('board-status');
+  el.style.display = 'block';
+  el.style.color = type === 'error' ? 'var(--red)' : 'var(--green)';
+  el.textContent = msg;
+  setTimeout(() => el.style.display = 'none', 3000);
+}
+
+async function submitContact() {
+  const name = document.getElementById('contact-name').value.trim();
+  const text = document.getElementById('contact-text').value.trim();
+
+  if (!name) { showContactStatus('Please enter your player name.', 'error'); return; }
+  if (!text)  { showContactStatus('Please write a message.', 'error'); return; }
+
+  try {
+    const res = await fetch('/api/contact', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ playerName: name, text })
+    });
+    const data = await res.json();
+    if (!res.ok) { showContactStatus(data.error || 'Send failed.', 'error'); return; }
+    document.getElementById('contact-text').value = '';
+    showContactStatus('✓ Message sent to the editor!', 'success');
+    lsSet('dnq_player_name', name);
+  } catch(e) {
+    showContactStatus('Send failed. Try again.', 'error');
+  }
+}
+
+function showContactStatus(msg, type) {
+  const el = document.getElementById('contact-status');
+  el.style.display = 'block';
+  el.style.color = type === 'error' ? 'var(--red)' : 'var(--green)';
+  el.textContent = msg;
+}
+
+// ─── Community board ─────────────────────────────────────────────────────
+
+function showCommunity() {
+  showScreen('screen-community');
+  loadPosts();
+  const name = lsGet('dnq_player_name') || '';
+  if (name) {
+    const bn = document.getElementById('board-name');
+    const cn = document.getElementById('contact-name');
+    if (bn) bn.value = name;
+    if (cn) cn.value = name;
+  }
+}
+
+function showContactForm() {
+  showScreen('screen-contact');
+  const name = lsGet('dnq_player_name') || '';
+  const cn = document.getElementById('contact-name');
+  if (cn && name) cn.value = name;
+}
+
+async function loadPosts() {
+  const list = document.getElementById('posts-list');
+  if (!list) return;
+  list.innerHTML = '<p style="font-family:'Courier Prime',monospace;font-size:12px;color:var(--muted);">Loading…</p>';
+  try {
+    const res = await fetch('/api/posts');
+    const data = await res.json();
+    if (!data.posts || data.posts.length === 0) {
+      list.innerHTML = '<p style="font-family:'Courier Prime',monospace;font-size:13px;color:var(--muted);text-align:center;padding:20px;">No posts yet — be the first!</p>';
+      return;
+    }
+    list.innerHTML = data.posts.map(p => `
+      <div style="background:white;border:1px solid var(--rule);padding:14px;margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">
+          <strong style="font-family:'Courier Prime',monospace;font-size:13px;">${escHtml(p.playerName)}</strong>
+          <span style="font-family:'Courier Prime',monospace;font-size:10px;color:var(--muted);">${new Date(p.createdAt).toLocaleString()}</span>
+        </div>
+        <p style="font-size:14px;line-height:1.5;margin:0;">${escHtml(p.text)}</p>
+      </div>`).join('');
+  } catch(e) {
+    list.innerHTML = '<p style="color:var(--red);font-family:'Courier Prime',monospace;font-size:12px;">Could not load posts.</p>';
+  }
+}
+
+async function submitPost() {
+  const name = document.getElementById('board-name').value.trim();
+  const text = document.getElementById('board-text').value.trim();
+  if (!name) { showBoardStatus('Please enter your player name.', 'error'); return; }
+  if (!text)  { showBoardStatus('Please write something.', 'error'); return; }
+  try {
+    const res = await fetch('/api/posts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ playerName: name, text })
+    });
+    const data = await res.json();
+    if (!res.ok) { showBoardStatus(data.error || 'Post failed.', 'error'); return; }
+    document.getElementById('board-text').value = '';
+    document.getElementById('board-char-count').textContent = '0 / 500';
+    showBoardStatus('✓ Posted!', 'success');
+    lsSet('dnq_player_name', name);
+    loadPosts();
+  } catch(e) { showBoardStatus('Post failed. Try again.', 'error'); }
+}
+
+function showBoardStatus(msg, type) {
+  const el = document.getElementById('board-status');
+  el.style.display = 'block';
+  el.style.color = type === 'error' ? 'var(--red)' : 'var(--green)';
+  el.textContent = msg;
+  setTimeout(() => el.style.display = 'none', 3000);
+}
+
+async function submitContact() {
+  const name = document.getElementById('contact-name').value.trim();
+  const text = document.getElementById('contact-text').value.trim();
+  if (!name) { showContactStatus('Please enter your player name.', 'error'); return; }
+  if (!text)  { showContactStatus('Please write a message.', 'error'); return; }
+  try {
+    const res = await fetch('/api/contact', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ playerName: name, text })
+    });
+    const data = await res.json();
+    if (!res.ok) { showContactStatus(data.error || 'Send failed.', 'error'); return; }
+    document.getElementById('contact-text').value = '';
+    showContactStatus('✓ Message sent to the editor!', 'success');
+    lsSet('dnq_player_name', name);
+  } catch(e) { showContactStatus('Send failed. Try again.', 'error'); }
+}
+
+function showContactStatus(msg, type) {
+  const el = document.getElementById('contact-status');
+  el.style.display = 'block';
+  el.style.color = type === 'error' ? 'var(--red)' : 'var(--green)';
+  el.textContent = msg;
+}
+
+// ─── Community board ─────────────────────────────────────────────────────
+
+function showCommunity() {
+  showScreen('screen-community');
+  loadPosts();
+  const name = lsGet('dnq_player_name') || '';
+  const bn = document.getElementById('board-name');
+  const cn = document.getElementById('contact-name');
+  if (bn && name) bn.value = name;
+  if (cn && name) cn.value = name;
+}
+
+function showContactForm() {
+  showScreen('screen-contact');
+  const name = lsGet('dnq_player_name') || '';
+  const cn = document.getElementById('contact-name');
+  if (cn && name) cn.value = name;
+}
+
+async function loadPosts() {
+  const list = document.getElementById('posts-list');
+  if (!list) return;
+  list.innerHTML = '<p style="font-family:\'Courier Prime\',monospace;font-size:12px;color:var(--muted);">Loading…</p>';
+  try {
+    const res = await fetch('/api/posts');
+    const data = await res.json();
+    if (!data.posts || data.posts.length === 0) {
+      list.innerHTML = '<p style="font-family:\'Courier Prime\',monospace;font-size:13px;color:var(--muted);text-align:center;padding:20px;">No posts yet — be the first!</p>';
+      return;
+    }
+    list.innerHTML = data.posts.map(p => `
+      <div style="background:white;border:1px solid var(--rule);padding:14px;margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">
+          <strong style="font-family:\'Courier Prime\',monospace;font-size:13px;">${escHtml(p.playerName)}</strong>
+          <span style="font-family:\'Courier Prime\',monospace;font-size:10px;color:var(--muted);">${new Date(p.createdAt).toLocaleString()}</span>
+        </div>
+        <p style="font-size:14px;line-height:1.5;margin:0;">${escHtml(p.text)}</p>
+      </div>`).join('');
+  } catch(e) {
+    list.innerHTML = '<p style="color:var(--red);">Could not load posts.</p>';
+  }
+}
+
+async function submitPost() {
+  const name = document.getElementById('board-name').value.trim();
+  const text = document.getElementById('board-text').value.trim();
+  if (!name) { showBoardStatus('Please enter your player name.', 'error'); return; }
+  if (!text)  { showBoardStatus('Please write something.', 'error'); return; }
+  try {
+    const res = await fetch('/api/posts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ playerName: name, text })
+    });
+    const data = await res.json();
+    if (!res.ok) { showBoardStatus(data.error || 'Post failed.', 'error'); return; }
+    document.getElementById('board-text').value = '';
+    document.getElementById('board-char-count').textContent = '0 / 500';
+    showBoardStatus('✓ Posted!', 'success');
+    lsSet('dnq_player_name', name);
+    loadPosts();
+  } catch(e) { showBoardStatus('Post failed. Try again.', 'error'); }
+}
+
+function showBoardStatus(msg, type) {
+  const el = document.getElementById('board-status');
+  el.style.display = 'block';
+  el.style.color = type === 'error' ? 'var(--red)' : 'var(--green)';
+  el.textContent = msg;
+  setTimeout(() => el.style.display = 'none', 3000);
+}
+
+async function submitContact() {
+  const name = document.getElementById('contact-name').value.trim();
+  const text = document.getElementById('contact-text').value.trim();
+  if (!name) { showContactStatus('Please enter your player name.', 'error'); return; }
+  if (!text)  { showContactStatus('Please write a message.', 'error'); return; }
+  try {
+    const res = await fetch('/api/contact', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ playerName: name, text })
+    });
+    const data = await res.json();
+    if (!res.ok) { showContactStatus(data.error || 'Send failed.', 'error'); return; }
+    document.getElementById('contact-text').value = '';
+    showContactStatus('✓ Message sent to the editor!', 'success');
+    lsSet('dnq_player_name', name);
+  } catch(e) { showContactStatus('Send failed. Try again.', 'error'); }
+}
+
+function showContactStatus(msg, type) {
+  const el = document.getElementById('contact-status');
+  el.style.display = 'block';
+  el.style.color = type === 'error' ? 'var(--red)' : 'var(--green)';
+  el.textContent = msg;
+}
+
+
 // ─── Saved news sites (server-side) ───────────────────────────────────────
 async function saveSites() {
   const val = document.getElementById('urls-input').value.trim();
@@ -1860,6 +2352,8 @@ async function refreshAdminPreviews() {
   // Load saved news sites from server
   await loadSavedSites();
   loadRSSStatus();
+  loadAdminMessages();
+  loadAdminPosts();
 
   // Archive count
   const archive = getArchive();
@@ -1923,7 +2417,7 @@ async function generateQuestions() {
       const rssData = await rssRes.json();
       if (rssData.items && rssData.items.length > 0) {
         rssContent = rssData.items.map(item =>
-          `SOURCE: ${item.source}\nHEADLINE: ${item.title}\nSUMMARY: ${item.description}\nDATE: ${item.pubDate}`
+          `SOURCE: ${item.source}\nHEADLINE: ${item.title}\nSUMMARY: ${item.description}\nURL: ${item.link}\nDATE: ${item.pubDate}`
         ).join('\n\n---\n\n');
       }
     }
@@ -1996,16 +2490,30 @@ function showRawDebug(text) {
 
 function buildGenerationPrompt(urlList, manualText, archiveNote, rssContent) {
   const manualBlock = manualText
-    ? 'USE THIS ARTICLE TEXT AS YOUR PRIMARY SOURCE:\n' + manualText.slice(0, 6000)
+    ? 'MANUALLY PROVIDED ARTICLE TEXT (use as additional source):\n' + manualText.slice(0, 4000)
     : '';
 
-  const sourceBlock = manualBlock
-    ? manualBlock
-    : `Search for and read the most recent articles from these Baltimore news websites, then generate questions from what you find:\n${urlList.join('\n')}`;
+  const rssBlock = rssContent
+    ? 'REAL ARTICLES FETCHED FROM BALTIMORE NEWS RSS FEEDS TODAY — use ONLY these as your source material:\n\n' + rssContent
+    : '';
+
+  const fallback = !rssBlock && !manualBlock
+    ? `Search for and read the most recent articles from these Baltimore news websites:\n${urlList.join('\n')}`
+    : '';
 
   return `You are writing questions for a LOCAL NEWS QUIZ about Baltimore, Maryland.
 
-${sourceBlock}
+CRITICAL INSTRUCTIONS:
+- Base EVERY question on one of the specific articles provided below
+- Use the exact sourceUrl from each article as the sourceUrl in your JSON output
+- Do NOT use your training knowledge or invent stories — only use the articles below
+- Do NOT use old or historical stories — only stories from the provided list
+
+${rssBlock}
+
+${manualBlock}
+
+${fallback}
 
 ${archiveNote ? 'PREVIOUSLY USED TOPICS — do not repeat these:\n' + archiveNote : ''}
 
@@ -2095,7 +2603,11 @@ function showDraftPreview(questions) {
       ${optionsHtml}
       <div class="q-edit-label">EXPLANATION</div>
       <input type="text" value="${escHtml(q.explanation || '')}" oninput="updateDraftExplanation(${i}, this.value)">
-      ${q.sourceUrl ? `<div style="font-family:'Courier Prime',monospace;font-size:10px;color:var(--muted);margin-top:8px;word-break:break-all;">🔗 ${escHtml(q.sourceUrl)}</div>` : ''}
+      <div class="q-edit-label">SOURCE URL</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <input type="text" value="${escHtml(q.sourceUrl || '')}" oninput="updateDraftSourceUrl(${i}, this.value)" style="flex:1;font-size:11px;">
+        ${q.sourceUrl ? `<a href="${escHtml(q.sourceUrl)}" target="_blank" style="font-family:'Courier Prime',monospace;font-size:11px;color:var(--blue);white-space:nowrap;">🔗 Open</a>` : ''}
+      </div>
     </div>`;
   });
   document.getElementById('q-preview-list').innerHTML = html;
@@ -2118,6 +2630,10 @@ function updateDraftCorrect(i, oi) {
 function updateDraftExplanation(i, val) {
   const draft = getDraftQuiz();
   if (draft && draft.questions[i]) { draft.questions[i].explanation = val; saveDraftQuiz(draft); }
+}
+function updateDraftSourceUrl(i, val) {
+  const draft = getDraftQuiz();
+  if (draft && draft.questions[i]) { draft.questions[i].sourceUrl = val; saveDraftQuiz(draft); }
 }
 
 function publishQuestions() {
