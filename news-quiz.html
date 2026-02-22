@@ -1881,17 +1881,17 @@ async function loadAdminMessages() {
       badge.textContent = unread + ' new';
     }
     if (msgs.length === 0) {
-      el.innerHTML = '<p style="font-family:'Courier Prime',monospace;font-size:12px;color:var(--muted);">No messages yet.</p>';
+      el.innerHTML = '<p style="font-family:monospace;font-size:12px;color:var(--muted);">No messages yet.</p>';
       return;
     }
     el.innerHTML = msgs.map(m => `
       <div style="background:${m.read ? 'white' : 'var(--cream)'};border:1px solid var(--rule);padding:12px;margin-bottom:8px;">
         <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
-          <strong style="font-family:'Courier Prime',monospace;font-size:12px;">${escHtml(m.playerName)}</strong>
-          <span style="font-family:'Courier Prime',monospace;font-size:10px;color:var(--muted);">${new Date(m.createdAt).toLocaleString()}${m.read ? '' : ' · <strong>NEW</strong>'}</span>
+          <strong style="font-family:monospace;font-size:12px;">${escHtml(m.playerName)}</strong>
+          <span style="font-family:monospace;font-size:10px;color:var(--muted);">${new Date(m.createdAt).toLocaleString()}${m.read ? '' : ' · <strong>NEW</strong>'}</span>
         </div>
         <p style="font-size:13px;margin:0 0 8px;">${escHtml(m.text)}</p>
-        ${!m.read ? `<button onclick="markRead('${m.id}')" style="font-family:'Courier Prime',monospace;font-size:11px;padding:4px 10px;cursor:pointer;">Mark read</button>` : ''}
+        ${!m.read ? `<button onclick="markRead('${m.id}')" style="font-family:monospace;font-size:11px;padding:4px 10px;cursor:pointer;">Mark read</button>` : ''}
       </div>`).join('');
   } catch(e) {
     el.innerHTML = '<p style="color:var(--red);font-size:12px;">Could not load messages.</p>';
@@ -1911,17 +1911,17 @@ async function loadAdminPosts() {
     const data = await res.json();
     const posts = data.posts || [];
     if (posts.length === 0) {
-      el.innerHTML = '<p style="font-family:'Courier Prime',monospace;font-size:12px;color:var(--muted);">No posts yet.</p>';
+      el.innerHTML = '<p style="font-family:monospace;font-size:12px;color:var(--muted);">No posts yet.</p>';
       return;
     }
     el.innerHTML = posts.map(p => `
       <div style="background:white;border:1px solid var(--rule);padding:12px;margin-bottom:8px;display:flex;gap:12px;align-items:flex-start;">
         <div style="flex:1;">
-          <strong style="font-family:'Courier Prime',monospace;font-size:12px;">${escHtml(p.playerName)}</strong>
-          <span style="font-family:'Courier Prime',monospace;font-size:10px;color:var(--muted);margin-left:8px;">${new Date(p.createdAt).toLocaleString()}</span>
+          <strong style="font-family:monospace;font-size:12px;">${escHtml(p.playerName)}</strong>
+          <span style="font-family:monospace;font-size:10px;color:var(--muted);margin-left:8px;">${new Date(p.createdAt).toLocaleString()}</span>
           <p style="font-size:13px;margin:4px 0 0;">${escHtml(p.text)}</p>
         </div>
-        <button onclick="deletePost('${p.id}')" style="font-family:'Courier Prime',monospace;font-size:11px;padding:4px 10px;background:var(--red);color:white;border:none;cursor:pointer;white-space:nowrap;">Delete</button>
+        <button onclick="deletePost('${p.id}')" style="font-family:monospace;font-size:11px;padding:4px 10px;background:var(--red);color:white;border:none;cursor:pointer;white-space:nowrap;">Delete</button>
       </div>`).join('');
   } catch(e) {
     el.innerHTML = '<p style="color:var(--red);font-size:12px;">Could not load posts.</p>';
@@ -1946,15 +1946,15 @@ async function loadAdminMessages() {
     const unread = msgs.filter(m => !m.read).length;
     const badge = document.getElementById('unread-badge');
     if (badge) { badge.style.display = unread > 0 ? 'inline' : 'none'; badge.textContent = unread + ' new'; }
-    if (msgs.length === 0) { el.innerHTML = '<p style="font-family:\'Courier Prime\',monospace;font-size:12px;color:var(--muted);">No messages yet.</p>'; return; }
+    if (msgs.length === 0) { el.innerHTML = '<p style="font-family:courier,monospace;font-size:12px;color:var(--muted);">No messages yet.</p>'; return; }
     el.innerHTML = msgs.map(m => `
       <div style="background:${m.read ? 'white' : 'var(--cream)'};border:1px solid var(--rule);padding:12px;margin-bottom:8px;">
         <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
-          <strong style="font-family:'Courier Prime',monospace;font-size:12px;">${escHtml(m.playerName)}</strong>
-          <span style="font-family:'Courier Prime',monospace;font-size:10px;color:var(--muted);">${new Date(m.createdAt).toLocaleString()}${m.read ? '' : ' · NEW'}</span>
+          <strong style="font-family:monospace;font-size:12px;">${escHtml(m.playerName)}</strong>
+          <span style="font-family:monospace;font-size:10px;color:var(--muted);">${new Date(m.createdAt).toLocaleString()}${m.read ? '' : ' · NEW'}</span>
         </div>
         <p style="font-size:13px;margin:0 0 8px;">${escHtml(m.text)}</p>
-        ${!m.read ? `<button onclick="markRead('${m.id}')" style="font-family:'Courier Prime',monospace;font-size:11px;padding:4px 10px;cursor:pointer;">Mark read</button>` : ''}
+        ${!m.read ? `<button onclick="markRead('${m.id}')" style="font-family:monospace;font-size:11px;padding:4px 10px;cursor:pointer;">Mark read</button>` : ''}
       </div>`).join('');
   } catch(e) { el.innerHTML = '<p style="color:var(--red);font-size:12px;">Could not load messages.</p>'; }
 }
@@ -1971,15 +1971,15 @@ async function loadAdminPosts() {
     const res = await fetch('/api/posts');
     const data = await res.json();
     const posts = data.posts || [];
-    if (posts.length === 0) { el.innerHTML = '<p style="font-family:\'Courier Prime\',monospace;font-size:12px;color:var(--muted);">No posts yet.</p>'; return; }
+    if (posts.length === 0) { el.innerHTML = '<p style="font-family:courier,monospace;font-size:12px;color:var(--muted);">No posts yet.</p>'; return; }
     el.innerHTML = posts.map(p => `
       <div style="background:white;border:1px solid var(--rule);padding:12px;margin-bottom:8px;display:flex;gap:12px;align-items:flex-start;">
         <div style="flex:1;">
-          <strong style="font-family:'Courier Prime',monospace;font-size:12px;">${escHtml(p.playerName)}</strong>
-          <span style="font-family:'Courier Prime',monospace;font-size:10px;color:var(--muted);margin-left:8px;">${new Date(p.createdAt).toLocaleString()}</span>
+          <strong style="font-family:monospace;font-size:12px;">${escHtml(p.playerName)}</strong>
+          <span style="font-family:monospace;font-size:10px;color:var(--muted);margin-left:8px;">${new Date(p.createdAt).toLocaleString()}</span>
           <p style="font-size:13px;margin:4px 0 0;">${escHtml(p.text)}</p>
         </div>
-        <button onclick="deletePost('${p.id}')" style="font-family:'Courier Prime',monospace;font-size:11px;padding:4px 10px;background:var(--red);color:white;border:none;cursor:pointer;white-space:nowrap;">Delete</button>
+        <button onclick="deletePost('${p.id}')" style="font-family:monospace;font-size:11px;padding:4px 10px;background:var(--red);color:white;border:none;cursor:pointer;white-space:nowrap;">Delete</button>
       </div>`).join('');
   } catch(e) { el.innerHTML = '<p style="color:var(--red);font-size:12px;">Could not load posts.</p>'; }
 }
@@ -2023,24 +2023,24 @@ document.addEventListener('DOMContentLoaded', () => {
 async function loadPosts() {
   const list = document.getElementById('posts-list');
   if (!list) return;
-  list.innerHTML = '<p style="font-family:'Courier Prime',monospace;font-size:12px;color:var(--muted);">Loading posts…</p>';
+  list.innerHTML = '<p style="font-family:monospace;font-size:12px;color:var(--muted);">Loading posts…</p>';
   try {
     const res = await fetch('/api/posts');
     const data = await res.json();
     if (!data.posts || data.posts.length === 0) {
-      list.innerHTML = '<p style="font-family:'Courier Prime',monospace;font-size:13px;color:var(--muted);text-align:center;padding:20px;">No posts yet — be the first!</p>';
+      list.innerHTML = '<p style="font-family:monospace;font-size:13px;color:var(--muted);text-align:center;padding:20px;">No posts yet — be the first!</p>';
       return;
     }
     list.innerHTML = data.posts.map(p => `
       <div style="background:white;border:1px solid var(--rule);padding:14px;margin-bottom:10px;">
         <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">
-          <strong style="font-family:'Courier Prime',monospace;font-size:13px;">${escHtml(p.playerName)}</strong>
-          <span style="font-family:'Courier Prime',monospace;font-size:10px;color:var(--muted);">${new Date(p.createdAt).toLocaleString()}</span>
+          <strong style="font-family:monospace;font-size:13px;">${escHtml(p.playerName)}</strong>
+          <span style="font-family:monospace;font-size:10px;color:var(--muted);">${new Date(p.createdAt).toLocaleString()}</span>
         </div>
         <p style="font-size:14px;line-height:1.5;margin:0;">${escHtml(p.text)}</p>
       </div>`).join('');
   } catch(e) {
-    list.innerHTML = '<p style="color:var(--red);font-family:'Courier Prime',monospace;font-size:12px;">Could not load posts.</p>';
+    list.innerHTML = '<p style="color:var(--red);font-family:monospace;font-size:12px;">Could not load posts.</p>';
   }
 }
 
@@ -2132,24 +2132,24 @@ function showContactForm() {
 async function loadPosts() {
   const list = document.getElementById('posts-list');
   if (!list) return;
-  list.innerHTML = '<p style="font-family:'Courier Prime',monospace;font-size:12px;color:var(--muted);">Loading…</p>';
+  list.innerHTML = '<p style="font-family:monospace;font-size:12px;color:var(--muted);">Loading…</p>';
   try {
     const res = await fetch('/api/posts');
     const data = await res.json();
     if (!data.posts || data.posts.length === 0) {
-      list.innerHTML = '<p style="font-family:'Courier Prime',monospace;font-size:13px;color:var(--muted);text-align:center;padding:20px;">No posts yet — be the first!</p>';
+      list.innerHTML = '<p style="font-family:monospace;font-size:13px;color:var(--muted);text-align:center;padding:20px;">No posts yet — be the first!</p>';
       return;
     }
     list.innerHTML = data.posts.map(p => `
       <div style="background:white;border:1px solid var(--rule);padding:14px;margin-bottom:10px;">
         <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">
-          <strong style="font-family:'Courier Prime',monospace;font-size:13px;">${escHtml(p.playerName)}</strong>
-          <span style="font-family:'Courier Prime',monospace;font-size:10px;color:var(--muted);">${new Date(p.createdAt).toLocaleString()}</span>
+          <strong style="font-family:monospace;font-size:13px;">${escHtml(p.playerName)}</strong>
+          <span style="font-family:monospace;font-size:10px;color:var(--muted);">${new Date(p.createdAt).toLocaleString()}</span>
         </div>
         <p style="font-size:14px;line-height:1.5;margin:0;">${escHtml(p.text)}</p>
       </div>`).join('');
   } catch(e) {
-    list.innerHTML = '<p style="color:var(--red);font-family:'Courier Prime',monospace;font-size:12px;">Could not load posts.</p>';
+    list.innerHTML = '<p style="color:var(--red);font-family:monospace;font-size:12px;">Could not load posts.</p>';
   }
 }
 
@@ -2230,12 +2230,12 @@ function showContactForm() {
 async function loadPosts() {
   const list = document.getElementById('posts-list');
   if (!list) return;
-  list.innerHTML = '<p style="font-family:\'Courier Prime\',monospace;font-size:12px;color:var(--muted);">Loading…</p>';
+  list.innerHTML = '<p style="font-family:courier,monospace;font-size:12px;color:var(--muted);">Loading…</p>';
   try {
     const res = await fetch('/api/posts');
     const data = await res.json();
     if (!data.posts || data.posts.length === 0) {
-      list.innerHTML = '<p style="font-family:\'Courier Prime\',monospace;font-size:13px;color:var(--muted);text-align:center;padding:20px;">No posts yet — be the first!</p>';
+      list.innerHTML = '<p style="font-family:courier,monospace;font-size:13px;color:var(--muted);text-align:center;padding:20px;">No posts yet — be the first!</p>';
       return;
     }
     list.innerHTML = data.posts.map(p => `
@@ -2369,7 +2369,7 @@ async function refreshAdminPreviews() {
   const today = getTodayQuiz();
   if (today && today.questions) {
     document.getElementById('published-preview').innerHTML =
-      `<p style="color:var(--green);font-family:'Courier Prime',monospace;font-size:12px;margin-bottom:8px;">✓ ${today.questions.length} questions published for ${todayStr()}</p>` +
+      `<p style="color:var(--green);font-family:monospace;font-size:12px;margin-bottom:8px;">✓ ${today.questions.length} questions published for ${todayStr()}</p>` +
       today.questions.slice(0,3).map((q,i) => `<div class="q-review-card"><div class="q-meta"><span>Q${i+1}</span></div><div class="q-preview">${escHtml(q.question.slice(0,100))}…</div></div>`).join('');
   } else {
     document.getElementById('published-preview').innerHTML = `<p style="font-size:13px;color:var(--muted);font-style:italic;">No quiz published today.</p>`;
@@ -2606,7 +2606,7 @@ function showDraftPreview(questions) {
       <div class="q-edit-label">SOURCE URL</div>
       <div style="display:flex;align-items:center;gap:8px;">
         <input type="text" value="${escHtml(q.sourceUrl || '')}" oninput="updateDraftSourceUrl(${i}, this.value)" style="flex:1;font-size:11px;">
-        ${q.sourceUrl ? `<a href="${escHtml(q.sourceUrl)}" target="_blank" style="font-family:'Courier Prime',monospace;font-size:11px;color:var(--blue);white-space:nowrap;">🔗 Open</a>` : ''}
+        ${q.sourceUrl ? `<a href="${escHtml(q.sourceUrl)}" target="_blank" style="font-family:monospace;font-size:11px;color:var(--blue);white-space:nowrap;">🔗 Open</a>` : ''}
       </div>
     </div>`;
   });
