@@ -14,6 +14,7 @@
     --red: #c0392b;
     --gold: #b8860b;
     --gold-light: #f0c040;
+
     --rule: #2c1f0e;
     --muted: #6b5f4e;
     --green: #1a6b3c;
@@ -72,7 +73,7 @@
     font-family: 'Courier Prime', monospace;
     font-size: 10px;
     letter-spacing: 3px;
-    color: var(--muted);
+    color: rgba(255,255,255,0.65);
     margin-top: 4px;
     text-transform: uppercase;
   }
@@ -1096,6 +1097,7 @@
     <div class="result-actions">
       <button class="btn-primary" onclick="showLeaderboard()">View Leaderboard ▸</button>
       <button class="btn-secondary" onclick="showScreen('screen-register')">Play Again</button>
+      <button class="btn-secondary" onclick="showCommunity()">💬 Community Board</button>
     </div>
   </div>
 
@@ -2416,7 +2418,14 @@ async function generateQuestions() {
     if (rssRes.ok) {
       const rssData = await rssRes.json();
       if (rssData.items && rssData.items.length > 0) {
-        rssContent = rssData.items.map(item =>
+        // Cap at 3 articles per source so Claude draws from many sites
+        const sourceCounts = {};
+        const cappedItems = rssData.items.filter(item => {
+          const domain = item.source || 'unknown';
+          sourceCounts[domain] = (sourceCounts[domain] || 0) + 1;
+          return sourceCounts[domain] <= 3;
+        });
+        rssContent = cappedItems.map(item =>
           `SOURCE: ${item.source}\nHEADLINE: ${item.title}\nSUMMARY: ${item.description}\nURL: ${item.link}\nDATE: ${item.pubDate}`
         ).join('\n\n---\n\n');
       }
@@ -2508,6 +2517,8 @@ CRITICAL INSTRUCTIONS:
 - Use the exact sourceUrl from each article as the sourceUrl in your JSON output
 - Do NOT use your training knowledge or invent stories — only use the articles below
 - Do NOT use old or historical stories — only stories from the provided list
+- Use a DIFFERENT article for each question — never use the same article twice
+- Spread questions across as many different sources as possible
 
 ${rssBlock}
 
