@@ -1039,7 +1039,7 @@
       <button class="btn-primary" onclick="registerPlayer()">Begin ▸</button>
     </div>
     <p style="font-size:13px; color:var(--muted); margin-top:8px;">Your name is saved across visits. Your score accumulates over time.</p>
-    <div id="reg-error" style="color:var(--red);font-family:'Courier Prime',monospace;font-size:13px;margin-top:8px;display:none;"></div>
+    <div id="reg-error" style="color:var(--red);font-family:monospace,monospace;font-size:13px;margin-top:8px;display:none;"></div>
     <div style="margin-top:30px;">
       <button class="btn-secondary" onclick="showLeaderboard()">View Leaderboard ▸</button>
     </div>
@@ -1064,7 +1064,7 @@
     <div class="score-subtext">points earned so far</div>
     <p>You've answered the day's news — from the straightforward to the substantive. But the hardest question still awaits.</p>
     <div class="interstitial-rule"></div>
-    <div class="pulse-text" style="font-family:'Courier Prime',monospace;font-size:12px;letter-spacing:3px;color:var(--gold-light);margin-bottom:28px;">THE BONUS ROUND AWAITS</div>
+    <div class="pulse-text" style="font-family:monospace,monospace;font-size:12px;letter-spacing:3px;color:var(--gold-light);margin-bottom:28px;">THE BONUS ROUND AWAITS</div>
     <button class="btn-primary" style="font-size:14px;letter-spacing:3px;padding:18px 40px;" onclick="startBonusRound()">I'm Ready. Take Me In. ▸</button>
   </div>
 
@@ -1116,19 +1116,19 @@
   <div id="screen-community" class="screen">
     <div class="edition-rule">Community Board</div>
     <h2 style="margin-bottom:4px;">Player Discussion</h2>
-    <p style="font-family:'Courier Prime',monospace;font-size:12px;color:var(--muted);margin-bottom:20px;">Post reactions, debate answers, tip off fellow players.</p>
+    <p style="font-family:monospace,monospace;font-size:12px;color:var(--muted);margin-bottom:20px;">Post reactions, debate answers, tip off fellow players.</p>
 
     <!-- Post form -->
     <div style="background:white;border:1px solid var(--rule);padding:16px;margin-bottom:20px;">
-      <div style="font-family:'Courier Prime',monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:8px;">YOUR PLAYER NAME</div>
-      <input id="board-name" type="text" maxlength="40" placeholder="Enter your player name…" style="width:100%;font-family:'Source Serif 4',serif;font-size:14px;padding:8px;border:1px solid #ccc;margin-bottom:12px;box-sizing:border-box;">
-      <div style="font-family:'Courier Prime',monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:8px;">YOUR MESSAGE</div>
-      <textarea id="board-text" maxlength="500" placeholder="What's on your mind?" style="width:100%;font-family:'Source Serif 4',serif;font-size:14px;padding:8px;border:1px solid #ccc;min-height:80px;resize:vertical;box-sizing:border-box;"></textarea>
+      <div style="font-family:monospace,monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:8px;">YOUR PLAYER NAME</div>
+      <input id="board-name" type="text" maxlength="40" placeholder="Enter your player name…" style="width:100%;font-family:serif,serif;font-size:14px;padding:8px;border:1px solid #ccc;margin-bottom:12px;box-sizing:border-box;">
+      <div style="font-family:monospace,monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:8px;">YOUR MESSAGE</div>
+      <textarea id="board-text" maxlength="500" placeholder="What's on your mind?" style="width:100%;font-family:serif,serif;font-size:14px;padding:8px;border:1px solid #ccc;min-height:80px;resize:vertical;box-sizing:border-box;"></textarea>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
-        <span id="board-char-count" style="font-family:'Courier Prime',monospace;font-size:11px;color:var(--muted);">0 / 500</span>
-        <button onclick="submitPost()" style="font-family:'Courier Prime',monospace;font-size:12px;letter-spacing:1px;padding:8px 20px;background:var(--ink);color:var(--paper);border:none;cursor:pointer;">POST ▸</button>
+        <span id="board-char-count" style="font-family:monospace,monospace;font-size:11px;color:var(--muted);">0 / 500</span>
+        <button onclick="submitPost()" style="font-family:monospace;font-size:12px;letter-spacing:1px;padding:8px 20px;background:var(--ink);color:var(--paper);border:none;cursor:pointer;">POST ▸</button>
       </div>
-      <div id="board-status" style="font-family:'Courier Prime',monospace;font-size:12px;margin-top:8px;display:none;"></div>
+      <div id="board-status" style="font-family:monospace,monospace;font-size:12px;margin-top:8px;display:none;"></div>
     </div>
 
     <!-- Posts list -->
@@ -1144,17 +1144,17 @@
   <div id="screen-contact" class="screen">
     <div class="edition-rule">Private Message</div>
     <h2 style="margin-bottom:4px;">Message the Editor</h2>
-    <p style="font-family:'Courier Prime',monospace;font-size:12px;color:var(--muted);margin-bottom:20px;">Your message goes directly to the editor. Your name and email are never shared.</p>
+    <p style="font-family:monospace,monospace;font-size:12px;color:var(--muted);margin-bottom:20px;">Your message goes directly to the editor. Your name and email are never shared.</p>
 
     <div style="background:white;border:1px solid var(--rule);padding:16px;">
-      <div style="font-family:'Courier Prime',monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:8px;">YOUR PLAYER NAME</div>
-      <input id="contact-name" type="text" maxlength="40" placeholder="Enter your player name…" style="width:100%;font-family:'Source Serif 4',serif;font-size:14px;padding:8px;border:1px solid #ccc;margin-bottom:12px;box-sizing:border-box;">
-      <div style="font-family:'Courier Prime',monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:8px;">YOUR MESSAGE</div>
-      <textarea id="contact-text" maxlength="1000" placeholder="What would you like to tell the editor?" style="width:100%;font-family:'Source Serif 4',serif;font-size:14px;padding:8px;border:1px solid #ccc;min-height:120px;resize:vertical;box-sizing:border-box;"></textarea>
+      <div style="font-family:monospace,monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:8px;">YOUR PLAYER NAME</div>
+      <input id="contact-name" type="text" maxlength="40" placeholder="Enter your player name…" style="width:100%;font-family:serif,serif;font-size:14px;padding:8px;border:1px solid #ccc;margin-bottom:12px;box-sizing:border-box;">
+      <div style="font-family:monospace,monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:8px;">YOUR MESSAGE</div>
+      <textarea id="contact-text" maxlength="1000" placeholder="What would you like to tell the editor?" style="width:100%;font-family:serif,serif;font-size:14px;padding:8px;border:1px solid #ccc;min-height:120px;resize:vertical;box-sizing:border-box;"></textarea>
       <div style="display:flex;justify-content:flex-end;margin-top:12px;">
-        <button onclick="submitContact()" style="font-family:'Courier Prime',monospace;font-size:12px;letter-spacing:1px;padding:8px 20px;background:var(--ink);color:var(--paper);border:none;cursor:pointer;">SEND MESSAGE ▸</button>
+        <button onclick="submitContact()" style="font-family:monospace;font-size:12px;letter-spacing:1px;padding:8px 20px;background:var(--ink);color:var(--paper);border:none;cursor:pointer;">SEND MESSAGE ▸</button>
       </div>
-      <div id="contact-status" style="font-family:'Courier Prime',monospace;font-size:12px;margin-top:8px;display:none;"></div>
+      <div id="contact-status" style="font-family:monospace,monospace;font-size:12px;margin-top:8px;display:none;"></div>
     </div>
 
     <div style="margin-top:20px;">
@@ -1168,18 +1168,18 @@
 
     <div class="admin-section">
       <h3>Step 1 — Paste News Article URLs</h3>
-      <div id="freshness-notice" style="background:#fff8e0;border:1px solid var(--gold);padding:10px 14px;margin-bottom:12px;font-family:'Courier Prime',monospace;font-size:12px;color:#7a5f00;line-height:1.6;">
+      <div id="freshness-notice" style="background:#fff8e0;border:1px solid var(--gold);padding:10px 14px;margin-bottom:12px;font-family:monospace,monospace;font-size:12px;color:#7a5f00;line-height:1.6;">
         <strong>⏱ Freshness filter is active.</strong> Claude will automatically skip any article published more than 24 hours ago and will not generate questions from stale content. Paste only links to <strong>today's</strong> articles for best results. If Claude skips articles, you'll see a warning below.
       </div>
       <p style="font-size:13px;color:var(--muted);margin-bottom:8px;">Enter your news websites once — they'll be saved and pre-filled every time you open the admin panel.</p>
       <textarea class="url-input-area" id="urls-input" placeholder="Paste one news website URL per line…&#10;https://baltimorebrew.com&#10;https://marylandmatters.org&#10;…"></textarea>
       <div style="display:flex;align-items:center;gap:12px;margin-top:8px;">
         <button class="btn-secondary" style="font-size:11px;padding:7px 14px;" onclick="saveSites()">💾 Save Sites</button>
-        <span id="sites-saved-msg" style="font-family:'Courier Prime',monospace;font-size:11px;color:var(--green);display:none;">✓ Sites saved!</span>
+        <span id="sites-saved-msg" style="font-family:monospace,monospace;font-size:11px;color:var(--green);display:none;">✓ Sites saved!</span>
       </div>
 
       <details style="margin-top:14px;">
-        <summary style="font-family:'Courier Prime',monospace;font-size:12px;letter-spacing:1px;cursor:pointer;color:var(--muted);">▸ Paywalled or JS-only site? Paste article text directly instead</summary>
+        <summary style="font-family:monospace,monospace;font-size:12px;letter-spacing:1px;cursor:pointer;color:var(--muted);">▸ Paywalled or JS-only site? Paste article text directly instead</summary>
         <div style="margin-top:10px;">
           <p style="font-size:13px;color:var(--muted);margin-bottom:6px;">If a site blocks automated fetching, copy-paste the article text here (one article after another, separated by a blank line). The URL box above can be left empty.</p>
           <textarea class="url-input-area" id="manual-text-input" placeholder="Paste full article text here…&#10;&#10;(Date: February 18, 2026 — include the date so Claude can verify freshness)" style="min-height:160px;"></textarea>
@@ -1190,7 +1190,7 @@
         <button class="btn-secondary" id="refresh-btn" onclick="refreshRSS()" style="font-size:12px;padding:8px 16px;">↻ Refresh Articles</button>
         <button class="btn-generate" id="gen-btn" onclick="generateQuestions()">⚙ Generate Questions</button>
       </div>
-      <div id="rss-status" style="font-family:'Courier Prime',monospace;font-size:11px;color:var(--muted);margin-top:8px;"></div>
+      <div id="rss-status" style="font-family:monospace,monospace;font-size:11px;color:var(--muted);margin-top:8px;"></div>
       <div class="status-msg" id="gen-status" style="white-space:pre-wrap;"></div>
       <div class="generating-overlay" id="gen-overlay">
         <span class="spinner spin">⚙</span>
@@ -1199,8 +1199,8 @@
 
       <!-- Raw API response debug panel -->
       <div id="raw-debug" style="display:none;margin-top:16px;background:#f0f0f0;border:1px solid #ccc;padding:12px;">
-        <div style="font-family:'Courier Prime',monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:6px;">▾ RAW CLAUDE RESPONSE (for debugging)</div>
-        <pre id="raw-debug-text" style="font-family:'Courier Prime',monospace;font-size:11px;white-space:pre-wrap;word-break:break-all;max-height:200px;overflow:auto;color:#333;"></pre>
+        <div style="font-family:monospace,monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:6px;">▾ RAW CLAUDE RESPONSE (for debugging)</div>
+        <pre id="raw-debug-text" style="font-family:monospace,monospace;font-size:11px;white-space:pre-wrap;word-break:break-all;max-height:200px;overflow:auto;color:#333;"></pre>
       </div>
     </div>
 
@@ -2547,10 +2547,6 @@ OUTPUT: Respond with ONLY valid JSON. No preamble, no explanation, no markdown f
   ]
 }
 
-difficulty: "easy" | "medium" | "hard" | "bonus"
-correctIndex: 0-based (0=A, 1=B, 2=C, 3=D)
-Generate exactly 11 questions.\`
-
 difficulty values: "easy" | "medium" | "hard" | "bonus"
 correctIndex: 0-based integer (0=A, 1=B, 2=C, 3=D)
 Generate exactly 11 questions.`;
@@ -2558,7 +2554,7 @@ Generate exactly 11 questions.`;
 
 function parseQuestions(text) {
   // Strip markdown fences if present
-  let clean = text.replace(/```json|```/g, '').trim();
+  const bt = String.fromCharCode(96); const fence = bt+bt+bt; let clean = text.split(fence+'json').join('').split(fence).join('').trim();
   // Find JSON object
   const start = clean.indexOf('{');
   const end = clean.lastIndexOf('}');
@@ -2568,7 +2564,7 @@ function parseQuestions(text) {
 
   // Surface stale article warnings to the admin UI
   if (parsed.staleWarning && parsed.staleArticles && parsed.staleArticles.length > 0) {
-    const staleMsg = `⚠ ${parsed.staleArticles.length} article(s) were skipped as older than 24 hours:\n• ${parsed.staleArticles.join('\n• ')}`;
+    const staleMsg = 'Warning: ' + parsed.staleArticles.length + ' article(s) were skipped as older than 24 hours: ' + parsed.staleArticles.join(', ');
     setStatus(staleMsg, 'error');
   }
 
@@ -2583,32 +2579,35 @@ function showDraftPreview(questions) {
     const optLetters = ['A','B','C','D'];
     let optionsHtml = '<div class="q-options-grid">';
     q.options.forEach((opt, oi) => {
-      optionsHtml += `<div class="q-option-row">
-        <input type="radio" name="correct-${i}" id="correct-${i}-${oi}" value="${oi}" ${oi === q.correctIndex ? 'checked' : ''} onchange="updateDraftCorrect(${i}, ${oi})">
-        <label for="correct-${i}-${oi}">${optLetters[oi]}</label>
-        <input type="text" value="${escHtml(opt)}" oninput="updateDraftOption(${i}, ${oi}, this.value)" style="flex:1;">
-      </div>`;
+      optionsHtml += '<div class="q-option-row">' +
+        '<input type="radio" name="correct-' + i + '" id="correct-' + i + '-' + oi + '" value="' + oi + '" ' + (oi === q.correctIndex ? 'checked' : '') + ' onchange="updateDraftCorrect(' + i + ', ' + oi + ')">' +
+        '<label for="correct-' + i + '-' + oi + '">' + optLetters[oi] + '</label>' +
+        '<input type="text" value="' + escHtml(opt) + '" oninput="updateDraftOption(' + i + ', ' + oi + ', this.value)" style="flex:1;">' +
+        '</div>';
     });
     optionsHtml += '</div>';
 
-    html += `<div class="q-review-card">
-      <div class="q-meta">
-        <span><strong>${i === 10 ? 'BONUS' : ('Q'+(i+1))}</strong></span>
-        <span class="diff-label ${diffMap[diff] || 'easy'}" style="display:inline-block">${diff.toUpperCase()}</span>
-        <span style="margin-left:auto;font-size:10px;color:var(--muted)">Select correct answer with radio button</span>
-      </div>
-      <div class="q-edit-label">QUESTION</div>
-      <textarea oninput="updateDraftQuestion(${i}, this.value)">${escHtml(q.question)}</textarea>
-      <div class="q-edit-label">OPTIONS — click radio button to mark correct answer</div>
-      ${optionsHtml}
-      <div class="q-edit-label">EXPLANATION</div>
-      <input type="text" value="${escHtml(q.explanation || '')}" oninput="updateDraftExplanation(${i}, this.value)">
-      <div class="q-edit-label">SOURCE URL</div>
-      <div style="display:flex;align-items:center;gap:8px;">
-        <input type="text" value="${escHtml(q.sourceUrl || '')}" oninput="updateDraftSourceUrl(${i}, this.value)" style="flex:1;font-size:11px;">
-        ${q.sourceUrl ? `<a href="${escHtml(q.sourceUrl)}" target="_blank" style="font-family:monospace;font-size:11px;color:var(--blue);white-space:nowrap;">🔗 Open</a>` : ''}
-      </div>
-    </div>`;
+    const sourceLink = q.sourceUrl ? '<a href="' + escHtml(q.sourceUrl) + '" target="_blank" style="font-family:monospace;font-size:11px;color:var(--blue);white-space:nowrap;">Open</a>' : '';
+    const qLabel = i === 10 ? 'BONUS' : ('Q'+(i+1));
+    const diffClass = diffMap[diff] || 'easy';
+    html += '<div class="q-review-card">' +
+      '<div class="q-meta">' +
+        '<span><strong>' + qLabel + '</strong></span>' +
+        '<span class="diff-label ' + diffClass + '" style="display:inline-block">' + diff.toUpperCase() + '</span>' +
+        '<span style="margin-left:auto;font-size:10px;color:var(--muted)">Select correct answer with radio button</span>' +
+      '</div>' +
+      '<div class="q-edit-label">QUESTION</div>' +
+      '<textarea oninput="updateDraftQuestion(' + i + ', this.value)">' + escHtml(q.question) + '</textarea>' +
+      '<div class="q-edit-label">OPTIONS — click radio button to mark correct answer</div>' +
+      optionsHtml +
+      '<div class="q-edit-label">EXPLANATION</div>' +
+      '<input type="text" value="' + escHtml(q.explanation || '') + '" oninput="updateDraftExplanation(' + i + ', this.value)">' +
+      '<div class="q-edit-label">SOURCE URL</div>' +
+      '<div style="display:flex;align-items:center;gap:8px;">' +
+        '<input type="text" value="' + escHtml(q.sourceUrl || '') + '" oninput="updateDraftSourceUrl(' + i + ', this.value)" style="flex:1;font-size:11px;">' +
+        sourceLink +
+      '</div>' +
+    '</div>';
   });
   document.getElementById('q-preview-list').innerHTML = html;
   document.getElementById('preview-section').style.display = 'block';
@@ -2644,7 +2643,7 @@ function publishQuestions() {
   saveTodayQuiz(draft);
   addToArchive(draft.questions);
   clearDraftQuiz();
-  setStatus(`✓ Quiz published for ${todayStr()}! Players can now play.`, 'success');
+  setStatus('Quiz published for ' + todayStr() + '! Players can now play.', 'success');
   document.getElementById('preview-section').style.display = 'none';
   refreshAdminPreviews();
 }
