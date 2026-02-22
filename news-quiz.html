@@ -1260,8 +1260,12 @@ const CLAUDE_MODEL = 'claude-sonnet-4-20250514';
 // Point values
 const POINTS = { easy: 10, medium: 20, hard: 30, bonus: 50 };
 
+function todayStr() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 // ═══════════════════════════════════════════════════════
-//  STATE (backed by localStorage via window.storage shim)
+//  STATE
 // ═══════════════════════════════════════════════════════
 let state = {
   playerName: '',
@@ -1271,10 +1275,6 @@ let state = {
   phase: 'regular', // regular | bonus | done
   todayKey: todayStr()
 };
-
-function todayStr() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 // ─── Storage helpers (localStorage fallback) ───
 function lsGet(key) {
