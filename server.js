@@ -180,6 +180,22 @@ async function fetchAndCacheRSS() {
 // Fetch RSS on startup (after a short delay to let the server settle)
 setTimeout(fetchAndCacheRSS, 5000);
 
+// ── GET /api/rss/debug — show first 3 cached article titles & dates ──
+app.get('/api/rss/debug', (req, res) => {
+  const data = readData();
+  const cache = data.rssCache || { items: [], fetchedAt: null };
+  res.json({
+    fetchedAt: cache.fetchedAt,
+    count: cache.items.length,
+    sample: cache.items.slice(0, 5).map(i => ({
+      title: i.title,
+      pubDate: i.pubDate,
+      source: i.source,
+      link: i.link
+    }))
+  });
+});
+
 // ── GET /api/rss — return cached articles ─────────────────────
 app.get('/api/rss', (req, res) => {
   const data = readData();
