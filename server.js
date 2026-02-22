@@ -85,18 +85,22 @@ function parseRSS(xml) {
 
 // Known RSS feeds for Baltimore news sites
 const BALTIMORE_RSS_FEEDS = {
-  'baltimoresun.com':      'https://www.baltimoresun.com/arcio/rss/',
-  'wbal.com':              'https://www.wbal.com/rss',
-  'wbaltv.com':            'https://www.wbaltv.com/rss',
-  'marylandmatters.org':   'https://marylandmatters.org/feed/',
-  'baltimorebrew.com':     'https://baltimorebrew.com/feed/',
-  'thedailyrecord.com':    'https://thedailyrecord.com/feed/',
-  'wypr.org':              'https://www.wypr.org/rss.xml',
-  'foxbaltimore.com':      'https://foxbaltimore.com/rss',
-  'wmar2news.com':         'https://www.wmar2news.com/rss',
-  'cbsnews.com/baltimore': 'https://www.cbsnews.com/latest/rss/local/wbz',
-  'therealnews.com':       'https://therealnews.com/feed',
-  'technical.ly/baltimore':'https://technical.ly/feed/',
+  'baltimoresun.com':           'https://www.baltimoresun.com/arcio/rss/',
+  'thebaltimorebanner.com':     'https://www.thebaltimorebanner.com/feed/',
+  'baltimorebrew.com':          'https://baltimorebrew.com/feed/',
+  'baltimoretimes-online.com':  'https://baltimoretimes-online.com/feed/',
+  'marylandmatters.org':        'https://marylandmatters.org/feed/',
+  'thedailyrecord.com':         'https://thedailyrecord.com/feed/',
+  'wypr.org':                   'https://www.wypr.org/rss.xml',
+  'foxbaltimore.com':           'https://foxbaltimore.com/rss',
+  'wbaltv.com':                 'https://www.wbaltv.com/feed/rss2/news',
+  'wmar2news.com':              'https://www.wmar2news.com/news/local-news?format=rss',
+  'wbal.com':                   'https://www.wbal.com/rss/news/local',
+  'cbsnews.com/baltimore':      'https://www.cbsnews.com/baltimore/latest/rss/main',
+  'bizjournals.com/baltimore':  'https://www.bizjournals.com/baltimore/feed/news/local.rss',
+  'technical.ly':               'https://technical.ly/feed/',
+  'baltimorefishbowl.com':      'https://baltimorefishbowl.com/feed/',
+  'dailyvoice.com':             'https://dailyvoice.com/maryland/feed/',
 };
 
 // Filter items to last 24 hours
@@ -142,11 +146,33 @@ async function fetchAndCacheRSS() {
   const allItems = [];
   const errors = [];
 
+  // Keywords that indicate a story is local to Baltimore/Central Maryland
+  const LOCAL_KEYWORDS = [
+    'baltimore', 'maryland', 'annapolis', 'towson', 'bethesda', 'silver spring',
+    'columbia', 'ellicott city', 'bowie', 'laurel', 'rockville', 'gaithersburg',
+    'hagerstown', 'frederick', 'salisbury', 'ocean city', 'chesapeake',
+    'orioles', 'ravens', 'terps', 'terrapins', 'shock trauma', 'jhu', 'johns hopkins',
+    'morgan state', 'loyola', 'umbc', 'umd', 'bge', 'mta maryland',
+    'harford', 'howard county', 'anne arundel', 'carroll county', 'prince george'
+  ];
+
+  function isLocalStory(item, site) {
+    // Always trust hyper-local outlets
+    const localSites = ['baltimorebrew', 'baltimoretimes', 'marylandmatters', 'baltimorebanner',
+                        'thedailyrecord', 'baltimorefishbowl', 'bizjournals.com/baltimore'];
+    if (localSites.some(s => site.includes(s))) return true;
+    // For wire-heavy sites like WBAL, filter by keyword
+    const text = ((item.title || '') + ' ' + (item.description || '')).toLowerCase();
+    return LOCAL_KEYWORDS.some(kw => text.includes(kw));
+  }
+
   const fetchWithTimeout = (site, feedUrl) => new Promise(async (resolve) => {
     const timer = setTimeout(() => resolve(), 8000);
     try {
       const xml = await fetchUrl(feedUrl);
-      const items = parseRSS(xml).filter(item => isRecent(item.pubDate));
+      const items = parseRSS(xml)
+        .filter(item => isRecent(item.pubDate))
+        .filter(item => isLocalStory(item, site));
       items.forEach(item => allItems.push({ ...item, source: site }));
     } catch(e) {
       errors.push(`${feedUrl}: ${e.message}`);
