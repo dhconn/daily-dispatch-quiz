@@ -2572,7 +2572,7 @@ function buildGenerationPrompt(urlList, manualText, archiveNote, rssContent) {
     'DIFFICULTY GUIDE:\n' +
     '- easy (Q1-Q4, 10pts): Answerable from the headline. Wrong answers should be clearly different (e.g. "winter storm" vs "hurricane").\n' +
     '- medium (Q5-Q7, 20pts): Requires reading — full names, institutions, key facts. Plausible but distinct wrong answers.\n' +
-    '- hard (Q8-Q10, 30pts): Precise detail — amounts, dates, vote counts. Do NOT use 4 consecutive dates or 4 near-identical names as options.\n' +
+    '- hard (Q8-Q10, 30pts): Precise detail — amounts, dates, vote counts. Do NOT use 4 consecutive dates or 4 near-identical names as options. Do NOT ask about times of day (e.g. "What time does the event start?") — these are trivial details that do not test news knowledge.\n' +
     '- bonus (Q11, 50pts): The single most specific buried detail. Wrong answers should be nearby but clearly distinct.\n\n' +
     'HERE ARE YOUR 11 ASSIGNED ARTICLES:\n\n' +
     (assignedArticles || rssContent) + '\n\n' +
