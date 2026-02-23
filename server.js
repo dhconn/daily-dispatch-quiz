@@ -157,12 +157,14 @@ async function fetchAndCacheRSS() {
 
   // Keywords that indicate a story is local to Baltimore/Central Maryland
   const LOCAL_KEYWORDS = [
-    'baltimore', 'maryland', 'annapolis', 'towson', 'bethesda', 'silver spring',
+    'baltimore', 'maryland', ' md ', 'md\'s', ' md:', 'annapolis', 'towson', 'bethesda', 'silver spring',
     'columbia', 'ellicott city', 'bowie', 'laurel', 'rockville', 'gaithersburg',
     'hagerstown', 'frederick', 'salisbury', 'ocean city', 'chesapeake',
     'orioles', 'ravens', 'terps', 'terrapins', 'shock trauma', 'jhu', 'johns hopkins',
     'morgan state', 'loyola', 'umbc', 'umd', 'bge', 'mta maryland',
-    'harford', 'howard county', 'anne arundel', 'carroll county', 'prince george'
+    'harford', 'howard county', 'anne arundel', 'carroll county', 'prince george',
+    'washington county', 'wicomico', 'worcester', 'somerset', 'dorchester',
+    'kent county', 'queen anne', 'talbot', 'caroline', 'cecil county', 'calvert', 'charles county'
   ];
 
   // URLs that are too sensitive/graphic for a community quiz
@@ -175,6 +177,7 @@ async function fetchAndCacheRSS() {
     'us-rules-supreme-court-colorado-oil-climate-lawsuit',
     'heres-what-to-know-about-the-dhs-funding-shutdown',
     'supreme-court-nra-free-speech-ny-official',
+    'federal-rules-louisiana-ten-commandments-law-schools-appeals',
     // Baltimore Times food article — Claude invariably asks about Atlanta conference detail
     'the-weight-we-carry-food-labor-and-black-womens-bodies-as-living-archives',
   ];
@@ -187,13 +190,13 @@ async function fetchAndCacheRSS() {
     const pureLocalSites = [
       'baltimorebrew', 'baltimoretimes', 'baltimorefishbowl', 'southbmore',
       'bizjournals.com/baltimore', 'technical.ly', 'wypr.org', 'marylandmatters',
-      'baltimorebanner', 'thebanner.com', 'thedailyrecord', 'baltimoresun'
+      'baltimorebanner', 'thebanner.com', 'baltimoresun'
     ];
     if (pureLocalSites.some(s => site.includes(s))) return true;
 
-    // TV stations and wire-heavy outlets — require keyword in title or description
-    const text = ((item.title || '') + ' ' + (item.description || '')).toLowerCase();
-    return LOCAL_KEYWORDS.some(kw => text.includes(kw));
+    // Daily Record and TV stations mix local with national wire — require keyword in title
+    const title = (item.title || '').toLowerCase();
+    return LOCAL_KEYWORDS.some(kw => title.includes(kw)) || title.startsWith('md ');
   }
 
   const fetchWithTimeout = (site, feedUrl) => new Promise(async (resolve) => {
