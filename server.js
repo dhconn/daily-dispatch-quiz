@@ -168,6 +168,9 @@ async function fetchAndCacheRSS() {
   // URLs that are too sensitive/graphic for a community quiz
   const BLACKLISTED_URLS = [
     'university-maryland-police-sexual-misconduct',
+    '/sponsored-content/',
+    '/advertorial/',
+    '/paid-content/',
   ];
 
   function isLocalStory(item, site) {
