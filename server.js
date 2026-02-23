@@ -177,12 +177,17 @@ async function fetchAndCacheRSS() {
     if (BLACKLISTED_URLS.some(b => (item.link || '').includes(b))) return false;
     // These outlets publish ONLY local Baltimore/Maryland content — trust everything
     // Truly hyper-local outlets — every story is Baltimore/Maryland specific
-    // Even hyper-local outlets occasionally syndicate national stories
-    // Always require at least one local keyword in the title or description
-    const text = ((item.title || '') + ' ' + (item.description || '')).toLowerCase();
-    if (!LOCAL_KEYWORDS.some(kw => text.includes(kw))) return false;
+    // Hyper-local outlets — trust everything they publish
+    const pureLocalSites = [
+      'baltimorebrew', 'baltimoretimes', 'baltimorefishbowl', 'southbmore',
+      'bizjournals.com/baltimore', 'technical.ly', 'wypr.org', 'marylandmatters',
+      'baltimorebanner', 'thebanner.com', 'thedailyrecord', 'baltimoresun'
+    ];
+    if (pureLocalSites.some(s => site.includes(s))) return true;
 
-    return true;
+    // TV stations and wire-heavy outlets — require keyword in title or description
+    const text = ((item.title || '') + ' ' + (item.description || '')).toLowerCase();
+    return LOCAL_KEYWORDS.some(kw => text.includes(kw));
   }
 
   const fetchWithTimeout = (site, feedUrl) => new Promise(async (resolve) => {
