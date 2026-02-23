@@ -171,6 +171,9 @@ async function fetchAndCacheRSS() {
     '/sponsored-content/',
     '/advertorial/',
     '/paid-content/',
+    // Persistent national wire stories with no Maryland angle
+    'us-rules-supreme-court-colorado-oil-climate-lawsuit',
+    'heres-what-to-know-about-the-dhs-funding-shutdown',
   ];
 
   function isLocalStory(item, site) {
