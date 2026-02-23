@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+CiAgPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiBmaWxsPSIjMWExYTFhIi8+CiAgPHJlY3QgeD0iNCIgeT0iNiIgd2lkdGg9IjI0IiBoZWlnaHQ9IjIiIGZpbGw9IndoaXRlIi8+CiAgPHJlY3QgeD0iNCIgeT0iMTAiIHdpZHRoPSIyNCIgaGVpZ2h0PSIxIiBmaWxsPSJ3aGl0ZSIgb3BhY2l0eT0iMC41Ii8+CiAgPHRleHQgeD0iMTYiIHk9IjI2IiBmb250LWZhbWlseT0iR2VvcmdpYSxzZXJpZiIgZm9udC1zaXplPSIxOCIgZm9udC13ZWlnaHQ9ImJvbGQiIAogICAgICAgIGZpbGw9IndoaXRlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5EPC90ZXh0Pgo8L3N2Zz4=">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>The Daily Dispatch Quiz</title>
@@ -2422,7 +2423,7 @@ async function generateQuestions() {
         const cappedItems = rssData.items.filter(item => {
           const domain = item.source || 'unknown';
           sourceCounts[domain] = (sourceCounts[domain] || 0) + 1;
-          return sourceCounts[domain] <= 3;
+          return sourceCounts[domain] <= 5;
         });
         rssContent = cappedItems.map(item =>
           `SOURCE: ${item.source}\nHEADLINE: ${item.title}\nSUMMARY: ${item.description}\nURL: ${item.link}\nDATE: ${item.pubDate}`
@@ -2512,7 +2513,7 @@ function buildGenerationPrompt(urlList, manualText, archiveNote, rssContent) {
   return `You are writing questions for a LOCAL NEWS QUIZ about Baltimore and the Central Maryland region (including Baltimore City, Baltimore County, Howard County, Anne Arundel County, Harford County, and Carroll County).
 
 CRITICAL INSTRUCTIONS:
-- Use a DIFFERENT article for each of the 11 questions — one question per article, no exceptions
+- Use a DIFFERENT article for each of the 11 questions — one question per article, no exceptions. Do NOT write an easy, medium, hard, AND bonus question about the same article. Pick ONE question from each article and move to the next article.
 - Every question must be about Baltimore or Central Maryland local news specifically (Baltimore City, Baltimore County, Howard County, Anne Arundel County, Harford County, Carroll County) — skip any national or non-regional stories
 - Use the exact URL from each article's URL field as the sourceUrl in your JSON output
 - Do NOT use your training knowledge or invent stories — only use the articles provided below
