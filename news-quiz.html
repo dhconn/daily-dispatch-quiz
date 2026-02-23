@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+CiAgPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiBmaWxsPSIjMWExYTFhIi8+CiAgPHJlY3QgeD0iNCIgeT0iNiIgd2lkdGg9IjI0IiBoZWlnaHQ9IjIiIGZpbGw9IndoaXRlIi8+CiAgPHJlY3QgeD0iNCIgeT0iMTAiIHdpZHRoPSIyNCIgaGVpZ2h0PSIxIiBmaWxsPSJ3aGl0ZSIgb3BhY2l0eT0iMC41Ii8+CiAgPHRleHQgeD0iMTYiIHk9IjI2IiBmb250LWZhbWlseT0iR2VvcmdpYSxzZXJpZiIgZm9udC1zaXplPSIxOCIgZm9udC13ZWlnaHQ9ImJvbGQiIAogICAgICAgIGZpbGw9IndoaXRlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5EPC90ZXh0Pgo8L3N2Zz4=">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>The Daily Dispatch Quiz</title>
@@ -72,7 +73,7 @@
     font-family: 'Courier Prime', monospace;
     font-size: 10px;
     letter-spacing: 3px;
-    color: var(--muted);
+    color: rgba(255,255,255,0.65);
     margin-top: 4px;
     text-transform: uppercase;
   }
@@ -845,6 +846,50 @@
     margin-top: 4px;
   }
 
+  .q-review-card input[type=text],
+  .q-review-card textarea {
+    width: 100%;
+    font-family: 'Source Serif 4', serif;
+    font-size: 14px;
+    color: var(--ink);
+    background: var(--paper);
+    border: 1px solid #ccc;
+    border-radius: 2px;
+    padding: 6px 8px;
+    margin-top: 4px;
+    box-sizing: border-box;
+  }
+  .q-review-card textarea { min-height: 56px; resize: vertical; }
+  .q-review-card input[type=text]:focus,
+  .q-review-card textarea:focus { outline: 2px solid var(--gold); border-color: var(--gold); }
+  .q-options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
+  .q-option-row { display: flex; align-items: center; gap: 6px; }
+  .q-option-row label { font-family: 'Courier Prime', monospace; font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .q-option-row input[type=radio] { accent-color: var(--green); }
+  .q-edit-label { font-family: 'Courier Prime', monospace; font-size: 11px; letter-spacing: 1px; color: var(--muted); margin-top: 10px; margin-bottom: 2px; }
+
+  .q-review-card input[type=text],
+  .q-review-card textarea {
+    width: 100%;
+    font-family: 'Source Serif 4', serif;
+    font-size: 14px;
+    color: var(--ink);
+    background: var(--paper);
+    border: 1px solid #ccc;
+    border-radius: 2px;
+    padding: 6px 8px;
+    margin-top: 4px;
+    box-sizing: border-box;
+  }
+  .q-review-card textarea { min-height: 56px; resize: vertical; }
+  .q-review-card input[type=text]:focus,
+  .q-review-card textarea:focus { outline: 2px solid var(--gold); border-color: var(--gold); }
+  .q-options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
+  .q-option-row { display: flex; align-items: center; gap: 6px; }
+  .q-option-row label { font-family: 'Courier Prime', monospace; font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .q-option-row input[type=radio] { accent-color: var(--green); }
+  .q-edit-label { font-family: 'Courier Prime', monospace; font-size: 11px; letter-spacing: 1px; color: var(--muted); margin-top: 10px; margin-bottom: 2px; }
+
   .status-msg {
     padding: 12px 16px;
     font-family: 'Courier Prime', monospace;
@@ -995,7 +1040,7 @@
       <button class="btn-primary" onclick="registerPlayer()">Begin ▸</button>
     </div>
     <p style="font-size:13px; color:var(--muted); margin-top:8px;">Your name is saved across visits. Your score accumulates over time.</p>
-    <div id="reg-error" style="color:var(--red);font-family:'Courier Prime',monospace;font-size:13px;margin-top:8px;display:none;"></div>
+    <div id="reg-error" style="color:var(--red);font-family:monospace,monospace;font-size:13px;margin-top:8px;display:none;"></div>
     <div style="margin-top:30px;">
       <button class="btn-secondary" onclick="showLeaderboard()">View Leaderboard ▸</button>
     </div>
@@ -1020,7 +1065,7 @@
     <div class="score-subtext">points earned so far</div>
     <p>You've answered the day's news — from the straightforward to the substantive. But the hardest question still awaits.</p>
     <div class="interstitial-rule"></div>
-    <div class="pulse-text" style="font-family:'Courier Prime',monospace;font-size:12px;letter-spacing:3px;color:var(--gold-light);margin-bottom:28px;">THE BONUS ROUND AWAITS</div>
+    <div class="pulse-text" style="font-family:monospace,monospace;font-size:12px;letter-spacing:3px;color:var(--gold-light);margin-bottom:28px;">THE BONUS ROUND AWAITS</div>
     <button class="btn-primary" style="font-size:14px;letter-spacing:3px;padding:18px 40px;" onclick="startBonusRound()">I'm Ready. Take Me In. ▸</button>
   </div>
 
@@ -1052,6 +1097,7 @@
     <div class="result-actions">
       <button class="btn-primary" onclick="showLeaderboard()">View Leaderboard ▸</button>
       <button class="btn-secondary" onclick="showScreen('screen-register')">Play Again</button>
+      <button class="btn-secondary" onclick="showCommunity()">💬 Community Board</button>
     </div>
   </div>
 
@@ -1068,33 +1114,85 @@
     </div>
   </div>
 
+  <!-- COMMUNITY -->
+  <div id="screen-community" class="screen">
+    <div class="edition-rule">Community Board</div>
+    <h2 style="margin-bottom:4px;">Player Discussion</h2>
+    <p style="font-family:monospace,monospace;font-size:12px;color:var(--muted);margin-bottom:20px;">Post reactions, debate answers, tip off fellow players.</p>
+
+    <!-- Post form -->
+    <div style="background:white;border:1px solid var(--rule);padding:16px;margin-bottom:20px;">
+      <div style="font-family:monospace,monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:8px;">YOUR PLAYER NAME</div>
+      <input id="board-name" type="text" maxlength="40" placeholder="Enter your player name…" style="width:100%;font-family:serif,serif;font-size:14px;padding:8px;border:1px solid #ccc;margin-bottom:12px;box-sizing:border-box;">
+      <div style="font-family:monospace,monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:8px;">YOUR MESSAGE</div>
+      <textarea id="board-text" maxlength="500" placeholder="What's on your mind?" style="width:100%;font-family:serif,serif;font-size:14px;padding:8px;border:1px solid #ccc;min-height:80px;resize:vertical;box-sizing:border-box;"></textarea>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+        <span id="board-char-count" style="font-family:monospace,monospace;font-size:11px;color:var(--muted);">0 / 500</span>
+        <button onclick="submitPost()" style="font-family:monospace;font-size:12px;letter-spacing:1px;padding:8px 20px;background:var(--ink);color:var(--paper);border:none;cursor:pointer;">POST ▸</button>
+      </div>
+      <div id="board-status" style="font-family:monospace,monospace;font-size:12px;margin-top:8px;display:none;"></div>
+    </div>
+
+    <!-- Posts list -->
+    <div id="posts-list"></div>
+
+    <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--rule);display:flex;gap:16px;flex-wrap:wrap;">
+      <button class="btn-secondary" onclick="showScreen('screen-results')">◂ Back to Results</button>
+      <button class="btn-secondary" onclick="showContactForm()">✉ Message the Editor</button>
+    </div>
+  </div>
+
+  <!-- CONTACT FORM -->
+  <div id="screen-contact" class="screen">
+    <div class="edition-rule">Private Message</div>
+    <h2 style="margin-bottom:4px;">Message the Editor</h2>
+    <p style="font-family:monospace,monospace;font-size:12px;color:var(--muted);margin-bottom:20px;">Your message goes directly to the editor. Your name and email are never shared.</p>
+
+    <div style="background:white;border:1px solid var(--rule);padding:16px;">
+      <div style="font-family:monospace,monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:8px;">YOUR PLAYER NAME</div>
+      <input id="contact-name" type="text" maxlength="40" placeholder="Enter your player name…" style="width:100%;font-family:serif,serif;font-size:14px;padding:8px;border:1px solid #ccc;margin-bottom:12px;box-sizing:border-box;">
+      <div style="font-family:monospace,monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:8px;">YOUR MESSAGE</div>
+      <textarea id="contact-text" maxlength="1000" placeholder="What would you like to tell the editor?" style="width:100%;font-family:serif,serif;font-size:14px;padding:8px;border:1px solid #ccc;min-height:120px;resize:vertical;box-sizing:border-box;"></textarea>
+      <div style="display:flex;justify-content:flex-end;margin-top:12px;">
+        <button onclick="submitContact()" style="font-family:monospace;font-size:12px;letter-spacing:1px;padding:8px 20px;background:var(--ink);color:var(--paper);border:none;cursor:pointer;">SEND MESSAGE ▸</button>
+      </div>
+      <div id="contact-status" style="font-family:monospace,monospace;font-size:12px;margin-top:8px;display:none;"></div>
+    </div>
+
+    <div style="margin-top:20px;">
+      <button class="btn-secondary" onclick="showScreen('screen-community')">◂ Back to Community</button>
+    </div>
+  </div>
+
   <!-- ADMIN -->
   <div id="screen-admin" class="screen">
     <h2>Editor's Desk</h2>
 
     <div class="admin-section">
       <h3>Step 1 — Paste News Article URLs</h3>
-      <div id="freshness-notice" style="background:#fff8e0;border:1px solid var(--gold);padding:10px 14px;margin-bottom:12px;font-family:'Courier Prime',monospace;font-size:12px;color:#7a5f00;line-height:1.6;">
+      <div id="freshness-notice" style="background:#fff8e0;border:1px solid var(--gold);padding:10px 14px;margin-bottom:12px;font-family:monospace,monospace;font-size:12px;color:#7a5f00;line-height:1.6;">
         <strong>⏱ Freshness filter is active.</strong> Claude will automatically skip any article published more than 24 hours ago and will not generate questions from stale content. Paste only links to <strong>today's</strong> articles for best results. If Claude skips articles, you'll see a warning below.
       </div>
       <p style="font-size:13px;color:var(--muted);margin-bottom:8px;">Enter your news websites once — they'll be saved and pre-filled every time you open the admin panel.</p>
       <textarea class="url-input-area" id="urls-input" placeholder="Paste one news website URL per line…&#10;https://baltimorebrew.com&#10;https://marylandmatters.org&#10;…"></textarea>
       <div style="display:flex;align-items:center;gap:12px;margin-top:8px;">
         <button class="btn-secondary" style="font-size:11px;padding:7px 14px;" onclick="saveSites()">💾 Save Sites</button>
-        <span id="sites-saved-msg" style="font-family:'Courier Prime',monospace;font-size:11px;color:var(--green);display:none;">✓ Sites saved!</span>
+        <span id="sites-saved-msg" style="font-family:monospace,monospace;font-size:11px;color:var(--green);display:none;">✓ Sites saved!</span>
       </div>
 
       <details style="margin-top:14px;">
-        <summary style="font-family:'Courier Prime',monospace;font-size:12px;letter-spacing:1px;cursor:pointer;color:var(--muted);">▸ Paywalled or JS-only site? Paste article text directly instead</summary>
+        <summary style="font-family:monospace,monospace;font-size:12px;letter-spacing:1px;cursor:pointer;color:var(--muted);">▸ Paywalled or JS-only site? Paste article text directly instead</summary>
         <div style="margin-top:10px;">
           <p style="font-size:13px;color:var(--muted);margin-bottom:6px;">If a site blocks automated fetching, copy-paste the article text here (one article after another, separated by a blank line). The URL box above can be left empty.</p>
           <textarea class="url-input-area" id="manual-text-input" placeholder="Paste full article text here…&#10;&#10;(Date: February 18, 2026 — include the date so Claude can verify freshness)" style="min-height:160px;"></textarea>
         </div>
       </details>
 
-      <div class="admin-actions">
-        <button class="btn-generate" id="gen-btn" onclick="generateQuestions()">⚙ Fetch Articles &amp; Generate Questions</button>
+      <div class="admin-actions" style="flex-wrap:wrap;gap:10px;">
+        <button class="btn-secondary" id="refresh-btn" onclick="refreshRSS()" style="font-size:12px;padding:8px 16px;">↻ Refresh Articles</button>
+        <button class="btn-generate" id="gen-btn" onclick="generateQuestions()">⚙ Generate Questions</button>
       </div>
+      <div id="rss-status" style="font-family:monospace,monospace;font-size:11px;color:var(--muted);margin-top:8px;"></div>
       <div class="status-msg" id="gen-status" style="white-space:pre-wrap;"></div>
       <div class="generating-overlay" id="gen-overlay">
         <span class="spinner spin">⚙</span>
@@ -1103,8 +1201,8 @@
 
       <!-- Raw API response debug panel -->
       <div id="raw-debug" style="display:none;margin-top:16px;background:#f0f0f0;border:1px solid #ccc;padding:12px;">
-        <div style="font-family:'Courier Prime',monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:6px;">▾ RAW CLAUDE RESPONSE (for debugging)</div>
-        <pre id="raw-debug-text" style="font-family:'Courier Prime',monospace;font-size:11px;white-space:pre-wrap;word-break:break-all;max-height:200px;overflow:auto;color:#333;"></pre>
+        <div style="font-family:monospace,monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:6px;">▾ RAW CLAUDE RESPONSE (for debugging)</div>
+        <pre id="raw-debug-text" style="font-family:monospace,monospace;font-size:11px;white-space:pre-wrap;word-break:break-all;max-height:200px;overflow:auto;color:#333;"></pre>
       </div>
     </div>
 
@@ -1164,8 +1262,12 @@ const CLAUDE_MODEL = 'claude-sonnet-4-20250514';
 // Point values
 const POINTS = { easy: 10, medium: 20, hard: 30, bonus: 50 };
 
+function todayStr() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 // ═══════════════════════════════════════════════════════
-//  STATE (backed by localStorage via window.storage shim)
+//  STATE
 // ═══════════════════════════════════════════════════════
 let state = {
   playerName: '',
@@ -1175,10 +1277,6 @@ let state = {
   phase: 'regular', // regular | bonus | done
   todayKey: todayStr()
 };
-
-function todayStr() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 // ─── Storage helpers (localStorage fallback) ───
 function lsGet(key) {
@@ -1503,7 +1601,8 @@ function selectAnswer(idx) {
 
 function advanceQuestion() {
   state.currentQ++;
-  if (state.currentQ < 10) {
+  const regularCount = Math.min(quizQuestions.length - 1, 10);
+  if (state.currentQ < regularCount) {
     // Update progress dot
     const pd = document.getElementById('pd-' + state.currentQ);
     if (pd) pd.className = 'progress-dot current';
@@ -1711,7 +1810,507 @@ async function showAdminScreen() {
   await refreshAdminPreviews();
 }
 
-// ─── Saved news sites (server-side) ──────────────────────────────────────
+// ─── RSS cache helpers ───────────────────────────────────────────────────
+async function refreshRSS() {
+  const btn = document.getElementById('refresh-btn');
+  const statusEl = document.getElementById('rss-status');
+  btn.disabled = true;
+  btn.textContent = '↻ Refreshing…';
+  statusEl.textContent = 'Fetching latest articles from RSS feeds…';
+  try {
+    await fetch('/api/rss/refresh', { method: 'POST' });
+    // Poll for completion — check every 2s for up to 30s
+    let attempts = 0;
+    const poll = setInterval(async () => {
+      attempts++;
+      const res = await fetch('/api/rss');
+      const data = await res.json();
+      if (data.fetchedAt) {
+        clearInterval(poll);
+        btn.disabled = false;
+        btn.textContent = '↻ Refresh Articles';
+        const count = data.items ? data.items.length : 0;
+        const when = new Date(data.fetchedAt).toLocaleTimeString();
+        statusEl.textContent = `✓ ${count} articles cached at ${when}. Ready to generate.`;
+        statusEl.style.color = 'var(--green)';
+      }
+      if (attempts > 15) {
+        clearInterval(poll);
+        btn.disabled = false;
+        btn.textContent = '↻ Refresh Articles';
+        statusEl.textContent = 'Refresh complete. Click Generate to create questions.';
+      }
+    }, 2000);
+  } catch(e) {
+    btn.disabled = false;
+    btn.textContent = '↻ Refresh Articles';
+    statusEl.textContent = 'Refresh failed: ' + e.message;
+    statusEl.style.color = 'var(--red)';
+  }
+}
+
+async function loadRSSStatus() {
+  try {
+    const res = await fetch('/api/rss');
+    const data = await res.json();
+    const statusEl = document.getElementById('rss-status');
+    if (statusEl) {
+      if (data.fetchedAt) {
+        const count = data.items ? data.items.length : 0;
+        const when = new Date(data.fetchedAt).toLocaleTimeString();
+        statusEl.textContent = `✓ ${count} articles cached at ${when}. Click Generate or Refresh Articles for latest.`;
+        statusEl.style.color = 'var(--green)';
+      } else {
+        statusEl.textContent = 'No articles cached yet. Click ↻ Refresh Articles first.';
+        statusEl.style.color = 'var(--muted)';
+      }
+    }
+  } catch(e) {}
+}
+
+// ─── Admin inbox & moderation ────────────────────────────────────────────
+
+async function loadAdminMessages() {
+  const el = document.getElementById('admin-messages');
+  if (!el) return;
+  try {
+    const res = await fetch('/api/messages');
+    const data = await res.json();
+    const msgs = data.messages || [];
+    const unread = msgs.filter(m => !m.read).length;
+    const badge = document.getElementById('unread-badge');
+    if (badge) {
+      badge.style.display = unread > 0 ? 'inline' : 'none';
+      badge.textContent = unread + ' new';
+    }
+    if (msgs.length === 0) {
+      el.innerHTML = '<p style="font-family:monospace;font-size:12px;color:var(--muted);">No messages yet.</p>';
+      return;
+    }
+    el.innerHTML = msgs.map(m => `
+      <div style="background:${m.read ? 'white' : 'var(--cream)'};border:1px solid var(--rule);padding:12px;margin-bottom:8px;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+          <strong style="font-family:monospace;font-size:12px;">${escHtml(m.playerName)}</strong>
+          <span style="font-family:monospace;font-size:10px;color:var(--muted);">${new Date(m.createdAt).toLocaleString()}${m.read ? '' : ' · <strong>NEW</strong>'}</span>
+        </div>
+        <p style="font-size:13px;margin:0 0 8px;">${escHtml(m.text)}</p>
+        ${!m.read ? `<button onclick="markRead('${m.id}')" style="font-family:monospace;font-size:11px;padding:4px 10px;cursor:pointer;">Mark read</button>` : ''}
+      </div>`).join('');
+  } catch(e) {
+    el.innerHTML = '<p style="color:var(--red);font-size:12px;">Could not load messages.</p>';
+  }
+}
+
+async function markRead(id) {
+  await fetch(`/api/messages/${id}/read`, { method: 'POST' });
+  loadAdminMessages();
+}
+
+async function loadAdminPosts() {
+  const el = document.getElementById('admin-posts');
+  if (!el) return;
+  try {
+    const res = await fetch('/api/posts');
+    const data = await res.json();
+    const posts = data.posts || [];
+    if (posts.length === 0) {
+      el.innerHTML = '<p style="font-family:monospace;font-size:12px;color:var(--muted);">No posts yet.</p>';
+      return;
+    }
+    el.innerHTML = posts.map(p => `
+      <div style="background:white;border:1px solid var(--rule);padding:12px;margin-bottom:8px;display:flex;gap:12px;align-items:flex-start;">
+        <div style="flex:1;">
+          <strong style="font-family:monospace;font-size:12px;">${escHtml(p.playerName)}</strong>
+          <span style="font-family:monospace;font-size:10px;color:var(--muted);margin-left:8px;">${new Date(p.createdAt).toLocaleString()}</span>
+          <p style="font-size:13px;margin:4px 0 0;">${escHtml(p.text)}</p>
+        </div>
+        <button onclick="deletePost('${p.id}')" style="font-family:monospace;font-size:11px;padding:4px 10px;background:var(--red);color:white;border:none;cursor:pointer;white-space:nowrap;">Delete</button>
+      </div>`).join('');
+  } catch(e) {
+    el.innerHTML = '<p style="color:var(--red);font-size:12px;">Could not load posts.</p>';
+  }
+}
+
+async function deletePost(id) {
+  if (!confirm('Delete this post?')) return;
+  await fetch(`/api/posts/${id}`, { method: 'DELETE' });
+  loadAdminPosts();
+}
+
+// ─── Admin inbox & moderation ────────────────────────────────────────────
+
+async function loadAdminMessages() {
+  const el = document.getElementById('admin-messages');
+  if (!el) return;
+  try {
+    const res = await fetch('/api/messages');
+    const data = await res.json();
+    const msgs = data.messages || [];
+    const unread = msgs.filter(m => !m.read).length;
+    const badge = document.getElementById('unread-badge');
+    if (badge) { badge.style.display = unread > 0 ? 'inline' : 'none'; badge.textContent = unread + ' new'; }
+    if (msgs.length === 0) { el.innerHTML = '<p style="font-family:courier,monospace;font-size:12px;color:var(--muted);">No messages yet.</p>'; return; }
+    el.innerHTML = msgs.map(m => `
+      <div style="background:${m.read ? 'white' : 'var(--cream)'};border:1px solid var(--rule);padding:12px;margin-bottom:8px;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+          <strong style="font-family:monospace;font-size:12px;">${escHtml(m.playerName)}</strong>
+          <span style="font-family:monospace;font-size:10px;color:var(--muted);">${new Date(m.createdAt).toLocaleString()}${m.read ? '' : ' · NEW'}</span>
+        </div>
+        <p style="font-size:13px;margin:0 0 8px;">${escHtml(m.text)}</p>
+        ${!m.read ? `<button onclick="markRead('${m.id}')" style="font-family:monospace;font-size:11px;padding:4px 10px;cursor:pointer;">Mark read</button>` : ''}
+      </div>`).join('');
+  } catch(e) { el.innerHTML = '<p style="color:var(--red);font-size:12px;">Could not load messages.</p>'; }
+}
+
+async function markRead(id) {
+  await fetch('/api/messages/' + id + '/read', { method: 'POST' });
+  loadAdminMessages();
+}
+
+async function loadAdminPosts() {
+  const el = document.getElementById('admin-posts');
+  if (!el) return;
+  try {
+    const res = await fetch('/api/posts');
+    const data = await res.json();
+    const posts = data.posts || [];
+    if (posts.length === 0) { el.innerHTML = '<p style="font-family:courier,monospace;font-size:12px;color:var(--muted);">No posts yet.</p>'; return; }
+    el.innerHTML = posts.map(p => `
+      <div style="background:white;border:1px solid var(--rule);padding:12px;margin-bottom:8px;display:flex;gap:12px;align-items:flex-start;">
+        <div style="flex:1;">
+          <strong style="font-family:monospace;font-size:12px;">${escHtml(p.playerName)}</strong>
+          <span style="font-family:monospace;font-size:10px;color:var(--muted);margin-left:8px;">${new Date(p.createdAt).toLocaleString()}</span>
+          <p style="font-size:13px;margin:4px 0 0;">${escHtml(p.text)}</p>
+        </div>
+        <button onclick="deletePost('${p.id}')" style="font-family:monospace;font-size:11px;padding:4px 10px;background:var(--red);color:white;border:none;cursor:pointer;white-space:nowrap;">Delete</button>
+      </div>`).join('');
+  } catch(e) { el.innerHTML = '<p style="color:var(--red);font-size:12px;">Could not load posts.</p>'; }
+}
+
+async function deletePost(id) {
+  if (!confirm('Delete this post?')) return;
+  await fetch('/api/posts/' + id, { method: 'DELETE' });
+  loadAdminPosts();
+}
+
+
+// ─── Community board ─────────────────────────────────────────────────────
+
+function showCommunity() {
+  showScreen('screen-community');
+  loadPosts();
+  // Pre-fill player name from leaderboard localStorage
+  const name = lsGet('dnq_player_name') || '';
+  if (name) {
+    document.getElementById('board-name').value = name;
+    document.getElementById('contact-name').value = name;
+  }
+}
+
+function showContactForm() {
+  showScreen('screen-contact');
+  const name = lsGet('dnq_player_name') || '';
+  if (name) document.getElementById('contact-name').value = name;
+}
+
+// Character counter for message board
+document.addEventListener('DOMContentLoaded', () => {
+  const ta = document.getElementById('board-text');
+  if (ta) {
+    ta.addEventListener('input', () => {
+      document.getElementById('board-char-count').textContent = `${ta.value.length} / 500`;
+    });
+  }
+});
+
+async function loadPosts() {
+  const list = document.getElementById('posts-list');
+  if (!list) return;
+  list.innerHTML = '<p style="font-family:monospace;font-size:12px;color:var(--muted);">Loading posts…</p>';
+  try {
+    const res = await fetch('/api/posts');
+    const data = await res.json();
+    if (!data.posts || data.posts.length === 0) {
+      list.innerHTML = '<p style="font-family:monospace;font-size:13px;color:var(--muted);text-align:center;padding:20px;">No posts yet — be the first!</p>';
+      return;
+    }
+    list.innerHTML = data.posts.map(p => `
+      <div style="background:white;border:1px solid var(--rule);padding:14px;margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">
+          <strong style="font-family:monospace;font-size:13px;">${escHtml(p.playerName)}</strong>
+          <span style="font-family:monospace;font-size:10px;color:var(--muted);">${new Date(p.createdAt).toLocaleString()}</span>
+        </div>
+        <p style="font-size:14px;line-height:1.5;margin:0;">${escHtml(p.text)}</p>
+      </div>`).join('');
+  } catch(e) {
+    list.innerHTML = '<p style="color:var(--red);font-family:monospace;font-size:12px;">Could not load posts.</p>';
+  }
+}
+
+async function submitPost() {
+  const name = document.getElementById('board-name').value.trim();
+  const text = document.getElementById('board-text').value.trim();
+  const status = document.getElementById('board-status');
+
+  if (!name) { showBoardStatus('Please enter your player name.', 'error'); return; }
+  if (!text)  { showBoardStatus('Please write something before posting.', 'error'); return; }
+
+  try {
+    const res = await fetch('/api/posts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ playerName: name, text })
+    });
+    const data = await res.json();
+    if (!res.ok) { showBoardStatus(data.error || 'Post failed.', 'error'); return; }
+    document.getElementById('board-text').value = '';
+    document.getElementById('board-char-count').textContent = '0 / 500';
+    showBoardStatus('✓ Posted!', 'success');
+    lsSet('dnq_player_name', name);
+    loadPosts();
+  } catch(e) {
+    showBoardStatus('Post failed. Try again.', 'error');
+  }
+}
+
+function showBoardStatus(msg, type) {
+  const el = document.getElementById('board-status');
+  el.style.display = 'block';
+  el.style.color = type === 'error' ? 'var(--red)' : 'var(--green)';
+  el.textContent = msg;
+  setTimeout(() => el.style.display = 'none', 3000);
+}
+
+async function submitContact() {
+  const name = document.getElementById('contact-name').value.trim();
+  const text = document.getElementById('contact-text').value.trim();
+
+  if (!name) { showContactStatus('Please enter your player name.', 'error'); return; }
+  if (!text)  { showContactStatus('Please write a message.', 'error'); return; }
+
+  try {
+    const res = await fetch('/api/contact', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ playerName: name, text })
+    });
+    const data = await res.json();
+    if (!res.ok) { showContactStatus(data.error || 'Send failed.', 'error'); return; }
+    document.getElementById('contact-text').value = '';
+    showContactStatus('✓ Message sent to the editor!', 'success');
+    lsSet('dnq_player_name', name);
+  } catch(e) {
+    showContactStatus('Send failed. Try again.', 'error');
+  }
+}
+
+function showContactStatus(msg, type) {
+  const el = document.getElementById('contact-status');
+  el.style.display = 'block';
+  el.style.color = type === 'error' ? 'var(--red)' : 'var(--green)';
+  el.textContent = msg;
+}
+
+// ─── Community board ─────────────────────────────────────────────────────
+
+function showCommunity() {
+  showScreen('screen-community');
+  loadPosts();
+  const name = lsGet('dnq_player_name') || '';
+  if (name) {
+    const bn = document.getElementById('board-name');
+    const cn = document.getElementById('contact-name');
+    if (bn) bn.value = name;
+    if (cn) cn.value = name;
+  }
+}
+
+function showContactForm() {
+  showScreen('screen-contact');
+  const name = lsGet('dnq_player_name') || '';
+  const cn = document.getElementById('contact-name');
+  if (cn && name) cn.value = name;
+}
+
+async function loadPosts() {
+  const list = document.getElementById('posts-list');
+  if (!list) return;
+  list.innerHTML = '<p style="font-family:monospace;font-size:12px;color:var(--muted);">Loading…</p>';
+  try {
+    const res = await fetch('/api/posts');
+    const data = await res.json();
+    if (!data.posts || data.posts.length === 0) {
+      list.innerHTML = '<p style="font-family:monospace;font-size:13px;color:var(--muted);text-align:center;padding:20px;">No posts yet — be the first!</p>';
+      return;
+    }
+    list.innerHTML = data.posts.map(p => `
+      <div style="background:white;border:1px solid var(--rule);padding:14px;margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">
+          <strong style="font-family:monospace;font-size:13px;">${escHtml(p.playerName)}</strong>
+          <span style="font-family:monospace;font-size:10px;color:var(--muted);">${new Date(p.createdAt).toLocaleString()}</span>
+        </div>
+        <p style="font-size:14px;line-height:1.5;margin:0;">${escHtml(p.text)}</p>
+      </div>`).join('');
+  } catch(e) {
+    list.innerHTML = '<p style="color:var(--red);font-family:monospace;font-size:12px;">Could not load posts.</p>';
+  }
+}
+
+async function submitPost() {
+  const name = document.getElementById('board-name').value.trim();
+  const text = document.getElementById('board-text').value.trim();
+  if (!name) { showBoardStatus('Please enter your player name.', 'error'); return; }
+  if (!text)  { showBoardStatus('Please write something.', 'error'); return; }
+  try {
+    const res = await fetch('/api/posts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ playerName: name, text })
+    });
+    const data = await res.json();
+    if (!res.ok) { showBoardStatus(data.error || 'Post failed.', 'error'); return; }
+    document.getElementById('board-text').value = '';
+    document.getElementById('board-char-count').textContent = '0 / 500';
+    showBoardStatus('✓ Posted!', 'success');
+    lsSet('dnq_player_name', name);
+    loadPosts();
+  } catch(e) { showBoardStatus('Post failed. Try again.', 'error'); }
+}
+
+function showBoardStatus(msg, type) {
+  const el = document.getElementById('board-status');
+  el.style.display = 'block';
+  el.style.color = type === 'error' ? 'var(--red)' : 'var(--green)';
+  el.textContent = msg;
+  setTimeout(() => el.style.display = 'none', 3000);
+}
+
+async function submitContact() {
+  const name = document.getElementById('contact-name').value.trim();
+  const text = document.getElementById('contact-text').value.trim();
+  if (!name) { showContactStatus('Please enter your player name.', 'error'); return; }
+  if (!text)  { showContactStatus('Please write a message.', 'error'); return; }
+  try {
+    const res = await fetch('/api/contact', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ playerName: name, text })
+    });
+    const data = await res.json();
+    if (!res.ok) { showContactStatus(data.error || 'Send failed.', 'error'); return; }
+    document.getElementById('contact-text').value = '';
+    showContactStatus('✓ Message sent to the editor!', 'success');
+    lsSet('dnq_player_name', name);
+  } catch(e) { showContactStatus('Send failed. Try again.', 'error'); }
+}
+
+function showContactStatus(msg, type) {
+  const el = document.getElementById('contact-status');
+  el.style.display = 'block';
+  el.style.color = type === 'error' ? 'var(--red)' : 'var(--green)';
+  el.textContent = msg;
+}
+
+// ─── Community board ─────────────────────────────────────────────────────
+
+function showCommunity() {
+  showScreen('screen-community');
+  loadPosts();
+  const name = lsGet('dnq_player_name') || '';
+  const bn = document.getElementById('board-name');
+  const cn = document.getElementById('contact-name');
+  if (bn && name) bn.value = name;
+  if (cn && name) cn.value = name;
+}
+
+function showContactForm() {
+  showScreen('screen-contact');
+  const name = lsGet('dnq_player_name') || '';
+  const cn = document.getElementById('contact-name');
+  if (cn && name) cn.value = name;
+}
+
+async function loadPosts() {
+  const list = document.getElementById('posts-list');
+  if (!list) return;
+  list.innerHTML = '<p style="font-family:courier,monospace;font-size:12px;color:var(--muted);">Loading…</p>';
+  try {
+    const res = await fetch('/api/posts');
+    const data = await res.json();
+    if (!data.posts || data.posts.length === 0) {
+      list.innerHTML = '<p style="font-family:courier,monospace;font-size:13px;color:var(--muted);text-align:center;padding:20px;">No posts yet — be the first!</p>';
+      return;
+    }
+    list.innerHTML = data.posts.map(p => `
+      <div style="background:white;border:1px solid var(--rule);padding:14px;margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">
+          <strong style="font-family:\'Courier Prime\',monospace;font-size:13px;">${escHtml(p.playerName)}</strong>
+          <span style="font-family:\'Courier Prime\',monospace;font-size:10px;color:var(--muted);">${new Date(p.createdAt).toLocaleString()}</span>
+        </div>
+        <p style="font-size:14px;line-height:1.5;margin:0;">${escHtml(p.text)}</p>
+      </div>`).join('');
+  } catch(e) {
+    list.innerHTML = '<p style="color:var(--red);">Could not load posts.</p>';
+  }
+}
+
+async function submitPost() {
+  const name = document.getElementById('board-name').value.trim();
+  const text = document.getElementById('board-text').value.trim();
+  if (!name) { showBoardStatus('Please enter your player name.', 'error'); return; }
+  if (!text)  { showBoardStatus('Please write something.', 'error'); return; }
+  try {
+    const res = await fetch('/api/posts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ playerName: name, text })
+    });
+    const data = await res.json();
+    if (!res.ok) { showBoardStatus(data.error || 'Post failed.', 'error'); return; }
+    document.getElementById('board-text').value = '';
+    document.getElementById('board-char-count').textContent = '0 / 500';
+    showBoardStatus('✓ Posted!', 'success');
+    lsSet('dnq_player_name', name);
+    loadPosts();
+  } catch(e) { showBoardStatus('Post failed. Try again.', 'error'); }
+}
+
+function showBoardStatus(msg, type) {
+  const el = document.getElementById('board-status');
+  el.style.display = 'block';
+  el.style.color = type === 'error' ? 'var(--red)' : 'var(--green)';
+  el.textContent = msg;
+  setTimeout(() => el.style.display = 'none', 3000);
+}
+
+async function submitContact() {
+  const name = document.getElementById('contact-name').value.trim();
+  const text = document.getElementById('contact-text').value.trim();
+  if (!name) { showContactStatus('Please enter your player name.', 'error'); return; }
+  if (!text)  { showContactStatus('Please write a message.', 'error'); return; }
+  try {
+    const res = await fetch('/api/contact', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ playerName: name, text })
+    });
+    const data = await res.json();
+    if (!res.ok) { showContactStatus(data.error || 'Send failed.', 'error'); return; }
+    document.getElementById('contact-text').value = '';
+    showContactStatus('✓ Message sent to the editor!', 'success');
+    lsSet('dnq_player_name', name);
+  } catch(e) { showContactStatus('Send failed. Try again.', 'error'); }
+}
+
+function showContactStatus(msg, type) {
+  const el = document.getElementById('contact-status');
+  el.style.display = 'block';
+  el.style.color = type === 'error' ? 'var(--red)' : 'var(--green)';
+  el.textContent = msg;
+}
+
+
+// ─── Saved news sites (server-side) ───────────────────────────────────────
 async function saveSites() {
   const val = document.getElementById('urls-input').value.trim();
   const msg = document.getElementById('sites-saved-msg');
@@ -1755,6 +2354,9 @@ async function loadSavedSites() {
 async function refreshAdminPreviews() {
   // Load saved news sites from server
   await loadSavedSites();
+  loadRSSStatus();
+  loadAdminMessages();
+  loadAdminPosts();
 
   // Archive count
   const archive = getArchive();
@@ -1770,7 +2372,7 @@ async function refreshAdminPreviews() {
   const today = getTodayQuiz();
   if (today && today.questions) {
     document.getElementById('published-preview').innerHTML =
-      `<p style="color:var(--green);font-family:'Courier Prime',monospace;font-size:12px;margin-bottom:8px;">✓ ${today.questions.length} questions published for ${todayStr()}</p>` +
+      `<p style="color:var(--green);font-family:monospace;font-size:12px;margin-bottom:8px;">✓ ${today.questions.length} questions published for ${todayStr()}</p>` +
       today.questions.slice(0,3).map((q,i) => `<div class="q-review-card"><div class="q-meta"><span>Q${i+1}</span></div><div class="q-preview">${escHtml(q.question.slice(0,100))}…</div></div>`).join('');
   } else {
     document.getElementById('published-preview').innerHTML = `<p style="font-size:13px;color:var(--muted);font-style:italic;">No quiz published today.</p>`;
@@ -1810,24 +2412,64 @@ async function generateQuestions() {
     ? `Do NOT generate questions about these previously used topics: ${archive.slice(0, 30).join(' | ')}`
     : '';
 
+  // Pull from RSS cache if available
+  let rssContent = '';
+  try {
+    const rssRes = await fetch('/api/rss');
+    if (rssRes.ok) {
+      const rssData = await rssRes.json();
+      if (rssData.items && rssData.items.length > 0) {
+        // Interleave articles across sources so Claude sees variety from the start
+        // Group by source, then round-robin to mix them up
+        const bySource = {};
+        for (const item of rssData.items) {
+          const domain = item.source || 'unknown';
+          if (!bySource[domain]) bySource[domain] = [];
+          if (bySource[domain].length < 4) bySource[domain].push(item); // max 4 per source
+        }
+        const sourceQueues = Object.values(bySource);
+        const interleaved = [];
+        let added = true;
+        while (added) {
+          added = false;
+          for (const queue of sourceQueues) {
+            if (queue.length > 0) {
+              interleaved.push(queue.shift());
+              added = true;
+            }
+          }
+        }
+        rssContent = interleaved.map((item, idx) =>
+          `ARTICLE ${idx + 1}:\nSOURCE: ${item.source}\nHEADLINE: ${item.title}\nSUMMARY: ${item.description}\nURL: ${item.link}\nDATE: ${item.pubDate}`
+        ).join('\n\n---\n\n');
+      }
+    }
+  } catch(e) { /* cache unavailable, proceed without */ }
+
   const prompt = buildGenerationPrompt(urlList, manualText, archiveNote, rssContent);
   let rawResponse = '';
-
-  const rssContent = '';
 
   // ── Send to Claude ────────────────────────────────────────
   document.getElementById('gen-progress-text').textContent = 'Generating questions…';
 
   try {
-    const response = await fetch('/api/claude', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: CLAUDE_MODEL,
-        max_tokens: 4000,
-        messages: [{ role: 'user', content: prompt }]
-      })
-    });
+    const claudeController = new AbortController();
+    const claudeTimer = setTimeout(() => claudeController.abort(), 60000);
+    let response;
+    try {
+      response = await fetch('/api/claude', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: claudeController.signal,
+        body: JSON.stringify({
+          model: CLAUDE_MODEL,
+          max_tokens: 4000,
+          messages: [{ role: 'user', content: prompt }]
+        })
+      });
+    } finally {
+      clearTimeout(claudeTimer);
+    }
 
     const data = await response.json();
     if (data.error) throw new Error(`API error: ${data.error.message}`);
@@ -1869,76 +2511,84 @@ function showRawDebug(text) {
   document.getElementById('raw-debug-text').textContent = text;
 }
 
-function buildGenerationPrompt(urlList, manualText, archiveNote) {
-  const now = new Date();
-  const todayFormatted = now.toLocaleDateString('en-US', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-  });
-  const cutoffFormatted = new Date(now - 86400000).toLocaleDateString('en-US', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-  });
-
-  const urlBlock = urlList.length
-    ? 'NEWS WEBSITES TO BROWSE FOR TODAY\'S STORIES:\n' + urlList.join('\n')
-    : '';
-
+function buildGenerationPrompt(urlList, manualText, archiveNote, rssContent) {
   const manualBlock = manualText
-    ? 'ARTICLE TEXT PROVIDED DIRECTLY:\n' + manualText.slice(0, 6000)
+    ? 'MANUALLY PROVIDED ARTICLE TEXT (use as additional source):\n' + manualText.slice(0, 4000)
     : '';
 
-  return `You are generating questions for a LOCAL NEWS QUIZ about the Baltimore, Maryland area.
+  const fallback = !rssContent && !manualBlock
+    ? 'Search for and read the most recent articles from these Baltimore news websites:\n' + urlList.join('\n')
+    : '';
 
-TODAY'S DATE: ${todayFormatted}
+  // ── Topic deduplication: pick 11 topically distinct articles ──
+  function topicWords(headline) {
+    const stop = new Set(['a','an','the','and','or','but','in','on','at','to','for','of','with',
+      'is','are','was','were','be','been','has','have','had','will','would','that','this','as',
+      'from','by','after','over','about','how','what','who','when','where','says','say','amid',
+      'new','more','year','week','day','monday','tuesday','wednesday','thursday','friday',
+      'saturday','sunday','after','its','their','amid','into','than','some','could','local']);
+    return headline.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\s+/)
+      .filter(w => w.length > 3 && !stop.has(w));
+  }
 
-IMPORTANT: You have web browsing capability. Use it to visit the news websites below, find articles published TODAY (${todayFormatted}) or within the past 24 hours, read them, and generate quiz questions from what you find. Do not generate questions from articles older than ${cutoffFormatted}.
+  function topicsOverlap(h1, h2) {
+    const w1 = new Set(topicWords(h1));
+    return topicWords(h2).filter(w => w1.has(w)).length >= 2;
+  }
 
-${urlBlock}
-
-${manualBlock}
-
-${archiveNote ? 'PREVIOUSLY USED TOPICS — do not repeat these:\n' + archiveNote : ''}
-
-PROGRESSIVE DIFFICULTY — Q1 must be easiest, Q11 hardest, strictly ordered:
-- Q1-Q4  (easy,   10 pts): General — answerable from the headline alone. No names or numbers needed.
-- Q5-Q7  (medium, 20 pts): Specific — full name + title of real people, real institution names, key facts from the article body.
-- Q8-Q10 (hard,   30 pts): Precise — exact dollar amounts, vote tallies, specific dates, minor named officials.
-- Q11    (bonus,  50 pts): The single most granular buried detail across all articles. Exact vote count, precise dollar figure, a source's exact job title. Should stump careful readers.
-
-WRITING RULES:
-- Always full names + titles: "Fire Chief Sandra Kowalski" not "the fire chief"
-- Always real institutions: "Mervo High School" not "a Baltimore school"
-- Use exact numbers from articles — never round
-- Wrong choices must be plausible: nearby amounts, adjacent dates, similar names
-- Never fabricate any fact
-
-OUTPUT FORMAT: Respond with ONLY valid JSON. No preamble, no explanation, no markdown code fences. Your entire response must start with { and end with }.
-
-{"staleWarning":false,"staleArticles":[],"questions":[{"question":"Question text?","options":["A","B","C","D"],"correctIndex":0,"explanation":"Why correct.","difficulty":"easy","sourceUrl":"https://article-url.com"}]}
-
-Expanded format for clarity:
-{
-  "staleWarning": false,
-  "staleArticles": [],
-  "questions": [
-    {
-      "question": "Full question text?",
-      "options": ["Choice A", "Choice B", "Choice C", "Choice D"],
-      "correctIndex": 0,
-      "explanation": "Why this answer is correct, with context.",
-      "difficulty": "easy",
-      "sourceUrl": "https://the-article-url.com"
+  let assignedArticles = '';
+  if (rssContent) {
+    const blocks = rssContent.split('---').map(b => b.trim()).filter(Boolean);
+    const chosen = [];
+    const chosenHeadlines = [];
+    for (const block of blocks) {
+      const m = block.match(/HEADLINE: (.+)/);
+      if (!m) continue;
+      const headline = m[1].trim();
+      if (chosenHeadlines.some(h => topicsOverlap(h, headline))) continue;
+      chosenHeadlines.push(headline);
+      chosen.push(block);
+      if (chosen.length >= 11) break;
     }
-  ]
-}
+    const difficulties = ['easy','easy','easy','easy','medium','medium','medium','hard','hard','hard','bonus'];
+    const points =       ['10',  '10',  '10',  '10',  '20',    '20',    '20',    '30',  '30',  '30',  '50'];
+    assignedArticles = chosen.map((block, i) =>
+      'QUESTION ' + (i+1) + ' (' + difficulties[i] + ', ' + points[i] + ' pts) — write exactly ONE question about THIS article:\n' + block
+    ).join('\n\n===\n\n');
+  }
 
-difficulty values: "easy" | "medium" | "hard" | "bonus"
-correctIndex: 0-based integer (0=A, 1=B, 2=C, 3=D)
-Generate exactly 11 questions.`;
+  return 'You are writing questions for a LOCAL NEWS QUIZ about Baltimore and the Central Maryland region.\n\n' +
+    (manualBlock ? manualBlock + '\n\n' : '') +
+    (fallback ? fallback + '\n\n' : '') +
+    (archiveNote ? 'PREVIOUSLY USED TOPICS — do not repeat these:\n' + archiveNote + '\n\n' : '') +
+    'INSTRUCTIONS:\n' +
+    '- Write exactly one question per numbered article — use ONLY the assigned article for that question\n' +
+    '- Each article is used for exactly one question — do not reuse any article\n' +
+    '- If two articles cover the same event or person, only the first one appears below — ignore any duplicates\n' +
+    '- Use the exact URL from each article as the sourceUrl\n' +
+    '- Do NOT use training knowledge — only facts from the assigned article\n' +
+    '- Keep all questions appropriate for a general community audience\n' +
+    '- For articles touching national topics, frame the question around the Maryland/Baltimore local angle\n\n' +
+    'DIFFICULTY GUIDE:\n' +
+    '- easy (Q1-Q4, 10pts): Answerable from the headline. Wrong answers should be clearly different (e.g. "winter storm" vs "hurricane").\n' +
+    '- medium (Q5-Q7, 20pts): Requires reading — full names, institutions, key facts. Plausible but distinct wrong answers.\n' +
+    '- hard (Q8-Q10, 30pts): Precise detail — amounts, dates, vote counts. Do NOT use 4 consecutive dates or 4 near-identical names as options.\n' +
+    '- bonus (Q11, 50pts): The single most specific buried detail. Wrong answers should be nearby but clearly distinct.\n\n' +
+    'HERE ARE YOUR 11 ASSIGNED ARTICLES:\n\n' +
+    (assignedArticles || rssContent) + '\n\n' +
+    'OUTPUT: Respond with ONLY valid JSON. No preamble, no markdown. Start with { and end with }.\n\n' +
+    '{\n  "staleWarning": false,\n  "staleArticles": [],\n  "questions": [\n' +
+    '    {\n      "question": "Full question text?",\n      "options": ["Choice A", "Choice B", "Choice C", "Choice D"],\n' +
+    '      "correctIndex": 0,\n      "explanation": "Why this answer is correct.",\n' +
+    '      "difficulty": "easy",\n      "sourceUrl": "https://source-url.com"\n    }\n  ]\n}\n\n' +
+    'difficulty values: "easy" | "medium" | "hard" | "bonus"\n' +
+    'correctIndex: 0-based integer (0=A, 1=B, 2=C, 3=D)\n' +
+    'Generate exactly 11 questions, one per assigned article.';
 }
 
 function parseQuestions(text) {
   // Strip markdown fences if present
-  let clean = text.replace(/```json|```/g, '').trim();
+  const bt = String.fromCharCode(96); const fence = bt+bt+bt; let clean = text.split(fence+'json').join('').split(fence).join('').trim();
   // Find JSON object
   const start = clean.indexOf('{');
   const end = clean.lastIndexOf('}');
@@ -1948,11 +2598,35 @@ function parseQuestions(text) {
 
   // Surface stale article warnings to the admin UI
   if (parsed.staleWarning && parsed.staleArticles && parsed.staleArticles.length > 0) {
-    const staleMsg = `⚠ ${parsed.staleArticles.length} article(s) were skipped as older than 24 hours:\n• ${parsed.staleArticles.join('\n• ')}`;
+    const staleMsg = 'Warning: ' + parsed.staleArticles.length + ' article(s) were skipped as older than 24 hours: ' + parsed.staleArticles.join(', ');
     setStatus(staleMsg, 'error');
   }
 
-  return parsed.questions || [];
+  const questions = parsed.questions || [];
+  return enforceQuizRules(questions);
+}
+
+function enforceQuizRules(questions) {
+  // 1. Deduplicate — only one question per sourceUrl
+  const seenUrls = new Set();
+  const deduped = questions.filter(q => {
+    if (!q.sourceUrl || seenUrls.has(q.sourceUrl)) return false;
+    seenUrls.add(q.sourceUrl);
+    return true;
+  });
+
+  // 2. Shuffle correct answers so they're not all the same index
+  const targetIndexes = [0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2];
+  return deduped.map((q, i) => {
+    const currentCorrect = q.options[q.correctIndex];
+    const targetIdx = targetIndexes[i] !== undefined ? targetIndexes[i] : (i % 4);
+    if (q.correctIndex === targetIdx) return q;
+    const newOptions = [...q.options];
+    const displaced = newOptions[targetIdx];
+    newOptions[targetIdx] = currentCorrect;
+    newOptions[q.correctIndex] = displaced;
+    return { ...q, options: newOptions, correctIndex: targetIdx };
+  });
 }
 
 function showDraftPreview(questions) {
@@ -1960,32 +2634,74 @@ function showDraftPreview(questions) {
   let html = '';
   questions.forEach((q, i) => {
     const diff = q.difficulty || (i < 4 ? 'easy' : i < 7 ? 'medium' : i < 10 ? 'hard' : 'bonus');
-    const opts = q.options.map((o, oi) => `${String.fromCharCode(65+oi)}) ${o}`).join(' · ');
-    const correct = q.options[q.correctIndex] || '?';
-    html += `<div class="q-review-card">
-      <div class="q-meta">
-        <span><strong>${i === 10 ? 'BONUS' : ('Q'+(i+1))}</strong></span>
-        <span class="diff-label ${diffMap[diff] || 'easy'}" style="display:inline-block">${diff.toUpperCase()}</span>
-      </div>
-      <div class="q-preview">${escHtml(q.question)}</div>
-      <div class="options-preview">${escHtml(opts)}</div>
-      <div class="answer-preview">✓ ${escHtml(correct)}</div>
-      ${q.sourceUrl ? `<div style="font-family:'Courier Prime',monospace;font-size:10px;color:var(--muted);margin-top:6px;word-break:break-all;">🔗 ${escHtml(q.sourceUrl)}</div>` : ''}
-    </div>`;
+    const optLetters = ['A','B','C','D'];
+    let optionsHtml = '<div class="q-options-grid">';
+    q.options.forEach((opt, oi) => {
+      optionsHtml += '<div class="q-option-row">' +
+        '<input type="radio" name="correct-' + i + '" id="correct-' + i + '-' + oi + '" value="' + oi + '" ' + (oi === q.correctIndex ? 'checked' : '') + ' onchange="updateDraftCorrect(' + i + ', ' + oi + ')">' +
+        '<label for="correct-' + i + '-' + oi + '">' + optLetters[oi] + '</label>' +
+        '<input type="text" value="' + escHtml(opt) + '" oninput="updateDraftOption(' + i + ', ' + oi + ', this.value)" style="flex:1;">' +
+        '</div>';
+    });
+    optionsHtml += '</div>';
+
+    const sourceLink = q.sourceUrl ? '<a href="' + escHtml(q.sourceUrl) + '" target="_blank" style="font-family:monospace;font-size:11px;color:var(--blue);white-space:nowrap;">Open</a>' : '';
+    const qLabel = i === 10 ? 'BONUS' : ('Q'+(i+1));
+    const diffClass = diffMap[diff] || 'easy';
+    html += '<div class="q-review-card">' +
+      '<div class="q-meta">' +
+        '<span><strong>' + qLabel + '</strong></span>' +
+        '<span class="diff-label ' + diffClass + '" style="display:inline-block">' + diff.toUpperCase() + '</span>' +
+        '<span style="margin-left:auto;font-size:10px;color:var(--muted)">Select correct answer with radio button</span>' +
+      '</div>' +
+      '<div class="q-edit-label">QUESTION</div>' +
+      '<textarea oninput="updateDraftQuestion(' + i + ', this.value)">' + escHtml(q.question) + '</textarea>' +
+      '<div class="q-edit-label">OPTIONS — click radio button to mark correct answer</div>' +
+      optionsHtml +
+      '<div class="q-edit-label">EXPLANATION</div>' +
+      '<input type="text" value="' + escHtml(q.explanation || '') + '" oninput="updateDraftExplanation(' + i + ', this.value)">' +
+      '<div class="q-edit-label">SOURCE URL</div>' +
+      '<div style="display:flex;align-items:center;gap:8px;">' +
+        '<input type="text" value="' + escHtml(q.sourceUrl || '') + '" oninput="updateDraftSourceUrl(' + i + ', this.value)" style="flex:1;font-size:11px;">' +
+        sourceLink +
+      '</div>' +
+    '</div>';
   });
   document.getElementById('q-preview-list').innerHTML = html;
   document.getElementById('preview-section').style.display = 'block';
 }
 
+// Live-edit helpers — update the draft in localStorage as admin types
+function updateDraftQuestion(i, val) {
+  const draft = getDraftQuiz();
+  if (draft && draft.questions[i]) { draft.questions[i].question = val; saveDraftQuiz(draft); }
+}
+function updateDraftOption(i, oi, val) {
+  const draft = getDraftQuiz();
+  if (draft && draft.questions[i]) { draft.questions[i].options[oi] = val; saveDraftQuiz(draft); }
+}
+function updateDraftCorrect(i, oi) {
+  const draft = getDraftQuiz();
+  if (draft && draft.questions[i]) { draft.questions[i].correctIndex = oi; saveDraftQuiz(draft); }
+}
+function updateDraftExplanation(i, val) {
+  const draft = getDraftQuiz();
+  if (draft && draft.questions[i]) { draft.questions[i].explanation = val; saveDraftQuiz(draft); }
+}
+function updateDraftSourceUrl(i, val) {
+  const draft = getDraftQuiz();
+  if (draft && draft.questions[i]) { draft.questions[i].sourceUrl = val; saveDraftQuiz(draft); }
+}
+
 function publishQuestions() {
   const draft = getDraftQuiz();
   if (!draft || !draft.questions) { setStatus('No draft to publish.', 'error'); return; }
-  if (draft.questions.length < 11) { setStatus('Draft has fewer than 11 questions.', 'error'); return; }
+  if (draft.questions.length < 11) { setStatus('Draft has only ' + draft.questions.length + ' unique questions (need 11) — please regenerate.', 'error'); return; }
 
   saveTodayQuiz(draft);
   addToArchive(draft.questions);
   clearDraftQuiz();
-  setStatus(`✓ Quiz published for ${todayStr()}! Players can now play.`, 'success');
+  setStatus('Quiz published for ' + todayStr() + '! Players can now play.', 'success');
   document.getElementById('preview-section').style.display = 'none';
   refreshAdminPreviews();
 }
