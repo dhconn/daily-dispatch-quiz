@@ -165,16 +165,23 @@ async function fetchAndCacheRSS() {
     'harford', 'howard county', 'anne arundel', 'carroll county', 'prince george'
   ];
 
+  // URLs that are too sensitive/graphic for a community quiz
+  const BLACKLISTED_URLS = [
+    'university-maryland-police-sexual-misconduct',
+  ];
+
   function isLocalStory(item, site) {
+    if (BLACKLISTED_URLS.some(b => (item.link || '').includes(b))) return false;
     // These outlets publish ONLY local Baltimore/Maryland content — trust everything
+    // Truly hyper-local outlets — every story is Baltimore/Maryland specific
     const pureLocalSites = [
-      'baltimorebrew', 'baltimoretimes', 'marylandmatters', 'thebaltimorebanner',
-      'thebanner.com', 'thedailyrecord', 'baltimorefishbowl', 'bizjournals.com/baltimore',
-      'technical.ly', 'southbmore', 'dailyvoice', 'wypr.org', 'baltimoresun.com'
+      'baltimorebrew', 'baltimoretimes', 'baltimorefishbowl', 'southbmore',
+      'bizjournals.com/baltimore', 'technical.ly', 'wypr.org'
     ];
     if (pureLocalSites.some(s => site.includes(s))) return true;
 
-    // TV stations mix local and national — require keyword match for these
+    // All other outlets (including Banner, Daily Record, Sun, TV stations)
+    // get keyword-filtered to strip out national wire stories
     const text = ((item.title || '') + ' ' + (item.description || '')).toLowerCase();
     return LOCAL_KEYWORDS.some(kw => text.includes(kw));
   }
