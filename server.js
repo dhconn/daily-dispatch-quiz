@@ -174,6 +174,9 @@ async function fetchAndCacheRSS() {
     // Persistent national wire stories with no Maryland angle
     'us-rules-supreme-court-colorado-oil-climate-lawsuit',
     'heres-what-to-know-about-the-dhs-funding-shutdown',
+    'supreme-court-nra-free-speech-ny-official',
+    // Baltimore Times food article — Claude invariably asks about Atlanta conference detail
+    'the-weight-we-carry-food-labor-and-black-womens-bodies-as-living-archives',
   ];
 
   function isLocalStory(item, site) {
