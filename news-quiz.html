@@ -2418,15 +2418,28 @@ async function generateQuestions() {
     if (rssRes.ok) {
       const rssData = await rssRes.json();
       if (rssData.items && rssData.items.length > 0) {
-        // Cap at 3 articles per source so Claude draws from many sites
-        const sourceCounts = {};
-        const cappedItems = rssData.items.filter(item => {
+        // Interleave articles across sources so Claude sees variety from the start
+        // Group by source, then round-robin to mix them up
+        const bySource = {};
+        for (const item of rssData.items) {
           const domain = item.source || 'unknown';
-          sourceCounts[domain] = (sourceCounts[domain] || 0) + 1;
-          return sourceCounts[domain] <= 5;
-        });
-        rssContent = cappedItems.map(item =>
-          `SOURCE: ${item.source}\nHEADLINE: ${item.title}\nSUMMARY: ${item.description}\nURL: ${item.link}\nDATE: ${item.pubDate}`
+          if (!bySource[domain]) bySource[domain] = [];
+          if (bySource[domain].length < 4) bySource[domain].push(item); // max 4 per source
+        }
+        const sourceQueues = Object.values(bySource);
+        const interleaved = [];
+        let added = true;
+        while (added) {
+          added = false;
+          for (const queue of sourceQueues) {
+            if (queue.length > 0) {
+              interleaved.push(queue.shift());
+              added = true;
+            }
+          }
+        }
+        rssContent = interleaved.map((item, idx) =>
+          `ARTICLE ${idx + 1}:\nSOURCE: ${item.source}\nHEADLINE: ${item.title}\nSUMMARY: ${item.description}\nURL: ${item.link}\nDATE: ${item.pubDate}`
         ).join('\n\n---\n\n');
       }
     }
@@ -2513,7 +2526,9 @@ function buildGenerationPrompt(urlList, manualText, archiveNote, rssContent) {
   return `You are writing questions for a LOCAL NEWS QUIZ about Baltimore and the Central Maryland region (including Baltimore City, Baltimore County, Howard County, Anne Arundel County, Harford County, and Carroll County).
 
 CRITICAL INSTRUCTIONS:
-- Use a DIFFERENT article for each of the 11 questions — one question per article, no exceptions. Do NOT write an easy, medium, hard, AND bonus question about the same article. Pick ONE question from each article and move to the next article.
+- Use a DIFFERENT article for each of the 11 questions — one question per article, strictly enforced
+- No more than 2 questions may come from the same news SOURCE (domain). Spread questions across at least 5 different sources.
+- Work through the article list from top to bottom — do not skip articles or keep returning to favorites
 - Every question must be about Baltimore or Central Maryland local news specifically (Baltimore City, Baltimore County, Howard County, Anne Arundel County, Harford County, Carroll County) — skip any national or non-regional stories
 - Use the exact URL from each article's URL field as the sourceUrl in your JSON output
 - Do NOT use your training knowledge or invent stories — only use the articles provided below
@@ -2592,15 +2607,22 @@ function enforceQuizRules(questions) {
     return true;
   });
 
-  // 2. Shuffle correct answers so they're not all the same index
-  // Rotate through 0,1,2,3 rather than letting Claude always pick 1
+  // 2. Enforce max 2 questions per source domain
+  const sourceCounts = {};
+  const diverse = deduped.filter(q => {
+    try {
+      const domain = new URL(q.sourceUrl).hostname;
+      sourceCounts[domain] = (sourceCounts[domain] || 0) + 1;
+      return sourceCounts[domain] <= 2;
+    } catch(e) { return true; }
+  });
+
+  // 3. Shuffle correct answers so they're not all the same index
   const targetIndexes = [0, 1, 2, 3, 1, 2, 0, 3, 1, 2, 3];
-  return deduped.map((q, i) => {
+  return diverse.map((q, i) => {
     const currentCorrect = q.options[q.correctIndex];
     const targetIdx = targetIndexes[i] !== undefined ? targetIndexes[i] : (i % 4);
-    if (q.correctIndex === targetIdx) return q; // already in right spot
-
-    // Swap correct answer into the target position
+    if (q.correctIndex === targetIdx) return q;
     const newOptions = [...q.options];
     const displaced = newOptions[targetIdx];
     newOptions[targetIdx] = currentCorrect;
