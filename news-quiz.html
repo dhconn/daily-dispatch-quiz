@@ -2517,6 +2517,7 @@ CRITICAL INSTRUCTIONS:
 - Use the exact URL from each article's URL field as the sourceUrl in your JSON output
 - Do NOT use your training knowledge or invent stories — only use the articles provided below
 - Vary the correctIndex across all 11 questions — do NOT put the correct answer in position A (index 0) more than 3 times; distribute correct answers across positions A, B, C, and D roughly equally
+- Keep all questions appropriate for a general community audience — avoid graphic, sexual, or disturbing details even if present in the source article; find a different angle or choose a different article instead
 
 ${rssBlock}
 
@@ -2577,7 +2578,34 @@ function parseQuestions(text) {
     setStatus(staleMsg, 'error');
   }
 
-  return parsed.questions || [];
+  const questions = parsed.questions || [];
+  return enforceQuizRules(questions);
+}
+
+function enforceQuizRules(questions) {
+  // 1. Deduplicate — only one question per sourceUrl
+  const seenUrls = new Set();
+  const deduped = questions.filter(q => {
+    if (!q.sourceUrl || seenUrls.has(q.sourceUrl)) return false;
+    seenUrls.add(q.sourceUrl);
+    return true;
+  });
+
+  // 2. Shuffle correct answers so they're not all the same index
+  // Rotate through 0,1,2,3 rather than letting Claude always pick 1
+  const targetIndexes = [0, 1, 2, 3, 1, 2, 0, 3, 1, 2, 3];
+  return deduped.map((q, i) => {
+    const currentCorrect = q.options[q.correctIndex];
+    const targetIdx = targetIndexes[i] !== undefined ? targetIndexes[i] : (i % 4);
+    if (q.correctIndex === targetIdx) return q; // already in right spot
+
+    // Swap correct answer into the target position
+    const newOptions = [...q.options];
+    const displaced = newOptions[targetIdx];
+    newOptions[targetIdx] = currentCorrect;
+    newOptions[q.correctIndex] = displaced;
+    return { ...q, options: newOptions, correctIndex: targetIdx };
+  });
 }
 
 function showDraftPreview(questions) {
