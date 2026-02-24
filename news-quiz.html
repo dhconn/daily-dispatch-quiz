@@ -594,7 +594,21 @@
     font-weight: 700;
     transition: opacity .2s;
   }
-  .bonus-next-btn:hover { opacity: 0.9; }
+  .read-more-link {
+    display: inline-block;
+    margin-top: 10px;
+    font-family: 'Courier Prime', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--blue);
+    text-decoration: none;
+    border-bottom: 1px solid currentColor;
+    opacity: 0.85;
+    transition: opacity .15s;
+  }
+  .read-more-link:hover { opacity: 1; }
+  .feedback-box.wrong .read-more-link { color: var(--red); }
 
   /* ─── RESULTS SCREEN ─── */
   #screen-results { text-align: center; padding: 30px 10px; }
@@ -1051,6 +1065,7 @@
     <div class="quiz-header">
       <div class="player-name">Byline: <strong id="quiz-player-name"></strong></div>
       <div class="score-display"><span>SCORE</span><span id="live-score">0</span></div>
+      <div class="score-display" id="streak-display" style="display:none"><span>STREAK</span><span id="live-streak">🔥 1</span></div>
     </div>
     <div class="progress-track" id="progress-track"></div>
     <div id="question-area"></div>
@@ -1273,6 +1288,7 @@ let state = {
   playerName: '',
   currentQ: 0,
   sessionScore: 0,
+  streak: 0,
   answers: [],
   phase: 'regular', // regular | bonus | done
   todayKey: todayStr()
@@ -1497,6 +1513,7 @@ function startQuiz(quiz) {
   quizQuestions = quiz.questions;
   state.currentQ = 0;
   state.sessionScore = 0;
+  state.streak = 0;
   state.answers = [];
   state.phase = 'regular';
 
@@ -1569,6 +1586,21 @@ function selectAnswer(idx) {
   state.answers.push({ qIdx: state.currentQ, chosen: idx, correct, pts });
   document.getElementById('live-score').textContent = state.sessionScore;
 
+  // Update streak
+  if (correct) {
+    state.streak++;
+  } else {
+    state.streak = 0;
+  }
+  const streakEl = document.getElementById('streak-display');
+  const streakVal = document.getElementById('live-streak');
+  if (state.streak >= 2) {
+    streakEl.style.display = '';
+    streakVal.textContent = '🔥 ' + state.streak;
+  } else {
+    streakEl.style.display = 'none';
+  }
+
   // Update progress dot
   const pd = document.getElementById('pd-' + state.currentQ);
   if (pd) { pd.className = 'progress-dot ' + (correct ? 'correct' : 'wrong'); }
@@ -1586,11 +1618,15 @@ function selectAnswer(idx) {
   // Feedback
   const fb = document.getElementById('feedback-area');
   if (fb) {
+    const sourceLink = q.sourceUrl
+      ? `<a href="${escHtml(q.sourceUrl)}" target="_blank" rel="noopener" class="read-more-link">Read the full story →</a>`
+      : '';
     fb.innerHTML = `
       <div class="feedback-box ${correct ? 'correct' : 'wrong'}">
         <div class="fb-headline">${correct ? '✓ CORRECT' : '✗ INCORRECT'}</div>
         <div class="fb-text">${escHtml(q.explanation || (correct ? 'Well done!' : 'Better luck next time.'))}</div>
         ${correct ? `<div class="pts-earned">+${pts} pts</div>` : ''}
+        ${sourceLink}
       </div>
       <button class="next-btn" onclick="advanceQuestion()">
         ${state.currentQ < 9 ? 'Next Question ▸' : 'See Results Tally ▸'}
@@ -1675,11 +1711,15 @@ function selectBonus(idx) {
 
   const fb = document.getElementById('bonus-feedback-area');
   if (fb) {
+    const sourceLink = q.sourceUrl
+      ? `<a href="${escHtml(q.sourceUrl)}" target="_blank" rel="noopener" class="read-more-link" style="color:var(--bonus-gold);">Read the full story →</a>`
+      : '';
     fb.innerHTML = `
       <div class="bonus-feedback">
         <div class="fb-headline">${correct ? '⭐ CORRECT — EXCEPTIONAL!' : '✗ NOT QUITE'}</div>
         <div class="fb-text">${escHtml(q.explanation || '')}</div>
         ${correct ? `<div class="pts-earned">+50 pts</div>` : ''}
+        ${sourceLink}
       </div>
       <button class="bonus-next-btn" onclick="finishQuiz()">View Final Results ▸</button>
     `;
