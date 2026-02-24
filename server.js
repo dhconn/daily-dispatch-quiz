@@ -297,6 +297,32 @@ app.get('/api/sites', (req, res) => {
   res.json({ sites: data.sites || '' });
 });
 
+// ── Answer distribution aggregation ──────────────────────────
+// POST /api/answers  { date, answers: [{qIdx, correct}] }
+app.post('/api/answers', (req, res) => {
+  const { date, answers } = req.body;
+  if (!date || !Array.isArray(answers)) return res.status(400).json({ error: 'bad request' });
+  const data = readData();
+  if (!data.dist) data.dist = {};
+  if (!data.dist[date]) data.dist[date] = {};
+  answers.forEach(({ qIdx, correct }) => {
+    const k = 'q' + qIdx;
+    if (!data.dist[date][k]) data.dist[date][k] = { correct: 0, wrong: 0 };
+    if (correct) data.dist[date][k].correct++;
+    else data.dist[date][k].wrong++;
+  });
+  writeData(data);
+  res.json({ ok: true });
+});
+
+// GET /api/answers?date=YYYY-MM-DD
+app.get('/api/answers', (req, res) => {
+  const { date } = req.query;
+  if (!date) return res.status(400).json({ error: 'date required' });
+  const data = readData();
+  res.json((data.dist && data.dist[date]) || {});
+});
+
 // ── Anthropic API proxy ───────────────────────────────────────
 app.post('/api/claude', (req, res) => {
   const apiKey = process.env.ANTHROPIC_API_KEY;
