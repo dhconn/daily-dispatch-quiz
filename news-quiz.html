@@ -710,6 +710,44 @@
   .breakdown-row .q-result.c { color: var(--green); }
   .breakdown-row .q-result.w { color: var(--red); }
 
+  .dist-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .dist-label {
+    font-family: 'Courier Prime', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    width: 44px;
+    flex-shrink: 0;
+    color: var(--muted);
+  }
+  .dist-bar-wrap {
+    flex: 1;
+    background: #e8e0d5;
+    border-radius: 3px;
+    height: 14px;
+    overflow: hidden;
+  }
+  .dist-bar {
+    height: 100%;
+    background: var(--green);
+    border-radius: 3px;
+    transition: width .4s ease;
+    min-width: 2px;
+  }
+  .dist-pct {
+    font-family: 'Courier Prime', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    width: 36px;
+    text-align: right;
+    color: var(--ink);
+  }
+
   .result-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 24px; }
 
   /* ─── LEADERBOARD ─── */
@@ -1043,10 +1081,10 @@
     <h2>Know Your Community.</h2>
     <p>11 questions drawn from today's local news — updated daily by your editor.</p>
     <div class="points-grid">
-      <div class="points-card"><div class="pts">10</div><div class="label">Q1–4<br>Starter</div></div>
-      <div class="points-card"><div class="pts">20</div><div class="label">Q5–7<br>Feature</div></div>
-      <div class="points-card"><div class="pts">30</div><div class="label">Q8–10<br>Scoop</div></div>
-      <div class="points-card"><div class="pts bonus-pts">50</div><div class="label">Q11<br>Bonus</div></div>
+      <div class="points-card"><div class="pts">10</div><div class="label">pts each<br>Q1–4 · Starter</div></div>
+      <div class="points-card"><div class="pts">20</div><div class="label">pts each<br>Q5–7 · Feature</div></div>
+      <div class="points-card"><div class="pts">30</div><div class="label">pts each<br>Q8–10 · Scoop</div></div>
+      <div class="points-card"><div class="pts bonus-pts">50</div><div class="label">pts each<br>Q11 · Bonus</div></div>
     </div>
     <div class="edition-rule">Enter Your Byline</div>
     <div class="input-group">
@@ -1109,6 +1147,7 @@
       <div class="stat-cell"><div class="val" id="stat-rank">#–</div><div class="lbl">Today's Rank</div></div>
     </div>
     <div class="results-breakdown" id="breakdown-table"></div>
+    <div id="dist-table"></div>
     <div class="result-actions">
       <button class="btn-primary" onclick="showLeaderboard()">View Leaderboard ▸</button>
       <button class="btn-secondary" onclick="showScreen('screen-register')">Play Again</button>
@@ -1737,6 +1776,16 @@ function finishQuiz() {
   // Save scores
   updatePlayerScore(state.playerName, state.sessionScore);
 
+  // POST this player's answers to server for community distribution
+  fetch('/api/answers', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      date: state.todayKey,
+      answers: state.answers.map(a => ({ qIdx: a.qIdx, correct: a.correct }))
+    })
+  }).catch(() => {}); // fire and forget
+
   // Compute stats
   const total = state.answers.length;
   const correct = state.answers.filter(a => a.correct).length;
@@ -1771,8 +1820,37 @@ function finishQuiz() {
     </div>`;
   });
   document.getElementById('breakdown-table').innerHTML = brows;
+  document.getElementById('dist-table').innerHTML = '<div class="breakdown-header" style="margin-top:24px;">How Others Did</div><div style="font-size:13px;color:var(--muted);padding:8px 0;">Loading…</div>';
 
-  showScreen('screen-results');
+  // Fetch community distribution from server
+  fetch('/api/answers?date=' + state.todayKey)
+    .then(r => r.json())
+    .then(dist2 => {
+      const totalPlayers = dist2['q0'] ? (dist2['q0'].correct + dist2['q0'].wrong) : 0;
+      let distHtml = '<div class="breakdown-header" style="margin-top:24px;">How Others Did</div>';
+      if (totalPlayers < 2) {
+        distHtml += '<div style="font-size:13px;color:var(--muted);padding:8px 0;">Be the first! Distribution appears once more players have finished.</div>';
+      } else {
+        distHtml += `<div style="font-size:12px;color:var(--muted);padding:4px 16px 8px;">Based on ${totalPlayers} player${totalPlayers === 1 ? '' : 's'} today</div>`;
+        quizQuestions.forEach((q, i) => {
+          const k = 'q' + i;
+          const d = dist2[k] || { correct: 0, wrong: 0 };
+          const total = d.correct + d.wrong;
+          const pct = total ? Math.round(d.correct / total * 100) : 0;
+          const isBonus = i === 10;
+          const label = isBonus ? 'BONUS' : ('Q' + (i + 1));
+          distHtml += `<div class="dist-row">
+            <span class="dist-label">${label}</span>
+            <div class="dist-bar-wrap"><div class="dist-bar" style="width:${pct}%"></div></div>
+            <span class="dist-pct">${pct}%</span>
+          </div>`;
+        });
+      }
+      document.getElementById('dist-table').innerHTML = distHtml;
+    })
+    .catch(() => {
+      document.getElementById('dist-table').innerHTML = '';
+    });
 }
 
 // ═══════════════════════════════════════════════════════
