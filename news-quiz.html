@@ -2771,10 +2771,11 @@ function showDraftPreview(questions) {
       '<div class="q-meta">' +
         '<span><strong>' + qLabel + '</strong></span>' +
         '<span class="diff-label ' + diffClass + '" style="display:inline-block">' + diff.toUpperCase() + '</span>' +
-        '<span style="margin-left:auto;display:flex;align-items:center;gap:6px;">' +
+        '<span style="margin-left:auto;display:flex;align-items:center;gap:10px;">' +
           '<label style="font-size:10px;color:var(--muted)">Move to position:</label>' +
           '<input type="number" min="1" max="11" style="width:44px;font-size:12px;padding:2px 4px;border:1px solid var(--border);border-radius:3px;" ' +
             'placeholder="' + (i+1) + '" onchange="reorderQuestion(' + i + ', parseInt(this.value)-1, this)">' +
+          '<button onclick="deleteQuestion(' + i + ')" title="Delete this question" style="background:none;border:1px solid var(--red);color:var(--red);border-radius:3px;padding:2px 8px;font-size:11px;cursor:pointer;font-family:inherit;">✕ Delete</button>' +
         '</span>' +
       '</div>' +
       '<div class="q-edit-label">QUESTION</div>' +
@@ -2795,6 +2796,18 @@ function showDraftPreview(questions) {
 }
 
 // Live-edit helpers — update the draft in localStorage as admin types
+function deleteQuestion(idx) {
+  const draft = getDraftQuiz();
+  if (!draft || !draft.questions) return;
+  if (!confirm('Delete question ' + (idx + 1) + '? You can regenerate to replace it.')) return;
+  draft.questions.splice(idx, 1);
+  const diffs = ['easy','easy','easy','easy','medium','medium','medium','hard','hard','hard','bonus'];
+  draft.questions.forEach((q, i) => { q.difficulty = diffs[i] || q.difficulty; });
+  saveDraftQuiz(draft);
+  showDraftPreview(draft.questions);
+  setStatus('Question ' + (idx + 1) + ' deleted. ' + draft.questions.length + ' questions remaining.', 'info');
+}
+
 function reorderQuestion(fromIdx, toIdx, inputEl) {
   const draft = getDraftQuiz();
   if (!draft || !draft.questions) return;
