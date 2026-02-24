@@ -1820,6 +1820,7 @@ function finishQuiz() {
     </div>`;
   });
   document.getElementById('breakdown-table').innerHTML = brows;
+  showScreen('screen-results');
   document.getElementById('dist-table').innerHTML = '<div class="breakdown-header" style="margin-top:24px;">How Others Did</div><div style="font-size:13px;color:var(--muted);padding:8px 0;">Loading…</div>';
 
   // Fetch community distribution from server
