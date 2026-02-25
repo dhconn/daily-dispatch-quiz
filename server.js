@@ -108,6 +108,11 @@ const BALTIMORE_RSS_FEEDS = {
   'wbal.com':                   'https://www.wbal.com/rss',
   'mytvbaltimore.com':          'https://foxbaltimore.com/rss',
   'cwbaltimore.com':            'https://www.wmar2news.com/rss',
+  // Additional local sources
+  'afro.com':                   'https://afro.com/feed/',
+  'urbanleaguebaltimore.org':   'https://urbanleaguebaltimore.org/feed/',
+  'baltimoremagazine.com':      'https://www.baltimoremagazine.com/feed/',
+  'citypaper.com':              'https://www.citypaper.com/feed/',
 };
 
 // Filter items to last 24 hours
@@ -183,14 +188,16 @@ async function fetchAndCacheRSS() {
   ];
 
   function isLocalStory(item, site) {
-    if (BLACKLISTED_URLS.some(b => (item.link || '').includes(b))) return false;
+    // Skip CBS video pages — articles have more usable text for quiz generation
+    if (site.includes('cbsnews') && (item.link || '').includes('/video/')) return false;
     // These outlets publish ONLY local Baltimore/Maryland content — trust everything
     // Truly hyper-local outlets — every story is Baltimore/Maryland specific
     // Hyper-local outlets — trust everything they publish
     const pureLocalSites = [
       'baltimorebrew', 'baltimoretimes', 'baltimorefishbowl', 'southbmore',
       'bizjournals.com/baltimore', 'technical.ly', 'wypr.org', 'marylandmatters',
-      'baltimorebanner', 'thebanner.com', 'baltimoresun'
+      'baltimorebanner', 'thebanner.com', 'baltimoresun', 'afro.com',
+      'baltimoremagazine', 'citypaper.com'
     ];
     if (pureLocalSites.some(s => site.includes(s))) return true;
 
@@ -222,11 +229,20 @@ async function fetchAndCacheRSS() {
 
   await Promise.allSettled(feedsToFetch.map(({ site, feedUrl }) => fetchWithTimeout(site, feedUrl)));
 
-  // Deduplicate by title
+  // Deduplicate by title, then cap per source at 10 articles
   const seen = new Set();
+  const sourceCount = {};
   const unique = allItems.filter(item => {
-    if (seen.has(item.title)) return false;
-    seen.add(item.title);
+    // Exact title dedup
+    const titleKey = item.title.toLowerCase().trim();
+    if (seen.has(titleKey)) return false;
+    seen.add(titleKey);
+    // Per-source cap — prevent any one source dominating
+    const src = item.source || 'unknown';
+    sourceCount[src] = (sourceCount[src] || 0) + 1;
+    // Baltimore Banner gets a higher cap since it's our richest pure-local source
+    const cap = src.includes('thebanner') || src.includes('thebaltimorebanner') ? 30 : 15;
+    if (sourceCount[src] > cap) return false;
     return true;
   });
 
@@ -258,8 +274,10 @@ app.get('/api/rss/debug', (req, res) => {
   }
 
   res.json({
+    version: '2.2-banner30',
     fetchedAt: cache.fetchedAt,
     totalCount: cache.items.length,
+    errors: cache.errors || [],
     bySource
   });
 });
