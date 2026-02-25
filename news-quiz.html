@@ -1286,6 +1286,13 @@
       </div>
     </div>
 
+    <div class="admin-section" style="margin-top:20px;">
+      <h3>Community Posts <span id="admin-posts-badge" style="display:none;background:var(--red,#c0392b);color:white;font-size:11px;padding:2px 7px;border-radius:10px;font-family:monospace;margin-left:6px;"></span></h3>
+      <div id="admin-posts-list">
+        <p style="font-family:monospace;font-size:12px;color:var(--muted);">Loading posts…</p>
+      </div>
+    </div>
+
     <div style="margin-top:20px;">
       <button class="btn-secondary" onclick="showScreen('screen-register')">◂ Exit Admin</button>
     </div>
@@ -1670,7 +1677,18 @@ function selectAnswer(idx) {
       <button class="next-btn" onclick="advanceQuestion()">
         ${state.currentQ < 9 ? 'Next Question ▸' : 'See Results Tally ▸'}
       </button>
+      <div id="comment-badge" style="margin-top:8px;text-align:center;font-family:monospace;font-size:11px;color:var(--muted);"></div>
     `;
+    // Async: populate comment count badge
+    getWeeklyCommentCount().then(count => {
+      const badge = document.getElementById('comment-badge');
+      if (!badge) return;
+      if (count > 0) {
+        badge.innerHTML = `<a href="#" onclick="showCommunity();return false;" style="color:var(--muted);text-decoration:underline;">💬 ${count} comment${count === 1 ? '' : 's'} this week</a>`;
+      } else {
+        badge.innerHTML = `<a href="#" onclick="showCommunity();return false;" style="color:var(--muted);text-decoration:underline;">💬 Be the first to comment</a>`;
+      }
+    });
   }
 }
 
@@ -1927,6 +1945,7 @@ function checkAdminPw() {
 async function showAdminScreen() {
   showScreen('screen-admin');
   await refreshAdminPreviews();
+  loadAdminPosts();
 }
 
 // ─── RSS cache helpers ───────────────────────────────────────────────────
@@ -2114,6 +2133,16 @@ async function deletePost(id) {
 
 
 // ─── Community board ─────────────────────────────────────────────────────
+
+async function getWeeklyCommentCount() {
+  try {
+    const res = await fetch('/api/posts');
+    const data = await res.json();
+    const posts = data.posts || [];
+    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    return posts.filter(p => new Date(p.createdAt).getTime() > weekAgo).length;
+  } catch(e) { return 0; }
+}
 
 function showCommunity() {
   showScreen('screen-community');
