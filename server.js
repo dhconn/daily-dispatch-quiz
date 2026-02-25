@@ -233,7 +233,7 @@ async function fetchAndCacheRSS() {
   // Save to data file
   const freshData = readData();
   freshData.rssCache = {
-    items: unique.slice(0, 60),
+    items: unique.slice(0, 100),
     fetchedAt: new Date().toISOString(),
     errors: errors.length ? errors : []
   };
