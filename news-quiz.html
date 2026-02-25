@@ -2652,7 +2652,7 @@ function buildGenerationPrompt(urlList, manualText, archiveNote, rssContent) {
 
   function topicsOverlap(h1, h2) {
     const w1 = new Set(topicWords(h1));
-    return topicWords(h2).filter(w => w1.has(w)).length >= 2;
+    return topicWords(h2).filter(w => w1.has(w)).length >= 3;
   }
 
   let assignedArticles = '';
@@ -2660,15 +2660,22 @@ function buildGenerationPrompt(urlList, manualText, archiveNote, rssContent) {
     const blocks = rssContent.split('---').map(b => b.trim()).filter(Boolean);
     const chosen = [];
     const chosenHeadlines = [];
+    console.log(`[TopicDedup] Starting with ${blocks.length} article blocks`);
     for (const block of blocks) {
       const m = block.match(/HEADLINE: (.+)/);
       if (!m) continue;
       const headline = m[1].trim();
-      if (chosenHeadlines.some(h => topicsOverlap(h, headline))) continue;
+      const overlap = chosenHeadlines.find(h => topicsOverlap(h, headline));
+      if (overlap) {
+        console.log(`[TopicDedup] SKIPPED (overlaps with "${overlap}"): ${headline}`);
+        continue;
+      }
       chosenHeadlines.push(headline);
       chosen.push(block);
+      console.log(`[TopicDedup] CHOSEN (${chosen.length}/11): ${headline}`);
       if (chosen.length >= 11) break;
     }
+    console.log(`[TopicDedup] Final count: ${chosen.length} articles assigned to Claude`);
     const difficulties = ['easy','easy','easy','easy','medium','medium','medium','hard','hard','hard','bonus'];
     const points =       ['10',  '10',  '10',  '10',  '20',    '20',    '20',    '30',  '30',  '30',  '50'];
     assignedArticles = chosen.map((block, i) =>
