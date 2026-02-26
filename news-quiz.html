@@ -1079,7 +1079,7 @@
   <div id="screen-register" class="screen active">
     <div class="edition-rule">Today's Edition</div>
     <h2>Know Your Community.</h2>
-    <p>11 questions drawn from today's local news — updated daily by your editor.</p>
+    <p>5 questions + a bonus drawn from today's local news — updated daily by your editor.</p>
     <div class="points-grid">
       <div class="points-card"><div class="pts">10</div><div class="label">pts each<br>Q1–4 · Starter</div></div>
       <div class="points-card"><div class="pts">20</div><div class="label">pts each<br>Q5–7 · Feature</div></div>
@@ -1111,7 +1111,7 @@
 
   <!-- INTERSTITIAL -->
   <div id="screen-interstitial" class="screen">
-    <div class="phase-label">✦ Questions 1–10 Complete ✦</div>
+    <div class="phase-label">✦ Questions 1–5 Complete ✦</div>
     <h2>Round One<br>Complete.</h2>
     <div class="interstitial-rule"></div>
     <div id="interstitial-score">0</div>
@@ -1335,7 +1335,7 @@ const CLAUDE_MODEL = 'claude-sonnet-4-20250514';
 const POINTS = { easy: 10, medium: 20, hard: 30, bonus: 50 };
 
 function todayStr() {
-  return new Date().toISOString().slice(0, 10);
+  return new Date().toISOString().slice(0, 6);
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1532,7 +1532,7 @@ function registerPlayer() {
   getOrCreatePlayer(name);
 
   const quiz = getTodayQuiz();
-  if (!quiz || !quiz.questions || quiz.questions.length < 11) {
+  if (!quiz || !quiz.questions || quiz.questions.length < 6) {
     // Show no-quiz state
     showScreen('screen-quiz');
     document.getElementById('quiz-player-name').textContent = name;
@@ -1585,11 +1585,10 @@ function buildProgressTrack(qs) {
   const track = document.getElementById('progress-track');
   if (!qs.length) { track.innerHTML = ''; return; }
   let html = '';
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 5; i++) {
     const cls = i === 0 ? 'current' : '';
     html += `<div class="progress-dot ${cls}" id="pd-${i}">${i+1}</div>`;
-    if (i === 3) html += `<span class="progress-separator">·</span>`;
-    if (i === 6) html += `<span class="progress-separator">·</span>`;
+    if (i === 2) html += `<span class="progress-separator">·</span>`;
   }
   html += `<span class="progress-separator">◆</span>`;
   html += `<div class="progress-dot bonus" id="pd-10">★</div>`;
@@ -1622,7 +1621,7 @@ function renderQuestion() {
       <span class="pts-label">+${diff.pts} pts if correct</span>
     </div>
     <div class="question-card">
-      <div class="q-number">Question ${state.currentQ + 1} of 10</div>
+      <div class="q-number">Question ${state.currentQ + 1} of 5</div>
       <div class="q-text">${escHtml(q.question)}</div>
       <div class="options-grid">${optHtml}</div>
       <div id="feedback-area"></div>
@@ -1686,7 +1685,7 @@ function selectAnswer(idx) {
         ${sourceLink}
       </div>
       <button class="next-btn" onclick="advanceQuestion()">
-        ${state.currentQ < 9 ? 'Next Question ▸' : 'See Results Tally ▸'}
+        ${state.currentQ < 4 ? 'Next Question ▸' : 'See Results Tally ▸'}
       </button>
       <div id="comment-badge" style="margin-top:8px;text-align:center;font-family:monospace;font-size:11px;color:var(--muted);"></div>
     `;
@@ -1705,7 +1704,7 @@ function selectAnswer(idx) {
 
 function advanceQuestion() {
   state.currentQ++;
-  const regularCount = Math.min(quizQuestions.length - 1, 10);
+  const regularCount = Math.min(quizQuestions.length - 1, 5);
   if (state.currentQ < regularCount) {
     // Update progress dot
     const pd = document.getElementById('pd-' + state.currentQ);
@@ -1735,7 +1734,7 @@ function startBonusRound() {
 let bonusAnswered = false;
 
 function renderBonus() {
-  const q = quizQuestions[10]; // bonus is index 10
+  const q = quizQuestions[5]; // bonus is index 5
   bonusAnswered = false;
   const optLetters = ['A','B','C','D'];
   let optHtml = '';
@@ -1760,7 +1759,7 @@ function selectBonus(idx) {
   if (bonusAnswered) return;
   bonusAnswered = true;
 
-  const q = quizQuestions[10];
+  const q = quizQuestions[5];
   const correct = idx === q.correctIndex;
   const pts = correct ? 50 : 0;
 
@@ -2666,8 +2665,8 @@ async function generateQuestions() {
       throw new Error('Claude returned a response but no questions were parsed. See Raw Response below.');
     }
 
-    if (questions.length < 11) {
-      setStatus(`⚠ Only ${questions.length} questions generated — you need 11 to publish. Add more article URLs and regenerate.`, 'error');
+    if (questions.length < 6) {
+      setStatus(`⚠ Only ${questions.length} questions generated — you need 6 to publish. Add more article URLs and regenerate.`, 'error');
     } else if (!document.getElementById('gen-status').classList.contains('error')) {
       setStatus(`✓ ${questions.length} questions generated. Review below, then publish.`, 'success');
     }
@@ -2724,8 +2723,8 @@ function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote,
     return topicWords(h2).filter(w => w1.has(w)).length >= 3;
   }
 
-  const difficulties = ['easy','easy','easy','easy','medium','medium','medium','hard','hard','hard','bonus'];
-  const points =       ['10',  '10',  '10',  '10',  '20',    '20',    '20',    '30',  '30',  '30',  '50'];
+  const difficulties = ['easy','easy','medium','medium','hard','bonus'];
+  const points =       ['10',  '10',  '20',  '20',  '30',  '50'];
 
   let assignedArticles = '';
 
@@ -2739,7 +2738,7 @@ function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote,
 
     if (rssContent) {
       const blocks = rssContent.split('---').map(b => b.trim()).filter(Boolean);
-      const needed = 11 - specificBlocks.length;
+      const needed = 6 - specificBlocks.length;
       console.log(`[TopicDedup] ${specificBlocks.length} specific articles, need ${needed} more from RSS`);
       for (const block of blocks) {
         if (rssBlocks.length >= needed) break;
@@ -2780,7 +2779,7 @@ function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote,
       chosenHeadlines.push(headline);
       chosen.push(block);
       console.log(`[TopicDedup] CHOSEN (${chosen.length}/11): ${headline}`);
-      if (chosen.length >= 11) break;
+      if (chosen.length >= 6) break;
     }
     console.log(`[TopicDedup] Final count: ${chosen.length} articles assigned to Claude`);
     assignedArticles = chosen.map((block, i) =>
@@ -2829,11 +2828,11 @@ function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote,
     '- Wrong answers should NOT be so similar to the correct answer that they are confusing\n' +
     '- Wrong answers should NOT be obviously absurd or unrelated (e.g. do not list "NASA" as a wrong answer for a question about a restaurant)\n' +
     '- Never use four options that are all dates, all dollar amounts, or all nearly identical numbers\n\n' +
-    '- easy (Q1-Q4, 10pts): Answerable from the headline. The correct answer is the main subject of the story. Wrong answers should be clearly different but plausible.\n' +
-    '- medium (Q5-Q7, 20pts): Requires reading — test knowledge of key facts, decisions, or outcomes. Wrong answers should be plausible but clearly distinct.\n' +
-    '- hard (Q8-Q10, 30pts): Tests a specific supporting detail that a close reader would remember — a name, a place, a stated reason, or a key outcome. Do NOT ask about dollar amounts, dates, durations, or unit counts unless the number is the entire point of the story.\n' +
+    '- easy (Q1-Q2, 10pts): Answerable from the headline. The correct answer is the main subject of the story. Wrong answers should be clearly different but plausible.\n' +
+    '- medium (Q3, 20pts): Requires reading — test knowledge of key facts, decisions, or outcomes. Wrong answers should be plausible but clearly distinct.\n' +
+    '- hard (Q4-Q5, 30pts): Tests a specific supporting detail that a close reader would remember — a name, a place, a stated reason, or a key outcome. Do NOT ask about dollar amounts, dates, durations, or unit counts unless the number is the entire point of the story.\n' +
     '- bonus (Q11, 50pts): The single most memorable specific detail in the article — ideally a surprising or counterintuitive fact. Wrong answers should be nearby but clearly distinct.\n\n' +
-    'HERE ARE YOUR 11 ASSIGNED ARTICLES:\n\n' +
+    'HERE ARE YOUR 6 ASSIGNED ARTICLES:\n\n' +
     (assignedArticles || rssContent) + '\n\n' +
     'OUTPUT: Respond with ONLY valid JSON. No preamble, no markdown. Start with { and end with }.\n\n' +
     '{\n  "staleWarning": false,\n  "staleArticles": [],\n  "questions": [\n' +
@@ -2842,7 +2841,7 @@ function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote,
     '      "difficulty": "easy",\n      "sourceUrl": "https://source-url.com"\n    }\n  ]\n}\n\n' +
     'difficulty values: "easy" | "medium" | "hard" | "bonus"\n' +
     'correctIndex: 0-based integer (0=A, 1=B, 2=C, 3=D)\n' +
-    'Generate exactly 11 questions, one per assigned article.';
+    'Generate exactly 6 questions, one per assigned article.';
 }
 
 function parseQuestions(text) {
@@ -2942,7 +2941,7 @@ function deleteQuestion(idx) {
   if (!draft || !draft.questions) return;
   if (!confirm('Delete question ' + (idx + 1) + '? You can regenerate to replace it.')) return;
   draft.questions.splice(idx, 1);
-  const diffs = ['easy','easy','easy','easy','medium','medium','medium','hard','hard','hard','bonus'];
+  const diffs = ['easy','easy','medium','medium','hard','bonus'];
   draft.questions.forEach((q, i) => { q.difficulty = diffs[i] || q.difficulty; });
   saveDraftQuiz(draft);
   showDraftPreview(draft.questions);
@@ -2958,8 +2957,8 @@ async function replaceQuestion(idx) {
 
   // Get existing headlines to avoid duplicates
   const usedHeadlines = draft.questions.map(q => q.question);
-  const diffs = ['easy','easy','easy','easy','medium','medium','medium','hard','hard','hard','bonus'];
-  const pts =   ['10',  '10',  '10',  '10',  '20',    '20',    '20',    '30',  '30',  '30',  '50'];
+  const diffs = ['easy','easy','medium','medium','hard','bonus'];
+  const pts =   ['10',  '10',  '20',  '20',  '30',  '50'];
   const difficulty = diffs[idx] || 'medium';
   const points = pts[idx] || '20';
 
@@ -3038,7 +3037,7 @@ function reorderQuestion(fromIdx, toIdx, inputEl) {
   const [moved] = qs.splice(fromIdx, 1);
   qs.splice(toIdx, 0, moved);
   // Re-apply difficulty labels based on new positions
-  const diffs = ['easy','easy','easy','easy','medium','medium','medium','hard','hard','hard','bonus'];
+  const diffs = ['easy','easy','medium','medium','hard','bonus'];
   qs.forEach((q, i) => { q.difficulty = diffs[i] || q.difficulty; });
   draft.questions = qs;
   saveDraftQuiz(draft);
@@ -3057,7 +3056,7 @@ function reorderQuestion(fromIdx, toIdx, inputEl) {
   const [moved] = qs.splice(fromIdx, 1);
   qs.splice(toIdx, 0, moved);
   // Re-apply difficulty labels based on new positions
-  const diffs = ['easy','easy','easy','easy','medium','medium','medium','hard','hard','hard','bonus'];
+  const diffs = ['easy','easy','medium','medium','hard','bonus'];
   qs.forEach((q, i) => { q.difficulty = diffs[i] || q.difficulty; });
   draft.questions = qs;
   saveDraftQuiz(draft);
@@ -3089,7 +3088,7 @@ function updateDraftSourceUrl(i, val) {
 function publishQuestions() {
   const draft = getDraftQuiz();
   if (!draft || !draft.questions) { setStatus('No draft to publish.', 'error'); return; }
-  if (draft.questions.length < 11) { setStatus('Draft has only ' + draft.questions.length + ' unique questions (need 11) — please regenerate.', 'error'); return; }
+  if (draft.questions.length < 6) { setStatus('Draft has only ' + draft.questions.length + ' unique questions (need 6) — please regenerate.', 'error'); return; }
 
   saveTodayQuiz(draft);
   addToArchive(draft.questions);
