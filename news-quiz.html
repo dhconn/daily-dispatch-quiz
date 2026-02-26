@@ -1236,8 +1236,13 @@
 
       <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--rule);">
         <h3 style="margin-bottom:4px;">Today's Hand-Picked Articles <span style="font-weight:400;font-size:12px;color:var(--muted);font-family:monospace;">(optional — one-time use, not saved)</span></h3>
-        <p style="font-size:13px;color:var(--muted);margin-bottom:8px;">Paste specific article URLs here to override the RSS feed entirely. Claude will use <em>only</em> these articles for question generation. This box clears after each use.</p>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:8px;">Paste specific article URLs here to override the RSS feed entirely. Claude will use <em>only</em> these articles for question generation. <strong>Remember to clear this box before running the next day's quiz.</strong></p>
         <textarea class="url-input-area" id="article-urls-input" placeholder="Paste specific article URLs here, one per line…&#10;https://www.baltimoresun.com/2026/02/26/some-story/&#10;https://www.thebaltimorebanner.com/politics-power/…&#10;…" style="height:120px;"></textarea>
+        <div style="display:flex;align-items:center;gap:12px;margin-top:8px;">
+          <button class="btn-secondary" style="font-size:11px;padding:7px 14px;" onclick="saveArticleUrls()">💾 Save Article URLs</button>
+          <button class="btn-secondary" style="font-size:11px;padding:7px 14px;background:none;border-color:var(--red);color:var(--red);" onclick="clearArticleUrls()">✕ Clear</button>
+          <span id="article-urls-saved-msg" style="font-family:monospace,monospace;font-size:11px;color:var(--green);display:none;">✓ Saved!</span>
+        </div>
       </div>
 
       <details style="margin-top:14px;">
@@ -1952,6 +1957,7 @@ async function showAdminScreen() {
   showScreen('screen-admin');
   await refreshAdminPreviews();
   loadAdminPosts();
+  loadArticleUrls();
 }
 
 // ─── RSS cache helpers ───────────────────────────────────────────────────
@@ -2465,6 +2471,25 @@ function showContactStatus(msg, type) {
 
 
 // ─── Saved news sites (server-side) ───────────────────────────────────────
+async function saveArticleUrls() {
+  const val = document.getElementById('article-urls-input').value.trim();
+  lsSet('dnq_article_urls', val);
+  const msg = document.getElementById('article-urls-saved-msg');
+  msg.style.display = 'inline';
+  setTimeout(() => { msg.style.display = 'none'; }, 2000);
+}
+
+function clearArticleUrls() {
+  if (!confirm('Clear all saved article URLs?')) return;
+  lsSet('dnq_article_urls', '');
+  document.getElementById('article-urls-input').value = '';
+}
+
+function loadArticleUrls() {
+  const saved = lsGet('dnq_article_urls') || '';
+  if (saved) document.getElementById('article-urls-input').value = saved;
+}
+
 async function saveSites() {
   const val = document.getElementById('urls-input').value.trim();
   const msg = document.getElementById('sites-saved-msg');
@@ -2659,10 +2684,6 @@ async function generateQuestions() {
   } finally {
     document.getElementById('gen-btn').disabled = false;
     document.getElementById('gen-overlay').classList.remove('show');
-    // Clear one-time article URLs after use
-    if (articleUrlList.length > 0) {
-      document.getElementById('article-urls-input').value = '';
-    }
   }
 }
 
@@ -2780,11 +2801,38 @@ function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote,
     '- Do NOT use training knowledge — only facts from the assigned article\n' +
     '- Keep all questions appropriate for a general community audience\n' +
     '- For articles touching national topics, frame the question around the Maryland/Baltimore local angle\n\n' +
-    'DIFFICULTY GUIDE:\n' +
-    '- easy (Q1-Q4, 10pts): Answerable from the headline. Wrong answers should be clearly different (e.g. "winter storm" vs "hurricane").\n' +
-    '- medium (Q5-Q7, 20pts): Requires reading — full names, institutions, key facts. Plausible but distinct wrong answers.\n' +
-    '- hard (Q8-Q10, 30pts): Precise detail — amounts, dates, vote counts. Do NOT use 4 consecutive dates or 4 near-identical names as options. Do NOT ask about times of day (e.g. "What time does the event start?") — these are trivial details that do not test news knowledge.\n' +
-    '- bonus (Q11, 50pts): The single most specific buried detail. Wrong answers should be nearby but clearly distinct.\n\n' +
+    'QUESTION FOCUS RULES (critical — read carefully):\n' +
+    '- Ask about the WHO or WHAT that makes the story newsworthy, NOT the how much, how long, or how many\n' +
+    '- Good question subjects: names of companies, people, organizations, places, decisions, and actions\n' +
+    '- Bad question subjects: dollar amounts, durations, unit counts, vote tallies, dates, and times — unless the number itself IS the headline (e.g. a record-breaking figure everyone is talking about)\n' +
+    '- Example: a story about Primanti Bros. closing → ask which chain closed, NOT how long it operated\n' +
+    '- Example: a story about a new airline route → ask which airline, NOT which destination\n' +
+    '- Example: a real estate acquisition → ask which developer, NOT how many units\n' +
+    '- The correct answer should be something a well-informed Baltimorean might actually know or want to know\n' +
+    '- Skip crime stories unless a recognizable institution, public figure, or place is central to the story\n\n' +
+    'ARTICLE SELECTION FILTER — before writing a question, ask: would a typical Baltimore news reader who does not closely follow this topic find this story interesting or important? If no, skip it and use the next available article instead.\n' +
+    '- SKIP: routine sports transaction or injury updates (a pitcher refining mechanics, a trade rumor, a player signing a minor deal)\n' +
+    '- SKIP: minor arts/culture items with no broader community impact (a small gallery opening, a local band releasing an album)\n' +
+    '- SKIP: individual crime stories unless a recognizable public figure, major institution, or significant pattern is central\n' +
+    '- SKIP: weather stories unless the storm is historically significant or caused major damage\n' +
+    '- USE: sports stories about record-breaking achievements, major roster decisions, or stadium/ownership news\n' +
+    '- USE: arts/culture stories involving major institutions (BSO, BMA, Center Stage) or nationally recognized figures\n' +
+    '- USE: anything involving public money, public safety, elections, housing, schools, or the local economy\n' +
+    '- USE: anything a well-informed Baltimorean might mention to a friend over coffee that morning\n\n' +
+    '- Wrong answers must be the same category as the correct answer\n' +
+    '  · If the answer is an airline → other real airlines (preferably ones serving the Mid-Atlantic)\n' +
+    '  · If the answer is a restaurant chain → other real restaurant chains a Baltimorean would recognize\n' +
+    '  · If the answer is a developer or company → other real companies in that industry\n' +
+    '  · If the answer is a politician or official → other real politicians at a similar level\n' +
+    '  · If the answer is a neighborhood or place → other real Baltimore-area places\n' +
+    '- Wrong answers should be plausible enough that someone who did NOT read the article might pick them\n' +
+    '- Wrong answers should NOT be so similar to the correct answer that they are confusing\n' +
+    '- Wrong answers should NOT be obviously absurd or unrelated (e.g. do not list "NASA" as a wrong answer for a question about a restaurant)\n' +
+    '- Never use four options that are all dates, all dollar amounts, or all nearly identical numbers\n\n' +
+    '- easy (Q1-Q4, 10pts): Answerable from the headline. The correct answer is the main subject of the story. Wrong answers should be clearly different but plausible.\n' +
+    '- medium (Q5-Q7, 20pts): Requires reading — test knowledge of key facts, decisions, or outcomes. Wrong answers should be plausible but clearly distinct.\n' +
+    '- hard (Q8-Q10, 30pts): Tests a specific supporting detail that a close reader would remember — a name, a place, a stated reason, or a key outcome. Do NOT ask about dollar amounts, dates, durations, or unit counts unless the number is the entire point of the story.\n' +
+    '- bonus (Q11, 50pts): The single most memorable specific detail in the article — ideally a surprising or counterintuitive fact. Wrong answers should be nearby but clearly distinct.\n\n' +
     'HERE ARE YOUR 11 ASSIGNED ARTICLES:\n\n' +
     (assignedArticles || rssContent) + '\n\n' +
     'OUTPUT: Respond with ONLY valid JSON. No preamble, no markdown. Start with { and end with }.\n\n' +
@@ -2867,6 +2915,7 @@ function showDraftPreview(questions) {
           '<label style="font-size:10px;color:var(--muted)">Move to position:</label>' +
           '<input type="number" min="1" max="11" style="width:44px;font-size:12px;padding:2px 4px;border:1px solid var(--border);border-radius:3px;" ' +
             'placeholder="' + (i+1) + '" onchange="reorderQuestion(' + i + ', parseInt(this.value)-1, this)">' +
+          '<button onclick="replaceQuestion(' + i + ')" title="Replace with a new question" style="background:none;border:1px solid var(--gold);color:var(--gold,#b8860b);border-radius:3px;padding:2px 8px;font-size:11px;cursor:pointer;font-family:inherit;">↺ Replace</button>' +
           '<button onclick="deleteQuestion(' + i + ')" title="Delete this question" style="background:none;border:1px solid var(--red);color:var(--red);border-radius:3px;padding:2px 8px;font-size:11px;cursor:pointer;font-family:inherit;">✕ Delete</button>' +
         '</span>' +
       '</div>' +
@@ -2898,6 +2947,83 @@ function deleteQuestion(idx) {
   saveDraftQuiz(draft);
   showDraftPreview(draft.questions);
   setStatus('Question ' + (idx + 1) + ' deleted. ' + draft.questions.length + ' questions remaining.', 'info');
+}
+
+async function replaceQuestion(idx) {
+  const draft = getDraftQuiz();
+  if (!draft || !draft.questions) return;
+  if (!confirm('Replace question ' + (idx + 1) + ' with a freshly generated one?')) return;
+
+  setStatus('Generating replacement question…', 'info');
+
+  // Get existing headlines to avoid duplicates
+  const usedHeadlines = draft.questions.map(q => q.question);
+  const diffs = ['easy','easy','easy','easy','medium','medium','medium','hard','hard','hard','bonus'];
+  const pts =   ['10',  '10',  '10',  '10',  '20',    '20',    '20',    '30',  '30',  '30',  '50'];
+  const difficulty = diffs[idx] || 'medium';
+  const points = pts[idx] || '20';
+
+  // Build a short prompt for one replacement question from RSS
+  let rssSnippet = '';
+  try {
+    const rssRes = await fetch('/api/rss');
+    if (rssRes.ok) {
+      const rssData = await rssRes.json();
+      if (rssData.items) {
+        // Filter out topics already in the draft
+        const available = rssData.items.filter(item =>
+          !draft.questions.some(q => q.sourceUrl === item.link)
+        );
+        rssSnippet = available.slice(0, 20).map((item, i) =>
+          `ARTICLE ${i+1}:\nSOURCE: ${item.source}\nHEADLINE: ${item.title}\nSUMMARY: ${item.description}\nURL: ${item.link}`
+        ).join('\n\n---\n\n');
+      }
+    }
+  } catch(e) {}
+
+  if (!rssSnippet) {
+    setStatus('Could not load RSS articles for replacement.', 'error');
+    return;
+  }
+
+  const prompt = 'You are writing ONE replacement question for a Baltimore local news quiz.\n\n' +
+    'ALREADY USED TOPICS — do not repeat these:\n' + usedHeadlines.join('\n') + '\n\n' +
+    'AVAILABLE ARTICLES (pick the single most newsworthy one not already covered):\n\n' + rssSnippet + '\n\n' +
+    'QUESTION FOCUS RULES:\n' +
+    '- Ask about the WHO or WHAT that makes the story newsworthy, NOT dollar amounts, durations, or counts\n' +
+    '- Wrong answers must be the same category as the correct answer (same type of company, person, place)\n' +
+    '- Skip routine sports transactions, minor arts items, individual crime stories, and weather unless historic\n\n' +
+    'Write exactly ONE question at difficulty: ' + difficulty + ' (' + points + ' pts).\n\n' +
+    'OUTPUT: Respond with ONLY valid JSON. No preamble, no markdown.\n' +
+    '{"question":"...","options":["A","B","C","D"],"correctIndex":0,"explanation":"...","difficulty":"' + difficulty + '","sourceUrl":"..."}';
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 600,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    clearTimeout(timeout);
+    const data = await res.json();
+    const text = (data.content || []).map(c => c.text || '').join('').trim();
+    const clean = text.replace(/```json|```/g, '').trim();
+    const newQ = JSON.parse(clean);
+    newQ.difficulty = difficulty;
+
+    draft.questions[idx] = newQ;
+    saveDraftQuiz(draft);
+    showDraftPreview(draft.questions);
+    setStatus('Question ' + (idx + 1) + ' replaced!', 'success');
+  } catch(e) {
+    setStatus('Replacement failed — try again. (' + e.message + ')', 'error');
+  }
 }
 
 function reorderQuestion(fromIdx, toIdx, inputEl) {
