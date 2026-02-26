@@ -2560,41 +2560,45 @@ async function generateQuestions() {
     ? `Do NOT generate questions about these previously used topics: ${archive.slice(0, 30).join(' | ')}`
     : '';
 
-  // Pull from RSS cache if available
+  // Pull from RSS cache only when the URL box contains feed/site URLs, not specific articles.
+  // If the user has pasted specific article URLs, skip the cache so Claude uses exactly those.
+  const isFeedMode = urlList.length === 0 || urlList.some(u =>
+    u.includes('/feed') || u.includes('/rss') ||
+    (!u.match(/\/\d{4}\//) && !u.match(/\.(html?|php|aspx?)(\?|$)/))
+  );
+
   let rssContent = '';
-  try {
-    const rssRes = await fetch('/api/rss');
-    if (rssRes.ok) {
-      const rssData = await rssRes.json();
-      if (rssData.items && rssData.items.length > 0) {
-        // Interleave articles across sources so Claude sees variety from the start
-        // Group by source, then round-robin to mix them up
-        const bySource = {};
-        for (const item of rssData.items) {
-          const domain = item.source || 'unknown';
-          if (!bySource[domain]) bySource[domain] = [];
-          if (bySource[domain].length < 4) bySource[domain].push(item); // max 4 per source
-        }
-        const sourceQueues = Object.values(bySource);
-        const interleaved = [];
-        let added = true;
-        while (added) {
-          added = false;
-          for (const queue of sourceQueues) {
-            if (queue.length > 0) {
-              interleaved.push(queue.shift());
-              added = true;
+  if (isFeedMode) {
+    try {
+      const rssRes = await fetch('/api/rss');
+      if (rssRes.ok) {
+        const rssData = await rssRes.json();
+        if (rssData.items && rssData.items.length > 0) {
+          // Interleave articles across sources so Claude sees variety from the start
+          const bySource = {};
+          for (const item of rssData.items) {
+            const domain = item.source || 'unknown';
+            if (!bySource[domain]) bySource[domain] = [];
+            if (bySource[domain].length < 4) bySource[domain].push(item);
+          }
+          const sourceQueues = Object.values(bySource);
+          const interleaved = [];
+          let added = true;
+          while (added) {
+            added = false;
+            for (const queue of sourceQueues) {
+              if (queue.length > 0) { interleaved.push(queue.shift()); added = true; }
             }
           }
+          rssContent = interleaved.map((item, idx) =>
+            `ARTICLE ${idx + 1}:\nSOURCE: ${item.source}\nHEADLINE: ${item.title}\nSUMMARY: ${item.description}\nURL: ${item.link}\nDATE: ${item.pubDate}`
+          ).join('\n\n---\n\n');
         }
-        rssContent = interleaved.map((item, idx) =>
-          `ARTICLE ${idx + 1}:\nSOURCE: ${item.source}\nHEADLINE: ${item.title}\nSUMMARY: ${item.description}\nURL: ${item.link}\nDATE: ${item.pubDate}`
-        ).join('\n\n---\n\n');
       }
-    }
-  } catch(e) { /* cache unavailable, proceed without */ }
+    } catch(e) { /* cache unavailable, proceed without */ }
+  }
 
-  const prompt = buildGenerationPrompt(urlList, manualText, archiveNote, rssContent);
+  const prompt = buildGenerationPrompt(urlList, manualText, archiveNote, rssContent, isFeedMode);
   let rawResponse = '';
 
   // ── Send to Claude ────────────────────────────────────────
@@ -2659,13 +2663,19 @@ function showRawDebug(text) {
   document.getElementById('raw-debug-text').textContent = text;
 }
 
-function buildGenerationPrompt(urlList, manualText, archiveNote, rssContent) {
+function buildGenerationPrompt(urlList, manualText, archiveNote, rssContent, isFeedMode) {
   const manualBlock = manualText
     ? 'MANUALLY PROVIDED ARTICLE TEXT (use as additional source):\n' + manualText.slice(0, 4000)
     : '';
 
-  const fallback = !rssContent && !manualBlock
+  const isSpecificArticles = urlList.length > 0 && !isFeedMode;
+
+  const fallback = !rssContent && !manualBlock && !isSpecificArticles
     ? 'Search for and read the most recent articles from these Baltimore news websites:\n' + urlList.join('\n')
+    : '';
+
+  const specificArticlesBlock = isSpecificArticles
+    ? 'SPECIFIC ARTICLES TO USE (read and use ONLY these exact URLs — do not browse to other stories):\n' + urlList.join('\n')
     : '';
 
   // ── Topic deduplication: pick 11 topically distinct articles ──
@@ -2713,6 +2723,7 @@ function buildGenerationPrompt(urlList, manualText, archiveNote, rssContent) {
   }
 
   return 'You are writing questions for a LOCAL NEWS QUIZ about Baltimore and the Central Maryland region.\n\n' +
+    (specificArticlesBlock ? specificArticlesBlock + '\n\n' : '') +
     (manualBlock ? manualBlock + '\n\n' : '') +
     (fallback ? fallback + '\n\n' : '') +
     (archiveNote ? 'PREVIOUSLY USED TOPICS — do not repeat these:\n' + archiveNote + '\n\n' : '') +
