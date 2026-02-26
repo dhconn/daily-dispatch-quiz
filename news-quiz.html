@@ -1227,11 +1227,17 @@
       <div id="freshness-notice" style="background:#fff8e0;border:1px solid var(--gold);padding:10px 14px;margin-bottom:12px;font-family:monospace,monospace;font-size:12px;color:#7a5f00;line-height:1.6;">
         <strong>⏱ Freshness filter is active.</strong> Claude will automatically skip any article published more than 24 hours ago and will not generate questions from stale content. Paste only links to <strong>today's</strong> articles for best results. If Claude skips articles, you'll see a warning below.
       </div>
-      <p style="font-size:13px;color:var(--muted);margin-bottom:8px;">Enter your news websites once — they'll be saved and pre-filled every time you open the admin panel.</p>
-      <textarea class="url-input-area" id="urls-input" placeholder="Paste one news website URL per line…&#10;https://baltimorebrew.com&#10;https://marylandmatters.org&#10;…"></textarea>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:8px;">Enter your RSS feed or news website URLs once — they'll be saved and pre-filled every time you open the admin panel. <strong>Do not paste specific article URLs here.</strong></p>
+      <textarea class="url-input-area" id="urls-input" placeholder="Paste one RSS feed or news site URL per line…&#10;https://baltimorebrew.com/feed/&#10;https://marylandmatters.org/feed/&#10;…"></textarea>
       <div style="display:flex;align-items:center;gap:12px;margin-top:8px;">
         <button class="btn-secondary" style="font-size:11px;padding:7px 14px;" onclick="saveSites()">💾 Save Sites</button>
         <span id="sites-saved-msg" style="font-family:monospace,monospace;font-size:11px;color:var(--green);display:none;">✓ Sites saved!</span>
+      </div>
+
+      <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--rule);">
+        <h3 style="margin-bottom:4px;">Today's Hand-Picked Articles <span style="font-weight:400;font-size:12px;color:var(--muted);font-family:monospace;">(optional — one-time use, not saved)</span></h3>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:8px;">Paste specific article URLs here to override the RSS feed entirely. Claude will use <em>only</em> these articles for question generation. This box clears after each use.</p>
+        <textarea class="url-input-area" id="article-urls-input" placeholder="Paste specific article URLs here, one per line…&#10;https://www.baltimoresun.com/2026/02/26/some-story/&#10;https://www.thebaltimorebanner.com/politics-power/…&#10;…" style="height:120px;"></textarea>
       </div>
 
       <details style="margin-top:14px;">
@@ -2541,9 +2547,10 @@ function setStatus(msg, type) {
 
 async function generateQuestions() {
   const urls = document.getElementById('urls-input').value.trim();
+  const articleUrls = document.getElementById('article-urls-input').value.trim();
   const manualText = document.getElementById('manual-text-input').value.trim();
 
-  if (!urls && !manualText) {
+  if (!urls && !articleUrls && !manualText) {
     setStatus('Please paste at least one news site URL — or paste article text directly.', 'error');
     return;
   }
@@ -2554,26 +2561,25 @@ async function generateQuestions() {
   document.getElementById('raw-debug').style.display = 'none';
   setStatus('', '');
 
+  // Article URLs = hand-picked specific articles (one-time, not saved)
+  // Feed URLs = RSS/site URLs saved in the feeds box
+  const articleUrlList = articleUrls ? articleUrls.split('\n').map(u => u.trim()).filter(u => u.startsWith('http')) : [];
   const urlList = urls ? urls.split('\n').map(u => u.trim()).filter(u => u.startsWith('http')) : [];
   const archive = getArchive();
   const archiveNote = archive.length > 0
     ? `Do NOT generate questions about these previously used topics: ${archive.slice(0, 30).join(' | ')}`
     : '';
 
-  // Pull from RSS cache only when the URL box contains feed/site URLs, not specific articles.
-  // If the user has pasted specific article URLs, skip the cache so Claude uses exactly those.
-  const isFeedMode = urlList.length === 0 || urlList.some(u =>
-    u.includes('/feed') || u.includes('/rss') ||
-    (!u.match(/\/\d{4}\//) && !u.match(/\.(html?|php|aspx?)(\?|$)/))
-  );
+  // Always fetch RSS cache. If specific articles are provided, they go first;
+  // RSS articles are used only to fill remaining slots up to 11.
+  const isFeedMode = articleUrlList.length === 0;
 
   let rssContent = '';
-  if (isFeedMode) {
-    try {
-      const rssRes = await fetch('/api/rss');
-      if (rssRes.ok) {
-        const rssData = await rssRes.json();
-        if (rssData.items && rssData.items.length > 0) {
+  try {
+    const rssRes = await fetch('/api/rss');
+    if (rssRes.ok) {
+      const rssData = await rssRes.json();
+      if (rssData.items && rssData.items.length > 0) {
           // Interleave articles across sources so Claude sees variety from the start
           const bySource = {};
           for (const item of rssData.items) {
@@ -2596,9 +2602,8 @@ async function generateQuestions() {
         }
       }
     } catch(e) { /* cache unavailable, proceed without */ }
-  }
 
-  const prompt = buildGenerationPrompt(urlList, manualText, archiveNote, rssContent, isFeedMode);
+  const prompt = buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote, rssContent, isFeedMode);
   let rawResponse = '';
 
   // ── Send to Claude ────────────────────────────────────────
@@ -2654,6 +2659,10 @@ async function generateQuestions() {
   } finally {
     document.getElementById('gen-btn').disabled = false;
     document.getElementById('gen-overlay').classList.remove('show');
+    // Clear one-time article URLs after use
+    if (articleUrlList.length > 0) {
+      document.getElementById('article-urls-input').value = '';
+    }
   }
 }
 
@@ -2663,19 +2672,19 @@ function showRawDebug(text) {
   document.getElementById('raw-debug-text').textContent = text;
 }
 
-function buildGenerationPrompt(urlList, manualText, archiveNote, rssContent, isFeedMode) {
+function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote, rssContent, isFeedMode) {
   const manualBlock = manualText
     ? 'MANUALLY PROVIDED ARTICLE TEXT (use as additional source):\n' + manualText.slice(0, 4000)
     : '';
 
-  const isSpecificArticles = urlList.length > 0 && !isFeedMode;
+  const isSpecificArticles = articleUrlList.length > 0;
 
   const fallback = !rssContent && !manualBlock && !isSpecificArticles
     ? 'Search for and read the most recent articles from these Baltimore news websites:\n' + urlList.join('\n')
     : '';
 
   const specificArticlesBlock = isSpecificArticles
-    ? 'SPECIFIC ARTICLES TO USE (read and use ONLY these exact URLs — do not browse to other stories):\n' + urlList.join('\n')
+    ? 'SPECIFIC ARTICLES TO USE (fetch and use ONLY these exact URLs — do not browse to other stories, do not use RSS cache, do not add articles from training knowledge):\n' + articleUrlList.join('\n')
     : '';
 
   // ── Topic deduplication: pick 11 topically distinct articles ──
@@ -2694,8 +2703,46 @@ function buildGenerationPrompt(urlList, manualText, archiveNote, rssContent, isF
     return topicWords(h2).filter(w => w1.has(w)).length >= 3;
   }
 
+  const difficulties = ['easy','easy','easy','easy','medium','medium','medium','hard','hard','hard','bonus'];
+  const points =       ['10',  '10',  '10',  '10',  '20',    '20',    '20',    '30',  '30',  '30',  '50'];
+
   let assignedArticles = '';
-  if (rssContent) {
+
+  if (isSpecificArticles) {
+    // Specific articles go first, guaranteed. RSS fills remaining slots up to 11.
+    const specificBlocks = articleUrlList.map((url, i) =>
+      `ARTICLE ${i + 1}:\nURL: ${url}`
+    );
+    const chosenHeadlines = []; // track headlines from RSS fill to dedup
+    const rssBlocks = [];
+
+    if (rssContent) {
+      const blocks = rssContent.split('---').map(b => b.trim()).filter(Boolean);
+      const needed = 11 - specificBlocks.length;
+      console.log(`[TopicDedup] ${specificBlocks.length} specific articles, need ${needed} more from RSS`);
+      for (const block of blocks) {
+        if (rssBlocks.length >= needed) break;
+        const m = block.match(/HEADLINE: (.+)/);
+        if (!m) continue;
+        const headline = m[1].trim();
+        const overlap = chosenHeadlines.find(h => topicsOverlap(h, headline));
+        if (overlap) {
+          console.log(`[TopicDedup] SKIPPED (overlaps with "${overlap}"): ${headline}`);
+          continue;
+        }
+        chosenHeadlines.push(headline);
+        rssBlocks.push(block);
+        console.log(`[TopicDedup] RSS FILL (${rssBlocks.length}/${needed}): ${headline}`);
+      }
+    }
+
+    const allBlocks = [...specificBlocks, ...rssBlocks];
+    assignedArticles = allBlocks.map((block, i) => {
+      const label = i < specificBlocks.length ? ' [EDITOR PICK]' : '';
+      return 'QUESTION ' + (i+1) + ' (' + difficulties[i] + ', ' + points[i] + ' pts)' + label + ' — write exactly ONE question about THIS article:\n' + block;
+    }).join('\n\n===\n\n');
+
+  } else if (rssContent) {
     const blocks = rssContent.split('---').map(b => b.trim()).filter(Boolean);
     const chosen = [];
     const chosenHeadlines = [];
@@ -2715,8 +2762,6 @@ function buildGenerationPrompt(urlList, manualText, archiveNote, rssContent, isF
       if (chosen.length >= 11) break;
     }
     console.log(`[TopicDedup] Final count: ${chosen.length} articles assigned to Claude`);
-    const difficulties = ['easy','easy','easy','easy','medium','medium','medium','hard','hard','hard','bonus'];
-    const points =       ['10',  '10',  '10',  '10',  '20',    '20',    '20',    '30',  '30',  '30',  '50'];
     assignedArticles = chosen.map((block, i) =>
       'QUESTION ' + (i+1) + ' (' + difficulties[i] + ', ' + points[i] + ' pts) — write exactly ONE question about THIS article:\n' + block
     ).join('\n\n===\n\n');
