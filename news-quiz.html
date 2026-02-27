@@ -2813,7 +2813,10 @@ function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote,
     '- SKIP: routine sports transaction or injury updates (a pitcher refining mechanics, a trade rumor, a player signing a minor deal)\n' +
     '- SKIP: minor arts/culture items with no broader community impact (a small gallery opening, a local band releasing an album)\n' +
     '- SKIP: individual crime stories unless a recognizable public figure, major institution, or significant pattern is central\n' +
-    '- SKIP: weather stories unless the storm is historically significant or caused major damage\n' +
+    '- SKIP: ALL weather stories — forecasts, First Alert days, temperature records — unless a historic storm caused major documented damage\n' +
+    '- SKIP: anniversary or milestone articles (school founded X years ago, business celebrating Y anniversary) unless a specific newsworthy development is the focus (a closure, a major donation, a scandal)\n' +
+    '- SKIP: stories about DC-area teams (Nationals, Commanders, Capitals, Wizards) unless there is an explicit and specific Baltimore or Maryland angle — spring training updates and player health stories about DC teams do not qualify\n' +
+    '- SKIP: any story where the only interesting question would involve a specific number, date, dollar amount, or duration\n' +
     '- USE: sports stories about record-breaking achievements, major roster decisions, or stadium/ownership news\n' +
     '- USE: arts/culture stories involving major institutions (BSO, BMA, Center Stage) or nationally recognized figures\n' +
     '- USE: anything involving public money, public safety, elections, housing, schools, or the local economy\n' +
