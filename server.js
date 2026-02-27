@@ -360,6 +360,34 @@ app.get('/api/answers', (req, res) => {
   res.json((data.dist && data.dist[date]) || {});
 });
 
+// ── Leaderboard ───────────────────────────────────────────────
+// Scores stored as data.scores = { playerKey: { displayName, allTime, dailyScores: {date: score} } }
+
+app.post('/api/scores', (req, res) => {
+  const { playerName, date, score } = req.body;
+  if (!playerName || !date || typeof score !== 'number') {
+    return res.status(400).json({ error: 'playerName, date, and score required' });
+  }
+  const data = readData();
+  if (!data.scores) data.scores = {};
+  const key = playerName.toLowerCase().trim();
+  if (!data.scores[key]) {
+    data.scores[key] = { displayName: playerName.trim(), allTime: 0, dailyScores: {} };
+  }
+  // Only record the score once per day per player
+  if (!data.scores[key].dailyScores[date]) {
+    data.scores[key].dailyScores[date] = score;
+    data.scores[key].allTime = Object.values(data.scores[key].dailyScores).reduce((a,b) => a+b, 0);
+  }
+  writeData(data);
+  res.json({ ok: true });
+});
+
+app.get('/api/scores', (req, res) => {
+  const data = readData();
+  res.json({ scores: data.scores || {} });
+});
+
 // ── Quiz persistence ──────────────────────────────────────────
 // Save published quiz to server so it survives browser/device changes
 app.post('/api/quiz', (req, res) => {
