@@ -2735,6 +2735,41 @@ async function generateQuestions() {
     }
   }
 
+  // ── Step 1.5: Fetch full article text ────────────────────────
+  // For each article in the screened RSS pool, attempt to fetch full text.
+  // Fall back to RSS excerpt if fetch fails or returns too little (paywall).
+  if (rssContent) {
+    document.getElementById('gen-progress-text').textContent = 'Fetching article content…';
+    const blocks = rssContent.split('---').map(b => b.trim()).filter(Boolean);
+    const enriched = await Promise.all(blocks.map(async (block) => {
+      const urlMatch = block.match(/URL: (.+)/);
+      if (!urlMatch) return block;
+      const articleUrl = urlMatch[1].trim();
+      try {
+        const fetchRes = await fetch('/api/fetch-article', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: articleUrl })
+        });
+        const fetchData = await fetchRes.json();
+        if (fetchData.ok && fetchData.excerpt && fetchData.excerpt.length > 200) {
+          console.log(`[ArticleFetch] Full text retrieved: ${articleUrl.slice(0,60)}`);
+          // Replace or append SUMMARY with full text
+          if (block.includes('SUMMARY:')) {
+            return block.replace(/SUMMARY:[\s\S]*$/, 'FULL TEXT:\n' + fetchData.excerpt);
+          }
+          return block + '\nFULL TEXT:\n' + fetchData.excerpt;
+        } else {
+          console.log(`[ArticleFetch] Paywall/failed (${fetchData.reason}): ${articleUrl.slice(0,60)}`);
+          return block; // keep RSS excerpt
+        }
+      } catch(e) {
+        return block; // keep RSS excerpt on error
+      }
+    }));
+    rssContent = enriched.join('\n\n---\n\n');
+  }
+
   const prompt = buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote, rssContent, isFeedMode);
   let rawResponse = '';
 
