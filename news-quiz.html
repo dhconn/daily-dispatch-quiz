@@ -1521,7 +1521,7 @@ function showScreen(id) {
 // ═══════════════════════════════════════════════════════
 //  REGISTER
 // ═══════════════════════════════════════════════════════
-function registerPlayer() {
+async function registerPlayer() {
   const name = document.getElementById('player-input').value.trim();
   const errEl = document.getElementById('reg-error');
   if (!name) { errEl.textContent = 'Please enter a name or pseudonym.'; errEl.style.display='block'; return; }
@@ -1531,7 +1531,18 @@ function registerPlayer() {
   lsSet('dnq_current_player', name);
   getOrCreatePlayer(name);
 
-  const quiz = getTodayQuiz();
+  // Try localStorage first, then fall back to server
+  let quiz = getTodayQuiz();
+  if (!quiz || !quiz.questions || quiz.questions.length < 6) {
+    try {
+      const serverRes = await fetch('/api/quiz?date=' + todayStr());
+      const serverData = await serverRes.json();
+      if (serverData.quiz && serverData.quiz.questions && serverData.quiz.questions.length >= 6) {
+        quiz = serverData.quiz;
+        saveTodayQuiz(quiz); // cache locally
+      }
+    } catch(e) { /* proceed without */ }
+  }
   if (!quiz || !quiz.questions || quiz.questions.length < 6) {
     // Show no-quiz state
     showScreen('screen-quiz');
@@ -2056,7 +2067,7 @@ async function markRead(id) {
 }
 
 async function loadAdminPosts() {
-  const el = document.getElementById('admin-posts');
+  const el = document.getElementById('admin-posts-list');
   if (!el) return;
   try {
     const res = await fetch('/api/posts');
@@ -2117,7 +2128,7 @@ async function markRead(id) {
 }
 
 async function loadAdminPosts() {
-  const el = document.getElementById('admin-posts');
+  const el = document.getElementById('admin-posts-list');
   if (!el) return;
   try {
     const res = await fetch('/api/posts');
@@ -3160,6 +3171,12 @@ function publishQuestions() {
   saveTodayQuiz(draft);
   addToArchive(draft.questions);
   clearDraftQuiz();
+  // Also persist to server so quiz survives across browsers/devices
+  fetch('/api/quiz', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ date: todayStr(), quiz: draft })
+  }).catch(e => console.warn('Could not save quiz to server:', e.message));
   setStatus('Quiz published for ' + todayStr() + '! Players can now play.', 'success');
   document.getElementById('preview-section').style.display = 'none';
   refreshAdminPreviews();
