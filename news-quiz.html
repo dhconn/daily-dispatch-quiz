@@ -2627,10 +2627,74 @@ async function generateQuestions() {
       }
     } catch(e) { /* cache unavailable, proceed without */ }
 
+  // ── Step 1: Pre-screen RSS articles for newsworthiness ──────
+  // Only run pre-screening when using RSS feed (not hand-picked articles)
+  if (isFeedMode && rssContent) {
+    document.getElementById('gen-progress-text').textContent = 'Evaluating articles…';
+    try {
+      const blocks = rssContent.split('---').map(b => b.trim()).filter(Boolean);
+      const headlines = blocks.map((b, i) => {
+        const m = b.match(/HEADLINE: (.+)/);
+        const u = b.match(/URL: (.+)/);
+        return `${i}: ${m ? m[1].trim() : '(no headline)'} | ${u ? u[1].trim() : ''}`;
+      }).join('\n');
+
+      const screenPrompt = 'You are an editor screening articles for a Baltimore local news quiz. ' +
+        'For each article below, decide if it is suitable for a quiz question.\n\n' +
+        'REJECT if any of these apply:\n' +
+        '- Profile or anniversary piece with no specific news event (e.g. school founded X years ago, person profile)\n' +
+        '- Weather forecast or routine temperature update\n' +
+        '- DC team sports story (Nationals, Commanders, Capitals, Wizards) with no Baltimore/Maryland angle\n' +
+        '- Routine sports transaction, injury update, or spring training note\n' +
+        '- Any story where the only interesting question would involve a number, date, or dollar amount\n' +
+        '- Headline roundups or "morning headlines" digest articles\n\n' +
+        'ACCEPT if:\n' +
+        '- A specific newsworthy event happened (decision, vote, lawsuit, opening, closing, arrest of public figure)\n' +
+        '- Involves public money, elections, housing, schools, health, or local economy\n' +
+        '- A well-informed Baltimorean would mention it to a friend over coffee\n\n' +
+        'ARTICLES:\n' + headlines + '\n\n' +
+        'Respond with ONLY a JSON array of the indices you ACCEPT. Example: [0,2,4,7,9]. No explanation.';
+
+      const screenController = new AbortController();
+      const screenTimer = setTimeout(() => screenController.abort(), 30000);
+      let screenResponse;
+      try {
+        screenResponse = await fetch('/api/claude', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: screenController.signal,
+          body: JSON.stringify({
+            model: CLAUDE_MODEL,
+            max_tokens: 200,
+            messages: [{ role: 'user', content: screenPrompt }]
+          })
+        });
+      } finally {
+        clearTimeout(screenTimer);
+      }
+
+      const screenData = await screenResponse.json();
+      if (!screenData.error && screenData.content && screenData.content.length) {
+        const screenText = screenData.content.map(c => c.text || '').join('').trim();
+        const clean = screenText.replace(/```json|```/g, '').trim();
+        const acceptedIndices = JSON.parse(clean);
+        console.log(`[PreScreen] Accepted ${acceptedIndices.length} of ${blocks.length} articles:`, acceptedIndices);
+        // Rebuild rssContent with only accepted blocks
+        const acceptedBlocks = acceptedIndices
+          .filter(i => i >= 0 && i < blocks.length)
+          .map(i => blocks[i]);
+        rssContent = acceptedBlocks.join('\n\n---\n\n');
+        console.log(`[PreScreen] RSS content filtered to ${acceptedBlocks.length} articles`);
+      }
+    } catch(e) {
+      console.warn('[PreScreen] Screening step failed, proceeding with full RSS:', e.message);
+    }
+  }
+
   const prompt = buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote, rssContent, isFeedMode);
   let rawResponse = '';
 
-  // ── Send to Claude ────────────────────────────────────────
+  // ── Step 2: Generate questions ───────────────────────────────
   document.getElementById('gen-progress-text').textContent = 'Generating questions…';
 
   try {
