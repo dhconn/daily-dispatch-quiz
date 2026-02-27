@@ -360,6 +360,29 @@ app.get('/api/answers', (req, res) => {
   res.json((data.dist && data.dist[date]) || {});
 });
 
+// ── Quiz persistence ──────────────────────────────────────────
+// Save published quiz to server so it survives browser/device changes
+app.post('/api/quiz', (req, res) => {
+  const { date, quiz } = req.body;
+  if (!date || !quiz) return res.status(400).json({ error: 'date and quiz required' });
+  const data = readData();
+  if (!data.quizzes) data.quizzes = {};
+  data.quizzes[date] = quiz;
+  // Keep only last 14 days
+  const keys = Object.keys(data.quizzes).sort();
+  if (keys.length > 14) keys.slice(0, keys.length - 14).forEach(k => delete data.quizzes[k]);
+  writeData(data);
+  res.json({ ok: true });
+});
+
+app.get('/api/quiz', (req, res) => {
+  const { date } = req.query;
+  if (!date) return res.status(400).json({ error: 'date required' });
+  const data = readData();
+  const quiz = (data.quizzes && data.quizzes[date]) || null;
+  res.json({ quiz });
+});
+
 // ── Anthropic API proxy ───────────────────────────────────────
 app.post('/api/claude', (req, res) => {
   const apiKey = process.env.ANTHROPIC_API_KEY;
