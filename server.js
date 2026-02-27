@@ -190,6 +190,25 @@ async function fetchAndCacheRSS() {
   function isLocalStory(item, site) {
     // Skip CBS video pages — articles have more usable text for quiz generation
     if (site.includes('cbsnews') && (item.link || '').includes('/video/')) return false;
+
+    // Filter DC sports teams — Nationals, Commanders, Capitals, Wizards
+    // These appear in Banner's sports section but have no Baltimore relevance
+    const itemLink = (item.link || '').toLowerCase();
+    const itemTitle = (item.title || '').toLowerCase();
+    const dcSportsPatterns = [
+      '/nationals-mlb/', '/commanders-nfl/', '/capitals-nhl/', '/wizards-nba/',
+      'nationals spring training', 'washington nationals',
+      'washington commanders'
+    ];
+    if (dcSportsPatterns.some(p => itemLink.includes(p) || itemTitle.includes(p))) return false;
+
+    // Filter weather forecasts — only keep if headline suggests historic/major storm
+    const weatherPatterns = ['first alert', 'degrees', 'temperatures', 'forecast',
+      'rain and snow', 'showers', 'warmer', 'colder', 'milder', 'weekend weather'];
+    const majorWeather = ['blizzard', 'hurricane', 'tornado', 'historic storm',
+      'state of emergency', 'major flooding', 'power outages'];
+    if (weatherPatterns.some(p => itemTitle.includes(p)) &&
+        !majorWeather.some(p => itemTitle.includes(p))) return false;
     // These outlets publish ONLY local Baltimore/Maryland content — trust everything
     // Truly hyper-local outlets — every story is Baltimore/Maryland specific
     // Hyper-local outlets — trust everything they publish
