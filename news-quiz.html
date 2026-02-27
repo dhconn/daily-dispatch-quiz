@@ -1602,7 +1602,7 @@ function buildProgressTrack(qs) {
     if (i === 2) html += `<span class="progress-separator">·</span>`;
   }
   html += `<span class="progress-separator">◆</span>`;
-  html += `<div class="progress-dot bonus" id="pd-10">★</div>`;
+  html += `<div class="progress-dot bonus" id="pd-5">★</div>`;
   track.innerHTML = html;
 }
 
@@ -1775,7 +1775,7 @@ function selectBonus(idx) {
   const pts = correct ? 50 : 0;
 
   state.sessionScore += pts;
-  state.answers.push({ qIdx: 10, chosen: idx, correct, pts });
+  state.answers.push({ qIdx: 5, chosen: idx, correct, pts });
 
   // Style
   for (let i = 0; i < q.options.length; i++) {
@@ -1804,7 +1804,7 @@ function selectBonus(idx) {
   }
 
   // Update bonus progress dot
-  const pd = document.getElementById('pd-10');
+  const pd = document.getElementById('pd-5');
   if (pd) pd.className = 'progress-dot bonus ' + (correct ? 'correct' : 'wrong');
 }
 
@@ -1862,7 +1862,7 @@ function finishQuiz() {
   let brows = `<div class="breakdown-header">Question Breakdown</div>`;
   state.answers.forEach(a => {
     const q = quizQuestions[a.qIdx];
-    const isBonus = a.qIdx === 10;
+    const isBonus = a.qIdx === 5;
     brows += `<div class="breakdown-row">
       <span class="q-label">${isBonus ? 'BONUS' : ('Q' + (a.qIdx+1))}</span>
       <span class="q-short">${escHtml(q.question.slice(0, 55))}${q.question.length > 55 ? '…' : ''}</span>
@@ -1888,7 +1888,7 @@ function finishQuiz() {
           const d = dist2[k] || { correct: 0, wrong: 0 };
           const total = d.correct + d.wrong;
           const pct = total ? Math.round(d.correct / total * 100) : 0;
-          const isBonus = i === 10;
+          const isBonus = i === 5;
           const label = isBonus ? 'BONUS' : ('Q' + (i + 1));
           distHtml += `<div class="dist-row">
             <span class="dist-label">${label}</span>
@@ -3050,7 +3050,7 @@ function showDraftPreview(questions) {
     optionsHtml += '</div>';
 
     const sourceLink = q.sourceUrl ? '<a href="' + escHtml(q.sourceUrl) + '" target="_blank" style="font-family:monospace;font-size:11px;color:var(--blue);white-space:nowrap;">Open</a>' : '';
-    const qLabel = i === 10 ? 'BONUS' : ('Q'+(i+1));
+    const qLabel = i === 5 ? 'BONUS' : ('Q'+(i+1));
     const diffClass = diffMap[diff] || 'easy';
     html += '<div class="q-review-card" id="qcard-' + i + '">' +
       '<div class="q-meta">' +
