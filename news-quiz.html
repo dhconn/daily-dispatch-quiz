@@ -1812,8 +1812,19 @@ function selectBonus(idx) {
 //  RESULTS
 // ═══════════════════════════════════════════════════════
 function finishQuiz() {
-  // Save scores
+  // Save scores locally
   updatePlayerScore(state.playerName, state.sessionScore);
+
+  // Submit score to server for shared leaderboard
+  fetch('/api/scores', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      playerName: state.playerName,
+      date: state.todayKey,
+      score: state.sessionScore
+    })
+  }).catch(() => {});
 
   // POST this player's answers to server for community distribution
   fetch('/api/answers', {
@@ -1912,8 +1923,30 @@ function showLbTab(tab, el) {
   renderLeaderboard(tab);
 }
 
-function renderLeaderboard(tab) {
-  const players = getPlayers();
+async function renderLeaderboard(tab) {
+  const el = document.getElementById('lb-body');
+  if (el) el.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:20px;">Loading…</td></tr>';
+
+  // Merge local scores with server scores
+  const localPlayers = getPlayers();
+  let players = { ...localPlayers };
+  try {
+    const res = await fetch('/api/scores');
+    const data = await res.json();
+    if (data.scores) {
+      // Merge server scores — server wins for allTime, merge dailyScores
+      for (const [key, p] of Object.entries(data.scores)) {
+        if (!players[key]) {
+          players[key] = p;
+        } else {
+          // Merge daily scores, recompute allTime
+          players[key].dailyScores = { ...players[key].dailyScores, ...p.dailyScores };
+          players[key].allTime = Object.values(players[key].dailyScores).reduce((a,b) => a+b, 0);
+        }
+      }
+    }
+  } catch(e) { /* use local only */ }
+
   let rows = Object.entries(players).map(([key, p]) => ({
     name: p.displayName || key,
     score: tab === 'alltime' ? (p.allTime || 0) : ((p.dailyScores || {})[state.todayKey] || 0),
