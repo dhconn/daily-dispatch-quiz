@@ -77,7 +77,7 @@ function parseRSS(xml) {
     const pubDate = get('pubDate') || get('published') || get('updated') || '';
 
     if (title) {
-      items.push({ title, description: description.slice(0, 500), link, pubDate });
+      items.push({ title, description: description.slice(0, 2000), link, pubDate });
     }
   }
   return items;
@@ -358,6 +358,56 @@ app.get('/api/answers', (req, res) => {
   if (!date) return res.status(400).json({ error: 'date required' });
   const data = readData();
   res.json((data.dist && data.dist[date]) || {});
+});
+
+// ── Article text fetcher ──────────────────────────────────────
+// Fetches full article text for a given URL, stripping HTML tags.
+// Used to give Claude full article content instead of just RSS snippets.
+app.post('/api/fetch-article', async (req, res) => {
+  const { url } = req.body;
+  if (!url) return res.status(400).json({ error: 'url required' });
+
+  try {
+    const html = await fetchUrl(url);
+
+    // Strip script/style blocks first
+    let text = html
+      .replace(/<script[\s\S]*?<\/script>/gi, '')
+      .replace(/<style[\s\S]*?<\/style>/gi, '')
+      .replace(/<nav[\s\S]*?<\/nav>/gi, '')
+      .replace(/<header[\s\S]*?<\/header>/gi, '')
+      .replace(/<footer[\s\S]*?<\/footer>/gi, '');
+
+    // Try to extract main article body — look for common content containers
+    const articleMatch = text.match(/<article[\s\S]*?<\/article>/i)
+      || text.match(/<main[\s\S]*?<\/main>/i)
+      || text.match(/class="[^"]*(?:article|story|content|post|entry)-body[^"]*"[\s\S]*?<\/div>/i);
+
+    if (articleMatch) text = articleMatch[0];
+
+    // Strip remaining HTML tags and decode entities
+    text = text
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&nbsp;/g, ' ')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+
+    // Cap at 3000 chars — enough for Claude to understand the full story
+    const excerpt = text.slice(0, 3000);
+
+    if (excerpt.length < 100) {
+      return res.json({ ok: false, reason: 'paywall or insufficient content', excerpt: '' });
+    }
+
+    res.json({ ok: true, excerpt });
+  } catch(e) {
+    res.json({ ok: false, reason: e.message, excerpt: '' });
+  }
 });
 
 // ── Leaderboard ───────────────────────────────────────────────
