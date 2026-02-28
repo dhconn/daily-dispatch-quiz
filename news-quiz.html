@@ -1335,7 +1335,7 @@ const CLAUDE_MODEL = 'claude-sonnet-4-20250514';
 const POINTS = { easy: 10, medium: 20, hard: 30, bonus: 50 };
 
 function todayStr() {
-  return new Date().toISOString().slice(0, 6);
+  return new Date().toISOString().slice(0, 10);
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1531,17 +1531,19 @@ async function registerPlayer() {
   lsSet('dnq_current_player', name);
   getOrCreatePlayer(name);
 
-  // Try localStorage first, then fall back to server
-  let quiz = getTodayQuiz();
+  // // Server is authoritative — always fetch today's quiz from server first
+  let quiz = null;
+  try {
+    const serverRes = await fetch('/api/quiz?date=' + todayStr());
+    const serverData = await serverRes.json();
+    if (serverData.quiz && serverData.quiz.questions && serverData.quiz.questions.length >= 6) {
+      quiz = serverData.quiz;
+      saveTodayQuiz(quiz); // update local cache
+    }
+  } catch(e) { /* fall back to localStorage */ }
+  // Fall back to localStorage only if server has nothing
   if (!quiz || !quiz.questions || quiz.questions.length < 6) {
-    try {
-      const serverRes = await fetch('/api/quiz?date=' + todayStr());
-      const serverData = await serverRes.json();
-      if (serverData.quiz && serverData.quiz.questions && serverData.quiz.questions.length >= 6) {
-        quiz = serverData.quiz;
-        saveTodayQuiz(quiz); // cache locally
-      }
-    } catch(e) { /* proceed without */ }
+    quiz = getTodayQuiz();
   }
   if (!quiz || !quiz.questions || quiz.questions.length < 6) {
     // Show no-quiz state
