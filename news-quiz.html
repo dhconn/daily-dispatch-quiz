@@ -3087,7 +3087,7 @@ function updateDraftSourceUrl(i, val) {
   if (draft && draft.questions[i]) { draft.questions[i].sourceUrl = val; saveDraftQuiz(draft); }
 }
 
-function publishQuestions() {
+async function publishQuestions() {
   const draft = getDraftQuiz();
   if (!draft || !draft.questions) { setStatus('No draft to publish.', 'error'); return; }
   if (draft.questions.length < 6) { setStatus('Draft has only ' + draft.questions.length + ' unique questions (need 6) — please regenerate.', 'error'); return; }
@@ -3095,13 +3095,20 @@ function publishQuestions() {
   saveTodayQuiz(draft);
   addToArchive(draft.questions);
   clearDraftQuiz();
-  // Also persist to server so quiz survives across browsers/devices
-  fetch('/api/quiz', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ date: todayStr(), quiz: draft })
-  }).catch(e => console.warn('Could not save quiz to server:', e.message));
-  setStatus('Quiz published for ' + todayStr() + '! Players can now play.', 'success');
+  // Save to server — wait for confirmation before declaring success
+  try {
+    const saveRes = await fetch('/api/quiz', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date: todayStr(), quiz: draft })
+    });
+    const saveData = await saveRes.json();
+    if (!saveData.ok) throw new Error('Server returned not-ok');
+    setStatus('✓ Quiz published for ' + todayStr() + ' and saved to server! Players can now play.', 'success');
+  } catch(e) {
+    setStatus('⚠ Quiz saved locally but FAILED to save to server (' + e.message + '). Players on other devices may not see it. Try republishing.', 'error');
+    console.error('Server save failed:', e);
+  }
   document.getElementById('preview-section').style.display = 'none';
   refreshAdminPreviews();
 }
