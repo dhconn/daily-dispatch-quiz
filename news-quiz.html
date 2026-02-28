@@ -1119,7 +1119,8 @@
     <p>You've answered the day's news — from the straightforward to the substantive. But the hardest question still awaits.</p>
     <div class="interstitial-rule"></div>
     <div class="pulse-text" style="font-family:monospace,monospace;font-size:12px;letter-spacing:3px;color:var(--gold-light);margin-bottom:28px;">THE BONUS ROUND AWAITS</div>
-    <button class="btn-primary" style="font-size:14px;letter-spacing:3px;padding:18px 40px;" onclick="startBonusRound()">I'm Ready. Take Me In. ▸</button>
+    <p style="font-family:monospace,monospace;font-size:12px;color:var(--muted);margin-bottom:8px;">Taking you there now…</p>
+    <div id="interstitial-countdown" style="font-family:'Playfair Display',serif;font-size:28px;color:var(--gold);margin-bottom:24px;">3</div>
   </div>
 
   <!-- BONUS -->
@@ -1526,6 +1527,7 @@ async function registerPlayer() {
   const errEl = document.getElementById('reg-error');
   if (!name) { errEl.textContent = 'Please enter a name or pseudonym.'; errEl.style.display='block'; return; }
   errEl.style.display='none';
+  lsSet('dnq_player_name', name); // save for community board pre-fill
 
   state.playerName = name;
   lsSet('dnq_current_player', name);
@@ -1734,6 +1736,18 @@ function advanceQuestion() {
 function showInterstitial() {
   document.getElementById('interstitial-score').textContent = state.sessionScore;
   showScreen('screen-interstitial');
+  // Auto-advance to bonus after 3-second countdown
+  let count = 3;
+  const cdEl = document.getElementById('interstitial-countdown');
+  const timer = setInterval(() => {
+    count--;
+    if (count > 0) {
+      cdEl.textContent = count;
+    } else {
+      clearInterval(timer);
+      startBonusRound();
+    }
+  }, 1000);
 }
 
 function startBonusRound() {
