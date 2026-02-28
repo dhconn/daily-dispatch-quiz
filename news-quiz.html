@@ -1940,32 +1940,32 @@ function showLbTab(tab, el) {
 }
 
 async function renderLeaderboard(tab) {
-  const el = document.getElementById('lb-body');
-  if (el) el.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:20px;">Loading…</td></tr>';
+  const el = document.getElementById('lb-content');
+  if (el) el.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px;font-family:monospace;font-size:12px;">Loading…</div>';
 
-  // Merge local scores with server scores
-  const localPlayers = getPlayers();
-  let players = { ...localPlayers };
+  // Server is the source of truth for all scores
+  let players = {};
   try {
     const res = await fetch('/api/scores');
     const data = await res.json();
-    if (data.scores) {
-      // Merge server scores — server wins for allTime, merge dailyScores
-      for (const [key, p] of Object.entries(data.scores)) {
-        if (!players[key]) {
-          players[key] = p;
-        } else {
-          // Merge daily scores, recompute allTime
-          players[key].dailyScores = { ...players[key].dailyScores, ...p.dailyScores };
-          players[key].allTime = Object.values(players[key].dailyScores).reduce((a,b) => a+b, 0);
-        }
-      }
-    }
-  } catch(e) { /* use local only */ }
+    if (data.scores) players = data.scores;
+  } catch(e) {}
 
+  // Merge in any local-only scores (e.g. current session not yet on server)
+  const localPlayers = getPlayers();
+  for (const [key, p] of Object.entries(localPlayers)) {
+    if (!players[key]) {
+      players[key] = p;
+    } else {
+      players[key].dailyScores = { ...p.dailyScores, ...players[key].dailyScores };
+      players[key].allTime = Object.values(players[key].dailyScores).reduce((a,b) => a+b, 0);
+    }
+  }
+
+  const today = todayStr(); // always use fresh todayStr(), not stale state.todayKey
   let rows = Object.entries(players).map(([key, p]) => ({
     name: p.displayName || key,
-    score: tab === 'alltime' ? (p.allTime || 0) : ((p.dailyScores || {})[state.todayKey] || 0),
+    score: tab === 'alltime' ? (p.allTime || 0) : ((p.dailyScores || {})[today] || 0),
     isMe: key === state.playerName.toLowerCase().trim()
   }));
   rows.sort((a,b) => b.score - a.score);
