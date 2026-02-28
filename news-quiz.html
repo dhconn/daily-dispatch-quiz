@@ -2115,30 +2115,6 @@ async function markRead(id) {
   loadAdminMessages();
 }
 
-async function loadAdminPosts() {
-  const el = document.getElementById('admin-posts-list');
-  if (!el) return;
-  try {
-    const res = await fetch('/api/posts');
-    const data = await res.json();
-    const posts = data.posts || [];
-    if (posts.length === 0) {
-      el.innerHTML = '<p style="font-family:monospace;font-size:12px;color:var(--muted);">No posts yet.</p>';
-      return;
-    }
-    el.innerHTML = posts.map(p => `
-      <div style="background:white;border:1px solid var(--rule);padding:12px;margin-bottom:8px;display:flex;gap:12px;align-items:flex-start;">
-        <div style="flex:1;">
-          <strong style="font-family:monospace;font-size:12px;">${escHtml(p.playerName)}</strong>
-          <span style="font-family:monospace;font-size:10px;color:var(--muted);margin-left:8px;">${new Date(p.createdAt).toLocaleString()}</span>
-          <p style="font-size:13px;margin:4px 0 0;">${escHtml(p.text)}</p>
-        </div>
-        <button onclick="deletePost('${p.id}')" style="font-family:monospace;font-size:11px;padding:4px 10px;background:var(--red);color:white;border:none;cursor:pointer;white-space:nowrap;">Delete</button>
-      </div>`).join('');
-  } catch(e) {
-    el.innerHTML = '<p style="color:var(--red);font-size:12px;">Could not load posts.</p>';
-  }
-}
 
 async function deletePost(id) {
   if (!confirm('Delete this post?')) return;
@@ -2242,85 +2218,12 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-async function loadPosts() {
-  const list = document.getElementById('posts-list');
-  if (!list) return;
-  list.innerHTML = '<p style="font-family:monospace;font-size:12px;color:var(--muted);">Loading posts…</p>';
-  try {
-    const res = await fetch('/api/posts');
-    const data = await res.json();
-    if (!data.posts || data.posts.length === 0) {
-      list.innerHTML = '<p style="font-family:monospace;font-size:13px;color:var(--muted);text-align:center;padding:20px;">No posts yet — be the first!</p>';
-      return;
-    }
-    list.innerHTML = data.posts.map(p => `
-      <div style="background:white;border:1px solid var(--rule);padding:14px;margin-bottom:10px;">
-        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">
-          <strong style="font-family:monospace;font-size:13px;">${escHtml(p.playerName)}</strong>
-          <span style="font-family:monospace;font-size:10px;color:var(--muted);">${new Date(p.createdAt).toLocaleString()}</span>
-        </div>
-        <p style="font-size:14px;line-height:1.5;margin:0;">${escHtml(p.text)}</p>
-      </div>`).join('');
-  } catch(e) {
-    list.innerHTML = '<p style="color:var(--red);font-family:monospace;font-size:12px;">Could not load posts.</p>';
-  }
-}
-
-async function submitPost() {
-  const name = document.getElementById('board-name').value.trim();
-  const text = document.getElementById('board-text').value.trim();
-  const status = document.getElementById('board-status');
-
-  if (!name) { showBoardStatus('Please enter your player name.', 'error'); return; }
-  if (!text)  { showBoardStatus('Please write something before posting.', 'error'); return; }
-
-  try {
-    const res = await fetch('/api/posts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ playerName: name, text })
-    });
-    const data = await res.json();
-    if (!res.ok) { showBoardStatus(data.error || 'Post failed.', 'error'); return; }
-    document.getElementById('board-text').value = '';
-    document.getElementById('board-char-count').textContent = '0 / 500';
-    showBoardStatus('✓ Posted!', 'success');
-    lsSet('dnq_player_name', name);
-    loadPosts();
-  } catch(e) {
-    showBoardStatus('Post failed. Try again.', 'error');
-  }
-}
-
 function showBoardStatus(msg, type) {
   const el = document.getElementById('board-status');
   el.style.display = 'block';
   el.style.color = type === 'error' ? 'var(--red)' : 'var(--green)';
   el.textContent = msg;
   setTimeout(() => el.style.display = 'none', 3000);
-}
-
-async function submitContact() {
-  const name = document.getElementById('contact-name').value.trim();
-  const text = document.getElementById('contact-text').value.trim();
-
-  if (!name) { showContactStatus('Please enter your player name.', 'error'); return; }
-  if (!text)  { showContactStatus('Please write a message.', 'error'); return; }
-
-  try {
-    const res = await fetch('/api/contact', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ playerName: name, text })
-    });
-    const data = await res.json();
-    if (!res.ok) { showContactStatus(data.error || 'Send failed.', 'error'); return; }
-    document.getElementById('contact-text').value = '';
-    showContactStatus('✓ Message sent to the editor!', 'success');
-    lsSet('dnq_player_name', name);
-  } catch(e) {
-    showContactStatus('Send failed. Try again.', 'error');
-  }
 }
 
 function showContactStatus(msg, type) {
@@ -2351,76 +2254,12 @@ function showContactForm() {
   if (cn && name) cn.value = name;
 }
 
-async function loadPosts() {
-  const list = document.getElementById('posts-list');
-  if (!list) return;
-  list.innerHTML = '<p style="font-family:monospace;font-size:12px;color:var(--muted);">Loading…</p>';
-  try {
-    const res = await fetch('/api/posts');
-    const data = await res.json();
-    if (!data.posts || data.posts.length === 0) {
-      list.innerHTML = '<p style="font-family:monospace;font-size:13px;color:var(--muted);text-align:center;padding:20px;">No posts yet — be the first!</p>';
-      return;
-    }
-    list.innerHTML = data.posts.map(p => `
-      <div style="background:white;border:1px solid var(--rule);padding:14px;margin-bottom:10px;">
-        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">
-          <strong style="font-family:monospace;font-size:13px;">${escHtml(p.playerName)}</strong>
-          <span style="font-family:monospace;font-size:10px;color:var(--muted);">${new Date(p.createdAt).toLocaleString()}</span>
-        </div>
-        <p style="font-size:14px;line-height:1.5;margin:0;">${escHtml(p.text)}</p>
-      </div>`).join('');
-  } catch(e) {
-    list.innerHTML = '<p style="color:var(--red);font-family:monospace;font-size:12px;">Could not load posts.</p>';
-  }
-}
-
-async function submitPost() {
-  const name = document.getElementById('board-name').value.trim();
-  const text = document.getElementById('board-text').value.trim();
-  if (!name) { showBoardStatus('Please enter your player name.', 'error'); return; }
-  if (!text)  { showBoardStatus('Please write something.', 'error'); return; }
-  try {
-    const res = await fetch('/api/posts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ playerName: name, text })
-    });
-    const data = await res.json();
-    if (!res.ok) { showBoardStatus(data.error || 'Post failed.', 'error'); return; }
-    document.getElementById('board-text').value = '';
-    document.getElementById('board-char-count').textContent = '0 / 500';
-    showBoardStatus('✓ Posted!', 'success');
-    lsSet('dnq_player_name', name);
-    loadPosts();
-  } catch(e) { showBoardStatus('Post failed. Try again.', 'error'); }
-}
-
 function showBoardStatus(msg, type) {
   const el = document.getElementById('board-status');
   el.style.display = 'block';
   el.style.color = type === 'error' ? 'var(--red)' : 'var(--green)';
   el.textContent = msg;
   setTimeout(() => el.style.display = 'none', 3000);
-}
-
-async function submitContact() {
-  const name = document.getElementById('contact-name').value.trim();
-  const text = document.getElementById('contact-text').value.trim();
-  if (!name) { showContactStatus('Please enter your player name.', 'error'); return; }
-  if (!text)  { showContactStatus('Please write a message.', 'error'); return; }
-  try {
-    const res = await fetch('/api/contact', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ playerName: name, text })
-    });
-    const data = await res.json();
-    if (!res.ok) { showContactStatus(data.error || 'Send failed.', 'error'); return; }
-    document.getElementById('contact-text').value = '';
-    showContactStatus('✓ Message sent to the editor!', 'success');
-    lsSet('dnq_player_name', name);
-  } catch(e) { showContactStatus('Send failed. Try again.', 'error'); }
 }
 
 function showContactStatus(msg, type) {
