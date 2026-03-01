@@ -279,6 +279,23 @@ async function fetchAndCacheRSS() {
 // Fetch RSS on startup (after a short delay to let the server settle)
 setTimeout(fetchAndCacheRSS, 5000);
 
+// Scheduled daily refresh at 6am Eastern time
+function scheduleNextRefresh() {
+  const now = new Date();
+  const next = new Date();
+  // 6am Eastern = 11am UTC (EST) or 10am UTC (EDT)
+  const utcHour = 11;
+  next.setUTCHours(utcHour, 0, 0, 0);
+  if (next <= now) next.setUTCDate(next.getUTCDate() + 1); // tomorrow if already past
+  const msUntil = next - now;
+  console.log(`RSS: Next scheduled refresh in ${Math.round(msUntil/60000)} minutes (6am Eastern).`);
+  setTimeout(() => {
+    fetchAndCacheRSS();
+    scheduleNextRefresh(); // schedule the next day's refresh
+  }, msUntil);
+}
+scheduleNextRefresh();
+
 // ── GET /api/rss/debug — show all cached articles grouped by source ──
 app.get('/api/rss/debug', (req, res) => {
   const data = readData();
@@ -457,8 +474,16 @@ app.get('/api/quiz', (req, res) => {
   const { date } = req.query;
   if (!date) return res.status(400).json({ error: 'date required' });
   const data = readData();
-  const quiz = (data.quizzes && data.quizzes[date]) || null;
-  res.json({ quiz });
+  if (!data.quizzes) return res.json({ quiz: null });
+
+  // Return today's quiz if available
+  if (data.quizzes[date]) return res.json({ quiz: data.quizzes[date] });
+
+  // Fall back to most recently published quiz
+  const dates = Object.keys(data.quizzes).sort();
+  if (dates.length === 0) return res.json({ quiz: null });
+  const mostRecent = dates[dates.length - 1];
+  res.json({ quiz: data.quizzes[mostRecent], fallback: true, fallbackDate: mostRecent });
 });
 
 // ── Anthropic API proxy ───────────────────────────────────────
