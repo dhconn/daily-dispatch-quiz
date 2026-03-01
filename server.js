@@ -73,7 +73,11 @@ function parseRSS(xml) {
     };
     const title = get('title');
     const description = get('description') || get('summary') || get('content');
-    const link = get('link') || (block.match(/href="([^"]+)"/)||[])[1] || '';
+    const link = get('link')
+      || (block.match(/<link[^>]+href="([^"]+)"/i)||[])[1]
+      || (block.match(/<guid[^>]*>([^<]+)<\/guid>/i)||[])[1]
+      || (block.match(/href="(https?:\/\/[^"]+)"/)||[])[1]
+      || '';
     const pubDate = get('pubDate') || get('published') || get('updated') || '';
 
     if (title) {
