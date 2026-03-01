@@ -1407,107 +1407,10 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('today-dateline').textContent =
     new Date().toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' }).toUpperCase();
 
-  // Restore player from last session
+  // Restore player name from last session
   const saved = lsGet('dnq_current_player');
   if (saved) {
     document.getElementById('player-input').value = saved;
-  }
-
-  // ── Load sample quiz for demo purposes if none exists today ──
-  if (!getTodayQuiz()) {
-    const sample = {
-      questions: [
-        {
-          question: "A major water main break disrupted traffic in which Baltimore neighborhood on Thursday morning?",
-          options: ["Federal Hill", "Hampden", "Canton", "Fells Point"],
-          correctIndex: 2,
-          explanation: "A 16-inch water main ruptured on Boston Street in Canton, causing significant flooding and closing several blocks to traffic Thursday morning.",
-          difficulty: "easy",
-          sourceUrl: "https://baltimorebrew.com"
-        },
-        {
-          question: "Baltimore City Schools announced it would close which school due to a heating system failure this week?",
-          options: ["Francis Scott Key Elementary", "Govans Elementary", "Harlem Park Elementary", "Cherry Hill Elementary"],
-          correctIndex: 1,
-          explanation: "Govans Elementary was closed Thursday after its boiler failed, displacing roughly 280 students who were relocated to a nearby recreation center.",
-          difficulty: "easy",
-          sourceUrl: "https://www.wbal.com"
-        },
-        {
-          question: "The Maryland General Assembly this week took up a bill dealing with which transportation issue?",
-          options: ["Speed cameras on I-695", "Red light cameras in school zones", "Toll increases on the Bay Bridge", "Electric scooter regulations in Baltimore City"],
-          correctIndex: 0,
-          explanation: "Legislators debated expanding the state's speed camera program to include sections of the Baltimore Beltway near active work zones.",
-          difficulty: "easy",
-          sourceUrl: "https://marylandmatters.org"
-        },
-        {
-          question: "A Baltimore City Council committee advanced legislation this week aimed at addressing what issue?",
-          options: ["Short-term rental regulations", "Vacant property tax penalties", "Noise ordinance enforcement", "Sidewalk repair liability"],
-          correctIndex: 1,
-          explanation: "The Housing and Community Development Committee voted to advance a bill that would double tax penalties on owners of long-vacant properties.",
-          difficulty: "easy",
-          sourceUrl: "https://baltimorebrew.com"
-        },
-        {
-          question: "Baltimore Police Commissioner Richard Worley announced a new deployment strategy this week focused on which district?",
-          options: ["Northern District", "Eastern District", "Western District", "Southern District"],
-          correctIndex: 2,
-          explanation: "Commissioner Worley announced a surge of approximately 40 additional officers into the Western District following a spike in carjackings over the past three weeks.",
-          difficulty: "medium",
-          sourceUrl: "https://www.wbaltv.com"
-        },
-        {
-          question: "Maryland Governor Wes Moore signed an executive order Thursday directing state agencies to do what?",
-          options: ["Freeze non-essential hiring through June", "Accelerate broadband permitting in rural counties", "Require diversity audits of all state contractors", "Expand Medicaid coverage for dental care"],
-          correctIndex: 1,
-          explanation: "Governor Moore signed an order directing the Maryland Department of Transportation and related agencies to cut permitting timelines for broadband infrastructure in the state's 10 least-connected counties.",
-          difficulty: "medium",
-          sourceUrl: "https://marylandmatters.org"
-        },
-        {
-          question: "The Baltimore Development Corporation voted this week to approve a tax increment financing deal for a project in which area?",
-          options: ["Port Covington", "Mondawmin", "Oldtown Mall site", "Cherry Hill"],
-          correctIndex: 2,
-          explanation: "The BDC board voted 6-1 to approve a $34 million TIF package to support a mixed-use redevelopment of the long-vacant Oldtown Mall site on Gay Street.",
-          difficulty: "medium",
-          sourceUrl: "https://thedailyrecord.com"
-        },
-        {
-          question: "What was the exact dollar amount Baltimore City requested in state aid for school infrastructure repairs in Thursday's Board of Estimates meeting?",
-          options: ["$112.4 million", "$87.6 million", "$143.2 million", "$98.8 million"],
-          correctIndex: 3,
-          explanation: "City budget officials requested $98.8 million in emergency state infrastructure funds, citing deteriorating HVAC and electrical systems across 34 school buildings.",
-          difficulty: "hard",
-          sourceUrl: "https://baltimorebrew.com"
-        },
-        {
-          question: "By what vote margin did the Maryland Senate Education Committee approve the school funding amendment on Wednesday?",
-          options: ["7-4", "8-3", "6-5", "9-2"],
-          correctIndex: 0,
-          explanation: "The committee approved the Kirwan funding amendment 7-4 after two hours of testimony, sending it to the full Senate floor for a vote expected next week.",
-          difficulty: "hard",
-          sourceUrl: "https://marylandmatters.org"
-        },
-        {
-          question: "A federal indictment unsealed Thursday charged a Baltimore County man with defrauding the Small Business Administration of exactly how much money?",
-          options: ["$2.1 million", "$4.7 million", "$3.3 million", "$1.9 million"],
-          correctIndex: 2,
-          explanation: "Federal prosecutors charged 44-year-old Randall T. Givens of Catonsville with wire fraud and money laundering after he allegedly submitted 11 fraudulent COVID-era SBA loan applications totaling $3.3 million.",
-          difficulty: "hard",
-          sourceUrl: "https://thedailyrecord.com"
-        },
-        {
-          question: "According to Thursday's Board of Estimates agenda, what was the precise per-square-foot lease rate the city agreed to pay for temporary office space at 100 S. Charles Street?",
-          options: ["$26.50", "$31.75", "$28.40", "$33.20"],
-          correctIndex: 2,
-          explanation: "The lease agreement approved Thursday set a rate of $28.40 per square foot annually for 14,200 square feet of swing space at 100 S. Charles Street, to house displaced Housing Authority staff during the Poe Homes redevelopment.",
-          difficulty: "bonus",
-          sourceUrl: "https://baltimorebrew.com"
-        }
-      ]
-    };
-    saveTodayQuiz(sample);
   }
 });
 
@@ -1536,18 +1439,38 @@ async function registerPlayer() {
 
   // // Server is authoritative — always fetch today's quiz from server first
   let quiz = null;
+  let quizDate = todayStr(); // tracks actual publish date of loaded quiz
   try {
     const serverRes = await fetch('/api/quiz?date=' + todayStr());
     const serverData = await serverRes.json();
     if (serverData.quiz && serverData.quiz.questions && serverData.quiz.questions.length >= 6) {
       quiz = serverData.quiz;
-      saveTodayQuiz(quiz); // update local cache
+      quizDate = serverData.fallbackDate || quiz.publishDate || todayStr();
+      saveTodayQuiz(quiz);
     }
   } catch(e) { /* fall back to localStorage */ }
   // Fall back to localStorage only if server has nothing
   if (!quiz || !quiz.questions || quiz.questions.length < 6) {
     quiz = getTodayQuiz();
+    quizDate = quiz?.publishDate || todayStr();
   }
+
+  // Update dateline to show actual quiz publish date
+  if (quiz && quizDate) {
+    const [y, m, d] = quizDate.split('-').map(Number);
+    const quizDateObj = new Date(y, m - 1, d);
+    const dateLabel = quizDateObj.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }).toUpperCase();
+    const isStale = quizDate !== todayStr();
+    const dl = document.getElementById('today-dateline');
+    dl.textContent = dateLabel;
+    if (isStale) {
+      dl.style.color = 'var(--muted)';
+      dl.insertAdjacentHTML('afterend', '<div style="font-family:monospace;font-size:11px;color:var(--red);letter-spacing:1px;margin-top:4px;">LAST UPDATED ' + quizDate + ' — NEW QUIZ COMING SOON</div>');
+    }
+  }
+
+  // Store the quiz's actual publish date in state so completion checks use the right key
+  state.todayKey = quizDate;
   if (!quiz || !quiz.questions || quiz.questions.length < 6) {
     // Show no-quiz state
     showScreen('screen-quiz');
@@ -1567,7 +1490,7 @@ async function registerPlayer() {
   const players = getPlayers();
   const pkey = name.toLowerCase().trim();
   if (players[pkey] && players[pkey].dailyScores && players[pkey].dailyScores[state.todayKey] !== undefined) {
-    if (!confirm(`You already played today's quiz (${players[pkey].dailyScores[state.todayKey]} pts). Play again? Your score won't be added twice.`)) {
+    if (!confirm(`You already completed the ${state.todayKey} quiz (${players[pkey].dailyScores[state.todayKey]} pts). Play again? Your score won't be added twice.`)) {
       showLeaderboard();
       return;
     }
@@ -2837,6 +2760,8 @@ function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote,
     'HERE ARE YOUR 6 ASSIGNED ARTICLES:\n\n' +
     (assignedArticles || rssContent) + '\n\n' +
     'OUTPUT: Respond with ONLY valid JSON. No preamble, no markdown. Start with { and end with }.\n\n' +
+    'IMPORTANT: Always write questions for ALL 6 assigned articles regardless of their age. Never return an empty questions array.\n' +
+    'Set staleWarning to true and list URLs in staleArticles only if articles appear to be more than 3 days old — this is advisory only and must never prevent question generation.\n\n' +
     '{\n  "staleWarning": false,\n  "staleArticles": [],\n  "questions": [\n' +
     '    {\n      "question": "Full question text?",\n      "options": ["Choice A", "Choice B", "Choice C", "Choice D"],\n' +
     '      "correctIndex": 0,\n      "explanation": "Why this answer is correct.",\n' +
@@ -2856,10 +2781,11 @@ function parseQuestions(text) {
   clean = clean.slice(start, end+1);
   const parsed = JSON.parse(clean);
 
-  // Surface stale article warnings to the admin UI
+  // Surface stale article warnings to the admin UI (advisory only)
   if (parsed.staleWarning && parsed.staleArticles && parsed.staleArticles.length > 0) {
-    const staleMsg = 'Warning: ' + parsed.staleArticles.length + ' article(s) were skipped as older than 24 hours: ' + parsed.staleArticles.join(', ');
-    setStatus(staleMsg, 'error');
+    const staleMsg = 'Note: ' + parsed.staleArticles.length + ' article(s) may be older than 3 days. Questions generated anyway.';
+    console.warn('Stale articles:', parsed.staleArticles);
+    setStatus(staleMsg, 'info');
   }
 
   const questions = parsed.questions || [];
@@ -3092,6 +3018,7 @@ async function publishQuestions() {
   if (!draft || !draft.questions) { setStatus('No draft to publish.', 'error'); return; }
   if (draft.questions.length < 6) { setStatus('Draft has only ' + draft.questions.length + ' unique questions (need 6) — please regenerate.', 'error'); return; }
 
+  draft.publishDate = todayStr(); // stamp the publish date into the quiz object
   saveTodayQuiz(draft);
   addToArchive(draft.questions);
   clearDraftQuiz();
