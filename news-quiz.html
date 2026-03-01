@@ -1394,10 +1394,19 @@ function clearDraftQuiz() { localStorage.removeItem('dnq_draft'); }
 
 // ─── Archive ───
 function getArchive() { return lsGet('dnq_archive') || []; }
+function getArchiveUrls() { return lsGet('dnq_archive_urls') || []; }
 function addToArchive(questions) {
   const archive = getArchive();
-  questions.forEach(q => { if (!archive.includes(q.question)) archive.push(q.question); });
+  const archiveUrls = getArchiveUrls();
+  questions.forEach(q => {
+    if (!archive.includes(q.question)) archive.push(q.question);
+    if (q.sourceUrl && !archiveUrls.includes(q.sourceUrl)) archiveUrls.push(q.sourceUrl);
+  });
+  // Keep last 7 days worth (max 60 entries)
+  if (archive.length > 60) archive.splice(0, archive.length - 60);
+  if (archiveUrls.length > 60) archiveUrls.splice(0, archiveUrls.length - 60);
   lsSet('dnq_archive', archive);
+  lsSet('dnq_archive_urls', archiveUrls);
 }
 
 // ═══════════════════════════════════════════════════════
@@ -2462,8 +2471,14 @@ async function generateQuestions() {
         return `${i}: ${m ? m[1].trim() : '(no headline)'} | ${u ? u[1].trim() : ''}`;
       }).join('\n');
 
+      const recentUrls = getArchiveUrls().slice(-30); // last 30 used URLs
+      const recentUrlNote = recentUrls.length > 0
+        ? 'ALREADY USED THIS WEEK (REJECT these URLs and any article covering the same topic):\n' + recentUrls.join('\n') + '\n\n'
+        : '';
+
       const screenPrompt = 'You are an editor screening articles for a Baltimore local news quiz. ' +
         'For each article below, decide if it is suitable for a quiz question.\n\n' +
+        recentUrlNote +
         'REJECT if any of these apply:\n' +
         '- Profile or anniversary piece with no specific news event (e.g. school founded X years ago, person profile)\n' +
         '- Weather forecast or routine temperature update\n' +
