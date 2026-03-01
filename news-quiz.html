@@ -2475,7 +2475,14 @@ async function generateQuestions() {
         return `${i}: ${m ? m[1].trim() : '(no headline)'} | ${u ? u[1].trim() : ''}`;
       }).join('\n');
 
-      const recentUrls = getArchiveUrls().slice(-30); // last 30 used URLs
+      // Load recently used URLs from server archive
+      let recentUrls = getArchiveUrls(); // localStorage fallback
+      try {
+        const archRes = await fetch('/api/archive');
+        const archData = await archRes.json();
+        if (archData.urls && archData.urls.length > 0) recentUrls = archData.urls;
+      } catch(e) { /* use localStorage fallback */ }
+
       const recentUrlNote = recentUrls.length > 0
         ? 'ALREADY USED THIS WEEK (REJECT these URLs and any article covering the same topic):\n' + recentUrls.join('\n') + '\n\n'
         : '';
@@ -3048,6 +3055,16 @@ async function publishQuestions() {
   saveTodayQuiz(draft);
   addToArchive(draft.questions);
   clearDraftQuiz();
+
+  // Save archive to server so it persists across browsers and cache clears
+  fetch('/api/archive', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      urls: draft.questions.map(q => q.sourceUrl).filter(Boolean),
+      questions: draft.questions.map(q => q.question)
+    })
+  }).catch(() => {});
   // Save to server — wait for confirmation before declaring success
   try {
     const saveRes = await fetch('/api/quiz', {
