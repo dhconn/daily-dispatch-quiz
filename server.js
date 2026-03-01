@@ -459,6 +459,30 @@ app.get('/api/scores', (req, res) => {
   res.json({ scores: data.scores || {} });
 });
 
+// ── Archive (used article URLs + question text) ───────────────
+app.get('/api/archive', (req, res) => {
+  const data = readData();
+  res.json({ urls: data.archiveUrls || [], questions: data.archiveQuestions || [] });
+});
+
+app.post('/api/archive', (req, res) => {
+  const { urls, questions } = req.body;
+  const data = readData();
+  if (!data.archiveUrls) data.archiveUrls = [];
+  if (!data.archiveQuestions) data.archiveQuestions = [];
+  if (urls) {
+    urls.forEach(u => { if (!data.archiveUrls.includes(u)) data.archiveUrls.push(u); });
+  }
+  if (questions) {
+    questions.forEach(q => { if (!data.archiveQuestions.includes(q)) data.archiveQuestions.push(q); });
+  }
+  // Keep last 60 entries (~1 week)
+  if (data.archiveUrls.length > 60) data.archiveUrls = data.archiveUrls.slice(-60);
+  if (data.archiveQuestions.length > 60) data.archiveQuestions = data.archiveQuestions.slice(-60);
+  writeData(data);
+  res.json({ ok: true });
+});
+
 // ── Quiz persistence ──────────────────────────────────────────
 // Save published quiz to server so it survives browser/device changes
 app.post('/api/quiz', (req, res) => {
