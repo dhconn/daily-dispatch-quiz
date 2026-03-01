@@ -2323,6 +2323,7 @@ function loadArticleUrls() {
 
 async function saveSites() {
   const val = document.getElementById('urls-input').value.trim();
+  lsSet('dnq_sites', val); // always save locally as backup
   const msg = document.getElementById('sites-saved-msg');
   msg.style.display = 'inline';
   msg.style.color = 'var(--muted)';
@@ -2354,11 +2355,14 @@ async function loadSavedSites() {
       const data = await res.json();
       if (data.sites) {
         document.getElementById('urls-input').value = data.sites;
+        lsSet('dnq_sites', data.sites); // keep local backup in sync
+        return;
       }
     }
-  } catch(e) {
-    // Server not available — silently fall back to empty
-  }
+  } catch(e) { /* fall through to localStorage */ }
+  // Fall back to localStorage if server unavailable
+  const local = lsGet('dnq_sites');
+  if (local) document.getElementById('urls-input').value = local;
 }
 
 async function refreshAdminPreviews() {
@@ -2808,11 +2812,18 @@ function parseQuestions(text) {
 }
 
 function enforceQuizRules(questions) {
-  // 1. Deduplicate — only one question per sourceUrl
+  // 1. Deduplicate — reject questions that are clearly about the same topic
+  // Use first 60 chars of question text as the key, not sourceUrl (which can be a generic feed URL)
+  const seenTopics = new Set();
   const seenUrls = new Set();
   const deduped = questions.filter(q => {
-    if (!q.sourceUrl || seenUrls.has(q.sourceUrl)) return false;
-    seenUrls.add(q.sourceUrl);
+    const topicKey = q.question.slice(0, 60).toLowerCase().replace(/[^a-z0-9]/g, '');
+    // Only reject on URL if it's a real article URL (not a generic feed URL)
+    const isFeedUrl = !q.sourceUrl || q.sourceUrl.endsWith('/feed/') || q.sourceUrl.endsWith('/feed');
+    if (!isFeedUrl && seenUrls.has(q.sourceUrl)) return false;
+    if (seenTopics.has(topicKey)) return false;
+    seenTopics.add(topicKey);
+    if (!isFeedUrl) seenUrls.add(q.sourceUrl);
     return true;
   });
 
