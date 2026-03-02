@@ -1,7 +1,7 @@
 // --- STABLE COMMONJS VERSION (avoids ESM crashes) ---
 
 const express = require('express');
-const fetch = require('node-fetch');
+// Node 18+ has native fetch; no need for node-fetch
 const Parser = require('rss-parser');
 require('dotenv').config();
 
