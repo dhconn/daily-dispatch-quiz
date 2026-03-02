@@ -2748,41 +2748,46 @@ function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote,
     '- Do NOT use training knowledge — only facts from the assigned article\n' +
     '- Keep all questions appropriate for a general community audience\n' +
     '- For articles touching national topics, frame the question around the Maryland/Baltimore local angle\n\n' +
-    'QUESTION FOCUS RULES (critical — read carefully):\n' +
-    '- Ask about the WHO or WHAT that makes the story newsworthy, NOT the how much, how long, or how many\n' +
+    'DO NOT CREATE QUESTIONS ABOUT:\n' +
+    '- Street names or exact addresses\n' +
+    '- Procedural court motions or legal filings\n' +
+    '- Minor individual defendants with no broader significance\n' +
+    '- Groundbreaking ceremony details (who held a shovel, what color the hard hats were)\n' +
+    '- Hyper-local trivia unless it has clear policy or economic impact\n' +
+    '- Dollar amounts, durations, unit counts, vote tallies, dates, or times — unless the number IS the entire headline (e.g. a record-breaking figure everyone is talking about)\n\n' +
+    'QUESTION DESIGN RULES:\n' +
+    '- Questions must test understanding, significance, or implications — not trivial recall\n' +
+    '- At least 3 of the first 5 questions must test WHY the story matters, not just what happened\n' +
+    '- For each question, write the explanation as: [correct answer] + one sentence on why this story matters to Baltimore residents\n' +
+    '- Ask about the WHO or WHAT that makes the story newsworthy\n' +
     '- Good question subjects: names of companies, people, organizations, places, decisions, and actions\n' +
-    '- Bad question subjects: dollar amounts, durations, unit counts, vote tallies, dates, and times — unless the number itself IS the headline (e.g. a record-breaking figure everyone is talking about)\n' +
-    '- Example: a story about Primanti Bros. closing → ask which chain closed, NOT how long it operated\n' +
-    '- Example: a story about a new airline route → ask which airline, NOT which destination\n' +
-    '- Example: a real estate acquisition → ask which developer, NOT how many units\n' +
-    '- The correct answer should be something a well-informed Baltimorean might actually know or want to know\n' +
-    '- Skip crime stories unless a recognizable institution, public figure, or place is central to the story\n\n' +
-    'ARTICLE SELECTION FILTER — before writing a question, ask: would a typical Baltimore news reader who does not closely follow this topic find this story interesting or important? If no, skip it and use the next available article instead.\n' +
-    '- SKIP: routine sports transaction or injury updates (a pitcher refining mechanics, a trade rumor, a player signing a minor deal)\n' +
-    '- SKIP: minor arts/culture items with no broader community impact (a small gallery opening, a local band releasing an album)\n' +
-    '- SKIP: individual crime stories unless a recognizable public figure, major institution, or significant pattern is central\n' +
-    '- SKIP: ALL weather stories — forecasts, First Alert days, temperature records — unless a historic storm caused major documented damage\n' +
-    '- SKIP: anniversary or milestone articles (school founded X years ago, business celebrating Y anniversary) unless a specific newsworthy development is the focus (a closure, a major donation, a scandal)\n' +
-    '- SKIP: stories about DC-area teams (Nationals, Commanders, Capitals, Wizards) unless there is an explicit and specific Baltimore or Maryland angle — spring training updates and player health stories about DC teams do not qualify\n' +
-    '- SKIP: any story where the only interesting question would involve a specific number, date, dollar amount, or duration\n' +
+    '- The correct answer should be something a well-informed Baltimorean might actually know or want to know\n\n' +
+    'DIFFICULTY STRUCTURE — follow this exactly:\n' +
+    '- Q1 (easy, 10pts): Straightforward but meaningful headline takeaway. Answerable from the headline alone.\n' +
+    '- Q2 (easy, 10pts): Adds context or broader impact. Still accessible but requires knowing the story.\n' +
+    '- Q3 (medium, 20pts): Policy or economic implication. Requires reading — test a key decision or outcome.\n' +
+    '- Q4 (medium, 20pts): Political or institutional consequence. Who is affected and how.\n' +
+    '- Q5 (hard, 30pts): More nuanced understanding. A specific supporting detail a close reader would remember — a name, place, stated reason, or key outcome. NOT a dollar amount or date.\n' +
+    '- Q6/Bonus (bonus, 50pts): Requires inference or synthesis — the single most surprising or counterintuitive fact in the article. Must go beyond surface recall.\n\n' +
+    'ARTICLE SELECTION FILTER — before writing a question, ask: would a well-informed Baltimore resident mention this to a friend over coffee? If no, skip it.\n' +
+    '- SKIP: routine sports transactions, injury updates, spring training notes\n' +
+    '- SKIP: minor arts/culture items with no broader community impact\n' +
+    '- SKIP: individual crime stories unless a public figure, major institution, or systemic pattern is central\n' +
+    '- SKIP: ALL weather stories unless a historic storm caused major documented damage\n' +
+    '- SKIP: anniversary or milestone articles unless a specific newsworthy development is the focus\n' +
+    '- SKIP: DC-area team stories (Nationals, Commanders, Capitals, Wizards) without explicit Baltimore/Maryland angle\n' +
     '- USE: sports stories about record-breaking achievements, major roster decisions, or stadium/ownership news\n' +
     '- USE: arts/culture stories involving major institutions (BSO, BMA, Center Stage) or nationally recognized figures\n' +
-    '- USE: anything involving public money, public safety, elections, housing, schools, or the local economy\n' +
-    '- USE: anything a well-informed Baltimorean might mention to a friend over coffee that morning\n\n' +
+    '- USE: anything involving public money, public safety, elections, housing, schools, or the local economy\n\n' +
     '- Wrong answers must be the same category as the correct answer\n' +
-    '  · If the answer is an airline → other real airlines (preferably ones serving the Mid-Atlantic)\n' +
-    '  · If the answer is a restaurant chain → other real restaurant chains a Baltimorean would recognize\n' +
+    '  · If the answer is an airline → other real airlines serving the Mid-Atlantic\n' +
+    '  · If the answer is a restaurant chain → other real chains a Baltimorean would recognize\n' +
     '  · If the answer is a developer or company → other real companies in that industry\n' +
     '  · If the answer is a politician or official → other real politicians at a similar level\n' +
     '  · If the answer is a neighborhood or place → other real Baltimore-area places\n' +
     '- Wrong answers should be plausible enough that someone who did NOT read the article might pick them\n' +
-    '- Wrong answers should NOT be so similar to the correct answer that they are confusing\n' +
-    '- Wrong answers should NOT be obviously absurd or unrelated (e.g. do not list "NASA" as a wrong answer for a question about a restaurant)\n' +
+    '- Wrong answers must NOT be obviously absurd or unrelated\n' +
     '- Never use four options that are all dates, all dollar amounts, or all nearly identical numbers\n\n' +
-    '- easy (Q1-Q2, 10pts): Answerable from the headline. The correct answer is the main subject of the story. Wrong answers should be clearly different but plausible.\n' +
-    '- medium (Q3, 20pts): Requires reading — test knowledge of key facts, decisions, or outcomes. Wrong answers should be plausible but clearly distinct.\n' +
-    '- hard (Q4-Q5, 30pts): Tests a specific supporting detail that a close reader would remember — a name, a place, a stated reason, or a key outcome. Do NOT ask about dollar amounts, dates, durations, or unit counts unless the number is the entire point of the story.\n' +
-    '- bonus (Q11, 50pts): The single most memorable specific detail in the article — ideally a surprising or counterintuitive fact. Wrong answers should be nearby but clearly distinct.\n\n' +
     'HERE ARE YOUR 6 ASSIGNED ARTICLES:\n\n' +
     (assignedArticles || rssContent) + '\n\n' +
     'OUTPUT: Respond with ONLY valid JSON. No preamble, no markdown. Start with { and end with }.\n\n' +
@@ -3079,7 +3084,7 @@ async function publishQuestions() {
     setStatus('⚠ Quiz saved locally but FAILED to save to server (' + e.message + '). Players on other devices may not see it. Try republishing.', 'error');
     console.error('Server save failed:', e);
   }
-  document.getElementById('preview-section').style.display = 'none';
+  // Keep the preview visible so you can refer back to what was published
   refreshAdminPreviews();
 }
 
