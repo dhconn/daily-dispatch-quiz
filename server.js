@@ -1,15 +1,15 @@
-import express from 'express';
-import fetch from 'node-fetch';
-import Parser from 'rss-parser';
-import dotenv from 'dotenv';
+// --- STABLE COMMONJS VERSION (avoids ESM crashes) ---
 
-dotenv.config();
+const express = require('express');
+const fetch = require('node-fetch');
+const Parser = require('rss-parser');
+require('dotenv').config();
 
 const app = express();
 const parser = new Parser();
 const PORT = process.env.PORT || 3000;
 
-// --- RSS FEEDS (Central Maryland + Statewide Impact) ---
+// ---------------- RSS FEEDS ----------------
 const RSS_FEEDS = [
   'https://www.thebaltimorebanner.com/arc/outboundfeeds/rss/',
   'https://www.baltimoresun.com/arcio/rss/category/news/',
@@ -20,14 +20,14 @@ const RSS_FEEDS = [
   'https://www.cbsnews.com/baltimore/latest/rss/main'
 ];
 
-// --- GEOGRAPHIC FILTER ---
+// ------------- GEOGRAPHIC FILTER -------------
 function isRelevantArticle(title = '', content = '') {
   const geoKeywords = [
     'Baltimore', 'Baltimore County',
     'Anne Arundel', 'Howard County',
     'Harford County', 'Carroll County',
     'Annapolis', 'Maryland General Assembly',
-    'Maryland legislature', 'statewide'
+    'Maryland legislature'
   ];
 
   return geoKeywords.some(keyword =>
@@ -35,7 +35,7 @@ function isRelevantArticle(title = '', content = '') {
   );
 }
 
-// --- FETCH + DEDUPE ARTICLES ---
+// ------------- FETCH + DEDUPE -------------
 async function fetchArticles() {
   const articles = [];
   const seenTitles = new Set();
@@ -64,15 +64,15 @@ async function fetchArticles() {
   return articles.slice(0, 20);
 }
 
-// --- DETERMINE ADAPTIVE QUESTION COUNT ---
+// --------- ADAPTIVE QUESTION COUNT ---------
 function determineQuestionCount(articleCount) {
-  if (articleCount >= 14) return 8;   // 7 + bonus
-  if (articleCount >= 9) return 6;    // 5 + bonus
-  return 5;                           // light news day
+  if (articleCount >= 14) return 8;
+  if (articleCount >= 9) return 6;
+  return 5;
 }
 
-// --- POST-GENERATION QUESTION FILTER ---
-function isTrivialQuestion(questionText) {
+// --------- TRIVIA QUESTION FILTER ---------
+function isTrivialQuestion(text) {
   const bannedPatterns = [
     /which street/i,
     /what street/i,
@@ -83,10 +83,10 @@ function isTrivialQuestion(questionText) {
     /exactly how many/i
   ];
 
-  return bannedPatterns.some(pattern => pattern.test(questionText));
+  return bannedPatterns.some(pattern => pattern.test(text));
 }
 
-// --- GENERATE QUIZ ---
+// --------- GENERATE QUIZ ---------
 async function generateQuiz(articles, questionCount) {
   const prompt = `
 You are generating a ${questionCount}-question daily news quiz focused on Baltimore City, surrounding Central Maryland counties, and statewide issues affecting Baltimore residents.
@@ -101,18 +101,18 @@ Rules:
 Articles:
 ${articles.map((a, i) => `${i + 1}. ${a.title}\n${a.content}`).join('\n\n')}
 
-Return valid JSON in this structure:
+Return STRICT valid JSON only in this structure:
 {
-  staleWarning: false,
-  staleArticles: [],
-  questions: [
+  "staleWarning": false,
+  "staleArticles": [],
+  "questions": [
     {
-      question: string,
-      options: string[4],
-      correctIndex: number,
-      explanation: string,
-      difficulty: "easy" | "medium" | "hard" | "bonus",
-      sourceUrl: string
+      "question": "",
+      "options": ["", "", "", ""],
+      "correctIndex": 0,
+      "explanation": "",
+      "difficulty": "easy",
+      "sourceUrl": ""
     }
   ]
 }
@@ -135,9 +135,9 @@ Return valid JSON in this structure:
   const data = await response.json();
 
   try {
-    const parsed = JSON.parse(data.content[0].text);
+    const text = data.content[0].text.trim();
+    const parsed = JSON.parse(text);
 
-    // Filter trivial questions
     parsed.questions = parsed.questions.filter(q =>
       !isTrivialQuestion(q.question)
     );
@@ -145,11 +145,11 @@ Return valid JSON in this structure:
     return parsed;
   } catch (err) {
     console.error('JSON parse error:', err);
-    return { questions: [] };
+    return { staleWarning: false, staleArticles: [], questions: [] };
   }
 }
 
-// --- ROUTE ---
+// --------- ROUTE ---------
 app.get('/api/quiz', async (req, res) => {
   try {
     const articles = await fetchArticles();
@@ -157,6 +157,7 @@ app.get('/api/quiz', async (req, res) => {
     const quiz = await generateQuiz(articles, questionCount);
     res.json(quiz);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Quiz generation failed.' });
   }
 });
