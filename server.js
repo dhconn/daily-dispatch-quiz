@@ -1,169 +1,680 @@
-// --- STABLE COMMONJS VERSION (avoids ESM crashes) ---
-
 const express = require('express');
-// Node 18+ has native fetch; no need for node-fetch
-const Parser = require('rss-parser');
-require('dotenv').config();
+const https = require('https');
+const http = require('http');
+const fs = require('fs');
+const path = require('path');
 
 const app = express();
-const parser = new Parser();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
+const DATA_FILE = path.join('/tmp', 'quiz-data.json');
 
-// ---------------- RSS FEEDS ----------------
-const RSS_FEEDS = [
-  'https://www.thebaltimorebanner.com/arc/outboundfeeds/rss/',
-  'https://www.baltimoresun.com/arcio/rss/category/news/',
-  'https://marylandmatters.org/feed/',
-  'https://thedailyrecord.com/feed/',
-  'https://www.wypr.org/rss.xml',
-  'https://www.wbaltv.com/topstories-rss',
-  'https://www.cbsnews.com/baltimore/latest/rss/main'
-];
+app.use(express.json({ limit: '2mb' }));
+app.use(express.static(path.dirname(__filename)));
 
-// ------------- GEOGRAPHIC FILTER -------------
-function isRelevantArticle(title = '', content = '') {
-  const geoKeywords = [
-    'Baltimore', 'Baltimore County',
-    'Anne Arundel', 'Howard County',
-    'Harford County', 'Carroll County',
-    'Annapolis', 'Maryland General Assembly',
-    'Maryland legislature'
-  ];
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
 
-  return geoKeywords.some(keyword =>
-    title.includes(keyword) || content.includes(keyword)
-  );
+// ── Simple file-based data store ─────────────────────────────
+function readData() {
+  try {
+    if (fs.existsSync(DATA_FILE)) {
+      return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+    }
+  } catch(e) {}
+  return {};
 }
 
-// ------------- FETCH + DEDUPE -------------
-async function fetchArticles() {
-  const articles = [];
-  const seenTitles = new Set();
+function writeData(data) {
+  try {
+    fs.writeFileSync(DATA_FILE, JSON.stringify(data), 'utf8');
+    return true;
+  } catch(e) { return false; }
+}
 
-  for (const url of RSS_FEEDS) {
-    try {
-      const feed = await parser.parseURL(url);
-      feed.items.slice(0, 12).forEach(item => {
-        if (!item.title) return;
-        if (seenTitles.has(item.title)) return;
+// ── RSS feed fetcher ─────────────────────────────────────────
+// Fetches raw RSS/Atom XML from a URL, returns text
+function fetchUrl(url) {
+  return new Promise((resolve, reject) => {
+    const protocol = url.startsWith('https') ? https : http;
+    const req = protocol.get(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; NewsQuizBot/1.0)' },
+      timeout: 10000
+    }, (res) => {
+      // Follow redirects
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        return fetchUrl(res.headers.location).then(resolve).catch(reject);
+      }
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => resolve(data));
+    });
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')); });
+  });
+}
 
-        if (isRelevantArticle(item.title, item.contentSnippet || '')) {
-          seenTitles.add(item.title);
-          articles.push({
-            title: item.title,
-            link: item.link,
-            content: item.contentSnippet || ''
-          });
-        }
-      });
-    } catch (err) {
-      console.error('RSS error:', err.message);
+// Parse RSS/Atom XML — extracts titles, descriptions, links, pubDates
+function parseRSS(xml) {
+  const items = [];
+  // Match both RSS <item> and Atom <entry> tags
+  const itemRegex = /<(?:item|entry)[\s>]([\s\S]*?)<\/(?:item|entry)>/gi;
+  let match;
+  while ((match = itemRegex.exec(xml)) !== null) {
+    const block = match[1];
+    const get = (tag) => {
+      const m = block.match(new RegExp(`<${tag}[^>]*><!\\[CDATA\\[([\\s\\S]*?)\\]\\]></${tag}>`, 'i'))
+        || block.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, 'i'));
+      return m ? m[1].replace(/<[^>]+>/g, '').trim() : '';
+    };
+    const title = get('title');
+    const description = get('description') || get('summary') || get('content');
+    const link = get('link')
+      || (block.match(/<link[^>]+href="([^"]+)"/i)||[])[1]
+      || (block.match(/<guid[^>]*>([^<]+)<\/guid>/i)||[])[1]
+      || (block.match(/href="(https?:\/\/[^"]+)"/)||[])[1]
+      || '';
+    const pubDate = get('pubDate') || get('published') || get('updated') || '';
+
+    if (title) {
+      items.push({ title, description: description.slice(0, 2000), link, pubDate });
+    }
+  }
+  return items;
+}
+
+// Known RSS feeds for Baltimore news sites
+const BALTIMORE_RSS_FEEDS = {
+  // Pure local outlets — confirmed working
+  'baltimoretimes-online.com':  'https://baltimoretimes-online.com/feed/',
+  'marylandmatters.org':        'https://marylandmatters.org/feed/',
+  'thedailyrecord.com':         'https://thedailyrecord.com/feed/',
+  'baltimorefishbowl.com':      'https://baltimorefishbowl.com/feed/',
+  'southbmore.com':             'https://www.southbmore.com/feed/',
+  'cbsnews.com/baltimore':      'https://www.cbsnews.com/baltimore/latest/rss/main',
+  // Pure local — feed URLs need alternate versions
+  'baltimorebrew.com':          'https://baltimorebrew.com/feed/rss/',
+  'thebanner.com':              'https://www.thebaltimorebanner.com/arc/outboundfeeds/rss/',
+  'thebaltimorebanner.com':     'https://www.thebaltimorebanner.com/arc/outboundfeeds/rss/',
+  'wypr.org':                   'https://www.wypr.org/podcast/news/rss.xml',
+  'baltimoresun.com':           'https://www.baltimoresun.com/arc/outboundfeeds/rss/',
+  'bizjournals.com/baltimore':  'https://www.bizjournals.com/baltimore/feed/news/local.rss',
+  'technical.ly':               'https://technical.ly/baltimore/feed/',
+  'dailyvoice.com':             'https://dailyvoice.com/maryland/feed.rss',
+  // TV stations — keyword filtered
+  'foxbaltimore.com':           'https://foxbaltimore.com/rss',
+  'wbaltv.com':                 'https://www.wbaltv.com/rss',
+  'wmar2news.com':              'https://www.wmar2news.com/rss',
+  'wbal.com':                   'https://www.wbal.com/rss',
+  'mytvbaltimore.com':          'https://foxbaltimore.com/rss',
+  'cwbaltimore.com':            'https://www.wmar2news.com/rss',
+  // Additional local sources
+  'afro.com':                   'https://afro.com/feed/',
+  'urbanleaguebaltimore.org':   'https://urbanleaguebaltimore.org/feed/',
+  'baltimoremagazine.com':      'https://www.baltimoremagazine.com/feed/',
+  'citypaper.com':              'https://www.citypaper.com/feed/',
+};
+
+// Filter items to last 24 hours
+function isRecent(pubDate) {
+  if (!pubDate) return true; // include if no date
+  try {
+    const d = new Date(pubDate);
+    if (isNaN(d.getTime())) return true; // unparseable date — include it
+    return (Date.now() - d.getTime()) < 72 * 60 * 60 * 1000; // 72hr window
+  } catch(e) { return true; }
+}
+
+// ── RSS cache ─────────────────────────────────────────────────
+// Articles are fetched in the background and cached in memory.
+// The cache is refreshed on startup and via the /api/rss/refresh endpoint.
+
+async function fetchAndCacheRSS() {
+  const data = readData();
+  const savedSites = (data.sites || '').split('\n').map(s => s.trim()).filter(Boolean)
+    .filter(s => !s.includes('google.com') && !s.includes('therealnews.com')); // skip non-RSS sources
+  if (!savedSites.length) {
+    console.log('RSS: No sites saved yet, skipping fetch.');
+    return;
+  }
+
+  console.log(`RSS: Fetching feeds for ${savedSites.length} sites…`);
+
+  const feedsToFetch = [];
+  for (const site of savedSites) {
+    let matched = false;
+    for (const [key, feedUrl] of Object.entries(BALTIMORE_RSS_FEEDS)) {
+      if (site.includes(key)) {
+        feedsToFetch.push({ site, feedUrl });
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) {
+      const base = site.replace(/\/$/, '');
+      feedsToFetch.push({ site, feedUrl: base + '/feed/' });
+      feedsToFetch.push({ site, feedUrl: base + '/rss' });
     }
   }
 
-  return articles.slice(0, 20);
-}
+  const allItems = [];
+  const errors = [];
 
-// --------- ADAPTIVE QUESTION COUNT ---------
-function determineQuestionCount(articleCount) {
-  if (articleCount >= 14) return 8;
-  if (articleCount >= 9) return 6;
-  return 5;
-}
-
-// --------- TRIVIA QUESTION FILTER ---------
-function isTrivialQuestion(text) {
-  const bannedPatterns = [
-    /which street/i,
-    /what street/i,
-    /what address/i,
-    /motion to/i,
-    /filed a motion/i,
-    /groundbreaking/i,
-    /exactly how many/i
+  // Keywords that indicate a story is local to Baltimore/Central Maryland
+  const LOCAL_KEYWORDS = [
+    'baltimore', 'maryland', ' md ', 'md\'s', ' md:', 'annapolis', 'towson', 'bethesda', 'silver spring',
+    'columbia', 'ellicott city', 'bowie', 'laurel', 'rockville', 'gaithersburg',
+    'hagerstown', 'frederick', 'salisbury', 'ocean city', 'chesapeake',
+    'orioles', 'ravens', 'terps', 'terrapins', 'shock trauma', 'jhu', 'johns hopkins',
+    'morgan state', 'loyola', 'umbc', 'umd', 'bge', 'mta maryland',
+    'harford', 'howard county', 'anne arundel', 'carroll county', 'prince george',
+    'washington county', 'wicomico', 'worcester', 'somerset', 'dorchester',
+    'kent county', 'queen anne', 'talbot', 'caroline', 'cecil county', 'calvert', 'charles county'
   ];
 
-  return bannedPatterns.some(pattern => pattern.test(text));
-}
+  // URLs that are too sensitive/graphic for a community quiz
+  const BLACKLISTED_URLS = [
+    'university-maryland-police-sexual-misconduct',
+    '/sponsored-content/',
+    '/advertorial/',
+    '/paid-content/',
+    // Persistent national wire stories with no Maryland angle
+    'us-rules-supreme-court-colorado-oil-climate-lawsuit',
+    'heres-what-to-know-about-the-dhs-funding-shutdown',
+    'supreme-court-nra-free-speech-ny-official',
+    'federal-rules-louisiana-ten-commandments-law-schools-appeals',
+    // Baltimore Times food article — Claude invariably asks about Atlanta conference detail
+    'the-weight-we-carry-food-labor-and-black-womens-bodies-as-living-archives',
+  ];
 
-// --------- GENERATE QUIZ ---------
-async function generateQuiz(articles, questionCount) {
-  const prompt = `
-You are generating a ${questionCount}-question daily news quiz focused on Baltimore City, surrounding Central Maryland counties, and statewide issues affecting Baltimore residents.
+  function isLocalStory(item, site) {
+    // Skip CBS video pages — articles have more usable text for quiz generation
+    if (site.includes('cbsnews') && (item.link || '').includes('/video/')) return false;
 
-Rules:
-- Avoid street names, minor defendants, procedural motions, ceremonial details.
-- Emphasize civic significance and policy impact.
-- Escalate difficulty progressively.
-- Final question must require interpretation.
-- At least half the questions must test significance rather than surface recall.
+    // Filter DC sports teams — Nationals, Commanders, Capitals, Wizards
+    // These appear in Banner's sports section but have no Baltimore relevance
+    const itemLink = (item.link || '').toLowerCase();
+    const itemTitle = (item.title || '').toLowerCase();
+    const dcSportsPatterns = [
+      '/nationals-mlb/', '/commanders-nfl/', '/capitals-nhl/', '/wizards-nba/',
+      'nationals spring training', 'washington nationals',
+      'washington commanders'
+    ];
+    if (dcSportsPatterns.some(p => itemLink.includes(p) || itemTitle.includes(p))) return false;
 
-Articles:
-${articles.map((a, i) => `${i + 1}. ${a.title}\n${a.content}`).join('\n\n')}
+    // Filter weather forecasts — only keep if headline suggests historic/major storm
+    const weatherPatterns = ['first alert', 'degrees', 'temperatures', 'forecast',
+      'rain and snow', 'showers', 'warmer', 'colder', 'milder', 'weekend weather'];
+    const majorWeather = ['blizzard', 'hurricane', 'tornado', 'historic storm',
+      'state of emergency', 'major flooding', 'power outages'];
+    if (weatherPatterns.some(p => itemTitle.includes(p)) &&
+        !majorWeather.some(p => itemTitle.includes(p))) return false;
+    // These outlets publish ONLY local Baltimore/Maryland content — trust everything
+    // Truly hyper-local outlets — every story is Baltimore/Maryland specific
+    // Hyper-local outlets — trust everything they publish
+    const pureLocalSites = [
+      'baltimorebrew', 'baltimoretimes', 'baltimorefishbowl', 'southbmore',
+      'bizjournals.com/baltimore', 'technical.ly', 'wypr.org', 'marylandmatters',
+      'baltimorebanner', 'thebanner.com', 'baltimoresun', 'afro.com',
+      'baltimoremagazine', 'citypaper.com'
+    ];
+    if (pureLocalSites.some(s => site.includes(s))) return true;
 
-Return STRICT valid JSON only in this structure:
-{
-  "staleWarning": false,
-  "staleArticles": [],
-  "questions": [
-    {
-      "question": "",
-      "options": ["", "", "", ""],
-      "correctIndex": 0,
-      "explanation": "",
-      "difficulty": "easy",
-      "sourceUrl": ""
+    // Daily Record and TV stations mix local with national wire — require keyword in title
+    const title = (item.title || '').toLowerCase();
+    return LOCAL_KEYWORDS.some(kw => title.includes(kw)) || title.startsWith('md ');
+  }
+
+  const fetchWithTimeout = (site, feedUrl) => new Promise(async (resolve) => {
+    const timer = setTimeout(() => resolve(), 8000);
+    try {
+      const xml = await fetchUrl(feedUrl);
+      const parsed = parseRSS(xml);
+      const recent = parsed.filter(item => isRecent(item.pubDate));
+      const items = recent.filter(item => isLocalStory(item, site));
+      console.log(`RSS OK: ${feedUrl} — ${parsed.length} total, ${recent.length} recent, ${items.length} local`);
+      if (parsed.length > 0 && recent.length === 0) {
+        console.log(`  oldest item date: ${parsed[parsed.length-1].pubDate}`);
+      }
+      items.forEach(item => allItems.push({ ...item, source: site }));
+    } catch(e) {
+      errors.push(`${feedUrl}: ${e.message}`);
+      console.log(`RSS FAIL: ${feedUrl} — ${e.message}`);
+    } finally {
+      clearTimeout(timer);
+      resolve();
     }
-  ]
-}
-`;
-
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': process.env.ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01'
-    },
-    body: JSON.stringify({
-      model: 'claude-3-opus-20240229',
-      max_tokens: 2500,
-      messages: [{ role: 'user', content: prompt }]
-    })
   });
 
-  const data = await response.json();
+  await Promise.allSettled(feedsToFetch.map(({ site, feedUrl }) => fetchWithTimeout(site, feedUrl)));
 
-  try {
-    const text = data.content[0].text.trim();
-    const parsed = JSON.parse(text);
+  // Deduplicate by title, then cap per source at 10 articles
+  const seen = new Set();
+  const sourceCount = {};
+  const unique = allItems.filter(item => {
+    // Exact title dedup
+    const titleKey = item.title.toLowerCase().trim();
+    if (seen.has(titleKey)) return false;
+    seen.add(titleKey);
+    // Per-source cap — prevent any one source dominating
+    const src = item.source || 'unknown';
+    sourceCount[src] = (sourceCount[src] || 0) + 1;
+    // Baltimore Banner gets a higher cap since it's our richest pure-local source
+    const cap = src.includes('thebanner') || src.includes('thebaltimorebanner') ? 30 : 15;
+    if (sourceCount[src] > cap) return false;
+    return true;
+  });
 
-    parsed.questions = parsed.questions.filter(q =>
-      !isTrivialQuestion(q.question)
-    );
-
-    return parsed;
-  } catch (err) {
-    console.error('JSON parse error:', err);
-    return { staleWarning: false, staleArticles: [], questions: [] };
-  }
+  // Save to data file
+  const freshData = readData();
+  freshData.rssCache = {
+    items: unique.slice(0, 100),
+    fetchedAt: new Date().toISOString(),
+    errors: errors.length ? errors : []
+  };
+  writeData(freshData);
+  console.log(`RSS: Cached ${unique.length} articles. Errors: ${errors.length}`);
 }
 
-// --------- ROUTE ---------
-app.get('/api/quiz', async (req, res) => {
+// Fetch RSS on startup (after a short delay to let the server settle)
+setTimeout(fetchAndCacheRSS, 5000);
+
+// Scheduled daily refresh at 6am Eastern time
+function scheduleNextRefresh() {
+  const now = new Date();
+  const next = new Date();
+  // 6am Eastern = 11am UTC (EST) or 10am UTC (EDT)
+  const utcHour = 11;
+  next.setUTCHours(utcHour, 0, 0, 0);
+  if (next <= now) next.setUTCDate(next.getUTCDate() + 1); // tomorrow if already past
+  const msUntil = next - now;
+  console.log(`RSS: Next scheduled refresh in ${Math.round(msUntil/60000)} minutes (6am Eastern).`);
+  setTimeout(() => {
+    fetchAndCacheRSS();
+    scheduleNextRefresh(); // schedule the next day's refresh
+  }, msUntil);
+}
+scheduleNextRefresh();
+
+// ── GET /api/rss/debug — show all cached articles grouped by source ──
+app.get('/api/rss/debug', (req, res) => {
+  const data = readData();
+  const cache = data.rssCache || { items: [], fetchedAt: null };
+  
+  // Group by source
+  const bySource = {};
+  for (const item of cache.items) {
+    const src = item.source || 'unknown';
+    if (!bySource[src]) bySource[src] = [];
+    bySource[src].push({ title: item.title, pubDate: item.pubDate, link: item.link });
+  }
+
+  res.json({
+    version: '2.2-banner30',
+    fetchedAt: cache.fetchedAt,
+    totalCount: cache.items.length,
+    errors: cache.errors || [],
+    bySource
+  });
+});
+
+// ── GET /api/rss — return cached articles ─────────────────────
+app.get('/api/rss', (req, res) => {
+  const data = readData();
+  const cache = data.rssCache || { items: [], fetchedAt: null, errors: [] };
+  res.json(cache);
+});
+
+// ── POST /api/rss/refresh — manually trigger a fresh fetch ────
+app.post('/api/rss/refresh', async (req, res) => {
+  res.json({ ok: true, message: 'RSS refresh started in background.' });
+  fetchAndCacheRSS(); // run in background, don't await
+});
+
+// ── Redirect root to quiz ────────────────────────────────────
+app.get('/', (req, res) => {
+  res.redirect('/news-quiz.html');
+});
+
+// ── Save/load news sites ──────────────────────────────────────
+app.post('/api/sites', (req, res) => {
+  const { sites } = req.body;
+  if (typeof sites !== 'string') return res.status(400).json({ error: 'sites must be a string' });
+  const data = readData();
+  data.sites = sites;
+  writeData(data);
+  res.json({ ok: true });
+});
+
+app.get('/api/sites', (req, res) => {
+  const data = readData();
+  res.json({ sites: data.sites || '' });
+});
+
+// ── Answer distribution aggregation ──────────────────────────
+// POST /api/answers  { date, answers: [{qIdx, correct}] }
+app.post('/api/answers', (req, res) => {
+  const { date, answers } = req.body;
+  if (!date || !Array.isArray(answers)) return res.status(400).json({ error: 'bad request' });
+  const data = readData();
+  if (!data.dist) data.dist = {};
+  if (!data.dist[date]) data.dist[date] = {};
+  answers.forEach(({ qIdx, correct }) => {
+    const k = 'q' + qIdx;
+    if (!data.dist[date][k]) data.dist[date][k] = { correct: 0, wrong: 0 };
+    if (correct) data.dist[date][k].correct++;
+    else data.dist[date][k].wrong++;
+  });
+  writeData(data);
+  res.json({ ok: true });
+});
+
+// GET /api/answers?date=YYYY-MM-DD
+app.get('/api/answers', (req, res) => {
+  const { date } = req.query;
+  if (!date) return res.status(400).json({ error: 'date required' });
+  const data = readData();
+  res.json((data.dist && data.dist[date]) || {});
+});
+
+// ── Article text fetcher ──────────────────────────────────────
+// Fetches full article text for a given URL, stripping HTML tags.
+// Used to give Claude full article content instead of just RSS snippets.
+app.post('/api/fetch-article', async (req, res) => {
+  const { url } = req.body;
+  if (!url) return res.status(400).json({ error: 'url required' });
+
   try {
-    const articles = await fetchArticles();
-    const questionCount = determineQuestionCount(articles.length);
-    const quiz = await generateQuiz(articles, questionCount);
-    res.json(quiz);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Quiz generation failed.' });
+    const html = await fetchUrl(url);
+
+    // Strip script/style blocks first
+    let text = html
+      .replace(/<script[\s\S]*?<\/script>/gi, '')
+      .replace(/<style[\s\S]*?<\/style>/gi, '')
+      .replace(/<nav[\s\S]*?<\/nav>/gi, '')
+      .replace(/<header[\s\S]*?<\/header>/gi, '')
+      .replace(/<footer[\s\S]*?<\/footer>/gi, '');
+
+    // Try to extract main article body — look for common content containers
+    const articleMatch = text.match(/<article[\s\S]*?<\/article>/i)
+      || text.match(/<main[\s\S]*?<\/main>/i)
+      || text.match(/class="[^"]*(?:article|story|content|post|entry)-body[^"]*"[\s\S]*?<\/div>/i);
+
+    if (articleMatch) text = articleMatch[0];
+
+    // Strip remaining HTML tags and decode entities
+    text = text
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&nbsp;/g, ' ')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+
+    // Cap at 3000 chars — enough for Claude to understand the full story
+    const excerpt = text.slice(0, 3000);
+
+    if (excerpt.length < 100) {
+      return res.json({ ok: false, reason: 'paywall or insufficient content', excerpt: '' });
+    }
+
+    res.json({ ok: true, excerpt });
+  } catch(e) {
+    res.json({ ok: false, reason: e.message, excerpt: '' });
   }
 });
 
-app.use(express.static('.'));
+// ── Leaderboard ───────────────────────────────────────────────
+// Scores stored as data.scores = { playerKey: { displayName, allTime, dailyScores: {date: score} } }
 
+app.post('/api/scores', (req, res) => {
+  const { playerName, date, score } = req.body;
+  if (!playerName || !date || typeof score !== 'number') {
+    return res.status(400).json({ error: 'playerName, date, and score required' });
+  }
+  const data = readData();
+  if (!data.scores) data.scores = {};
+  const key = playerName.toLowerCase().trim();
+  if (!data.scores[key]) {
+    data.scores[key] = { displayName: playerName.trim(), allTime: 0, dailyScores: {} };
+  }
+  // Only record the score once per day per player
+  if (!data.scores[key].dailyScores[date]) {
+    data.scores[key].dailyScores[date] = score;
+    data.scores[key].allTime = Object.values(data.scores[key].dailyScores).reduce((a,b) => a+b, 0);
+  }
+  writeData(data);
+  res.json({ ok: true });
+});
+
+app.get('/api/scores', (req, res) => {
+  const data = readData();
+  res.json({ scores: data.scores || {} });
+});
+
+// ── Archive (used article URLs + question text) ───────────────
+app.get('/api/archive', (req, res) => {
+  const data = readData();
+  res.json({ urls: data.archiveUrls || [], questions: data.archiveQuestions || [] });
+});
+
+app.post('/api/archive', (req, res) => {
+  const { urls, questions } = req.body;
+  const data = readData();
+  if (!data.archiveUrls) data.archiveUrls = [];
+  if (!data.archiveQuestions) data.archiveQuestions = [];
+  if (urls) {
+    urls.forEach(u => { if (!data.archiveUrls.includes(u)) data.archiveUrls.push(u); });
+  }
+  if (questions) {
+    questions.forEach(q => { if (!data.archiveQuestions.includes(q)) data.archiveQuestions.push(q); });
+  }
+  // Keep last 60 entries (~1 week)
+  if (data.archiveUrls.length > 60) data.archiveUrls = data.archiveUrls.slice(-60);
+  if (data.archiveQuestions.length > 60) data.archiveQuestions = data.archiveQuestions.slice(-60);
+  writeData(data);
+  res.json({ ok: true });
+});
+
+// ── Quiz persistence ──────────────────────────────────────────
+// Save published quiz to server so it survives browser/device changes
+app.post('/api/quiz', (req, res) => {
+  const { date, quiz } = req.body;
+  if (!date || !quiz) return res.status(400).json({ error: 'date and quiz required' });
+  const data = readData();
+  if (!data.quizzes) data.quizzes = {};
+  data.quizzes[date] = quiz;
+  // Keep only last 14 days
+  const keys = Object.keys(data.quizzes).sort();
+  if (keys.length > 14) keys.slice(0, keys.length - 14).forEach(k => delete data.quizzes[k]);
+  writeData(data);
+  res.json({ ok: true });
+});
+
+app.get('/api/quiz', (req, res) => {
+  const { date } = req.query;
+  if (!date) return res.status(400).json({ error: 'date required' });
+  const data = readData();
+  if (!data.quizzes) return res.json({ quiz: null });
+
+  // Return today's quiz if available
+  if (data.quizzes[date]) return res.json({ quiz: data.quizzes[date] });
+
+  // Fall back to most recently published quiz
+  const dates = Object.keys(data.quizzes).sort();
+  if (dates.length === 0) return res.json({ quiz: null });
+  const mostRecent = dates[dates.length - 1];
+  res.json({ quiz: data.quizzes[mostRecent], fallback: true, fallbackDate: mostRecent });
+});
+
+// ── Anthropic API proxy ───────────────────────────────────────
+app.post('/api/claude', (req, res) => {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    return res.status(500).json({
+      error: { message: 'ANTHROPIC_API_KEY is not set in Railway Variables.' }
+    });
+  }
+
+  const body = JSON.stringify(req.body);
+  const options = {
+    hostname: 'api.anthropic.com',
+    path: '/v1/messages',
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Content-Length': Buffer.byteLength(body),
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01'
+    }
+  };
+
+  const proxyReq = https.request(options, (proxyRes) => {
+    res.status(proxyRes.statusCode);
+    proxyRes.pipe(res);
+  });
+  proxyReq.on('error', (err) => {
+    res.status(502).json({ error: { message: 'Proxy error: ' + err.message } });
+  });
+  proxyReq.write(body);
+  proxyReq.end();
+});
+
+// ── Start ─────────────────────────────────────────────────────
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Daily Dispatch Quiz running on port ${PORT}`);
+  if (process.env.ANTHROPIC_API_KEY) {
+    console.log('✓ Using Anthropic API');
+  } else {
+    console.log('⚠ WARNING: ANTHROPIC_API_KEY is not set.');
+  }
+});
+
+// ── Email helper (Resend) ─────────────────────────────────────
+async function sendEmail(to, subject, html) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    console.log('Email skipped: RESEND_API_KEY not set.');
+    return false;
+  }
+  const body = JSON.stringify({
+    from: 'Baltimore Daily Dispatch Quiz <onboarding@resend.dev>',
+    to: [to],
+    subject,
+    html
+  });
+  return new Promise((resolve) => {
+    const req = https.request({
+      hostname: 'api.resend.com',
+      path: '/emails',
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(body)
+      }
+    }, (res) => {
+      res.on('data', () => {});
+      res.on('end', () => resolve(res.statusCode < 300));
+    });
+    req.on('error', () => resolve(false));
+    req.write(body);
+    req.end();
+  });
+}
+
+// ── Message board ─────────────────────────────────────────────
+// Posts stored as data.posts = [{ id, playerName, text, createdAt, deleted }]
+
+app.get('/api/posts', (req, res) => {
+  const data = readData();
+  const posts = (data.posts || []).filter(p => !p.deleted);
+  res.json({ posts });
+});
+
+app.post('/api/posts', (req, res) => {
+  const { playerName, text } = req.body;
+  if (!playerName || !playerName.trim()) return res.status(400).json({ error: 'Player name required.' });
+  if (!text || !text.trim()) return res.status(400).json({ error: 'Message text required.' });
+  if (text.length > 500) return res.status(400).json({ error: 'Message too long (500 char max).' });
+
+  const data = readData();
+  if (!data.posts) data.posts = [];
+  const post = {
+    id: Date.now().toString(),
+    playerName: playerName.trim().slice(0, 40),
+    text: text.trim(),
+    createdAt: new Date().toISOString()
+  };
+  data.posts.unshift(post); // newest first
+  if (data.posts.length > 200) data.posts = data.posts.slice(0, 200); // cap at 200
+  writeData(data);
+  res.json({ ok: true, post });
+});
+
+app.delete('/api/posts/:id', (req, res) => {
+  const data = readData();
+  const post = (data.posts || []).find(p => p.id === req.params.id);
+  if (!post) return res.status(404).json({ error: 'Post not found.' });
+  post.deleted = true;
+  writeData(data);
+  res.json({ ok: true });
+});
+
+// ── Contact the Editor ────────────────────────────────────────
+// Messages stored as data.messages = [{ id, playerName, text, createdAt, read }]
+
+app.post('/api/contact', async (req, res) => {
+  const { playerName, text } = req.body;
+  if (!playerName || !playerName.trim()) return res.status(400).json({ error: 'Player name required.' });
+  if (!text || !text.trim()) return res.status(400).json({ error: 'Message required.' });
+  if (text.length > 1000) return res.status(400).json({ error: 'Message too long (1000 char max).' });
+
+  const data = readData();
+  if (!data.messages) data.messages = [];
+  const msg = {
+    id: Date.now().toString(),
+    playerName: playerName.trim().slice(0, 40),
+    text: text.trim(),
+    createdAt: new Date().toISOString(),
+    read: false
+  };
+  data.messages.unshift(msg);
+  writeData(data);
+
+  // Forward to editor's email
+  const editorEmail = process.env.EDITOR_EMAIL;
+  if (editorEmail) {
+    await sendEmail(
+      editorEmail,
+      `Quiz message from ${msg.playerName}`,
+      `<p><strong>From:</strong> ${msg.playerName}</p>
+       <p><strong>Sent:</strong> ${new Date(msg.createdAt).toLocaleString()}</p>
+       <hr>
+       <p>${msg.text.replace(/\n/g, '<br>')}</p>
+       <hr>
+       <p style="color:#999;font-size:12px;">Baltimore Daily Dispatch Quiz</p>`
+    );
+  }
+
+  res.json({ ok: true });
+});
+
+app.get('/api/messages', (req, res) => {
+  const data = readData();
+  res.json({ messages: data.messages || [] });
+});
+
+app.post('/api/messages/:id/read', (req, res) => {
+  const data = readData();
+  const msg = (data.messages || []).find(m => m.id === req.params.id);
+  if (msg) { msg.read = true; writeData(data); }
+  res.json({ ok: true });
 });
