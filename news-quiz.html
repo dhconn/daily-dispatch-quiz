@@ -1278,7 +1278,44 @@
       <div class="admin-actions">
         <button class="btn-generate" onclick="publishQuestions()">✓ Publish Today's Quiz</button>
         <button class="btn-secondary" onclick="discardDraft()">✕ Discard Draft</button>
+        <button class="btn-secondary" onclick="showAddQuestionForm()" id="add-q-btn" style="border-color:var(--green);color:var(--green);">+ Add Question</button>
       </div>
+
+      <!-- Manual question entry form -->
+      <div id="add-question-form" style="display:none;margin-top:16px;background:white;border:2px solid var(--green);padding:20px;">
+        <div style="font-family:monospace;font-size:12px;letter-spacing:1px;color:var(--green);margin-bottom:14px;font-weight:700;">NEW QUESTION</div>
+
+        <div class="q-edit-label">QUESTION TEXT</div>
+        <textarea id="aq-question" placeholder="Write your question here…" style="width:100%;font-family:serif;font-size:14px;padding:8px;border:1px solid #ccc;min-height:64px;resize:vertical;box-sizing:border-box;margin-top:4px;"></textarea>
+
+        <div class="q-edit-label" style="margin-top:10px;">OPTIONS — type each answer choice, then select the correct one</div>
+        <div class="q-options-grid" style="margin-top:6px;">
+          <div class="q-option-row"><input type="radio" name="aq-correct" value="0" id="aq-r0" checked><label for="aq-r0">A</label><input type="text" id="aq-opt0" placeholder="Option A…" style="flex:1;"></div>
+          <div class="q-option-row"><input type="radio" name="aq-correct" value="1" id="aq-r1"><label for="aq-r1">B</label><input type="text" id="aq-opt1" placeholder="Option B…" style="flex:1;"></div>
+          <div class="q-option-row"><input type="radio" name="aq-correct" value="2" id="aq-r2"><label for="aq-r2">C</label><input type="text" id="aq-opt2" placeholder="Option C…" style="flex:1;"></div>
+          <div class="q-option-row"><input type="radio" name="aq-correct" value="3" id="aq-r3"><label for="aq-r3">D</label><input type="text" id="aq-opt3" placeholder="Option D…" style="flex:1;"></div>
+        </div>
+
+        <div class="q-edit-label" style="margin-top:10px;">EXPLANATION</div>
+        <input type="text" id="aq-explanation" placeholder="Why is this the correct answer?" style="width:100%;font-family:serif;font-size:14px;padding:8px;border:1px solid #ccc;box-sizing:border-box;margin-top:4px;">
+
+        <div class="q-edit-label" style="margin-top:10px;">SOURCE URL (optional)</div>
+        <input type="text" id="aq-url" placeholder="https://…" style="width:100%;font-family:monospace;font-size:12px;padding:8px;border:1px solid #ccc;box-sizing:border-box;margin-top:4px;">
+
+        <div class="q-edit-label" style="margin-top:10px;">DIFFICULTY</div>
+        <select id="aq-difficulty" style="font-family:monospace;font-size:12px;padding:6px 10px;border:1px solid #ccc;margin-top:4px;">
+          <option value="easy">Easy (10 pts)</option>
+          <option value="medium">Medium (20 pts)</option>
+          <option value="hard">Hard (30 pts)</option>
+          <option value="bonus">Bonus (50 pts)</option>
+        </select>
+
+        <div style="display:flex;gap:10px;margin-top:14px;">
+          <button class="btn-generate" onclick="addManualQuestion()" style="background:var(--green);">+ Add to Draft</button>
+          <button class="btn-secondary" onclick="hideAddQuestionForm()">Cancel</button>
+        </div>
+        <div id="aq-error" style="color:var(--red);font-family:monospace;font-size:12px;margin-top:8px;display:none;"></div>
+      </div>>
     </div>
 
     <div class="admin-section">
@@ -2614,7 +2651,7 @@ async function generateQuestions() {
     }
 
     if (questions.length < 6) {
-      setStatus(`⚠ Only ${questions.length} questions generated — you need 6 to publish. Add more article URLs and regenerate.`, 'error');
+      setStatus(`⚠ Only ${questions.length} questions generated — need 6 to publish. Use "+ Add Question" below to fill the gaps manually.`, 'error');
     } else if (!document.getElementById('gen-status').classList.contains('error')) {
       setStatus(`✓ ${questions.length} questions generated. Review below, then publish.`, 'success');
     }
@@ -2622,6 +2659,10 @@ async function generateQuestions() {
     if (questions.length > 0) {
       saveDraftQuiz({ questions, generatedAt: new Date().toISOString(), urls: urlList });
       showDraftPreview(questions);
+    } else {
+      // Even with 0 questions, show the preview section so admin can add manually
+      document.getElementById('preview-section').style.display = 'block';
+      document.getElementById('q-preview-list').innerHTML = '<p style="font-family:monospace;font-size:13px;color:var(--muted);padding:8px 0;">No questions generated. Use "+ Add Question" to write them manually.</p>';
     }
 
   } catch (err) {
@@ -2762,6 +2803,16 @@ function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote,
     '- Ask about the WHO or WHAT that makes the story newsworthy\n' +
     '- Good question subjects: names of companies, people, organizations, places, decisions, and actions\n' +
     '- The correct answer should be something a well-informed Baltimorean might actually know or want to know\n\n' +
+    'QUESTION PATTERN — REQUIRED EXAMPLES (follow this model):\n' +
+    'BAD (recall): "What is the name of Maryland\'s energy efficiency program that Speaker Peña-Melnyk\'s proposals would modify?"\n' +
+    'GOOD (significance): "Why are lawmakers concerned about Speaker Peña-Melnyk\'s proposed changes to EmPOWER Maryland?"\n\n' +
+    'BAD (recall): "Which two counties are ramping up immigrant protections?"\n' +
+    'GOOD (implication): "What does Montgomery and Prince George\'s Counties\' decision to expand immigrant protections reveal about the limits of state-level immigration policy?"\n\n' +
+    'BAD (recall): "What retail practice is Governor Moore seeking to regulate?"\n' +
+    'GOOD (civic): "What would Maryland\'s proposed dynamic pricing bill require businesses to do that current law does not?"\n\n' +
+    'BAD (recall): "Where did the groundbreaking ceremony for the new courthouse take place?"\n' +
+    'GOOD (impact): "Why did Baltimore officials prioritize building a new courthouse over renovating the existing one?"\n\n' +
+    'The pattern: swap "what/which/where" questions for "why/what does this mean/what would this change" questions.\n\n' +
     'DIFFICULTY STRUCTURE — follow this exactly:\n' +
     '- Q1 (easy, 10pts): Straightforward but meaningful headline takeaway. Answerable from the headline alone.\n' +
     '- Q2 (easy, 10pts): Adds context or broader impact. Still accessible but requires knowing the story.\n' +
@@ -2798,7 +2849,7 @@ function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote,
     '      "correctIndex": 0,\n      "explanation": "Why this answer is correct.",\n' +
     '      "difficulty": "easy",\n      "sourceUrl": "https://source-url.com"\n    }\n  ]\n}\n\n' +
     'difficulty values: "easy" | "medium" | "hard" | "bonus"\n' +
-    'correctIndex: 0-based integer (0=A, 1=B, 2=C, 3=D)\n' +
+    'correctIndex: 0-based integer (0=A, 1=B, 2=C, 3=D). CRITICAL: you MUST vary correctIndex across questions. Never use the same correctIndex for more than 2 consecutive questions. A good distribution looks like: 1, 2, 0, 3, 1, 2 — never 0, 0, 0, 0, 0, 0.\n' +
     'Generate exactly 6 questions, one per assigned article.';
 }
 
@@ -2839,18 +2890,63 @@ function enforceQuizRules(questions) {
     return true;
   });
 
-  // 2. Shuffle correct answers so they're not all the same index
-  const targetIndexes = [0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2];
+  // 2. Force answer variety — redistribute correct answers so no more than 2 land on the same index
+  // Use a deterministic rotation that guarantees spread regardless of what Claude returned
+  const forceSpread = [1, 2, 3, 0, 2, 1]; // target positions for Q1-Q6
   return deduped.map((q, i) => {
-    const currentCorrect = q.options[q.correctIndex];
-    const targetIdx = targetIndexes[i] !== undefined ? targetIndexes[i] : (i % 4);
+    const targetIdx = forceSpread[i] !== undefined ? forceSpread[i] : (i % 4);
     if (q.correctIndex === targetIdx) return q;
+    const currentCorrect = q.options[q.correctIndex];
     const newOptions = [...q.options];
     const displaced = newOptions[targetIdx];
     newOptions[targetIdx] = currentCorrect;
     newOptions[q.correctIndex] = displaced;
     return { ...q, options: newOptions, correctIndex: targetIdx };
   });
+}
+
+function showAddQuestionForm() {
+  document.getElementById('add-question-form').style.display = 'block';
+  document.getElementById('add-q-btn').style.display = 'none';
+  // Clear form
+  ['aq-question','aq-opt0','aq-opt1','aq-opt2','aq-opt3','aq-explanation','aq-url'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('aq-r0').checked = true;
+  document.getElementById('aq-difficulty').value = 'easy';
+  document.getElementById('aq-error').style.display = 'none';
+  document.getElementById('aq-question').focus();
+}
+
+function hideAddQuestionForm() {
+  document.getElementById('add-question-form').style.display = 'none';
+  document.getElementById('add-q-btn').style.display = '';
+}
+
+function addManualQuestion() {
+  const question = document.getElementById('aq-question').value.trim();
+  const opts = ['aq-opt0','aq-opt1','aq-opt2','aq-opt3'].map(id => document.getElementById(id).value.trim());
+  const correctIndex = parseInt(document.querySelector('input[name="aq-correct"]:checked').value);
+  const explanation = document.getElementById('aq-explanation').value.trim();
+  const sourceUrl = document.getElementById('aq-url').value.trim();
+  const difficulty = document.getElementById('aq-difficulty').value;
+
+  const errEl = document.getElementById('aq-error');
+  if (!question) { errEl.textContent = 'Please enter a question.'; errEl.style.display = 'block'; return; }
+  if (opts.some(o => !o)) { errEl.textContent = 'Please fill in all four answer options.'; errEl.style.display = 'block'; return; }
+  if (!explanation) { errEl.textContent = 'Please add an explanation.'; errEl.style.display = 'block'; return; }
+  errEl.style.display = 'none';
+
+  const newQ = { question, options: opts, correctIndex, explanation, sourceUrl, difficulty };
+
+  // Add to draft, or create a new draft if none exists
+  let draft = getDraftQuiz() || { questions: [], generatedAt: new Date().toISOString(), urls: [] };
+  draft.questions.push(newQ);
+  saveDraftQuiz(draft);
+  showDraftPreview(draft.questions);
+  hideAddQuestionForm();
+  document.getElementById('preview-section').style.display = 'block';
+  setStatus('Question added. ' + draft.questions.length + ' questions in draft.', 'success');
 }
 
 function showDraftPreview(questions) {
