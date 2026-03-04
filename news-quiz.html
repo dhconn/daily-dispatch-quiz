@@ -1236,8 +1236,8 @@
       </div>
 
       <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--rule);">
-        <h3 style="margin-bottom:4px;">Today's Hand-Picked Articles <span style="font-weight:400;font-size:12px;color:var(--muted);font-family:monospace;">(optional — one-time use, not saved)</span></h3>
-        <p style="font-size:13px;color:var(--muted);margin-bottom:8px;">Paste specific article URLs here to override the RSS feed entirely. Claude will use <em>only</em> these articles for question generation. <strong>Remember to clear this box before running the next day's quiz.</strong></p>
+        <h3 style="margin-bottom:4px;">Today's Hand-Picked Articles <span style="font-weight:400;font-size:12px;color:var(--muted);font-family:monospace;">(optional — assigned first, RSS fills remaining slots)</span></h3>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:8px;">Paste specific article URLs here to guarantee they appear in the quiz. Claude will use these first (in order), then fill remaining slots from the RSS feed. If you paste 6 URLs, RSS is not used at all. <strong>Remember to clear this box before running the next day's quiz.</strong></p>
         <textarea class="url-input-area" id="article-urls-input" placeholder="Paste specific article URLs here, one per line…&#10;https://www.baltimoresun.com/2026/02/26/some-story/&#10;https://www.thebaltimorebanner.com/politics-power/…&#10;…" style="height:120px;"></textarea>
         <div style="display:flex;align-items:center;gap:12px;margin-top:8px;">
           <button class="btn-secondary" style="font-size:11px;padding:7px 14px;" onclick="saveArticleUrls()">💾 Save Article URLs</button>
@@ -2464,8 +2464,8 @@ async function generateQuestions() {
     } catch(e) { /* cache unavailable, proceed without */ }
 
   // ── Step 1: Pre-screen RSS articles for newsworthiness ──────
-  // Only run pre-screening when using RSS feed (not hand-picked articles)
-  if (isFeedMode && rssContent) {
+  // Pre-screen RSS articles whenever we have them (both feed-only and hybrid modes)
+  if (rssContent) {
     document.getElementById('gen-progress-text').textContent = 'Evaluating articles…';
     try {
       const blocks = rssContent.split('---').map(b => b.trim()).filter(Boolean);
@@ -2652,7 +2652,7 @@ function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote,
     : '';
 
   const specificArticlesBlock = isSpecificArticles
-    ? 'SPECIFIC ARTICLES TO USE (fetch and use ONLY these exact URLs — do not browse to other stories, do not use RSS cache, do not add articles from training knowledge):\n' + articleUrlList.join('\n')
+    ? 'EDITOR-PICKED ARTICLES (these are assigned to Q1–' + articleUrlList.length + ' — use ONLY these URLs for those questions, in order):\n' + articleUrlList.join('\n') + '\n\nRemaining question slots will be filled from the RSS articles provided below.\n'
     : '';
 
   // ── Topic deduplication: pick 11 topically distinct articles ──
