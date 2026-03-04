@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 8080;
 const DATA_FILE = path.join('/tmp', 'quiz-data.json');
 
 app.use(express.json({ limit: '2mb' }));
@@ -483,6 +483,43 @@ app.post('/api/archive', (req, res) => {
   res.json({ ok: true });
 });
 
+// ── Subscribers ───────────────────────────────────────────────
+// Stored as data.subscribers = { email: { name, subscribedAt, active } }
+
+app.post('/api/subscribe', (req, res) => {
+  const { name, email } = req.body;
+  if (!email || !email.includes('@')) return res.status(400).json({ error: 'Valid email required.' });
+  const data = readData();
+  if (!data.subscribers) data.subscribers = {};
+  const key = email.toLowerCase().trim();
+  data.subscribers[key] = {
+    name: (name || '').trim().slice(0, 40),
+    email: key,
+    subscribedAt: data.subscribers[key]?.subscribedAt || new Date().toISOString(),
+    active: true
+  };
+  writeData(data);
+  res.json({ ok: true });
+});
+
+app.get('/api/unsubscribe', (req, res) => {
+  const { email } = req.query;
+  if (!email) return res.status(400).send('Missing email.');
+  const data = readData();
+  const key = decodeURIComponent(email).toLowerCase().trim();
+  if (data.subscribers && data.subscribers[key]) {
+    data.subscribers[key].active = false;
+    writeData(data);
+  }
+  res.send(`
+    <html><body style="font-family:Georgia,serif;max-width:500px;margin:60px auto;text-align:center;">
+      <h2>You've been unsubscribed.</h2>
+      <p style="color:#666;">You won't receive any more quiz notifications at ${key}.</p>
+      <p><a href="/">Return to the quiz</a></p>
+    </body></html>
+  `);
+});
+
 // ── Quiz persistence ──────────────────────────────────────────
 // Save published quiz to server so it survives browser/device changes
 app.post('/api/quiz', (req, res) => {
@@ -495,6 +532,36 @@ app.post('/api/quiz', (req, res) => {
   const keys = Object.keys(data.quizzes).sort();
   if (keys.length > 14) keys.slice(0, keys.length - 14).forEach(k => delete data.quizzes[k]);
   writeData(data);
+
+  // Send notification emails to all active subscribers (fire and forget)
+  const siteUrl = process.env.SITE_URL || 'https://your-app.railway.app';
+  const subscribers = Object.values(data.subscribers || {}).filter(s => s.active);
+  if (subscribers.length > 0) {
+    console.log(`Email: Sending quiz notification to ${subscribers.length} subscribers…`);
+    for (const sub of subscribers) {
+      const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(sub.email)}`;
+      sendEmail(
+        sub.email,
+        `Today's Daily Dispatch Quiz is live — ${date}`,
+        `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1008;">
+          <div style="background:#1a1008;color:#f5f0e8;text-align:center;padding:24px;">
+            <div style="font-family:monospace;font-size:11px;letter-spacing:3px;color:#f0c040;margin-bottom:6px;">BALTIMORE · DAILY DISPATCH</div>
+            <div style="font-size:28px;font-weight:bold;">The Daily Dispatch Quiz</div>
+            <div style="font-family:monospace;font-size:10px;letter-spacing:2px;color:#aaa;margin-top:6px;">${date}</div>
+          </div>
+          <div style="padding:32px 24px;background:#f5f0e8;text-align:center;">
+            <p style="font-size:18px;margin:0 0 8px;">Hi${sub.name ? ' ' + sub.name : ''},</p>
+            <p style="font-size:16px;color:#444;margin:0 0 28px;">Today's quiz is live. How well do you know Baltimore?</p>
+            <a href="${siteUrl}" style="display:inline-block;background:#1a1008;color:#f5f0e8;padding:16px 36px;font-family:monospace;font-size:13px;letter-spacing:2px;text-decoration:none;text-transform:uppercase;">Play Today's Quiz ▸</a>
+          </div>
+          <div style="padding:16px 24px;text-align:center;font-size:11px;color:#999;font-family:monospace;border-top:1px solid #e0d8cc;">
+            <a href="${unsubUrl}" style="color:#999;">Unsubscribe</a>
+          </div>
+        </div>`
+      ).catch(() => {});
+    }
+  }
+
   res.json({ ok: true });
 });
 
