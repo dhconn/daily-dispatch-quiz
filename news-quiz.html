@@ -2533,7 +2533,8 @@ async function generateQuestions() {
         '- DC team sports story (Nationals, Commanders, Capitals, Wizards) with no Baltimore/Maryland angle\n' +
         '- Routine sports transaction, injury update, or spring training note\n' +
         '- Any story where the only interesting question would involve a number, date, or dollar amount\n' +
-        '- Headline roundups or "morning headlines" digest articles\n\n' +
+        '- Headline roundups or "morning headlines" digest articles\n' +
+        '- Court case procedural summaries (suppression motions, appeals rulings on evidence, sentencing details for non-public figures) — unless the ruling sets a significant legal precedent affecting many Marylanders\n\n' +
         'ACCEPT if:\n' +
         '- A specific newsworthy event happened (decision, vote, lawsuit, opening, closing, arrest of public figure)\n' +
         '- Involves public money, elections, housing, schools, health, or local economy\n' +
@@ -2812,6 +2813,10 @@ function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote,
     'GOOD (civic): "What would Maryland\'s proposed dynamic pricing bill require businesses to do that current law does not?"\n\n' +
     'BAD (recall): "Where did the groundbreaking ceremony for the new courthouse take place?"\n' +
     'GOOD (impact): "Why did Baltimore officials prioritize building a new courthouse over renovating the existing one?"\n\n' +
+    'BAD (recall): "In Smith v. State of Maryland, which court initially heard the suppression motion?"\n' +
+    'GOOD (significance): "What did the Smith v. State ruling reveal about how Maryland courts are treating traffic stop evidence?"\n\n' +
+    'BAD (recall): "What type of case was decided in Twigg v. Maryland Department of Labor?"\n' +
+    'GOOD (significance): "What did the Twigg v. Maryland ruling reveal about the barriers workers face when seeking unemployment benefits after leaving hostile workplaces?"\n\n' +
     'The pattern: swap "what/which/where" questions for "why/what does this mean/what would this change" questions.\n\n' +
     'DIFFICULTY STRUCTURE — follow this exactly:\n' +
     '- Q1 (easy, 10pts): Straightforward but meaningful headline takeaway. Answerable from the headline alone.\n' +
@@ -2890,18 +2895,12 @@ function enforceQuizRules(questions) {
     return true;
   });
 
-  // 2. Force answer variety — redistribute correct answers so no more than 2 land on the same index
-  // Use a deterministic rotation that guarantees spread regardless of what Claude returned
-  const forceSpread = [1, 2, 3, 0, 2, 1]; // target positions for Q1-Q6
-  return deduped.map((q, i) => {
-    const targetIdx = forceSpread[i] !== undefined ? forceSpread[i] : (i % 4);
-    if (q.correctIndex === targetIdx) return q;
-    const currentCorrect = q.options[q.correctIndex];
-    const newOptions = [...q.options];
-    const displaced = newOptions[targetIdx];
-    newOptions[targetIdx] = currentCorrect;
-    newOptions[q.correctIndex] = displaced;
-    return { ...q, options: newOptions, correctIndex: targetIdx };
+  // 2. // 2. Validate correctIndex is in range, fix if not
+  return deduped.map(q => {
+    if (q.correctIndex < 0 || q.correctIndex > 3) {
+      return { ...q, correctIndex: 0 };
+    }
+    return q;
   });
 }
 
