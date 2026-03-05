@@ -560,6 +560,28 @@ app.get('/api/unsubscribe', async (req, res) => {
   `);
 });
 
+// ── GET /api/quiz/archive — return list of available past quiz dates ──
+app.get('/api/quiz/archive', async (req, res) => {
+  const data = await readData();
+  const quizzes = data.quizzes || {};
+  const today = new Date().toISOString().slice(0, 10);
+  // Return all dates except today, sorted newest first, capped at 7
+  const dates = Object.keys(quizzes)
+    .filter(d => d !== today)
+    .sort()
+    .reverse()
+    .slice(0, 7);
+  res.json({ dates });
+});
+
+// ── GET /api/subscribers — return subscriber list for admin ───
+app.get('/api/subscribers', async (req, res) => {
+  const data = await readData();
+  const subs = Object.values(data.subscribers || {})
+    .sort((a, b) => new Date(b.subscribedAt) - new Date(a.subscribedAt));
+  res.json({ subscribers: subs });
+});
+
 // ── Quiz persistence ──────────────────────────────────────────
 // Save published quiz to server so it survives browser/device changes
 app.post('/api/quiz', async (req, res) => {
