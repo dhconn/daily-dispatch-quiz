@@ -575,6 +575,24 @@ app.get('/api/quiz/latest', async (req, res) => {
   res.json({ quiz: data.quizzes[mostRecent], date: mostRecent });
 });
 
+// ── POST /api/quiz/fix-date — copy most recent quiz to today's Eastern date ──
+app.post('/api/quiz/fix-date', async (req, res) => {
+  const data = await readData();
+  if (!data.quizzes) return res.status(404).json({ error: 'No quizzes found' });
+  const dates = Object.keys(data.quizzes).sort();
+  if (dates.length === 0) return res.status(404).json({ error: 'No quizzes found' });
+  const mostRecent = dates[dates.length - 1];
+  // Get today in Eastern time
+  const todayEastern = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  if (mostRecent === todayEastern) {
+    return res.json({ ok: true, message: 'Already stored under correct date', date: mostRecent });
+  }
+  // Copy to today's key
+  data.quizzes[todayEastern] = { ...data.quizzes[mostRecent], publishDate: todayEastern };
+  await writeData(data);
+  res.json({ ok: true, message: `Copied from ${mostRecent} to ${todayEastern}`, from: mostRecent, to: todayEastern });
+});
+
 // ── GET /api/quiz/all — return all quizzes for admin review ──
 app.get('/api/quiz/all', async (req, res) => {
   const data = await readData();
