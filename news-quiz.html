@@ -1628,14 +1628,25 @@ async function registerPlayer() {
 
   // // Server is authoritative — always fetch today's quiz from server first
   let quiz = null;
-  let quizDate = todayStr(); // tracks actual publish date of loaded quiz
+  let quizDate = todayStr();
   try {
+    // First try exact date match
     const serverRes = await fetch('/api/quiz?date=' + todayStr());
     const serverData = await serverRes.json();
     if (serverData.quiz && serverData.quiz.questions && serverData.quiz.questions.length >= 6) {
       quiz = serverData.quiz;
       quizDate = serverData.fallbackDate || quiz.publishDate || todayStr();
       saveTodayQuiz(quiz);
+    }
+    // If no exact match, fetch most recent (no date param = server returns latest)
+    if (!quiz) {
+      const latestRes = await fetch('/api/quiz/latest');
+      const latestData = await latestRes.json();
+      if (latestData.quiz && latestData.quiz.questions && latestData.quiz.questions.length >= 6) {
+        quiz = latestData.quiz;
+        quizDate = latestData.date || quiz.publishDate || todayStr();
+        saveTodayQuiz(quiz);
+      }
     }
   } catch(e) { /* fall back to localStorage */ }
   // Fall back to localStorage only if server has nothing
