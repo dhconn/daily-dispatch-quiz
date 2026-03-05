@@ -2611,7 +2611,12 @@ async function refreshAdminPreviews() {
   if (today && today.questions) {
     document.getElementById('published-preview').innerHTML =
       `<p style="color:var(--green);font-family:monospace;font-size:12px;margin-bottom:8px;">✓ ${today.questions.length} questions published for ${todayStr()}</p>` +
-      today.questions.slice(0,3).map((q,i) => `<div class="q-review-card"><div class="q-meta"><span>Q${i+1}</span></div><div class="q-preview">${escHtml(q.question.slice(0,100))}…</div></div>`).join('');
+      today.questions.map((q,i) => {
+        const srcLink = q.sourceUrl
+          ? `<div style="font-size:11px;font-family:monospace;margin-top:5px;"><a href="${q.sourceUrl}" target="_blank" style="color:var(--muted);">↗ ${q.sourceUrl.replace(/^https?:\/\//,'').slice(0,70)}${q.sourceUrl.length > 73 ? '…' : ''}</a></div>`
+          : '';
+        return `<div class="q-review-card"><div class="q-meta"><span>Q${i+1}</span></div><div class="q-preview">${escHtml(q.question)}${srcLink}</div></div>`;
+      }).join('');
   } else {
     document.getElementById('published-preview').innerHTML = `<p style="font-size:13px;color:var(--muted);font-style:italic;">No quiz published today.</p>`;
   }
