@@ -1046,6 +1046,32 @@
   }
   @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
+  /* ─── PARTICLE BURST ─── */
+  .particle {
+    position: fixed;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 9999;
+    animation: particleFly 0.7s ease-out forwards;
+  }
+  @keyframes particleFly {
+    0%   { transform: translate(0, 0) scale(1); opacity: 1; }
+    100% { transform: translate(var(--dx), var(--dy)) scale(0); opacity: 0; }
+  }
+
+  /* ─── SCORE POP ─── */
+  @keyframes scorePop {
+    0%   { transform: scale(1); }
+    40%  { transform: scale(1.5); color: var(--green); }
+    70%  { transform: scale(0.9); }
+    100% { transform: scale(1); }
+  }
+  .score-pop {
+    animation: scorePop 0.4s ease-out;
+  }
+
   .generating-overlay {
     text-align: center;
     padding: 40px;
@@ -1090,6 +1116,15 @@
     <div class="input-group">
       <input type="text" id="player-input" placeholder="Your name or pseudonym…" maxlength="30" />
       <button class="btn-primary" onclick="registerPlayer()">Begin ▸</button>
+    </div>
+    <div style="max-width:420px;margin:0 auto 8px;">
+      <div style="display:flex;align-items:center;gap:10px;background:white;border:1px solid var(--rule);padding:10px 14px;">
+        <input type="email" id="email-input" placeholder="your@email.com (optional)" style="flex:1;border:none;outline:none;font-family:'Source Serif 4',serif;font-size:14px;color:var(--ink);background:transparent;" />
+        <label style="display:flex;align-items:center;gap:6px;font-family:'Courier Prime',monospace;font-size:11px;color:var(--muted);white-space:nowrap;cursor:pointer;">
+          <input type="checkbox" id="email-optin" style="accent-color:var(--green);" />
+          Notify me daily
+        </label>
+      </div>
     </div>
     <p style="font-size:13px; color:var(--muted); margin-top:8px;">Your name is saved across visits. Your score accumulates over time.</p>
     <div id="reg-error" style="color:var(--red);font-family:monospace,monospace;font-size:13px;margin-top:8px;display:none;"></div>
@@ -1479,6 +1514,17 @@ async function registerPlayer() {
   errEl.style.display='none';
   lsSet('dnq_player_name', name); // save for community board pre-fill
 
+  // Subscribe email if provided and opted in
+  const emailEl = document.getElementById('email-input');
+  const optinEl = document.getElementById('email-optin');
+  if (emailEl && optinEl && optinEl.checked && emailEl.value.includes('@')) {
+    fetch('/api/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email: emailEl.value.trim() })
+    }).catch(() => {}); // fire and forget
+  }
+
   state.playerName = name;
   lsSet('dnq_current_player', name);
   getOrCreatePlayer(name);
@@ -1626,6 +1672,40 @@ function selectAnswer(idx) {
   state.sessionScore += pts;
   state.answers.push({ qIdx: state.currentQ, chosen: idx, correct, pts });
   document.getElementById('live-score').textContent = state.sessionScore;
+
+  // ── Visual feedback on correct answer ───────────────────────
+  if (correct) {
+    // Score counter pop
+    const scoreEl = document.getElementById('live-score');
+    if (scoreEl) {
+      scoreEl.classList.remove('score-pop');
+      void scoreEl.offsetWidth; // force reflow
+      scoreEl.classList.add('score-pop');
+      setTimeout(() => scoreEl.classList.remove('score-pop'), 400);
+    }
+    // Particle burst from the chosen button
+    const btn = document.getElementById('opt-' + idx);
+    if (btn) {
+      const rect = btn.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const colors = ['#2d6a2d','#4a9e4a','#f0c040','#6dbf6d','#a8e6a8','#fff'];
+      for (let p = 0; p < 18; p++) {
+        const el = document.createElement('div');
+        el.className = 'particle';
+        const angle = (p / 18) * 2 * Math.PI;
+        const dist = 60 + Math.random() * 60;
+        el.style.cssText = `
+          left:${cx}px; top:${cy}px;
+          background:${colors[p % colors.length]};
+          --dx:${Math.cos(angle) * dist}px;
+          --dy:${Math.sin(angle) * dist}px;
+        `;
+        document.body.appendChild(el);
+        setTimeout(() => el.remove(), 750);
+      }
+    }
+  }
 
   // Update streak
   if (correct) {
