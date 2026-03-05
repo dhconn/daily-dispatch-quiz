@@ -2750,22 +2750,22 @@ async function generateQuestions() {
       const screenPrompt = 'You are an editor screening articles for a Baltimore local news quiz. ' +
         'For each article below, decide if it is suitable for a quiz question.\n\n' +
         recentUrlNote +
-        'REJECT if any of these apply:\n' +
-        '- Profile or anniversary piece with no specific news event (e.g. school founded X years ago, person profile)\n' +
+        'REJECT only if clearly one of these:\n' +
         '- Weather forecast or routine temperature update\n' +
         '- DC team sports story (Nationals, Commanders, Capitals, Wizards) with no Baltimore/Maryland angle\n' +
         '- Routine sports transaction, injury update, or spring training note\n' +
-        '- Any story where the only interesting question would involve a number, date, or dollar amount\n' +
-        '- Headline roundups or "morning headlines" digest articles\n' +
-        '- Court case procedural summaries (suppression motions, appeals rulings on evidence, sentencing details for non-public figures) — unless the ruling sets a significant legal precedent affecting many Marylanders\n\n' +
-        'ACCEPT if:\n' +
-        '- A specific newsworthy event happened (decision, vote, lawsuit, opening, closing, arrest of public figure)\n' +
-        '- Involves public money, elections, housing, schools, health, or local economy\n' +
-        '- A well-informed Baltimorean would mention it to a friend over coffee\n\n' +
+        '- Headline roundup or morning headlines digest article\n' +
+        '- Named court case with no broader significance (individual sentencing, routine probation violation)\n' +
+        '- Obituary or memorial piece\n' +
+        '- Real estate listing or Hot House feature\n' +
+        '- Things to do events calendar\n\n' +
+        'ACCEPT everything else — policy, crime patterns, local economy, gas prices, housing costs, immigration, development, health, environment, or anything a Baltimorean would discuss with a friend.\n' +
+        'When in doubt, ACCEPT. It is better to pass a borderline article than to leave Claude without enough material.\n\n' +
         'ARTICLES:\n' + headlines + '\n\n' +
-        'Respond with ONLY a JSON array of the indices you ACCEPT. Example: [0,2,4,7,9]. No explanation.';
+        'Respond with ONLY a JSON array of indices you ACCEPT. Example: [0,2,4,7,9]. No explanation.';
 
-      const screenController = new AbortController();
+      
+const screenController = new AbortController();
       const screenTimer = setTimeout(() => screenController.abort(), 30000);
       let screenResponse;
       try {
@@ -2775,7 +2775,7 @@ async function generateQuestions() {
           signal: screenController.signal,
           body: JSON.stringify({
             model: CLAUDE_MODEL,
-            max_tokens: 200,
+            max_tokens: 400,
             messages: [{ role: 'user', content: screenPrompt }]
           })
         });
