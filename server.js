@@ -565,6 +565,16 @@ function easternToday() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
 }
 
+// ── GET /api/quiz/latest — always return the most recently published quiz ──
+app.get('/api/quiz/latest', async (req, res) => {
+  const data = await readData();
+  if (!data.quizzes) return res.json({ quiz: null });
+  const dates = Object.keys(data.quizzes).sort();
+  if (dates.length === 0) return res.json({ quiz: null });
+  const mostRecent = dates[dates.length - 1];
+  res.json({ quiz: data.quizzes[mostRecent], date: mostRecent });
+});
+
 // ── GET /api/quiz/all — return all quizzes for admin review ──
 app.get('/api/quiz/all', async (req, res) => {
   const data = await readData();
