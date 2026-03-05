@@ -2733,7 +2733,7 @@ async function generateQuestions() {
     document.getElementById('gen-progress-text').textContent = 'Fetching article content…';
     const blocks = rssContent.split('---').map(b => b.trim()).filter(Boolean);
     const enriched = await Promise.all(blocks.map(async (block) => {
-      const urlMatch = block.match(/URL: (.+)/);
+      const urlMatch = block.match(/ARTICLE_URL: (.+)/);
       if (!urlMatch) return block;
       const articleUrl = urlMatch[1].trim();
       try {
@@ -2745,11 +2745,16 @@ async function generateQuestions() {
         const fetchData = await fetchRes.json();
         if (fetchData.ok && fetchData.excerpt && fetchData.excerpt.length > 200) {
           console.log(`[ArticleFetch] Full text retrieved: ${articleUrl.slice(0,60)}`);
-          // Replace or append SUMMARY with full text
-          if (block.includes('SUMMARY:')) {
-            return block.replace(/SUMMARY:[\s\S]*$/, 'FULL TEXT:\n' + fetchData.excerpt);
-          }
-          return block + '\nFULL TEXT:\n' + fetchData.excerpt;
+          // Replace SUMMARY but preserve ARTICLE_URL and DATE lines
+          const articleUrlLine = `ARTICLE_URL: ${articleUrl}`;
+          const dateMatch = block.match(/DATE: .+/);
+          const dateLine = dateMatch ? dateMatch[0] : '';
+          const headlineMatch = block.match(/HEADLINE: .+/);
+          const headlineLine = headlineMatch ? headlineMatch[0] : '';
+          const sourceMatch = block.match(/SOURCE: .+/);
+          const sourceLine = sourceMatch ? sourceMatch[0] : '';
+          return [sourceLine, headlineLine, articleUrlLine, dateLine, 'FULL TEXT:', fetchData.excerpt]
+            .filter(Boolean).join('\n');
         } else {
           console.log(`[ArticleFetch] Paywall/failed (${fetchData.reason}): ${articleUrl.slice(0,60)}`);
           return block; // keep RSS excerpt
