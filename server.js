@@ -560,6 +560,11 @@ app.get('/api/unsubscribe', async (req, res) => {
   `);
 });
 
+// Helper: get today's date in Eastern time (quiz is Baltimore-based)
+function easternToday() {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+}
+
 // ── GET /api/quiz/all — return all quizzes for admin review ──
 app.get('/api/quiz/all', async (req, res) => {
   const data = await readData();
@@ -570,7 +575,7 @@ app.get('/api/quiz/all', async (req, res) => {
 app.get('/api/quiz/archive', async (req, res) => {
   const data = await readData();
   const quizzes = data.quizzes || {};
-  const today = new Date().toISOString().slice(0, 10);
+  const today = easternToday();
   // Return all dates except today, sorted newest first, capped at 7
   const dates = Object.keys(quizzes)
     .filter(d => d !== today)
@@ -635,12 +640,11 @@ app.post('/api/quiz', async (req, res) => {
 
 app.get('/api/quiz', async (req, res) => {
   const { date } = req.query;
-  if (!date) return res.status(400).json({ error: 'date required' });
   const data = await readData();
   if (!data.quizzes) return res.json({ quiz: null });
 
-  // Return today's quiz if available
-  if (data.quizzes[date]) return res.json({ quiz: data.quizzes[date] });
+  // If date specified, return that date's quiz
+  if (date && data.quizzes[date]) return res.json({ quiz: data.quizzes[date] });
 
   // Fall back to most recently published quiz
   const dates = Object.keys(data.quizzes).sort();
