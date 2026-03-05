@@ -3020,68 +3020,14 @@ function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote,
     '- Groundbreaking ceremony details (who held a shovel, what color the hard hats were)\n' +
     '- Hyper-local trivia unless it has clear policy or economic impact\n' +
     '- Dollar amounts, durations, unit counts, vote tallies, dates, or times — unless the number IS the entire headline (e.g. a record-breaking figure everyone is talking about)\n\n' +
-    'QUESTION DESIGN RULES:\n' +
-    '- Questions must test understanding, significance, or implications — not trivial recall\n' +
-    '- At least 3 of the first 5 questions must test WHY the story matters, not just what happened\n' +
-    '- For each question, write the explanation as: [correct answer] + one sentence on why this story matters to Baltimore residents\n' +
-    '- Ask about the WHO or WHAT that makes the story newsworthy\n' +
-    '- Good question subjects: names of companies, people, organizations, places, decisions, and actions\n' +
-    '- The correct answer should be something a well-informed Baltimorean might actually know or want to know\n\n' +
-    'QUESTION PATTERN — REQUIRED EXAMPLES (follow this model):\n' +
-    'BAD (recall): "What is the name of Maryland\'s energy efficiency program that Speaker Peña-Melnyk\'s proposals would modify?"\n' +
-    'GOOD (significance): "Why are lawmakers concerned about Speaker Peña-Melnyk\'s proposed changes to EmPOWER Maryland?"\n\n' +
-    'BAD (recall): "Which two counties are ramping up immigrant protections?"\n' +
-    'GOOD (implication): "What does Montgomery and Prince George\'s Counties\' decision to expand immigrant protections reveal about the limits of state-level immigration policy?"\n\n' +
-    'BAD (recall): "What retail practice is Governor Moore seeking to regulate?"\n' +
-    'GOOD (civic): "What would Maryland\'s proposed dynamic pricing bill require businesses to do that current law does not?"\n\n' +
-    'BAD (recall): "Where did the groundbreaking ceremony for the new courthouse take place?"\n' +
-    'GOOD (impact): "Why did Baltimore officials prioritize building a new courthouse over renovating the existing one?"\n\n' +
-    'BAD (recall): "In Smith v. State of Maryland, which court initially heard the suppression motion?"\n' +
-    'GOOD (significance): "What did the Smith v. State ruling reveal about how Maryland courts are treating traffic stop evidence?"\n\n' +
-    'BAD (recall): "What type of case was decided in Twigg v. Maryland Department of Labor?"\n' +
-    'GOOD (significance): "What did the Twigg v. Maryland ruling reveal about the barriers workers face when seeking unemployment benefits after leaving hostile workplaces?"\n\n' +
-    'The pattern: swap "what/which/where" questions for "why/what does this mean/what would this change" questions.\n\n' +
-    'DIFFICULTY STRUCTURE — follow this exactly:\n' +
-    '- Q1 (easy, 10pts): Straightforward but meaningful headline takeaway. Answerable from the headline alone.\n' +
-    '- Q2 (easy, 10pts): Adds context or broader impact. Still accessible but requires knowing the story.\n' +
-    '- Q3 (medium, 20pts): Policy or economic implication. Requires reading — test a key decision or outcome.\n' +
-    '- Q4 (medium, 20pts): Political or institutional consequence. Who is affected and how.\n' +
-    '- Q5 (hard, 30pts): More nuanced understanding. A specific supporting detail a close reader would remember — a name, place, stated reason, or key outcome. NOT a dollar amount or date.\n' +
-    '- Q6/Bonus (bonus, 50pts): Requires inference or synthesis — the single most surprising or counterintuitive fact in the article. Must go beyond surface recall.\n\n' +
-    'ARTICLE SELECTION FILTER — before writing a question, ask: would a well-informed Baltimore resident mention this to a friend over coffee? If no, skip it.\n' +
-    '- SKIP: routine sports transactions, injury updates, spring training notes\n' +
-    '- SKIP: minor arts/culture items with no broader community impact\n' +
-    '- SKIP: individual crime stories unless a public figure, major institution, or systemic pattern is central\n' +
-    '- SKIP: ALL weather stories unless a historic storm caused major documented damage\n' +
-    '- SKIP: anniversary or milestone articles unless a specific newsworthy development is the focus\n' +
-    '- SKIP: DC-area team stories (Nationals, Commanders, Capitals, Wizards) without explicit Baltimore/Maryland angle\n' +
-    '- USE: sports stories about record-breaking achievements, major roster decisions, or stadium/ownership news\n' +
-    '- USE: arts/culture stories involving major institutions (BSO, BMA, Center Stage) or nationally recognized figures\n' +
-    '- USE: anything involving public money, public safety, elections, housing, schools, or the local economy\n\n' +
-    '- Wrong answers must be the same category as the correct answer\n' +
-    '  · If the answer is an airline → other real airlines serving the Mid-Atlantic\n' +
-    '  · If the answer is a restaurant chain → other real chains a Baltimorean would recognize\n' +
-    '  · If the answer is a developer or company → other real companies in that industry\n' +
-    '  · If the answer is a politician or official → other real politicians at a similar level\n' +
-    '  · If the answer is a neighborhood or place → other real Baltimore-area places\n' +
-    '- Wrong answers should be plausible enough that someone who did NOT read the article might pick them\n' +
-    '- Wrong answers must NOT be obviously absurd or unrelated\n' +
-    '- Never use four options that are all dates, all dollar amounts, or all nearly identical numbers\n\n' +
-    'HERE ARE YOUR 6 ASSIGNED ARTICLES:\n\n' +
+    'QUESTION DESIGN RULES — PROGRESSIVE DIFFICULTY:\\n\'  +\n    \'Each question should be harder than the last. Follow this exact progression:\\n\\n\' +\n    \'Q1 (easy, 10pts) — FACTUAL: A clear, specific fact from the article. Answerable from the headline or first paragraph alone.\\n\' +\n    \'  What happened. Who decided. What was announced. Simple and unambiguous.\\n\' +\n    \'  Example: "What did the Maryland Supreme Court rule about cannabis smell searches?"\\n\\n\' +\n    \'Q2 (easy, 10pts) — DETAIL: A specific supporting detail from the story. Requires reading but still concrete.\\n\' +\n    \'  A named person, organization, place, or stated reason that a reader would remember.\\n\' +\n    \'  Example: "Why did Baltimore County release the body camera footage in the Samuel Brown case?"\\n\\n\' +\n    \'EARLY QUESTION GUARDRAIL (applies to Q1 and Q2):\\nEven factual questions must test something worth knowing. NEVER ask about:\\n  x Exact dollar amounts or prices\\n  x Specific street addresses\\n  x Exact years or dates in isolation\\n  x Precise percentages as the main point\\n  x Names of minor officials or supporting characters\\nINSTEAD test: decisions, outcomes, stated reasons, key roles, and relationships.\\nBAD Q1: How much does the city earn annually from the marina lease?\\nBAD Q2: In what year was the EmPOWER Maryland program created?\\nGOOD Q1: What did Baltimore do with the Inner Harbor marina to fund the Harborplace redevelopment?\\nGOOD Q2: What role does The Launchpad play for minority-owned businesses at Baltimore Peninsula?\\n\\nQ3 (medium, 20pts) — CAUSE: Why did this happen, or what triggered it? One step removed from the headline.\\n\' +\n    \'  Requires understanding context, not just the outcome.\\n\' +\n    \'  Example: "What is driving the surge in Maryland gas prices?"\\n\\n\' +\n    \'Q4 (medium, 20pts) — EFFECT: What does this mean for a specific group, institution, or situation?\\n\' +\n    \'  Who is affected and how. Still grounded in the article but requires connecting dots.\\n\' +\n    \'  Example: "What challenge does the Harborplace redevelopment pose for the German Christmas Village?"\\n\\n\' +\n    \'Q5 (hard, 30pts) — IMPLICATION: What does this reveal, signal, or change? Requires genuine analysis.\\n\' +\n    \'  A non-obvious takeaway that a close reader would notice. Not a date, dollar amount, or name.\\n\' +\n    \'  Example: "What does Baltimore\'s $1 marina lease reveal about the city\'s approach to managing public waterfront assets?"\\n\\n\' +\n    \'Q6 (bonus, 50pts) — SYNTHESIS: The single most surprising, counterintuitive, or revealing detail.\\n\' +\n    \'  Rewards careful reading. Should make players think "I wouldn\'t have guessed that."\\n\' +\n    \'  Example: "What unexpected requirement is Harford County imposing on 7Brew Coffee that reveals a gap in traditional drive-thru planning?"\\n\\n\' +\n    \'WRONG ANSWER RULES:\\n\' +\n    \'- Wrong answers must be the same category as the correct answer\\n\' +\n    \'  · If the answer is an airline → other real airlines serving the Mid-Atlantic\\n\' +\n    \'  · If the answer is a restaurant chain → other real chains a Baltimorean would recognize\\n\' +\n    \'  · If the answer is a developer or company → other real companies in that industry\\n\' +\n    \'  · If the answer is a politician or official → other real politicians at a similar level\\n\' +\n    \'  · If the answer is a neighborhood or place → other real Baltimore-area places\\n\' +\n    \'- Wrong answers should be plausible to someone who did NOT read the article\\n\' +\n    \'- Wrong answers must NOT be obviously absurd or unrelated\\n\' +\n    \'- Never use four options that are all dates, all dollar amounts, or all nearly identical numbers\\n\\n\' +\n    \'EXPLANATION RULES — match the difficulty level:\\\\n\\' +\n    \'- Q1/Q2 (easy): Keep it simple. State the fact plainly. No \'This matters because...\' No policy analysis.\\\\n\\' +\n    \'  Example: \'The court ruled the ban does not apply to cases before July 1, 2023.\'\\\\n\\' +\n    \'- Q3/Q4 (medium): One sentence of context explaining cause or effect. Still concrete.\\\\n\\' +\n    \'- Q5/Q6 (hard/bonus): Analysis welcome. Explain the broader significance.\\\\n\\\\n\\' +\n    \'CRITICAL: Write explanation first, then set correctIndex to match it exactly. The explanation must echo the correct option.\\\\n\\\\n\\' +\n    'ARTICLE SELECTION FILTER — before writing a question, ask: would a well-informed Baltimore resident mention this to a friend over coffee? If no, skip it.\\n\' +\n    \'- SKIP: routine sports transactions, injury updates, spring training notes\\n\' +\n    \'- SKIP: minor arts/culture items with no broader community impact\\n\' +\n    \'- SKIP: individual crime stories unless a public figure, major institution, or systemic pattern is central\\n\' +\n    \'- SKIP: ALL weather stories unless a historic storm caused major documented damage\\n\' +\n    \'- SKIP: anniversary or milestone articles unless a specific newsworthy development is the focus\\n\' +\n    \'- SKIP: DC-area team stories (Nationals, Commanders, Capitals, Wizards) without explicit Baltimore/Maryland angle\\n\' +\n    \'- USE: sports stories about record-breaking achievements, major roster decisions, or stadium/ownership news\\n\' +\n    \'- USE: arts/culture stories involving major institutions (BSO, BMA, Center Stage) or nationally recognized figures\\n\' +\n    \'- USE: anything involving public money, public safety, elections, housing, schools, or the local economy\\n\\n\' +\n    \'HERE ARE YOUR 6 ASSIGNED ARTICLES:\\n\\n' +
     (assignedArticles || rssContent) + '\n\n' +
     'OUTPUT: Respond with ONLY valid JSON. No preamble, no markdown. Start with { and end with }.\n\n' +
-    'IMPORTANT: Always write questions for ALL 6 assigned articles regardless of their age. Never return an empty questions array.\n' +
-    'Set staleWarning to true and list URLs in staleArticles only if articles appear to be more than 3 days old — this is advisory only and must never prevent question generation.\n\n' +
-    '{\n  "staleWarning": false,\n  "staleArticles": [],\n  "questions": [\n' +
-    '    {\n      "question": "Full question text?",\n      "options": ["Choice A", "Choice B", "Choice C", "Choice D"],\n' +
-    '      "correctIndex": 0,\n      "explanation": "Why this answer is correct.",\n' +
-    '      "difficulty": "easy",\n      "sourceUrl": "https://source-url.com"\n    }\n  ]\n}\n\n' +
+    'IMPORTANT: Always write questions for ALL 6 assigned articles. Never return an empty questions array.\n' +
+    'Set staleWarning to true only if articles appear more than 3 days old.\n\n' +
     'difficulty values: "easy" | "medium" | "hard" | "bonus"\n' +
-    'correctIndex: CRITICAL — this MUST be the 0-based index of whichever option your explanation describes as correct. ' +
-    'Write your explanation FIRST, then set correctIndex to match it exactly. ' +
-    'Double-check: does options[correctIndex] match what your explanation says? If not, fix correctIndex. ' +
-    'Natural variation is fine; do NOT force a distribution pattern.\n' +
-    'sourceUrl: copy the ARTICLE_URL value exactly as provided for each article. NEVER use a feed URL (ending in /feed/, /rss, /rss.xml). If no article URL is available, omit this field.\n' +
+    'correctIndex: MUST be the 0-based index of the option your explanation describes as correct. Write explanation FIRST, then set correctIndex to match.\n' +
+    'sourceUrl: copy ARTICLE_URL exactly. NEVER use a feed URL ending in /feed/ or /rss.\n' +
     'Generate exactly 6 questions, one per assigned article.';
 }
 
