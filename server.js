@@ -1,39 +1,80 @@
 const express = require('express');
 const https = require('https');
 const http = require('http');
-const fs = require('fs');
+const { Pool } = require('pg');
 const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
-const DATA_FILE = path.join('/tmp', 'quiz-data.json');
 
 app.use(express.json({ limit: '2mb' }));
 app.use(express.static(path.dirname(__filename)));
 
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS, DELETE');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.sendStatus(204);
   next();
 });
 
-// ── Simple file-based data store ─────────────────────────────
-function readData() {
-  try {
-    if (fs.existsSync(DATA_FILE)) {
-      return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
-    }
-  } catch(e) {}
-  return {};
+// ── Postgres connection ───────────────────────────────────────
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
+});
+
+// ── Key-value store backed by Postgres ───────────────────────
+// Single table: store(key TEXT PRIMARY KEY, value JSONB)
+// This mirrors the old await readData()/await writeData() pattern exactly.
+
+async function initDb() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS store (
+      key TEXT PRIMARY KEY,
+      value JSONB NOT NULL
+    )
+  `);
+  console.log('DB: store table ready.');
 }
 
-function writeData(data) {
+async function getKey(key) {
   try {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(data), 'utf8');
+    const r = await pool.query('SELECT value FROM store WHERE key=$1', [key]);
+    return r.rows.length ? r.rows[0].value : null;
+  } catch(e) { console.error('getKey error', key, e.message); return null; }
+}
+
+async function setKey(key, value) {
+  try {
+    await pool.query(
+      'INSERT INTO store(key,value) VALUES($1,$2) ON CONFLICT(key) DO UPDATE SET value=$2',
+      [key, JSON.stringify(value)]
+    );
     return true;
-  } catch(e) { return false; }
+  } catch(e) { console.error('setKey error', key, e.message); return false; }
+}
+
+// Legacy sync-style shims — kept so the rest of the code changes minimally.
+// All callers that used await readData()/await writeData() now use async versions below.
+async function readData() {
+  const keys = ['sites','rssCache','scores','dist','quizzes','archiveUrls',
+                 'archiveQuestions','posts','messages','subscribers'];
+  const data = {};
+  await Promise.all(keys.map(async k => {
+    const v = await getKey(k);
+    if (v !== null) data[k] = v;
+  }));
+  return data;
+}
+
+async function writeData(data) {
+  const keys = ['sites','rssCache','scores','dist','quizzes','archiveUrls',
+                 'archiveQuestions','posts','messages','subscribers'];
+  await Promise.all(keys.map(async k => {
+    if (data[k] !== undefined) await setKey(k, data[k]);
+  }));
+  return true;
 }
 
 // ── RSS feed fetcher ─────────────────────────────────────────
@@ -134,7 +175,7 @@ function isRecent(pubDate) {
 // The cache is refreshed on startup and via the /api/rss/refresh endpoint.
 
 async function fetchAndCacheRSS() {
-  const data = readData();
+  const data = await readData();
   const savedSites = (data.sites || '').split('\n').map(s => s.trim()).filter(Boolean)
     .filter(s => !s.includes('google.com') && !s.includes('therealnews.com')); // skip non-RSS sources
   if (!savedSites.length) {
@@ -270,18 +311,17 @@ async function fetchAndCacheRSS() {
   });
 
   // Save to data file
-  const freshData = readData();
+  const freshData = await readData();
   freshData.rssCache = {
     items: unique.slice(0, 100),
     fetchedAt: new Date().toISOString(),
     errors: errors.length ? errors : []
   };
-  writeData(freshData);
+  await writeData(freshData);
   console.log(`RSS: Cached ${unique.length} articles. Errors: ${errors.length}`);
 }
 
-// Fetch RSS on startup (after a short delay to let the server settle)
-setTimeout(fetchAndCacheRSS, 5000);
+// ── Email helper (Resend) ─────────────────────────────────────
 
 // Scheduled daily refresh at 6am Eastern time
 function scheduleNextRefresh() {
@@ -301,8 +341,8 @@ function scheduleNextRefresh() {
 scheduleNextRefresh();
 
 // ── GET /api/rss/debug — show all cached articles grouped by source ──
-app.get('/api/rss/debug', (req, res) => {
-  const data = readData();
+app.get('/api/rss/debug', async (req, res) => {
+  const data = await readData();
   const cache = data.rssCache || { items: [], fetchedAt: null };
   
   // Group by source
@@ -323,8 +363,8 @@ app.get('/api/rss/debug', (req, res) => {
 });
 
 // ── GET /api/rss — return cached articles ─────────────────────
-app.get('/api/rss', (req, res) => {
-  const data = readData();
+app.get('/api/rss', async (req, res) => {
+  const data = await readData();
   const cache = data.rssCache || { items: [], fetchedAt: null, errors: [] };
   res.json(cache);
 });
@@ -336,31 +376,31 @@ app.post('/api/rss/refresh', async (req, res) => {
 });
 
 // ── Redirect root to quiz ────────────────────────────────────
-app.get('/', (req, res) => {
+app.get('/', async (req, res) => {
   res.redirect('/news-quiz.html');
 });
 
 // ── Save/load news sites ──────────────────────────────────────
-app.post('/api/sites', (req, res) => {
+app.post('/api/sites', async (req, res) => {
   const { sites } = req.body;
   if (typeof sites !== 'string') return res.status(400).json({ error: 'sites must be a string' });
-  const data = readData();
+  const data = await readData();
   data.sites = sites;
-  writeData(data);
+  await writeData(data);
   res.json({ ok: true });
 });
 
-app.get('/api/sites', (req, res) => {
-  const data = readData();
+app.get('/api/sites', async (req, res) => {
+  const data = await readData();
   res.json({ sites: data.sites || '' });
 });
 
 // ── Answer distribution aggregation ──────────────────────────
 // POST /api/answers  { date, answers: [{qIdx, correct}] }
-app.post('/api/answers', (req, res) => {
+app.post('/api/answers', async (req, res) => {
   const { date, answers } = req.body;
   if (!date || !Array.isArray(answers)) return res.status(400).json({ error: 'bad request' });
-  const data = readData();
+  const data = await readData();
   if (!data.dist) data.dist = {};
   if (!data.dist[date]) data.dist[date] = {};
   answers.forEach(({ qIdx, correct }) => {
@@ -369,15 +409,15 @@ app.post('/api/answers', (req, res) => {
     if (correct) data.dist[date][k].correct++;
     else data.dist[date][k].wrong++;
   });
-  writeData(data);
+  await writeData(data);
   res.json({ ok: true });
 });
 
 // GET /api/answers?date=YYYY-MM-DD
-app.get('/api/answers', (req, res) => {
+app.get('/api/answers', async (req, res) => {
   const { date } = req.query;
   if (!date) return res.status(400).json({ error: 'date required' });
-  const data = readData();
+  const data = await readData();
   res.json((data.dist && data.dist[date]) || {});
 });
 
@@ -434,12 +474,12 @@ app.post('/api/fetch-article', async (req, res) => {
 // ── Leaderboard ───────────────────────────────────────────────
 // Scores stored as data.scores = { playerKey: { displayName, allTime, dailyScores: {date: score} } }
 
-app.post('/api/scores', (req, res) => {
+app.post('/api/scores', async (req, res) => {
   const { playerName, date, score } = req.body;
   if (!playerName || !date || typeof score !== 'number') {
     return res.status(400).json({ error: 'playerName, date, and score required' });
   }
-  const data = readData();
+  const data = await readData();
   if (!data.scores) data.scores = {};
   const key = playerName.toLowerCase().trim();
   if (!data.scores[key]) {
@@ -450,24 +490,24 @@ app.post('/api/scores', (req, res) => {
     data.scores[key].dailyScores[date] = score;
     data.scores[key].allTime = Object.values(data.scores[key].dailyScores).reduce((a,b) => a+b, 0);
   }
-  writeData(data);
+  await writeData(data);
   res.json({ ok: true });
 });
 
-app.get('/api/scores', (req, res) => {
-  const data = readData();
+app.get('/api/scores', async (req, res) => {
+  const data = await readData();
   res.json({ scores: data.scores || {} });
 });
 
 // ── Archive (used article URLs + question text) ───────────────
-app.get('/api/archive', (req, res) => {
-  const data = readData();
+app.get('/api/archive', async (req, res) => {
+  const data = await readData();
   res.json({ urls: data.archiveUrls || [], questions: data.archiveQuestions || [] });
 });
 
-app.post('/api/archive', (req, res) => {
+app.post('/api/archive', async (req, res) => {
   const { urls, questions } = req.body;
-  const data = readData();
+  const data = await readData();
   if (!data.archiveUrls) data.archiveUrls = [];
   if (!data.archiveQuestions) data.archiveQuestions = [];
   if (urls) {
@@ -479,17 +519,17 @@ app.post('/api/archive', (req, res) => {
   // Keep last 60 entries (~1 week)
   if (data.archiveUrls.length > 60) data.archiveUrls = data.archiveUrls.slice(-60);
   if (data.archiveQuestions.length > 60) data.archiveQuestions = data.archiveQuestions.slice(-60);
-  writeData(data);
+  await writeData(data);
   res.json({ ok: true });
 });
 
 // ── Subscribers ───────────────────────────────────────────────
 // Stored as data.subscribers = { email: { name, subscribedAt, active } }
 
-app.post('/api/subscribe', (req, res) => {
+app.post('/api/subscribe', async (req, res) => {
   const { name, email } = req.body;
   if (!email || !email.includes('@')) return res.status(400).json({ error: 'Valid email required.' });
-  const data = readData();
+  const data = await readData();
   if (!data.subscribers) data.subscribers = {};
   const key = email.toLowerCase().trim();
   data.subscribers[key] = {
@@ -498,18 +538,18 @@ app.post('/api/subscribe', (req, res) => {
     subscribedAt: data.subscribers[key]?.subscribedAt || new Date().toISOString(),
     active: true
   };
-  writeData(data);
+  await writeData(data);
   res.json({ ok: true });
 });
 
-app.get('/api/unsubscribe', (req, res) => {
+app.get('/api/unsubscribe', async (req, res) => {
   const { email } = req.query;
   if (!email) return res.status(400).send('Missing email.');
-  const data = readData();
+  const data = await readData();
   const key = decodeURIComponent(email).toLowerCase().trim();
   if (data.subscribers && data.subscribers[key]) {
     data.subscribers[key].active = false;
-    writeData(data);
+    await writeData(data);
   }
   res.send(`
     <html><body style="font-family:Georgia,serif;max-width:500px;margin:60px auto;text-align:center;">
@@ -522,16 +562,16 @@ app.get('/api/unsubscribe', (req, res) => {
 
 // ── Quiz persistence ──────────────────────────────────────────
 // Save published quiz to server so it survives browser/device changes
-app.post('/api/quiz', (req, res) => {
+app.post('/api/quiz', async (req, res) => {
   const { date, quiz } = req.body;
   if (!date || !quiz) return res.status(400).json({ error: 'date and quiz required' });
-  const data = readData();
+  const data = await readData();
   if (!data.quizzes) data.quizzes = {};
   data.quizzes[date] = quiz;
   // Keep only last 14 days
   const keys = Object.keys(data.quizzes).sort();
   if (keys.length > 14) keys.slice(0, keys.length - 14).forEach(k => delete data.quizzes[k]);
-  writeData(data);
+  await writeData(data);
 
   // Send notification emails to all active subscribers (fire and forget)
   const siteUrl = process.env.SITE_URL || 'https://your-app.railway.app';
@@ -565,10 +605,10 @@ app.post('/api/quiz', (req, res) => {
   res.json({ ok: true });
 });
 
-app.get('/api/quiz', (req, res) => {
+app.get('/api/quiz', async (req, res) => {
   const { date } = req.query;
   if (!date) return res.status(400).json({ error: 'date required' });
-  const data = readData();
+  const data = await readData();
   if (!data.quizzes) return res.json({ quiz: null });
 
   // Return today's quiz if available
@@ -582,7 +622,7 @@ app.get('/api/quiz', (req, res) => {
 });
 
 // ── Anthropic API proxy ───────────────────────────────────────
-app.post('/api/claude', (req, res) => {
+app.post('/api/claude', async (req, res) => {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return res.status(500).json({
@@ -615,13 +655,21 @@ app.post('/api/claude', (req, res) => {
 });
 
 // ── Start ─────────────────────────────────────────────────────
-app.listen(PORT, () => {
-  console.log(`Daily Dispatch Quiz running on port ${PORT}`);
-  if (process.env.ANTHROPIC_API_KEY) {
-    console.log('✓ Using Anthropic API');
-  } else {
-    console.log('⚠ WARNING: ANTHROPIC_API_KEY is not set.');
-  }
+initDb().then(() => {
+  app.listen(PORT, () => {
+    console.log(`Daily Dispatch Quiz running on port ${PORT}`);
+    if (process.env.ANTHROPIC_API_KEY) {
+      console.log('✓ Using Anthropic API');
+    } else {
+      console.log('⚠ WARNING: ANTHROPIC_API_KEY is not set.');
+    }
+  });
+  // Fetch RSS after DB is ready
+  setTimeout(fetchAndCacheRSS, 5000);
+  scheduleNextRefresh();
+}).catch(err => {
+  console.error('DB init failed:', err.message);
+  process.exit(1);
 });
 
 // ── Email helper (Resend) ─────────────────────────────────────
@@ -660,19 +708,19 @@ async function sendEmail(to, subject, html) {
 // ── Message board ─────────────────────────────────────────────
 // Posts stored as data.posts = [{ id, playerName, text, createdAt, deleted }]
 
-app.get('/api/posts', (req, res) => {
-  const data = readData();
+app.get('/api/posts', async (req, res) => {
+  const data = await readData();
   const posts = (data.posts || []).filter(p => !p.deleted);
   res.json({ posts });
 });
 
-app.post('/api/posts', (req, res) => {
+app.post('/api/posts', async (req, res) => {
   const { playerName, text } = req.body;
   if (!playerName || !playerName.trim()) return res.status(400).json({ error: 'Player name required.' });
   if (!text || !text.trim()) return res.status(400).json({ error: 'Message text required.' });
   if (text.length > 500) return res.status(400).json({ error: 'Message too long (500 char max).' });
 
-  const data = readData();
+  const data = await readData();
   if (!data.posts) data.posts = [];
   const post = {
     id: Date.now().toString(),
@@ -682,16 +730,16 @@ app.post('/api/posts', (req, res) => {
   };
   data.posts.unshift(post); // newest first
   if (data.posts.length > 200) data.posts = data.posts.slice(0, 200); // cap at 200
-  writeData(data);
+  await writeData(data);
   res.json({ ok: true, post });
 });
 
-app.delete('/api/posts/:id', (req, res) => {
-  const data = readData();
+app.delete('/api/posts/:id', async (req, res) => {
+  const data = await readData();
   const post = (data.posts || []).find(p => p.id === req.params.id);
   if (!post) return res.status(404).json({ error: 'Post not found.' });
   post.deleted = true;
-  writeData(data);
+  await writeData(data);
   res.json({ ok: true });
 });
 
@@ -704,7 +752,7 @@ app.post('/api/contact', async (req, res) => {
   if (!text || !text.trim()) return res.status(400).json({ error: 'Message required.' });
   if (text.length > 1000) return res.status(400).json({ error: 'Message too long (1000 char max).' });
 
-  const data = readData();
+  const data = await readData();
   if (!data.messages) data.messages = [];
   const msg = {
     id: Date.now().toString(),
@@ -714,7 +762,7 @@ app.post('/api/contact', async (req, res) => {
     read: false
   };
   data.messages.unshift(msg);
-  writeData(data);
+  await writeData(data);
 
   // Forward to editor's email
   const editorEmail = process.env.EDITOR_EMAIL;
@@ -734,14 +782,14 @@ app.post('/api/contact', async (req, res) => {
   res.json({ ok: true });
 });
 
-app.get('/api/messages', (req, res) => {
-  const data = readData();
+app.get('/api/messages', async (req, res) => {
+  const data = await readData();
   res.json({ messages: data.messages || [] });
 });
 
-app.post('/api/messages/:id/read', (req, res) => {
-  const data = readData();
+app.post('/api/messages/:id/read', async (req, res) => {
+  const data = await readData();
   const msg = (data.messages || []).find(m => m.id === req.params.id);
-  if (msg) { msg.read = true; writeData(data); }
+  if (msg) { msg.read = true; await writeData(data); }
   res.json({ ok: true });
 });
