@@ -1046,7 +1046,36 @@
   }
   @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
-  /* ─── PARTICLE BURST ─── */
+  /* ─── ARCHIVE MODE ─── */
+  body.archive-mode {
+    filter: sepia(0.45) brightness(0.97);
+  }
+  .archive-banner {
+    background: #5a4a2a;
+    color: #f5e8c0;
+    text-align: center;
+    font-family: 'Courier Prime', monospace;
+    font-size: 12px;
+    letter-spacing: 2px;
+    padding: 8px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .archive-card {
+    border: 1px solid var(--rule);
+    padding: 14px 18px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: white;
+    transition: background 0.15s;
+  }
+  .archive-card:hover { background: var(--cream); }
+  .archive-card .arc-date { font-family: 'Courier Prime', monospace; font-size: 13px; font-weight: 700; }
+  .archive-card .arc-label { font-size: 12px; color: var(--muted); font-family: monospace; }
   .particle {
     position: fixed;
     pointer-events: none;
@@ -1060,14 +1089,18 @@
   }
 
   /* ─── SCORE POP ─── */
+  #live-score {
+    display: inline-block;
+    transition: color 0.2s;
+  }
   @keyframes scorePop {
     0%   { transform: scale(1); }
-    40%  { transform: scale(1.5); color: var(--green); }
-    70%  { transform: scale(0.9); }
-    100% { transform: scale(1); }
+    35%  { transform: scale(1.7); color: var(--green); }
+    65%  { transform: scale(0.85); }
+    100% { transform: scale(1); color: inherit; }
   }
   .score-pop {
-    animation: scorePop 0.4s ease-out;
+    animation: scorePop 0.5s ease-out;
   }
 
   .generating-overlay {
@@ -1186,6 +1219,25 @@
       <button class="btn-primary" onclick="showLeaderboard()">View Leaderboard ▸</button>
       <button class="btn-secondary" onclick="showScreen('screen-register')">Play Again</button>
       <button class="btn-secondary" onclick="showCommunity()">💬 Community Board</button>
+      <button class="btn-secondary" onclick="showArchiveBrowser()" style="border-color:var(--muted);color:var(--muted);">📰 Browse Past Quizzes</button>
+    </div>
+  </div>
+
+  <!-- ARCHIVE BANNER (shown in archive mode) -->
+  <div id="archive-banner" class="archive-banner" style="display:none;">
+    📰 ARCHIVE MODE — Scores are not recorded &nbsp;·&nbsp; <span id="archive-date-label"></span> &nbsp;·&nbsp;
+    <span style="cursor:pointer;text-decoration:underline;" onclick="exitArchiveMode()">Exit Archive</span>
+  </div>
+
+  <!-- ARCHIVE BROWSER SCREEN -->
+  <div id="screen-archive" class="screen">
+    <div class="edition-rule">The Archive</div>
+    <p style="font-family:monospace;font-size:12px;color:var(--muted);margin-bottom:16px;">Play past editions of the Daily Dispatch Quiz. Scores are not recorded.</p>
+    <div id="archive-list">
+      <p style="color:var(--muted);font-family:monospace;font-size:13px;">Loading past quizzes…</p>
+    </div>
+    <div style="margin-top:16px;">
+      <button class="btn-secondary" onclick="exitArchiveMode()">◂ Back</button>
     </div>
   </div>
 
@@ -1372,6 +1424,13 @@
       <h3>Community Posts <span id="admin-posts-badge" style="display:none;background:var(--red,#c0392b);color:white;font-size:11px;padding:2px 7px;border-radius:10px;font-family:monospace;margin-left:6px;"></span></h3>
       <div id="admin-posts-list">
         <p style="font-family:monospace;font-size:12px;color:var(--muted);">Loading posts…</p>
+      </div>
+    </div>
+
+    <div class="admin-section" style="margin-top:20px;">
+      <h3>Email Subscribers <span id="sub-count" style="font-family:monospace;font-size:12px;color:var(--muted);font-weight:400;"></span></h3>
+      <div id="sub-list" style="margin-top:10px;font-family:monospace;font-size:12px;max-height:220px;overflow-y:auto;border:1px solid var(--rule);padding:8px;">
+        <p style="color:var(--muted);">Loading…</p>
       </div>
     </div>
 
@@ -1888,8 +1947,8 @@ function finishQuiz() {
   // Save scores locally
   updatePlayerScore(state.playerName, state.sessionScore);
 
-  // Submit score to server for shared leaderboard
-  fetch('/api/scores', {
+  // Submit score to server for shared leaderboard (not in archive mode)
+  if (!archiveMode) fetch('/api/scores', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -1899,8 +1958,8 @@ function finishQuiz() {
     })
   }).catch(() => {});
 
-  // POST this player's answers to server for community distribution
-  fetch('/api/answers', {
+  // POST this player's answers to server for community distribution (not in archive mode)
+  if (!archiveMode) fetch('/api/answers', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -2074,6 +2133,7 @@ async function showAdminScreen() {
   await refreshAdminPreviews();
   loadAdminPosts();
   loadArticleUrls();
+  loadSubscribers();
 }
 
 // ─── RSS cache helpers ───────────────────────────────────────────────────
@@ -3299,6 +3359,117 @@ function resetDailyScores() {
 function escHtml(str) {
   if (!str) return '';
   return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Archive browser ───────────────────────────────────────────
+let archiveMode = false;
+let savedQuizQuestions = null;
+let savedQuizDate = null;
+
+async function showArchiveBrowser() {
+  showScreen('screen-archive');
+  const listEl = document.getElementById('archive-list');
+  listEl.innerHTML = '<p style="color:var(--muted);font-family:monospace;font-size:13px;">Loading…</p>';
+  try {
+    const res = await fetch('/api/quiz/archive');
+    const { dates } = await res.json();
+    if (!dates || dates.length === 0) {
+      listEl.innerHTML = '<p style="color:var(--muted);font-family:monospace;font-size:13px;">No past quizzes available yet.</p>';
+      return;
+    }
+    listEl.innerHTML = dates.map(d => `
+      <div class="archive-card" onclick="playArchiveQuiz('${d}')">
+        <div>
+          <div class="arc-date">${d}</div>
+          <div class="arc-label">${formatArchiveDate(d)}</div>
+        </div>
+        <span style="font-family:monospace;font-size:12px;color:var(--muted);">Play ▸</span>
+      </div>
+    `).join('');
+  } catch(e) {
+    listEl.innerHTML = '<p style="color:var(--muted);">Could not load archive.</p>';
+  }
+}
+
+function formatArchiveDate(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00');
+  return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+}
+
+async function playArchiveQuiz(date) {
+  try {
+    const res = await fetch(`/api/quiz?date=${date}`);
+    const data = await res.json();
+    if (!data.quiz || !data.quiz.questions) {
+      alert('Could not load quiz for ' + date);
+      return;
+    }
+    // Save current state
+    savedQuizQuestions = quizQuestions ? [...quizQuestions] : null;
+    savedQuizDate = state.todayKey;
+    // Enter archive mode
+    archiveMode = true;
+    document.body.classList.add('archive-mode');
+    document.getElementById('archive-banner').style.display = 'block';
+    document.getElementById('archive-date-label').textContent = formatArchiveDate(date);
+    // Load archive quiz
+    quizQuestions = enforceQuizRules(data.quiz.questions);
+    state.currentQ = 0;
+    state.sessionScore = 0;
+    state.answers = [];
+    state.streak = 0;
+    showScreen('screen-quiz');
+    buildProgressTrack(quizQuestions);
+    renderQuestion(quizQuestions[0], 0);
+    document.getElementById('live-score').textContent = '0';
+    document.getElementById('quiz-player-name').textContent = state.playerName || 'Reader';
+  } catch(e) {
+    alert('Error loading archive quiz: ' + e.message);
+  }
+}
+
+function exitArchiveMode() {
+  archiveMode = false;
+  document.body.classList.remove('archive-mode');
+  document.getElementById('archive-banner').style.display = 'none';
+  showScreen('screen-register');
+}
+
+// ── Subscriber list for admin ─────────────────────────────────
+async function loadSubscribers() {
+  const listEl = document.getElementById('sub-list');
+  const countEl = document.getElementById('sub-count');
+  if (!listEl) return;
+  try {
+    const res = await fetch('/api/subscribers');
+    const { subscribers } = await res.json();
+    const active = subscribers.filter(s => s.active);
+    countEl.textContent = `(${active.length} active)`;
+    if (subscribers.length === 0) {
+      listEl.innerHTML = '<p style="color:var(--muted);">No subscribers yet.</p>';
+      return;
+    }
+    listEl.innerHTML = `
+      <table style="width:100%;border-collapse:collapse;">
+        <tr style="border-bottom:1px solid var(--rule);color:var(--muted);">
+          <th style="text-align:left;padding:4px 8px;font-weight:600;">Email</th>
+          <th style="text-align:left;padding:4px 8px;font-weight:600;">Name</th>
+          <th style="text-align:left;padding:4px 8px;font-weight:600;">Subscribed</th>
+          <th style="text-align:left;padding:4px 8px;font-weight:600;">Status</th>
+        </tr>
+        ${subscribers.map(s => `
+          <tr style="border-bottom:1px solid #f0ebe0;">
+            <td style="padding:4px 8px;">${s.email}</td>
+            <td style="padding:4px 8px;">${s.name || '—'}</td>
+            <td style="padding:4px 8px;">${s.subscribedAt ? s.subscribedAt.slice(0,10) : '—'}</td>
+            <td style="padding:4px 8px;color:${s.active ? 'var(--green)' : 'var(--muted)'};">${s.active ? 'Active' : 'Unsubscribed'}</td>
+          </tr>
+        `).join('')}
+      </table>
+    `;
+  } catch(e) {
+    listEl.innerHTML = '<p style="color:var(--muted);">Could not load subscribers.</p>';
+  }
 }
 
 // Enter key for registration
