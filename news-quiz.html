@@ -2606,16 +2606,25 @@ async function refreshAdminPreviews() {
     `<span class="archive-pill">${escHtml(q.slice(0,50))}…</span>`
   ).join('') + (archive.length > 20 ? `<span class="archive-pill">+${archive.length-20} more</span>` : '');
 
-  // Today's published
-  const today = getTodayQuiz();
+  // Today's published — fetch from server to get correct article URLs
+  let today = null;
+  try {
+    const todayRes = await fetch('/api/quiz');
+    if (todayRes.ok) {
+      const todayData = await todayRes.json();
+      if (todayData.quiz && todayData.quiz.questions) today = todayData.quiz;
+    }
+  } catch(e) {
+    today = getTodayQuiz(); // fallback to localStorage
+  }
   if (today && today.questions) {
     document.getElementById('published-preview').innerHTML =
       `<p style="color:var(--green);font-family:monospace;font-size:12px;margin-bottom:8px;">✓ ${today.questions.length} questions published for ${todayStr()}</p>` +
       today.questions.map((q,i) => {
         const srcLink = q.sourceUrl
-          ? `<div style="font-size:11px;font-family:monospace;margin-top:5px;"><a href="${q.sourceUrl}" target="_blank" style="color:var(--muted);">↗ ${q.sourceUrl.replace(/^https?:\/\//,'').slice(0,70)}${q.sourceUrl.length > 73 ? '…' : ''}</a></div>`
+          ? `<div style="font-size:11px;font-family:monospace;margin-top:5px;"><a href="${q.sourceUrl}" target="_blank" style="color:var(--muted);" onclick="event.stopPropagation()">↗ ${q.sourceUrl.replace(/^https?:\/\//,'').slice(0,70)}${q.sourceUrl.length > 73 ? '…' : ''}</a></div>`
           : '';
-        return `<div class="q-review-card"><div class="q-meta"><span>Q${i+1}</span></div><div class="q-preview">${escHtml(q.question)}${srcLink}</div></div>`;
+        return `<div class="q-review-card" style="cursor:pointer;" onclick="jumpToArchiveQuestion('${todayStr()}', ${i})" title="View full question & answers in archive"><div class="q-meta"><span>Q${i+1}</span></div><div class="q-preview">${escHtml(q.question)}${srcLink}</div></div>`;
       }).join('');
   } else {
     document.getElementById('published-preview').innerHTML = `<p style="font-size:13px;color:var(--muted);font-style:italic;">No quiz published today.</p>`;
@@ -3419,6 +3428,28 @@ function resetDailyScores() {
 function escHtml(str) {
   if (!str) return '';
   return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function jumpToArchiveQuestion(date, qIndex) {
+  // Ensure the archive section for this date is expanded
+  const id = 'arc-' + date;
+  const body = document.getElementById(id);
+  const chevron = document.getElementById(id + '-chevron');
+  if (body && !body.classList.contains('open')) {
+    body.classList.add('open');
+    if (chevron) chevron.textContent = '▾';
+  }
+  // Scroll to the specific question within the expanded archive
+  const qCards = body ? body.querySelectorAll('.admin-arc-q') : [];
+  const target = qCards[qIndex] || body;
+  if (target) {
+    setTimeout(() => {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // Brief highlight flash
+      target.style.background = '#fffbe6';
+      setTimeout(() => target.style.background = '', 1000);
+    }, 50);
+  }
 }
 
 // ── Admin archive review ──────────────────────────────────────
