@@ -1635,7 +1635,7 @@ async function registerPlayer() {
     const serverData = await serverRes.json();
     if (serverData.quiz && serverData.quiz.questions && serverData.quiz.questions.length >= 6) {
       quiz = serverData.quiz;
-      quizDate = serverData.fallbackDate || quiz.publishDate || todayStr();
+      quizDate = serverData.date || quiz.publishDate || todayStr();
       saveTodayQuiz(quiz);
     }
     // If no exact match, fetch most recent (no date param = server returns latest)
