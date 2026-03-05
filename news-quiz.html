@@ -2897,7 +2897,10 @@ function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote,
     const allBlocks = [...specificBlocks, ...rssBlocks];
     assignedArticles = allBlocks.map((block, i) => {
       const label = i < specificBlocks.length ? ' [EDITOR PICK]' : '';
-      return 'QUESTION ' + (i+1) + ' (' + difficulties[i] + ', ' + points[i] + ' pts)' + label + ' — write exactly ONE question about THIS article:\n' + block;
+      const urlMatch = block.match(/ARTICLE_URL: (.+)/);
+      const articleUrl = urlMatch ? urlMatch[1].trim() : '';
+      const urlReminder = articleUrl ? `\n      ⚠ sourceUrl MUST be: ${articleUrl}` : '';
+      return 'QUESTION ' + (i+1) + ' (' + difficulties[i] + ', ' + points[i] + ' pts)' + label + ' — write exactly ONE question about THIS article:' + urlReminder + '\n' + block;
     }).join('\n\n===\n\n');
 
   } else if (rssContent) {
@@ -2920,9 +2923,12 @@ function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote,
       if (chosen.length >= 6) break;
     }
     console.log(`[TopicDedup] Final count: ${chosen.length} articles assigned to Claude`);
-    assignedArticles = chosen.map((block, i) =>
-      'QUESTION ' + (i+1) + ' (' + difficulties[i] + ', ' + points[i] + ' pts) — write exactly ONE question about THIS article:\n' + block
-    ).join('\n\n===\n\n');
+    assignedArticles = chosen.map((block, i) => {
+      const urlMatch = block.match(/ARTICLE_URL: (.+)/);
+      const articleUrl = urlMatch ? urlMatch[1].trim() : '';
+      const urlReminder = articleUrl ? `\n      ⚠ sourceUrl MUST be: ${articleUrl}` : '';
+      return 'QUESTION ' + (i+1) + ' (' + difficulties[i] + ', ' + points[i] + ' pts) — write exactly ONE question about THIS article:' + urlReminder + '\n' + block;
+    }).join('\n\n===\n\n');
   }
 
   return 'You are writing questions for a LOCAL NEWS QUIZ about Baltimore and the Central Maryland region.\n\n' +
