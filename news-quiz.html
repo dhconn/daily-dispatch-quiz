@@ -3077,7 +3077,10 @@ function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote,
     '      "correctIndex": 0,\n      "explanation": "Why this answer is correct.",\n' +
     '      "difficulty": "easy",\n      "sourceUrl": "https://source-url.com"\n    }\n  ]\n}\n\n' +
     'difficulty values: "easy" | "medium" | "hard" | "bonus"\n' +
-    'correctIndex: 0-based integer (0=A, 1=B, 2=C, 3=D). CRITICAL: you MUST vary correctIndex across questions. Never use the same correctIndex for more than 2 consecutive questions. A good distribution looks like: 1, 2, 0, 3, 1, 2 — never 0, 0, 0, 0, 0, 0.\n' +
+    'correctIndex: CRITICAL — this MUST be the 0-based index of whichever option your explanation describes as correct. ' +
+    'Write your explanation FIRST, then set correctIndex to match it exactly. ' +
+    'Double-check: does options[correctIndex] match what your explanation says? If not, fix correctIndex. ' +
+    'Natural variation is fine; do NOT force a distribution pattern.\n' +
     'sourceUrl: copy the ARTICLE_URL value exactly as provided for each article. NEVER use a feed URL (ending in /feed/, /rss, /rss.xml). If no article URL is available, omit this field.\n' +
     'Generate exactly 6 questions, one per assigned article.';
 }
@@ -3123,14 +3126,39 @@ function enforceQuizRules(questions) {
   const feedPatterns = ['/feed/', '/rss', 'outboundfeeds/rss'];
   return deduped.map(q => {
     let fixed = { ...q };
+
+    // Range check
     if (fixed.correctIndex < 0 || fixed.correctIndex > 3) fixed.correctIndex = 0;
+
+    // Mismatch detection: check explanation matches marked correct option
+    if (fixed.explanation && fixed.options && fixed.options.length === 4) {
+      const markedOption = fixed.options[fixed.correctIndex] || '';
+      const expl = fixed.explanation.toLowerCase();
+      const words = markedOption.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+      const markedScore = words.filter(w => expl.includes(w)).length;
+      if (markedScore < 2) {
+        let bestIdx = fixed.correctIndex;
+        let bestScore = markedScore;
+        fixed.options.forEach((opt, i) => {
+          if (i === fixed.correctIndex) return;
+          const optWords = opt.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+          const score = optWords.filter(w => expl.includes(w)).length;
+          if (score > bestScore) { bestScore = score; bestIdx = i; }
+        });
+        if (bestIdx !== fixed.correctIndex) {
+          console.warn('[CorrectIndex] Mismatch on Q, correcting ' + fixed.correctIndex + ' -> ' + bestIdx);
+          fixed.correctIndex = bestIdx;
+        }
+      }
+    }
+
+    // Strip feed URLs
     if (fixed.sourceUrl && feedPatterns.some(p => fixed.sourceUrl.includes(p))) {
       fixed.sourceUrl = '';
     }
     return fixed;
   });
 }
-
 function showAddQuestionForm() {
   document.getElementById('add-question-form').style.display = 'block';
   document.getElementById('add-q-btn').style.display = 'none';
