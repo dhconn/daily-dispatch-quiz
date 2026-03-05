@@ -653,14 +653,17 @@ app.get('/api/quiz', async (req, res) => {
   const data = await readData();
   if (!data.quizzes) return res.json({ quiz: null });
 
-  // If date specified, return that date's quiz
-  if (date && data.quizzes[date]) return res.json({ quiz: data.quizzes[date] });
-
-  // Fall back to most recently published quiz
   const dates = Object.keys(data.quizzes).sort();
   if (dates.length === 0) return res.json({ quiz: null });
+
+  // Exact date match
+  if (date && data.quizzes[date]) {
+    return res.json({ quiz: data.quizzes[date], date });
+  }
+
+  // Always fall back to most recently published quiz regardless of date
   const mostRecent = dates[dates.length - 1];
-  res.json({ quiz: data.quizzes[mostRecent], fallback: true, fallbackDate: mostRecent });
+  res.json({ quiz: data.quizzes[mostRecent], date: mostRecent, fallback: true });
 });
 
 // ── Anthropic API proxy ───────────────────────────────────────
