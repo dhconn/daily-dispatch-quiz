@@ -643,7 +643,7 @@ app.post('/api/quiz', async (req, res) => {
       const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(sub.email)}`;
       sendEmail(
         sub.email,
-        `Today's Daily Dispatch Quiz is live — ${date}`,
+        `Today's Baltimore Daily Dispatch Quiz is live — ${date}`,
         `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1008;">
           <div style="background:#1a1008;color:#f5f0e8;text-align:center;padding:24px;">
             <div style="font-family:monospace;font-size:11px;letter-spacing:3px;color:#f0c040;margin-bottom:6px;">BALTIMORE · DAILY DISPATCH</div>
@@ -743,7 +743,7 @@ async function sendEmail(to, subject, html) {
     return false;
   }
   const body = JSON.stringify({
-    from: 'Baltimore Daily Dispatch Quiz <onboarding@resend.dev>',
+    from: 'Editor @ Daily Dispatch Quiz <editor@dailydispatchquiz.com>',
     to: [to],
     subject,
     html
