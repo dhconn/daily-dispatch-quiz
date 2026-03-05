@@ -2642,7 +2642,7 @@ async function generateQuestions() {
             }
           }
           rssContent = interleaved.map((item, idx) =>
-            `ARTICLE ${idx + 1}:\nSOURCE: ${item.source}\nHEADLINE: ${item.title}\nSUMMARY: ${item.description}\nURL: ${item.link}\nDATE: ${item.pubDate}`
+            `ARTICLE ${idx + 1}:\nSOURCE: ${item.source}\nHEADLINE: ${item.title}\nSUMMARY: ${item.description}\nARTICLE_URL: ${item.link}\nDATE: ${item.pubDate}`
           ).join('\n\n---\n\n');
         }
       }
@@ -3003,6 +3003,7 @@ function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote,
     '      "difficulty": "easy",\n      "sourceUrl": "https://source-url.com"\n    }\n  ]\n}\n\n' +
     'difficulty values: "easy" | "medium" | "hard" | "bonus"\n' +
     'correctIndex: 0-based integer (0=A, 1=B, 2=C, 3=D). CRITICAL: you MUST vary correctIndex across questions. Never use the same correctIndex for more than 2 consecutive questions. A good distribution looks like: 1, 2, 0, 3, 1, 2 — never 0, 0, 0, 0, 0, 0.\n' +
+    'sourceUrl: copy the ARTICLE_URL value exactly as provided for each article. NEVER use a feed URL (ending in /feed/, /rss, /rss.xml). If no article URL is available, omit this field.\n' +
     'Generate exactly 6 questions, one per assigned article.';
 }
 
@@ -3043,12 +3044,15 @@ function enforceQuizRules(questions) {
     return true;
   });
 
-  // 2. // 2. Validate correctIndex is in range, fix if not
+  // 2. // 2. Validate correctIndex and strip feed URLs
+  const feedPatterns = ['/feed/', '/rss', 'outboundfeeds/rss'];
   return deduped.map(q => {
-    if (q.correctIndex < 0 || q.correctIndex > 3) {
-      return { ...q, correctIndex: 0 };
+    let fixed = { ...q };
+    if (fixed.correctIndex < 0 || fixed.correctIndex > 3) fixed.correctIndex = 0;
+    if (fixed.sourceUrl && feedPatterns.some(p => fixed.sourceUrl.includes(p))) {
+      fixed.sourceUrl = '';
     }
-    return q;
+    return fixed;
   });
 }
 
