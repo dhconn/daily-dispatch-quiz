@@ -1049,16 +1049,14 @@
   /* ─── PARTICLE BURST ─── */
   .particle {
     position: fixed;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
     pointer-events: none;
     z-index: 9999;
-    animation: particleFly 0.7s ease-out forwards;
+    animation: particleFly 1.1s cubic-bezier(0.15, 0.5, 0.5, 1) forwards;
   }
   @keyframes particleFly {
-    0%   { transform: translate(0, 0) scale(1); opacity: 1; }
-    100% { transform: translate(var(--dx), var(--dy)) scale(0); opacity: 0; }
+    0%   { transform: translate(0, 0) scale(1) rotate(0deg); opacity: 1; }
+    60%  { opacity: 1; }
+    100% { transform: translate(var(--dx), var(--dy)) scale(0.2) rotate(var(--rot)); opacity: 0; }
   }
 
   /* ─── SCORE POP ─── */
@@ -1122,7 +1120,7 @@
         <input type="email" id="email-input" placeholder="your@email.com (optional)" style="flex:1;border:none;outline:none;font-family:'Source Serif 4',serif;font-size:14px;color:var(--ink);background:transparent;" />
         <label style="display:flex;align-items:center;gap:6px;font-family:'Courier Prime',monospace;font-size:11px;color:var(--muted);white-space:nowrap;cursor:pointer;">
           <input type="checkbox" id="email-optin" style="accent-color:var(--green);" />
-          Notify me daily
+          Notify me when the new daily quiz is ready
         </label>
       </div>
     </div>
@@ -1689,20 +1687,29 @@ function selectAnswer(idx) {
       const rect = btn.getBoundingClientRect();
       const cx = rect.left + rect.width / 2;
       const cy = rect.top + rect.height / 2;
-      const colors = ['#2d6a2d','#4a9e4a','#f0c040','#6dbf6d','#a8e6a8','#fff'];
-      for (let p = 0; p < 18; p++) {
+      const colors = ['#2d6a2d','#4a9e4a','#f0c040','#6dbf6d','#a8e6a8','#fff','#ffd700','#88cc88'];
+      const shapes = ['50%', '50%', '50%', '2px', '0%', '0%']; // circles, thin bars, squares
+      for (let p = 0; p < 30; p++) {
         const el = document.createElement('div');
         el.className = 'particle';
-        const angle = (p / 18) * 2 * Math.PI;
-        const dist = 60 + Math.random() * 60;
+        const angle = (p / 30) * 2 * Math.PI + (Math.random() - 0.5) * 0.4;
+        const dist = 80 + Math.random() * 100;
+        const size = 6 + Math.floor(Math.random() * 10);
+        const shape = shapes[p % shapes.length];
+        const gravity = 40 + Math.random() * 60; // downward pull
+        const rot = (Math.random() - 0.5) * 720;
         el.style.cssText = `
           left:${cx}px; top:${cy}px;
+          width:${shape === '2px' ? 3 : size}px;
+          height:${shape === '2px' ? size * 2 : size}px;
           background:${colors[p % colors.length]};
+          border-radius:${shape};
           --dx:${Math.cos(angle) * dist}px;
-          --dy:${Math.sin(angle) * dist}px;
+          --dy:${Math.sin(angle) * dist + gravity}px;
+          --rot:${rot}deg;
         `;
         document.body.appendChild(el);
-        setTimeout(() => el.remove(), 750);
+        setTimeout(() => el.remove(), 1200);
       }
     }
   }
