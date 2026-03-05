@@ -560,6 +560,12 @@ app.get('/api/unsubscribe', async (req, res) => {
   `);
 });
 
+// ── GET /api/quiz/all — return all quizzes for admin review ──
+app.get('/api/quiz/all', async (req, res) => {
+  const data = await readData();
+  res.json({ quizzes: data.quizzes || {} });
+});
+
 // ── GET /api/quiz/archive — return list of available past quiz dates ──
 app.get('/api/quiz/archive', async (req, res) => {
   const data = await readData();
