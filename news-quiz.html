@@ -1504,8 +1504,9 @@ const CLAUDE_MODEL = 'claude-sonnet-4-20250514';
 const POINTS = { easy: 10, medium: 20, hard: 30, bonus: 50 };
 
 function todayStr() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  // Always use Eastern time — quiz is Baltimore-based
+  const eastern = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  return eastern; // returns YYYY-MM-DD
 }
 
 // ═══════════════════════════════════════════════════════
@@ -2609,10 +2610,20 @@ async function refreshAdminPreviews() {
   // Today's published — fetch from server to get correct article URLs
   let today = null;
   try {
-    const todayRes = await fetch('/api/quiz');
+    const todayRes = await fetch('/api/quiz?date=' + todayStr());
     if (todayRes.ok) {
       const todayData = await todayRes.json();
       if (todayData.quiz && todayData.quiz.questions) today = todayData.quiz;
+    }
+    // Also check yesterday in case of UTC date rollover
+    if (!today) {
+      const d = new Date(); d.setDate(d.getDate() - 1);
+      const yest = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      const yestRes = await fetch('/api/quiz?date=' + yest);
+      if (yestRes.ok) {
+        const yestData = await yestRes.json();
+        if (yestData.quiz && yestData.quiz.questions) today = yestData.quiz;
+      }
     }
   } catch(e) {
     today = getTodayQuiz(); // fallback to localStorage
