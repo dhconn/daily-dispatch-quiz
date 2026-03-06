@@ -3300,12 +3300,15 @@ async function emergencySave() {
   const diffs = ['easy','easy','medium','medium','hard','bonus'];
   const questions = Array.from(cards).map((card, i) => {
     const question = card.querySelector('textarea').value;
-    const optionInputs = card.querySelectorAll('input[type="text"]');
-    const options = Array.from(optionInputs).slice(0, 4).map(o => o.value);
+    const optionRows = card.querySelectorAll('.q-option-row input[type="text"]');
+    const options = Array.from(optionRows).slice(0, 4).map(o => o.value);
     const correctRadio = card.querySelector('input[type="radio"]:checked');
     const correctIndex = correctRadio ? parseInt(correctRadio.value) : 0;
-    const explanation = optionInputs[4]?.value || '';
-    const sourceUrl = optionInputs[5]?.value || '';
+    // Explanation and sourceUrl are the inputs OUTSIDE the options grid
+    const allTextInputs = card.querySelectorAll('input[type="text"]');
+    const nonOptionInputs = Array.from(allTextInputs).filter(el => !el.closest('.q-option-row'));
+    const explanation = nonOptionInputs[0]?.value || '';
+    const sourceUrl = nonOptionInputs[1]?.value || '';
     return { question, options, correctIndex, explanation, sourceUrl, difficulty: diffs[i] };
   });
   if (!confirm(`Emergency save ${questions.length} visible questions to server as today's quiz?`)) return;
