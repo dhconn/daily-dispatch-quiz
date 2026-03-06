@@ -3402,17 +3402,47 @@ async function loadAdminArchive() {
       const quiz = quizzes[date];
       const questions = quiz.questions || [];
       const letters = ['A','B','C','D'];
-      const qHtml = questions.map((q, qi) => `
-        <div class="admin-arc-q">
-          <div class="admin-arc-qtext">Q${qi+1}. ${q.question}</div>
-          ${q.options.map((opt, oi) => `
-            <div class="admin-arc-opt ${oi === q.correctIndex ? 'correct' : ''}">
-              ${oi === q.correctIndex ? '✓' : '○'} ${letters[oi]}. ${opt}
+      const qHtml = questions.map((q, qi) => {
+        const optLetters = ['A','B','C','D'];
+        const editId = `arc-edit-${date}-${qi}`;
+        const viewId = `arc-view-${date}-${qi}`;
+        const viewHtml = `
+          <div id="${viewId}">
+            <div class="admin-arc-qtext">Q${qi+1}. ${escHtml(q.question)}</div>
+            ${q.options.map((opt, oi) => `
+              <div class="admin-arc-opt ${oi === q.correctIndex ? 'correct' : ''}">
+                ${oi === q.correctIndex ? '✓' : '○'} ${optLetters[oi]}. ${escHtml(opt)}
+              </div>
+            `).join('')}
+            ${q.explanation ? `<div style="font-size:12px;color:var(--muted);font-style:italic;margin-top:6px;padding:6px 0;">💡 ${escHtml(q.explanation)}</div>` : ''}
+            ${q.sourceUrl ? `<div class="admin-arc-source"><a href="${q.sourceUrl}" target="_blank">↗ ${q.sourceUrl.replace(/^https?:\/\//, '').slice(0,60)}${q.sourceUrl.length > 63 ? '…' : ''}</a></div>` : ''}
+            <button onclick="showArchiveEdit('${date}',${qi})" style="margin-top:8px;font-family:monospace;font-size:11px;padding:3px 10px;background:none;border:1px solid var(--muted);color:var(--muted);cursor:pointer;border-radius:2px;">✎ Edit</button>
+          </div>`;
+        const editHtml = `
+          <div id="${editId}" style="display:none;background:#fffbe6;border:1px solid var(--gold,#c8a84b);padding:12px;border-radius:3px;">
+            <div style="font-family:monospace;font-size:11px;color:var(--muted);margin-bottom:8px;">EDITING Q${qi+1} — ${date}</div>
+            <div class="q-edit-label">QUESTION</div>
+            <textarea id="${editId}-q" style="width:100%;font-size:13px;padding:6px;border:1px solid var(--border);margin-bottom:8px;">${escHtml(q.question)}</textarea>
+            <div class="q-edit-label">OPTIONS — click radio to mark correct</div>
+            ${q.options.map((opt, oi) => `
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                <input type="radio" name="${editId}-correct" value="${oi}" ${oi === q.correctIndex ? 'checked' : ''}>
+                <span style="font-family:monospace;font-size:12px;">${optLetters[oi]}.</span>
+                <input type="text" id="${editId}-opt${oi}" value="${escHtml(opt)}" style="flex:1;font-size:13px;padding:4px 6px;border:1px solid var(--border);">
+              </div>
+            `).join('')}
+            <div class="q-edit-label" style="margin-top:8px;">EXPLANATION</div>
+            <input type="text" id="${editId}-expl" value="${escHtml(q.explanation||'')}" style="width:100%;font-size:13px;padding:4px 6px;border:1px solid var(--border);margin-bottom:6px;">
+            <div class="q-edit-label">SOURCE URL</div>
+            <input type="text" id="${editId}-url" value="${escHtml(q.sourceUrl||'')}" style="width:100%;font-size:12px;padding:4px 6px;border:1px solid var(--border);margin-bottom:10px;">
+            <div style="display:flex;gap:8px;">
+              <button onclick="saveArchiveEdit('${date}',${qi})" style="font-family:monospace;font-size:12px;padding:6px 16px;background:var(--green);color:white;border:none;cursor:pointer;">✓ Save</button>
+              <button onclick="cancelArchiveEdit('${date}',${qi})" style="font-family:monospace;font-size:12px;padding:6px 16px;background:none;border:1px solid var(--muted);color:var(--muted);cursor:pointer;">Cancel</button>
             </div>
-          `).join('')}
-          ${q.sourceUrl ? `<div class="admin-arc-source"><a href="${q.sourceUrl}" target="_blank">↗ ${q.sourceUrl.replace(/^https?:\/\//, '').slice(0,60)}${q.sourceUrl.length > 63 ? '…' : ''}</a></div>` : ''}
-        </div>
-      `).join('');
+            <div id="${editId}-status" style="font-family:monospace;font-size:12px;margin-top:6px;"></div>
+          </div>`;
+        return `<div class="admin-arc-q">${viewHtml}${editHtml}</div>`;
+      }).join('');
       const id = 'arc-' + date;
       return `
         <div class="admin-arc-date" onclick="toggleAdminArc('${id}')">
@@ -3424,6 +3454,51 @@ async function loadAdminArchive() {
     }).join('');
   } catch(e) {
     listEl.innerHTML = '<p style="color:var(--muted);">Could not load archive.</p>';
+  }
+}
+
+function showArchiveEdit(date, qi) {
+  document.getElementById(`arc-view-${date}-${qi}`).style.display = 'none';
+  document.getElementById(`arc-edit-${date}-${qi}`).style.display = 'block';
+}
+
+function cancelArchiveEdit(date, qi) {
+  document.getElementById(`arc-edit-${date}-${qi}`).style.display = 'none';
+  document.getElementById(`arc-view-${date}-${qi}`).style.display = 'block';
+}
+
+async function saveArchiveEdit(date, qi) {
+  const editId = `arc-edit-${date}-${qi}`;
+  const statusEl = document.getElementById(`${editId}-status`);
+  statusEl.textContent = 'Saving…';
+  statusEl.style.color = 'var(--muted)';
+  try {
+    const res = await fetch(`/api/quiz?date=${date}`);
+    const data = await res.json();
+    const quiz = data.quiz;
+    const q = quiz.questions[qi];
+    q.question = document.getElementById(`${editId}-q`).value.trim();
+    q.options = [0,1,2,3].map(oi => document.getElementById(`${editId}-opt${oi}`).value.trim());
+    const checkedRadio = document.querySelector(`input[name="${editId}-correct"]:checked`);
+    q.correctIndex = checkedRadio ? parseInt(checkedRadio.value) : 0;
+    q.explanation = document.getElementById(`${editId}-expl`).value.trim();
+    q.sourceUrl = document.getElementById(`${editId}-url`).value.trim();
+    const saveRes = await fetch('/api/quiz', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date, quiz })
+    });
+    const saveData = await saveRes.json();
+    if (saveData.ok) {
+      statusEl.textContent = '✓ Saved!';
+      statusEl.style.color = 'var(--green)';
+      setTimeout(() => loadAdminArchive(), 1000);
+    } else {
+      throw new Error('Server returned not-ok');
+    }
+  } catch(e) {
+    statusEl.textContent = '✗ Save failed: ' + e.message;
+    statusEl.style.color = 'var(--red)';
   }
 }
 
