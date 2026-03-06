@@ -1395,6 +1395,7 @@
         <button class="btn-generate" onclick="publishQuestions()">✓ Publish Today's Quiz</button>
         <button class="btn-secondary" onclick="discardDraft()">✕ Discard Draft</button>
         <button class="btn-secondary" onclick="showAddQuestionForm()" id="add-q-btn" style="border-color:var(--green);color:var(--green);">+ Add Question</button>
+        <button class="btn-secondary" onclick="emergencySave()" style="border-color:var(--red);color:var(--red);" title="Save visible questions directly to server, bypassing draft">⚑ Emergency Save</button>
       </div>
 
       <!-- Manual question entry form -->
@@ -2248,48 +2249,9 @@ async function loadRSSStatus() {
 
 // ─── Admin inbox & moderation ────────────────────────────────────────────
 
-async function loadAdminMessages() {
-  const el = document.getElementById('admin-messages');
-  if (!el) return;
-  try {
-    const res = await fetch('/api/messages');
-    const data = await res.json();
-    const msgs = data.messages || [];
-    const unread = msgs.filter(m => !m.read).length;
-    const badge = document.getElementById('unread-badge');
-    if (badge) {
-      badge.style.display = unread > 0 ? 'inline' : 'none';
-      badge.textContent = unread + ' new';
-    }
-    if (msgs.length === 0) {
-      el.innerHTML = '<p style="font-family:monospace;font-size:12px;color:var(--muted);">No messages yet.</p>';
-      return;
-    }
-    el.innerHTML = msgs.map(m => `
-      <div style="background:${m.read ? 'white' : 'var(--cream)'};border:1px solid var(--rule);padding:12px;margin-bottom:8px;">
-        <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
-          <strong style="font-family:monospace;font-size:12px;">${escHtml(m.playerName)}</strong>
-          <span style="font-family:monospace;font-size:10px;color:var(--muted);">${new Date(m.createdAt).toLocaleString()}${m.read ? '' : ' · <strong>NEW</strong>'}</span>
-        </div>
-        <p style="font-size:13px;margin:0 0 8px;">${escHtml(m.text)}</p>
-        ${!m.read ? `<button onclick="markRead('${m.id}')" style="font-family:monospace;font-size:11px;padding:4px 10px;cursor:pointer;">Mark read</button>` : ''}
-      </div>`).join('');
-  } catch(e) {
-    el.innerHTML = '<p style="color:var(--red);font-size:12px;">Could not load messages.</p>';
-  }
-}
-
-async function markRead(id) {
-  await fetch(`/api/messages/${id}/read`, { method: 'POST' });
-  loadAdminMessages();
-}
 
 
-async function deletePost(id) {
-  if (!confirm('Delete this post?')) return;
-  await fetch(`/api/posts/${id}`, { method: 'DELETE' });
-  loadAdminPosts();
-}
+
 
 // ─── Admin inbox & moderation ────────────────────────────────────────────
 
@@ -2360,22 +2322,7 @@ async function getWeeklyCommentCount() {
   } catch(e) { return 0; }
 }
 
-function showCommunity() {
-  showScreen('screen-community');
-  loadPosts();
-  // Pre-fill player name from leaderboard localStorage
-  const name = lsGet('dnq_player_name') || '';
-  if (name) {
-    document.getElementById('board-name').value = name;
-    document.getElementById('contact-name').value = name;
-  }
-}
 
-function showContactForm() {
-  showScreen('screen-contact');
-  const name = lsGet('dnq_player_name') || '';
-  if (name) document.getElementById('contact-name').value = name;
-}
 
 // Character counter for message board
 document.addEventListener('DOMContentLoaded', () => {
@@ -2387,56 +2334,13 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-function showBoardStatus(msg, type) {
-  const el = document.getElementById('board-status');
-  el.style.display = 'block';
-  el.style.color = type === 'error' ? 'var(--red)' : 'var(--green)';
-  el.textContent = msg;
-  setTimeout(() => el.style.display = 'none', 3000);
-}
 
-function showContactStatus(msg, type) {
-  const el = document.getElementById('contact-status');
-  el.style.display = 'block';
-  el.style.color = type === 'error' ? 'var(--red)' : 'var(--green)';
-  el.textContent = msg;
-}
 
 // ─── Community board ─────────────────────────────────────────────────────
 
-function showCommunity() {
-  showScreen('screen-community');
-  loadPosts();
-  const name = lsGet('dnq_player_name') || '';
-  if (name) {
-    const bn = document.getElementById('board-name');
-    const cn = document.getElementById('contact-name');
-    if (bn) bn.value = name;
-    if (cn) cn.value = name;
-  }
-}
 
-function showContactForm() {
-  showScreen('screen-contact');
-  const name = lsGet('dnq_player_name') || '';
-  const cn = document.getElementById('contact-name');
-  if (cn && name) cn.value = name;
-}
 
-function showBoardStatus(msg, type) {
-  const el = document.getElementById('board-status');
-  el.style.display = 'block';
-  el.style.color = type === 'error' ? 'var(--red)' : 'var(--green)';
-  el.textContent = msg;
-  setTimeout(() => el.style.display = 'none', 3000);
-}
 
-function showContactStatus(msg, type) {
-  const el = document.getElementById('contact-status');
-  el.style.display = 'block';
-  el.style.color = type === 'error' ? 'var(--red)' : 'var(--green)';
-  el.textContent = msg;
-}
 
 // ─── Community board ─────────────────────────────────────────────────────
 
@@ -3310,25 +3214,6 @@ async function replaceQuestion(idx) {
   }
 }
 
-function reorderQuestion(fromIdx, toIdx, inputEl) {
-  const draft = getDraftQuiz();
-  if (!draft || !draft.questions) return;
-  const qs = draft.questions;
-  if (toIdx < 0 || toIdx >= qs.length || toIdx === fromIdx) {
-    inputEl.value = '';
-    return;
-  }
-  // Move question from fromIdx to toIdx
-  const [moved] = qs.splice(fromIdx, 1);
-  qs.splice(toIdx, 0, moved);
-  // Re-apply difficulty labels based on new positions
-  const diffs = ['easy','easy','medium','medium','hard','bonus'];
-  qs.forEach((q, i) => { q.difficulty = diffs[i] || q.difficulty; });
-  draft.questions = qs;
-  saveDraftQuiz(draft);
-  showDraftPreview(qs);
-  setStatus('Question moved to position ' + (toIdx+1) + '.', 'info');
-}
 
 function reorderQuestion(fromIdx, toIdx, inputEl) {
   const draft = getDraftQuiz();
@@ -3375,12 +3260,11 @@ async function publishQuestions() {
   if (!draft || !draft.questions) { setStatus('No draft to publish.', 'error'); return; }
   if (draft.questions.length < 6) { setStatus('Draft has only ' + draft.questions.length + ' unique questions (need 6) — please regenerate.', 'error'); return; }
 
-  draft.publishDate = todayStr(); // stamp the publish date into the quiz object
+  draft.publishDate = todayStr();
   saveTodayQuiz(draft);
   addToArchive(draft.questions);
-  clearDraftQuiz();
 
-  // Save archive to server so it persists across browsers and cache clears
+  // Save archive to server (fire and forget)
   fetch('/api/archive', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -3389,7 +3273,8 @@ async function publishQuestions() {
       questions: draft.questions.map(q => q.question)
     })
   }).catch(() => {});
-  // Save to server — wait for confirmation before declaring success
+
+  // Save to server — wait for confirmation before clearing draft
   try {
     const saveRes = await fetch('/api/quiz', {
       method: 'POST',
@@ -3398,13 +3283,49 @@ async function publishQuestions() {
     });
     const saveData = await saveRes.json();
     if (!saveData.ok) throw new Error('Server returned not-ok');
+    // Only clear draft AFTER server confirms success
+    clearDraftQuiz();
     setStatus('✓ Quiz published for ' + todayStr() + ' and saved to server! Players can now play.', 'success');
   } catch(e) {
-    setStatus('⚠ Quiz saved locally but FAILED to save to server (' + e.message + '). Players on other devices may not see it. Try republishing.', 'error');
+    setStatus('⚠ Quiz saved locally but FAILED to save to server (' + e.message + '). Draft preserved — try publishing again.', 'error');
     console.error('Server save failed:', e);
   }
   // Keep the preview visible so you can refer back to what was published
   refreshAdminPreviews();
+}
+
+async function emergencySave() {
+  const cards = document.querySelectorAll('#q-preview-list .q-review-card');
+  if (!cards.length) { alert('No questions visible in preview to save.'); return; }
+  const diffs = ['easy','easy','medium','medium','hard','bonus'];
+  const questions = Array.from(cards).map((card, i) => {
+    const question = card.querySelector('textarea').value;
+    const optionInputs = card.querySelectorAll('input[type="text"]');
+    const options = Array.from(optionInputs).slice(0, 4).map(o => o.value);
+    const correctRadio = card.querySelector('input[type="radio"]:checked');
+    const correctIndex = correctRadio ? parseInt(correctRadio.value) : 0;
+    const explanation = optionInputs[4]?.value || '';
+    const sourceUrl = optionInputs[5]?.value || '';
+    return { question, options, correctIndex, explanation, sourceUrl, difficulty: diffs[i] };
+  });
+  if (!confirm(`Emergency save ${questions.length} visible questions to server as today's quiz?`)) return;
+  const key = todayStr();
+  const quiz = { questions, publishDate: key, generatedAt: new Date().toISOString() };
+  try {
+    const res = await fetch('/api/quiz', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date: key, quiz })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      setStatus('⚑ Emergency save successful! Quiz saved for ' + key, 'success');
+    } else {
+      setStatus('⚑ Emergency save FAILED — try again.', 'error');
+    }
+  } catch(e) {
+    setStatus('⚑ Emergency save FAILED: ' + e.message, 'error');
+  }
 }
 
 function discardDraft() {
