@@ -639,6 +639,50 @@ app.post('/api/quiz', async (req, res) => {
   const subscribers = Object.values(data.subscribers || {}).filter(s => s.active);
   if (subscribers.length > 0) {
     console.log(`Email: Sending quiz notification to ${subscribers.length} subscribers…`);
+
+    // Generate teaser phrases via Claude
+    let teaserHtml = '';
+    try {
+      const questions = quiz.questions || [];
+      const questionList = questions.map((q, i) => `Q${i+1}: ${q.question}`).join('\n');
+      const teaserPrompt = `You are writing teaser lines for a Baltimore local news quiz email.
+Here are today's 6 quiz questions:
+${questionList}
+
+Pick the 3 most interesting or surprising topics. For each, write a 3-5 word teaser phrase that hints at the topic without giving away the answer. 
+Style: slightly mysterious, intriguing, like a newspaper front page tease.
+Examples: "A soccer superstar arrives", "Cheese steaks cross state lines", "The Constitution meets zoning law"
+
+Respond with ONLY a JSON array of 3 strings. Example: ["A soccer superstar arrives","Cheese steaks cross state lines","The Constitution meets zoning law"]`;
+
+      const teaserRes = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': process.env.ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 100,
+          messages: [{ role: 'user', content: teaserPrompt }]
+        })
+      });
+      const teaserData = await teaserRes.json();
+      const teaserText = (teaserData.content || []).map(c => c.text || '').join('').trim();
+      const teasers = JSON.parse(teaserText.replace(/```json|```/g, '').trim());
+      if (Array.isArray(teasers) && teasers.length > 0) {
+        teaserHtml = `
+          <div style="margin:0 0 28px;padding:20px;background:#fff;border:1px solid #e0d8cc;text-align:left;">
+            <div style="font-family:monospace;font-size:10px;letter-spacing:2px;color:#999;margin-bottom:12px;">TODAY'S TOPICS INCLUDE…</div>
+            ${teasers.map(t => `<div style="font-family:Georgia,serif;font-size:15px;color:#1a1008;padding:6px 0;border-bottom:1px solid #f0ebe0;">· ${t}</div>`).join('')}
+          </div>`;
+        console.log('Email teasers generated:', teasers);
+      }
+    } catch(e) {
+      console.warn('Teaser generation failed, sending without teasers:', e.message);
+    }
+
     for (const sub of subscribers) {
       const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(sub.email)}`;
       sendEmail(
@@ -652,7 +696,8 @@ app.post('/api/quiz', async (req, res) => {
           </div>
           <div style="padding:32px 24px;background:#f5f0e8;text-align:center;">
             <p style="font-size:18px;margin:0 0 8px;">Hi${sub.name ? ' ' + sub.name : ''},</p>
-            <p style="font-size:16px;color:#444;margin:0 0 28px;">Today's quiz is live. How well do you know Baltimore?</p>
+            <p style="font-size:16px;color:#444;margin:0 0 24px;">Today's quiz is live. How well do you know Baltimore?</p>
+            ${teaserHtml}
             <a href="${siteUrl}" style="display:inline-block;background:#1a1008;color:#f5f0e8;padding:16px 36px;font-family:monospace;font-size:13px;letter-spacing:2px;text-decoration:none;text-transform:uppercase;">Play Today's Quiz ▸</a>
           </div>
           <div style="padding:16px 24px;text-align:center;font-size:11px;color:#999;font-family:monospace;border-top:1px solid #e0d8cc;">
