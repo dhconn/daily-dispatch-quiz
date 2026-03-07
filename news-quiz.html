@@ -2138,7 +2138,6 @@ function finishQuiz() {
   const pct = total ? Math.round(correct/total*100) : 0;
 
   // Get rank
-  const players = getPlayers();
   const todayScores = Object.values(players)
     .map(p => (p.dailyScores || {})[state.todayKey] || 0)
     .sort((a,b) => b-a);
