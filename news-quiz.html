@@ -2881,7 +2881,7 @@ async function generateQuestions() {
         '- Weather forecast or routine temperature update\n' +
         '- DC team sports story (Nationals, Commanders, Capitals, Wizards) with no Baltimore/Maryland angle\n' +
         '- Routine sports transaction, injury update, or spring training note\n' +
-        '- Headline roundup or morning headlines digest article\n' +
+        '- Headline roundup or headlines digest article (morning, afternoon, evening, weekly, or any multi-story summary)\n' +
         '- Named court case with no broader significance (individual sentencing, routine probation violation)\n' +
         '- Obituary or memorial piece\n' +
         '- Real estate listing or Hot House feature\n' +
@@ -2889,6 +2889,7 @@ async function generateQuestions() {
         '- Individual incident story: house fire, car crash, single shooting, single assault — unless mass casualty, arson pattern, or major public safety policy angle\n\n' +
         'ACCEPT everything else — policy, crime patterns, local economy, gas prices, housing costs, immigration, development, health, environment, or anything a Baltimorean would discuss with a friend.\n' +
         'When in doubt, ACCEPT. It is better to pass a borderline article than to leave Claude without enough material.\n\n' +
+        'EXTRA HINT: If an article URL contains \'headlines\' or \'roundup\' or \'digest\' in the path, it is almost certainly a multi-story summary — REJECT it.\n\n' +
         'ARTICLES:\n' + headlines + '\n\n' +
         'Respond with ONLY a JSON array of indices you ACCEPT. Example: [0,2,4,7,9]. No explanation.';
 
@@ -3197,7 +3198,8 @@ function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote,
     '- Aim for topic diversity across the 6 questions: mix government, business/development, culture, transportation, education, sports, and community news where the articles allow.\n' +
     '- Avoid multiple questions that feel like they are all about a meeting or officials discussing something. Prefer outcomes and decisions over process and proposals.\n' +
     '- NEVER ask who wrote, authored, or contributed an article or commentary. The author byline is never a quiz-worthy fact. Ask about the substance — what was argued, what was proposed, what the implications are.\n' +
-    '- For opinion or commentary pieces, ask what position the author takes or what their central argument reveals — not who they are.\n' +
+    '- For opinion or commentary pieces, ask about the central concrete claim or proposal — not who wrote it, not why they argued it, not what impact their argument has. Test the substance: what specific change did they advocate for, what fact did they highlight, what outcome did they predict?\n' +
+    '- AVOID questions framed as "Why does X argue..." or "What does X\'s speech reveal about..." — these produce vague interpretive answers. Prefer: "What did X propose?", "What did X announce?", "What specific change did X call for?"\n' +
     '- SAME-EVENT RULE: Do not generate multiple questions about the same news event, even if it appears in multiple articles or outlets. Treat coverage of the same legislation, announcement, decision, or incident from different sources as a single topic. One event = one question maximum.\n' +
     '- DISTRACTOR QUALITY: Incorrect answer choices must be plausible and belong to the same category as the correct answer. A question about a funding amount should have wrong answers that are also plausible funding amounts. A question about a location should have wrong answers that are also plausible locations. Avoid obviously unrelated or unrealistic options.\n' +
     '- STORY HOOK: Base each question on the central hook of the article — the most surprising fact, the key decision, the main person involved, or what will change. Avoid questions built around background statistics, minor supporting details, or secondary facts a reader would not remember when retelling the story.\n' +
