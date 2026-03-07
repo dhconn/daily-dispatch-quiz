@@ -2799,7 +2799,51 @@ async function generateQuestions() {
               if (queue.length > 0) { interleaved.push(queue.shift()); added = true; }
             }
           }
-          rssContent = interleaved.map((item, idx) =>
+          // ── Quiz-worthiness scoring ──────────────────────────
+          // Sorts articles so outcome/decision stories float above process stories.
+          // Does not filter anything out — just reorders before the screener runs.
+          function freshnessBonus(pubDate) {
+            if (!pubDate) return 0;
+            try {
+              const hours = (Date.now() - new Date(pubDate).getTime()) / 3600000;
+              if (isNaN(hours)) return 0;
+              if (hours < 24) return 3;
+              if (hours < 48) return 2;
+              if (hours < 72) return 1;
+              return -3;
+            } catch(e) { return 0; }
+          }
+
+          function quizWorthiness(title, pubDate) {
+            const t = (title || '').toLowerCase();
+            let score = 0;
+            score += freshnessBonus(pubDate);
+            // Boost: concrete outcomes and decisions
+            if (/\b(approved?|passed?|signed|funded|launched|opened?|announced?|renamed?|awarded?|selected?|elected?|promoted?|hired?|fired?|broke ground|breaking ground|unveiled?)\b/.test(t)) score += 3;
+            // Boost: named places (Baltimore-specific stories)
+            if (/\b(baltimore|towson|annapolis|columbia|ellicott city|catonsville|fells point|inner harbor|dundalk|hampden|canton|federal hill|remington|charles village|pigtown|brooklyn|curtis bay)\b/.test(t)) score += 2;
+            // Boost: visible projects and community topics
+            if (/\b(park|bridge|school|project|festival|restaurant|stadium|transit|housing|development|museum|library|trail|renovation|concert|exhibit)\b/.test(t)) score += 2;
+            // Boost: named newsworthy people (not just titles)
+            if (/\b(mayor|governor|coach|director|ceo|founder|chef|artist|author|musician|athlete)\b/.test(t)) score += 1;
+            // Downweight: legislative process without outcome
+            if (/\b(committee|hearing|testimony|task force|amendment|debate|markup|session|proposal|consideration|discusses?|reviews?|weighs?|mulls?)\b/.test(t)) score -= 2;
+            // Downweight: individual incidents
+            if (/\b(shooting|homicide|stabbing|crash|arrest|charged?|indicted?|sentenced?)\b/.test(t)) score -= 3;
+            // Downweight: opinion/analysis
+            if (/\b(opinion|editorial|commentary|analysis|column|perspective|why |how to)\b/.test(t)) score -= 2;
+            return score;
+          }
+
+          // Sort by score descending, preserving source interleaving as a tiebreaker
+          const scored = interleaved.map((item, i) => ({ item, score: quizWorthiness(item.title, item.pubDate), i }));
+          scored.sort((a, b) => b.score - a.score || a.i - b.i);
+          const sortedItems = scored.map(s => s.item);
+
+          console.log('[QuizScore] Top 6 articles:');
+          scored.slice(0, 6).forEach(s => console.log(`  [${s.score > 0 ? '+' : ''}${s.score}] ${s.item.title}`));
+
+          rssContent = sortedItems.map((item, idx) =>
             `ARTICLE ${idx + 1}:\nSOURCE: ${item.source}\nHEADLINE: ${item.title}\nSUMMARY: ${item.description}\nARTICLE_URL: ${item.link}\nDATE: ${item.pubDate}`
           ).join('\n\n---\n\n');
         }
@@ -3021,6 +3065,11 @@ function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote,
   }
 
   function topicsOverlap(h1, h2) {
+    // If either headline contains a new outcome verb, allow it through —
+    // a story that has advanced (bill passed vs. bill considered) is fresh news
+    // even if it shares topic words with an earlier story.
+    const outcomeVerbs = /\b(passed?|approved?|signed|enacted|launched|opened?|announced?|awarded?|funded|broke ground|breaking ground|unveiled?|elected?|appointed?|resigned?|fired?)\b/i;
+    if (outcomeVerbs.test(h1) || outcomeVerbs.test(h2)) return false;
     const w1 = new Set(topicWords(h1));
     return topicWords(h2).filter(w => w1.has(w)).length >= 2;
   }
