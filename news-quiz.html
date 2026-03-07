@@ -1504,6 +1504,13 @@
       </div>
     </div>
 
+    <div class="admin-section" style="margin-top:20px;">
+      <h3>Today's Engagement <span id="stats-date-label" style="font-family:monospace;font-size:12px;color:var(--muted);font-weight:400;"></span></h3>
+      <div id="admin-stats" style="font-family:monospace;font-size:13px;color:var(--muted);">
+        <p>Loading…</p>
+      </div>
+    </div>
+
     <div style="margin-top:20px;">
       <button class="btn-secondary" onclick="showScreen('screen-register')">◂ Exit Admin</button>
     </div>
@@ -1814,12 +1821,24 @@ async function registerPlayer() {
 let quizQuestions = [];
 let quizAnswered = false;
 
+function shuffleArray(arr) {
+  // Fisher-Yates shuffle — used to randomize within difficulty tiers
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 function applyConfidenceRamp(questions) {
+  // Structure: easy, medium, easy, medium, hard, bonus
+  // Within each tier, shuffle so different players see different question order
   if (!questions || questions.length < 6) return questions;
   const bonus = questions[5];
   const regular = questions.slice(0, 5);
-  const easy   = regular.filter(q => q.difficulty === 'easy');
-  const medium = regular.filter(q => q.difficulty === 'medium');
+  const easy   = shuffleArray(regular.filter(q => q.difficulty === 'easy'));
+  const medium = shuffleArray(regular.filter(q => q.difficulty === 'medium'));
   const hard   = regular.filter(q => q.difficulty === 'hard');
   const other  = regular.filter(q => !['easy','medium','hard'].includes(q.difficulty));
   const pool   = [...easy, ...medium, ...hard, ...other];
@@ -1837,6 +1856,13 @@ function applyConfidenceRamp(questions) {
 
 function startQuiz(quiz) {
   quizQuestions = applyConfidenceRamp(quiz.questions);
+
+  // Record quiz start for completion rate tracking
+  if (!archiveMode) fetch('/api/quiz-start', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ date: state.todayKey })
+  }).catch(() => {});
   state.currentQ = 0;
   state.sessionScore = 0;
   state.streak = 0;
@@ -2366,6 +2392,7 @@ async function showAdminScreen() {
   loadArticleUrls();
   loadSubscribers();
   loadAdminArchive();
+  loadAdminStats();
 }
 
 // ─── RSS cache helpers ───────────────────────────────────────────────────
@@ -3176,7 +3203,9 @@ function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote,
     'Q6 (bonus, 50pts): THE MOST MEMORABLE STORY. Choose the article with the most surprising, distinctive, or shareable fact — something a reader would say "wait, really?" about. Frame the question around that hook. Do NOT make it hard by relying on obscure details or statistics. It should be the fact that makes the story stick.\n' +
     'WRONG ANSWERS: Same category as correct answer. Plausible to someone who did NOT read the article. Never all dates/amounts/similar numbers.\n' +
     'EXPLANATIONS: Q1/Q2 = plain fact only, no policy analysis. Q3/Q4 = one sentence of cause or effect. Q5/Q6 = analysis welcome.\n' +
-    'CRITICAL: Write explanation FIRST, then set correctIndex to match it exactly.\n\n' +
+    'EXPLANATION STYLE: Write explanations as short news-style summaries of the story — what happened, who was involved, what it means. Do NOT refer to "the article", "the headline", "the summary", or "according to the source". Write as if briefing someone who missed the news.\n' +
+    'CRITICAL: Write explanation FIRST, then set correctIndex to match it exactly.\n' +
+    'QUESTION LENGTH: Keep questions under 20 words whenever possible. Prefer direct, specific questions over long descriptive ones.\n\n' +
     'ARTICLE SELECTION FILTER — before writing a question, ask: would a well-informed Baltimore resident mention this to a friend over coffee? If no, skip it.\n' +
     '- SKIP: routine sports transactions, injury updates, spring training notes\n' +
     '- SKIP: minor arts/culture items with no broader community impact\n' +
@@ -3201,7 +3230,14 @@ function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote,
     '- For opinion or commentary pieces, ask about the central concrete claim or proposal — not who wrote it, not why they argued it, not what impact their argument has. Test the substance: what specific change did they advocate for, what fact did they highlight, what outcome did they predict?\n' +
     '- AVOID questions framed as "Why does X argue..." or "What does X\'s speech reveal about..." — these produce vague interpretive answers. Prefer: "What did X propose?", "What did X announce?", "What specific change did X call for?"\n' +
     '- SAME-EVENT RULE: Do not generate multiple questions about the same news event, even if it appears in multiple articles or outlets. Treat coverage of the same legislation, announcement, decision, or incident from different sources as a single topic. One event = one question maximum.\n' +
-    '- DISTRACTOR QUALITY: Incorrect answer choices must be plausible and belong to the same category as the correct answer. A question about a funding amount should have wrong answers that are also plausible funding amounts. A question about a location should have wrong answers that are also plausible locations. Avoid obviously unrelated or unrealistic options.\n' +
+    '- DISTRACTOR QUALITY: Generate distractors deliberately — do not let them emerge randomly. Incorrect answers must be plausible alternatives in the same category as the correct answer:\n' +
+    '  * If the correct answer is a PERSON, wrong answers should be other real or plausible people (ideally others connected to Baltimore, Maryland, or the relevant field)\n' +
+    '  * If the correct answer is a PROJECT FEATURE or PROPOSAL, wrong answers should be other plausible features or proposals of the same type\n' +
+    '  * If the correct answer is a LOCATION, wrong answers should be other real locations\n' +
+    '  * If the correct answer is a NUMBER or AMOUNT, wrong answers should be other plausible numbers in the same range\n' +
+    '  * If the correct answer is an ORGANIZATION or AGENCY, wrong answers should be other real organizations\n' +
+    '- Never use obviously unrelated, impossible, or humorous distractors. All four options should feel realistic to someone who follows Baltimore news.\n' +
+    '- LENGTH GIVEAWAY: Do not make the correct answer noticeably longer, more detailed, or more specific than the other options. All four options should be similar in length and grammatical form. Readers often guess the longest option — avoid this.\n' +
     '- STORY HOOK: Base each question on the central hook of the article — the most surprising fact, the key decision, the main person involved, or what will change. Avoid questions built around background statistics, minor supporting details, or secondary facts a reader would not remember when retelling the story.\n' +
     '- SALIENT FACT TEST: Before writing a question, ask: would a reader likely remember this detail when describing the story to a friend? If not, find a more memorable fact.\n' +
     '- TOPIC BALANCE: Do not over-concentrate on state legislative politics even if it dominates the feeds. Prefer a mix of city life topics: development, transportation, schools, business openings, culture, community news, local government, sports.\n\n' +
@@ -3881,6 +3917,96 @@ function exitArchiveMode() {
 }
 
 // ── Subscriber list for admin ─────────────────────────────────
+async function loadAdminStats() {
+  const el = document.getElementById('admin-stats');
+  const labelEl = document.getElementById('stats-date-label');
+  if (!el) return;
+  const today = todayStr();
+  if (labelEl) labelEl.textContent = today;
+  try {
+    // Fetch starts and answers in parallel
+    const [startsRes, answersRes, scoresRes] = await Promise.all([
+      fetch('/api/quiz-starts?date=' + today),
+      fetch('/api/answers?date=' + today),
+      fetch('/api/scores')
+    ]);
+    const { starts = 0 } = startsRes.ok ? await startsRes.json() : {};
+    const dist = answersRes.ok ? await answersRes.json() : {};
+    const { scores = {} } = scoresRes.ok ? await scoresRes.json() : {};
+
+    // Completions = players who submitted answers for q0 through q4 (all 5 regular Qs)
+    const q0 = dist['q0'] ? dist['q0'].correct + dist['q0'].wrong : 0;
+    const q4 = dist['q4'] ? dist['q4'].correct + dist['q4'].wrong : 0;
+    const q5 = dist['q5'] ? dist['q5'].correct + dist['q5'].wrong : 0;
+    const completions = q4; // reached final regular question
+    const bonusAttempts = q5;
+
+    // Average question reached: weighted sum of players at each question
+    let totalReached = 0, totalPlayers = 0;
+    for (let i = 0; i <= 4; i++) {
+      const k = 'q' + i;
+      const n = dist[k] ? dist[k].correct + dist[k].wrong : 0;
+      totalReached += n * (i + 1);
+      if (i === 0) totalPlayers = n;
+    }
+    const avgQReached = totalPlayers > 0 ? (totalReached / totalPlayers).toFixed(1) : '—';
+
+    // Completion rate
+    const compRate = starts > 0 ? Math.round(completions / starts * 100) : (q0 > 0 ? Math.round(completions / q0 * 100) : '—');
+
+    // Today's scores
+    const todayPlayers = Object.values(scores).filter(p => p.dailyScores && p.dailyScores[today] !== undefined);
+    const todayScoreVals = todayPlayers.map(p => p.dailyScores[today]);
+    const avgScore = todayScoreVals.length > 0
+      ? Math.round(todayScoreVals.reduce((a,b) => a+b, 0) / todayScoreVals.length)
+      : '—';
+
+    // Per-question correct %
+    let qRows = '';
+    for (let i = 0; i <= 5; i++) {
+      const k = 'q' + i;
+      const d = dist[k] || { correct: 0, wrong: 0 };
+      const total = d.correct + d.wrong;
+      const pct = total > 0 ? Math.round(d.correct / total * 100) : '—';
+      const label = i === 5 ? 'Bonus' : ('Q' + (i + 1));
+      const bar = total > 0 ? `<span style="display:inline-block;width:${typeof pct==='number'?pct:0}px;height:8px;background:var(--green);vertical-align:middle;margin-left:6px;opacity:0.7;"></span>` : '';
+      qRows += `<tr><td style="padding:2px 8px 2px 0;">${label}</td><td style="padding:2px 8px 2px 0;">${total} players</td><td style="padding:2px 0;">${pct}% correct${bar}</td></tr>`;
+    }
+
+    el.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:16px;">
+        <div style="background:white;border:1px solid var(--rule);padding:12px;text-align:center;">
+          <div style="font-size:22px;font-weight:bold;color:var(--ink);">${starts || q0}</div>
+          <div style="font-size:10px;letter-spacing:1px;color:var(--muted);margin-top:2px;">STARTED</div>
+        </div>
+        <div style="background:white;border:1px solid var(--rule);padding:12px;text-align:center;">
+          <div style="font-size:22px;font-weight:bold;color:var(--ink);">${completions}</div>
+          <div style="font-size:10px;letter-spacing:1px;color:var(--muted);margin-top:2px;">COMPLETED</div>
+        </div>
+        <div style="background:white;border:1px solid var(--rule);padding:12px;text-align:center;">
+          <div style="font-size:22px;font-weight:bold;color:${typeof compRate==='number'&&compRate>=70?'var(--green)':typeof compRate==='number'&&compRate<50?'var(--red)':'var(--ink)'};">${typeof compRate==='number'?compRate+'%':compRate}</div>
+          <div style="font-size:10px;letter-spacing:1px;color:var(--muted);margin-top:2px;">COMPLETION</div>
+        </div>
+        <div style="background:white;border:1px solid var(--rule);padding:12px;text-align:center;">
+          <div style="font-size:22px;font-weight:bold;color:var(--ink);">${avgQReached}</div>
+          <div style="font-size:10px;letter-spacing:1px;color:var(--muted);margin-top:2px;">AVG Q REACHED</div>
+        </div>
+        <div style="background:white;border:1px solid var(--rule);padding:12px;text-align:center;">
+          <div style="font-size:22px;font-weight:bold;color:var(--ink);">${bonusAttempts}</div>
+          <div style="font-size:10px;letter-spacing:1px;color:var(--muted);margin-top:2px;">BONUS ATTEMPTS</div>
+        </div>
+        <div style="background:white;border:1px solid var(--rule);padding:12px;text-align:center;">
+          <div style="font-size:22px;font-weight:bold;color:var(--ink);">${avgScore}</div>
+          <div style="font-size:10px;letter-spacing:1px;color:var(--muted);margin-top:2px;">AVG SCORE</div>
+        </div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">${qRows}</table>
+    `;
+  } catch(e) {
+    el.innerHTML = '<p style="color:var(--muted);">Could not load stats.</p>';
+  }
+}
+
 async function loadSubscribers() {
   const listEl = document.getElementById('sub-list');
   const countEl = document.getElementById('sub-count');
