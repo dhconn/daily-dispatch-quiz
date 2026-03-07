@@ -1533,6 +1533,7 @@ const CLAUDE_MODEL = 'claude-sonnet-4-20250514';
 
 // Point values
 const POINTS = { easy: 10, medium: 20, hard: 30, bonus: 50 };
+const COMPLETION_BONUS = 10;
 
 function todayStr() {
   // Always use Eastern time — quiz is Baltimore-based
@@ -1813,8 +1814,29 @@ async function registerPlayer() {
 let quizQuestions = [];
 let quizAnswered = false;
 
+function applyConfidenceRamp(questions) {
+  if (!questions || questions.length < 6) return questions;
+  const bonus = questions[5];
+  const regular = questions.slice(0, 5);
+  const easy   = regular.filter(q => q.difficulty === 'easy');
+  const medium = regular.filter(q => q.difficulty === 'medium');
+  const hard   = regular.filter(q => q.difficulty === 'hard');
+  const other  = regular.filter(q => !['easy','medium','hard'].includes(q.difficulty));
+  const pool   = [...easy, ...medium, ...hard, ...other];
+  const ordered = [
+    pool.find(q => q.difficulty === 'easy'),
+    pool.find(q => q.difficulty === 'medium'),
+    pool.filter(q => q.difficulty === 'easy')[1] || pool[2],
+    pool.filter(q => q.difficulty === 'medium')[1] || pool[3],
+    pool.find(q => q.difficulty === 'hard') || pool[4],
+  ].filter(Boolean);
+  const used = new Set(ordered);
+  for (const q of pool) { if (ordered.length >= 5) break; if (!used.has(q)) ordered.push(q); }
+  return [...ordered.slice(0, 5), bonus];
+}
+
 function startQuiz(quiz) {
-  quizQuestions = quiz.questions;
+  quizQuestions = applyConfidenceRamp(quiz.questions);
   state.currentQ = 0;
   state.sessionScore = 0;
   state.streak = 0;
@@ -1883,7 +1905,7 @@ function selectAnswer(idx) {
   const q = quizQuestions[state.currentQ];
   const correct = idx === q.correctIndex;
   const diff = getDifficultyLabel(state.currentQ);
-  const pts = correct ? diff.pts : 0;
+  const pts = correct ? diff.pts : Math.round(diff.pts * 0.25);
 
   state.sessionScore += pts;
   state.answers.push({ qIdx: state.currentQ, chosen: idx, correct, pts });
@@ -1971,7 +1993,7 @@ function selectAnswer(idx) {
       <div class="feedback-box ${correct ? 'correct' : 'wrong'}">
         <div class="fb-headline">${correct ? '✓ CORRECT' : '✗ INCORRECT'}</div>
         <div class="fb-text">${escHtml(q.explanation || (correct ? 'Well done!' : 'Better luck next time.'))}</div>
-        ${correct ? `<div class="pts-earned">+${pts} pts</div>` : ''}
+        <div class="pts-earned" style="${correct ? '' : 'color:var(--muted);font-size:12px;'}">+${pts} pts${correct ? '' : ' (participation)'}</div>
         ${sourceLink}
       </div>
       <button class="next-btn" onclick="advanceQuestion()">
@@ -1979,6 +2001,14 @@ function selectAnswer(idx) {
       </button>
       <div id="comment-badge" style="margin-top:8px;text-align:center;font-family:monospace;font-size:11px;color:var(--muted);"></div>
     `;
+    // Completion bonus nudge — shown after Q2 to encourage finishing
+    if (state.currentQ === 1) {
+      const nudge = document.createElement('div');
+      nudge.style.cssText = 'margin-top:10px;text-align:center;font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--gold);opacity:0.9;';
+      nudge.textContent = '\u2605 Finish all 6 questions to earn a +10 completion bonus';
+      fb.appendChild(nudge);
+    }
+
     // Async: populate comment count badge
     getWeeklyCommentCount().then(count => {
       const badge = document.getElementById('comment-badge');
@@ -2103,6 +2133,13 @@ function selectBonus(idx) {
 //  RESULTS
 // ═══════════════════════════════════════════════════════
 function finishQuiz() {
+  // Completion bonus — awarded for answering all 6 questions
+  const allAnswered = state.answers.length >= 6;
+  if (allAnswered && !archiveMode) {
+    state.sessionScore += COMPLETION_BONUS;
+    state.answers.push({ qIdx: 'completion', correct: true, pts: COMPLETION_BONUS });
+  }
+
   // Save scores locally
   updatePlayerScore(state.playerName, state.sessionScore);
 
@@ -2156,6 +2193,14 @@ function finishQuiz() {
   // Breakdown
   let brows = `<div class="breakdown-header">Question Breakdown</div>`;
   state.answers.forEach(a => {
+    if (a.qIdx === 'completion') {
+      brows += `<div class="breakdown-row">
+        <span class="q-label" style="color:var(--gold);">+</span>
+        <span class="q-short">Completion bonus</span>
+        <span class="q-result c">+${COMPLETION_BONUS}</span>
+      </div>`;
+      return;
+    }
     const q = quizQuestions[a.qIdx];
     const isBonus = a.qIdx === 5;
     brows += `<div class="breakdown-row">
@@ -2977,7 +3022,7 @@ function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote,
 
   function topicsOverlap(h1, h2) {
     const w1 = new Set(topicWords(h1));
-    return topicWords(h2).filter(w => w1.has(w)).length >= 3;
+    return topicWords(h2).filter(w => w1.has(w)).length >= 2;
   }
 
   const difficulties = ['easy','easy','medium','medium','hard','bonus'];
@@ -3078,7 +3123,7 @@ function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote,
     'Q3 (medium, 20pts): CAUSE. Ask why something happened or what triggered a decision.\n' +
     'Q4 (medium, 20pts): EFFECT. Ask what this means for a specific group, institution, or situation.\n' +
     'Q5 (hard, 30pts): IMPLICATION. Ask what this reveals or signals. A non-obvious takeaway requiring analysis.\n' +
-    'Q6 (bonus, 50pts): SYNTHESIS. The most surprising or counterintuitive detail. Rewards careful reading.\n' +
+    'Q6 (bonus, 50pts): THE MOST MEMORABLE STORY. Choose the article with the most surprising, distinctive, or shareable fact — something a reader would say "wait, really?" about. Frame the question around that hook. Do NOT make it hard by relying on obscure details or statistics. It should be the fact that makes the story stick.\n' +
     'WRONG ANSWERS: Same category as correct answer. Plausible to someone who did NOT read the article. Never all dates/amounts/similar numbers.\n' +
     'EXPLANATIONS: Q1/Q2 = plain fact only, no policy analysis. Q3/Q4 = one sentence of cause or effect. Q5/Q6 = analysis welcome.\n' +
     'CRITICAL: Write explanation FIRST, then set correctIndex to match it exactly.\n\n' +
@@ -3103,7 +3148,12 @@ function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote,
     '- Aim for topic diversity across the 6 questions: mix government, business/development, culture, transportation, education, sports, and community news where the articles allow.\n' +
     '- Avoid multiple questions that feel like they are all about a meeting or officials discussing something. Prefer outcomes and decisions over process and proposals.\n' +
     '- NEVER ask who wrote, authored, or contributed an article or commentary. The author byline is never a quiz-worthy fact. Ask about the substance — what was argued, what was proposed, what the implications are.\n' +
-    '- For opinion or commentary pieces, ask what position the author takes or what their central argument reveals — not who they are.\n\n' +
+    '- For opinion or commentary pieces, ask what position the author takes or what their central argument reveals — not who they are.\n' +
+    '- SAME-EVENT RULE: Do not generate multiple questions about the same news event, even if it appears in multiple articles or outlets. Treat coverage of the same legislation, announcement, decision, or incident from different sources as a single topic. One event = one question maximum.\n' +
+    '- DISTRACTOR QUALITY: Incorrect answer choices must be plausible and belong to the same category as the correct answer. A question about a funding amount should have wrong answers that are also plausible funding amounts. A question about a location should have wrong answers that are also plausible locations. Avoid obviously unrelated or unrealistic options.\n' +
+    '- STORY HOOK: Base each question on the central hook of the article — the most surprising fact, the key decision, the main person involved, or what will change. Avoid questions built around background statistics, minor supporting details, or secondary facts a reader would not remember when retelling the story.\n' +
+    '- SALIENT FACT TEST: Before writing a question, ask: would a reader likely remember this detail when describing the story to a friend? If not, find a more memorable fact.\n' +
+    '- TOPIC BALANCE: Do not over-concentrate on state legislative politics even if it dominates the feeds. Prefer a mix of city life topics: development, transportation, schools, business openings, culture, community news, local government, sports.\n\n' +
     'OUTPUT: Respond with ONLY valid JSON. No preamble, no markdown. Start with { and end with }.\n\n' +
     'IMPORTANT: Always write questions for ALL 6 assigned articles. Never return an empty questions array.\n' +
     'Set staleWarning to true only if articles appear more than 3 days old.\n\n' +
