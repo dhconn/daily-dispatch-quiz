@@ -1391,6 +1391,20 @@
     <div class="admin-section" id="preview-section" style="display:none;">
       <h3>Step 2 — Review Questions</h3>
       <div id="q-preview-list"></div>
+
+      <div style="margin:16px 0 8px;">
+        <button class="btn-secondary" onclick="previewEmail()" style="background:#f5f0e8;border:1px solid var(--border);color:var(--ink);">📧 Preview Email</button>
+      </div>
+      <div id="email-preview-panel" style="display:none;margin-bottom:16px;border:2px solid var(--gold,#c8a84b);border-radius:4px;overflow:hidden;">
+        <div style="background:var(--gold,#c8a84b);padding:8px 16px;font-family:monospace;font-size:11px;letter-spacing:1px;display:flex;justify-content:space-between;align-items:center;">
+          <span>EMAIL PREVIEW — what subscribers will receive</span>
+          <button onclick="document.getElementById('email-preview-panel').style.display='none'" style="background:none;border:none;cursor:pointer;font-size:16px;">✕</button>
+        </div>
+        <div id="email-preview-inner" style="padding:16px;background:#fff;max-height:500px;overflow-y:auto;">
+          <p style="font-family:monospace;font-size:12px;color:var(--muted);">Loading preview…</p>
+        </div>
+      </div>
+
       <div class="admin-actions">
         <button class="btn-generate" onclick="publishQuestions()">✓ Publish Today's Quiz</button>
         <button class="btn-secondary" onclick="discardDraft()">✕ Discard Draft</button>
@@ -3294,6 +3308,27 @@ async function publishQuestions() {
   refreshAdminPreviews();
 }
 
+async function previewEmail() {
+  const panel = document.getElementById('email-preview-panel');
+  const inner = document.getElementById('email-preview-inner');
+  panel.style.display = 'block';
+  inner.innerHTML = '<p style="font-family:monospace;font-size:12px;color:var(--muted);">Generating teasers and building preview… (may take 5-10 seconds)</p>';
+  try {
+    const res = await fetch('/api/quiz/preview-email');
+    const data = await res.json();
+    inner.innerHTML = data.html;
+    if (data.teasers && data.teasers.length) {
+      const note = document.createElement('div');
+      note.style = 'font-family:monospace;font-size:11px;color:var(--muted);padding:8px;border-top:1px solid #eee;margin-top:8px;';
+      note.textContent = '✓ Teasers: ' + data.teasers.join(' · ');
+      inner.appendChild(note);
+    }
+  } catch(e) {
+    inner.innerHTML = '<p style="font-family:monospace;font-size:12px;color:red;">Preview failed: ' + e.message + '</p>';
+  }
+}
+
+
 async function emergencySave() {
   const cards = document.querySelectorAll('#q-preview-list .q-review-card');
   if (!cards.length) { alert('No questions visible in preview to save.'); return; }
@@ -3318,7 +3353,7 @@ async function emergencySave() {
     const res = await fetch('/api/quiz', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ date: key, quiz })
+      body: JSON.stringify({ date: key, quiz, silent: true })
     });
     const data = await res.json();
     if (data.ok) {
