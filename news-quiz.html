@@ -2796,7 +2796,8 @@ async function generateQuestions() {
         '- Named court case with no broader significance (individual sentencing, routine probation violation)\n' +
         '- Obituary or memorial piece\n' +
         '- Real estate listing or Hot House feature\n' +
-        '- Things to do events calendar\n\n' +
+        '- Things to do events calendar\n' +
+        '- Individual incident story: house fire, car crash, single shooting, single assault — unless mass casualty, arson pattern, or major public safety policy angle\n\n' +
         'ACCEPT everything else — policy, crime patterns, local economy, gas prices, housing costs, immigration, development, health, environment, or anything a Baltimorean would discuss with a friend.\n' +
         'When in doubt, ACCEPT. It is better to pass a borderline article than to leave Claude without enough material.\n\n' +
         'ARTICLES:\n' + headlines + '\n\n' +
@@ -3081,7 +3082,18 @@ function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote,
     'WRONG ANSWERS: Same category as correct answer. Plausible to someone who did NOT read the article. Never all dates/amounts/similar numbers.\n' +
     'EXPLANATIONS: Q1/Q2 = plain fact only, no policy analysis. Q3/Q4 = one sentence of cause or effect. Q5/Q6 = analysis welcome.\n' +
     'CRITICAL: Write explanation FIRST, then set correctIndex to match it exactly.\n\n' +
-    'ARTICLE SELECTION FILTER — before writing a question, ask: would a well-informed Baltimore resident mention this to a friend over coffee? If no, skip it.\\n\' +\n    \'- SKIP: routine sports transactions, injury updates, spring training notes\\n\' +\n    \'- SKIP: minor arts/culture items with no broader community impact\\n\' +\n    \'- SKIP: individual crime stories unless a public figure, major institution, or systemic pattern is central\\n\' +\n    \'- SKIP: ALL weather stories unless a historic storm caused major documented damage\\n\' +\n    \'- SKIP: anniversary or milestone articles unless a specific newsworthy development is the focus\\n\' +\n    \'- SKIP: DC-area team stories (Nationals, Commanders, Capitals, Wizards) without explicit Baltimore/Maryland angle\\n\' +\n    \'- USE: sports stories about record-breaking achievements, major roster decisions, or stadium/ownership news\\n\' +\n    \'- USE: arts/culture stories involving major institutions (BSO, BMA, Center Stage) or nationally recognized figures\\n\' +\n    \'- USE: anything involving public money, public safety, elections, housing, schools, or the local economy\\n\\n\' +\n    \'HERE ARE YOUR 6 ASSIGNED ARTICLES:\\n\\n' +
+    'ARTICLE SELECTION FILTER — before writing a question, ask: would a well-informed Baltimore resident mention this to a friend over coffee? If no, skip it.\n' +
+    '- SKIP: routine sports transactions, injury updates, spring training notes\n' +
+    '- SKIP: minor arts/culture items with no broader community impact\n' +
+    '- SKIP: individual incident stories — house fires, car crashes, single shootings — unless mass casualty, systemic pattern, or major public safety policy angle\n' +
+    '- SKIP: individual crime stories unless a public figure, major institution, or systemic pattern is central\n' +
+    '- SKIP: ALL weather stories unless a historic storm caused major documented damage\n' +
+    '- SKIP: anniversary or milestone articles unless a specific newsworthy development is the focus\n' +
+    '- SKIP: DC-area team stories (Nationals, Commanders, Capitals, Wizards) without explicit Baltimore/Maryland angle\n' +
+    '- USE: sports stories about record-breaking achievements, major roster decisions, or stadium/ownership news\n' +
+    '- USE: arts/culture stories involving major institutions (BSO, BMA, Center Stage) or nationally recognized figures\n' +
+    '- USE: anything involving public money, public safety, elections, housing, schools, or the local economy\n\n' +
+    'HERE ARE YOUR 6 ASSIGNED ARTICLES:\n\n' +
     (assignedArticles || rssContent) + '\n\n' +
     'QUESTION QUALITY CONSTRAINTS:\n' +
     '- Every question must contain a specific factual anchor: a named person, a specific location or neighborhood, a concrete decision or outcome, or a number that IS the story (record-breaking, historic, etc.)\n' +
