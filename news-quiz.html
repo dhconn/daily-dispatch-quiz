@@ -3482,7 +3482,10 @@ async function loadAdminArchive() {
       return `
         <div class="admin-arc-date" onclick="toggleAdminArc('${id}')">
           <span>${date} &nbsp;·&nbsp; ${formatArchiveDate(date)}</span>
-          <span id="${id}-chevron">▸</span>
+          <span style="display:flex;align-items:center;gap:12px;">
+            <button onclick="event.stopPropagation();republishQuiz('${date}')" style="font-family:monospace;font-size:10px;padding:3px 10px;background:none;border:1px solid var(--gold,#c8a84b);color:var(--gold,#c8a84b);cursor:pointer;border-radius:2px;letter-spacing:1px;">↺ REPUBLISH</button>
+            <span id="${id}-chevron">▸</span>
+          </span>
         </div>
         <div class="admin-arc-body" id="${id}">${qHtml}</div>
       `;
@@ -3544,6 +3547,22 @@ function toggleAdminArc(id) {
   const open = body.classList.toggle('open');
   if (chevron) chevron.textContent = open ? '▾' : '▸';
 }
+
+async function republishQuiz(date) {
+  if (!confirm(`Load the ${date} quiz into draft for editing and republishing?`)) return;
+  try {
+    const res = await fetch(`/api/quiz?date=${date}`);
+    const data = await res.json();
+    if (!data.quiz || !data.quiz.questions) throw new Error('No questions found');
+    saveDraftQuiz(data.quiz.questions);
+    showPreview(data.quiz.questions);
+    setStatus(`Loaded ${data.quiz.questions.length} questions from ${date} into draft. Edit as needed, then click Publish.`, 'success');
+    document.getElementById('preview-section').scrollIntoView({ behavior: 'smooth' });
+  } catch(e) {
+    alert('Republish failed: ' + e.message);
+  }
+}
+
 
 // ── Archive browser ───────────────────────────────────────────
 let archiveMode = false;
