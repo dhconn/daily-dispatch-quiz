@@ -1174,6 +1174,7 @@
       <div class="points-card"><div class="pts bonus-pts">50</div><div class="label">pts each<br>Q6 · Bonus</div></div>
     </div>
     <div class="edition-rule">Enter Your Byline</div>
+    <div id="reg-streak-display" style="display:none;margin:0 auto 16px;max-width:420px;text-align:center;font-family:'Courier Prime',monospace;font-size:13px;letter-spacing:1px;color:var(--gold);padding:8px 0;"></div>
     <div class="input-group">
       <input type="text" id="player-input" placeholder="Your name or pseudonym…" maxlength="30" />
       <button class="btn-primary" onclick="registerPlayer()">Begin ▸</button>
@@ -1246,6 +1247,21 @@
     </div>
     <div class="results-breakdown" id="breakdown-table"></div>
     <div id="dist-table"></div>
+    <div id="results-streak-nudge" style="display:none;margin:20px 0 0;padding:14px 16px;background:var(--ink);color:var(--paper);text-align:center;font-family:'Courier Prime',monospace;letter-spacing:1px;line-height:1.7;"></div>
+
+    <div id="results-subscribe-cta" style="margin:28px 0 8px;padding:20px;background:white;border:1px solid var(--rule);text-align:left;">
+      <div style="font-family:'Courier Prime',monospace;font-size:10px;letter-spacing:2px;color:var(--muted);margin-bottom:10px;">WANT TOMORROW'S QUIZ?</div>
+      <p style="font-size:15px;margin:0 0 14px;line-height:1.5;">Get tomorrow's quiz delivered to your inbox — with today's answers included.</p>
+      <div id="results-sub-form">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <input id="results-sub-email" type="email" placeholder="your@email.com" style="flex:1;min-width:180px;font-family:serif;font-size:14px;padding:9px 12px;border:1px solid #ccc;box-sizing:border-box;">
+          <button onclick="submitResultsSubscribe()" style="font-family:'Courier Prime',monospace;font-size:12px;letter-spacing:1px;padding:9px 20px;background:var(--ink);color:var(--paper);border:none;cursor:pointer;white-space:nowrap;">Email Me the Quiz ▸</button>
+        </div>
+        <div id="results-sub-status" style="font-family:monospace;font-size:12px;margin-top:8px;display:none;"></div>
+      </div>
+      <div id="results-sub-done" style="display:none;font-family:'Courier Prime',monospace;font-size:13px;color:var(--green);padding:4px 0;">✓ You're in. See you tomorrow.</div>
+    </div>
+
     <div class="result-actions">
       <button class="btn-primary" onclick="showLeaderboard()">View Leaderboard ▸</button>
       <button class="btn-secondary" onclick="showScreen('screen-register')">Play Again</button>
@@ -1559,6 +1575,35 @@ function getOrCreatePlayer(name) {
   return players[key];
 }
 
+// Calculate day-over-day streak from dailyScores object
+function getDayStreak(player) {
+  if (!player || !player.dailyScores) return 0;
+  const dates = Object.keys(player.dailyScores).sort().reverse();
+  if (!dates.length) return 0;
+  let streak = 0;
+  let check = new Date(todayStr() + 'T12:00:00');
+  for (let i = 0; i < dates.length; i++) {
+    const d = new Date(dates[i] + 'T12:00:00');
+    const diffDays = Math.round((check - d) / 86400000);
+    if (diffDays === 0 || diffDays === 1) {
+      streak++;
+      check = d;
+    } else {
+      break;
+    }
+  }
+  return streak;
+}
+
+// Milestone label for a given streak count
+function streakMilestone(n) {
+  if (n >= 30) return '🏆 30-day streak!';
+  if (n >= 14) return '🔥 2-week streak!';
+  if (n >= 7)  return '🔥 7-day streak!';
+  if (n >= 3)  return '🔥 3-day streak!';
+  return null;
+}
+
 function updatePlayerScore(name, todayScore) {
   const players = getPlayers();
   const key = name.toLowerCase().trim();
@@ -1604,6 +1649,20 @@ document.addEventListener('DOMContentLoaded', () => {
   const saved = lsGet('dnq_current_player');
   if (saved) {
     document.getElementById('player-input').value = saved;
+    // Show day streak for returning player
+    const players = getPlayers();
+    const player = players[saved.toLowerCase().trim()];
+    if (player) {
+      const dayStreak = getDayStreak(player);
+      const streakEl = document.getElementById('reg-streak-display');
+      if (dayStreak >= 2) {
+        const milestone = streakMilestone(dayStreak);
+        streakEl.innerHTML = milestone
+          ? `${milestone} &nbsp;·&nbsp; Keep it going!`
+          : `🔥 ${dayStreak}-day streak &nbsp;·&nbsp; Keep it going!`;
+        streakEl.style.display = 'block';
+      }
+    }
   }
 });
 
@@ -1619,6 +1678,40 @@ function showScreen(id) {
 // ═══════════════════════════════════════════════════════
 //  REGISTER
 // ═══════════════════════════════════════════════════════
+async function submitResultsSubscribe() {
+  const emailEl = document.getElementById('results-sub-email');
+  const statusEl = document.getElementById('results-sub-status');
+  const email = emailEl.value.trim();
+  if (!email || !email.includes('@')) {
+    statusEl.textContent = 'Please enter a valid email address.';
+    statusEl.style.color = 'var(--red)';
+    statusEl.style.display = 'block';
+    return;
+  }
+  statusEl.textContent = 'Signing you up…';
+  statusEl.style.color = 'var(--muted)';
+  statusEl.style.display = 'block';
+  try {
+    const res = await fetch('/api/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: state.playerName || '', email })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      lsSet('dnq_subscribed', '1');
+      document.getElementById('results-sub-form').style.display = 'none';
+      document.getElementById('results-sub-done').style.display = 'block';
+    } else {
+      statusEl.textContent = data.error || 'Something went wrong. Please try again.';
+      statusEl.style.color = 'var(--red)';
+    }
+  } catch(e) {
+    statusEl.textContent = 'Could not connect. Please try again.';
+    statusEl.style.color = 'var(--red)';
+  }
+}
+
 async function registerPlayer() {
   const name = document.getElementById('player-input').value.trim();
   const errEl = document.getElementById('reg-error');
@@ -2013,6 +2106,11 @@ function finishQuiz() {
   // Save scores locally
   updatePlayerScore(state.playerName, state.sessionScore);
 
+  // Calculate day-over-day streak (after score is saved so today counts)
+  const players = getPlayers();
+  const playerKey = state.playerName.toLowerCase().trim();
+  const dayStreak = getDayStreak(players[playerKey]);
+
   // Submit score to server for shared leaderboard (not in archive mode)
   if (!archiveMode) fetch('/api/scores', {
     method: 'POST',
@@ -2069,6 +2167,29 @@ function finishQuiz() {
   });
   document.getElementById('breakdown-table').innerHTML = brows;
   showScreen('screen-results');
+
+  // Hide subscribe CTA if player already subscribed this session or previously
+  const alreadySubscribed = lsGet('dnq_subscribed');
+  if (alreadySubscribed) {
+    document.getElementById('results-subscribe-cta').style.display = 'none';
+  }
+
+  // Show day streak + tomorrow nudge
+  const streakNudgeEl = document.getElementById('results-streak-nudge');
+  if (streakNudgeEl && !archiveMode) {
+    const milestone = streakMilestone(dayStreak);
+    let nudgeHtml = '';
+    if (milestone) {
+      nudgeHtml = `<span style="font-size:15px;">${milestone}</span><br><span style="font-size:13px;opacity:0.85;">Come back tomorrow to extend your streak to ${dayStreak + 1} days.</span>`;
+    } else if (dayStreak >= 2) {
+      nudgeHtml = `<span>🔥 ${dayStreak}-day streak</span><br><span style="font-size:13px;opacity:0.85;">Come back tomorrow to extend it to ${dayStreak + 1} days.</span>`;
+    } else {
+      nudgeHtml = `<span style="font-size:13px;opacity:0.85;">Come back tomorrow to start a streak.</span>`;
+    }
+    streakNudgeEl.innerHTML = nudgeHtml;
+    streakNudgeEl.style.display = 'block';
+  }
+
   document.getElementById('dist-table').innerHTML = '<div class="breakdown-header" style="margin-top:24px;">How Others Did</div><div style="font-size:13px;color:var(--muted);padding:8px 0;">Loading…</div>';
 
   // Fetch community distribution from server
@@ -2963,6 +3084,13 @@ function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote,
     'CRITICAL: Write explanation FIRST, then set correctIndex to match it exactly.\n\n' +
     'ARTICLE SELECTION FILTER — before writing a question, ask: would a well-informed Baltimore resident mention this to a friend over coffee? If no, skip it.\\n\' +\n    \'- SKIP: routine sports transactions, injury updates, spring training notes\\n\' +\n    \'- SKIP: minor arts/culture items with no broader community impact\\n\' +\n    \'- SKIP: individual crime stories unless a public figure, major institution, or systemic pattern is central\\n\' +\n    \'- SKIP: ALL weather stories unless a historic storm caused major documented damage\\n\' +\n    \'- SKIP: anniversary or milestone articles unless a specific newsworthy development is the focus\\n\' +\n    \'- SKIP: DC-area team stories (Nationals, Commanders, Capitals, Wizards) without explicit Baltimore/Maryland angle\\n\' +\n    \'- USE: sports stories about record-breaking achievements, major roster decisions, or stadium/ownership news\\n\' +\n    \'- USE: arts/culture stories involving major institutions (BSO, BMA, Center Stage) or nationally recognized figures\\n\' +\n    \'- USE: anything involving public money, public safety, elections, housing, schools, or the local economy\\n\\n\' +\n    \'HERE ARE YOUR 6 ASSIGNED ARTICLES:\\n\\n' +
     (assignedArticles || rssContent) + '\n\n' +
+    'QUESTION QUALITY CONSTRAINTS:\n' +
+    '- Every question must contain a specific factual anchor: a named person, a specific location or neighborhood, a concrete decision or outcome, or a number that IS the story (record-breaking, historic, etc.)\n' +
+    '- Questions must be answerable by an attentive reader of the article — not by someone with insider knowledge of local government. Prefer: who did something, what was approved, where something will happen, what changed.\n' +
+    '- Avoid procedural or bureaucratic trivia: committee names, zoning overlay codes, motion types, filing numbers, meeting agendas.\n' +
+    '- Use neighborhood names only when the article explains their significance. Never assume the reader knows where a neighborhood is or what it is known for.\n' +
+    '- Aim for topic diversity across the 6 questions: mix government, business/development, culture, transportation, education, sports, and community news where the articles allow.\n' +
+    '- Avoid multiple questions that feel like they are all about a meeting or officials discussing something. Prefer outcomes and decisions over process and proposals.\n\n' +
     'OUTPUT: Respond with ONLY valid JSON. No preamble, no markdown. Start with { and end with }.\n\n' +
     'IMPORTANT: Always write questions for ALL 6 assigned articles. Never return an empty questions array.\n' +
     'Set staleWarning to true only if articles appear more than 3 days old.\n\n' +
