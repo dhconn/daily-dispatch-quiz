@@ -3554,7 +3554,7 @@ async function republishQuiz(date) {
     const res = await fetch(`/api/quiz?date=${date}`);
     const data = await res.json();
     if (!data.quiz || !data.quiz.questions) throw new Error('No questions found');
-    saveDraftQuiz(data.quiz.questions);
+    saveDraftQuiz({ questions: data.quiz.questions });
     showDraftPreview(data.quiz.questions);
     setStatus(`Loaded ${data.quiz.questions.length} questions from ${date} into draft. Edit as needed, then click Publish.`, 'success');
     document.getElementById('preview-section').scrollIntoView({ behavior: 'smooth' });
