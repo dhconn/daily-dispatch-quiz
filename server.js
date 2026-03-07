@@ -421,6 +421,26 @@ app.get('/api/answers', async (req, res) => {
   res.json((data.dist && data.dist[date]) || {});
 });
 
+// ── Quiz start tracking ───────────────────────────────────────
+// Records when a player starts the quiz — used for completion rate.
+// POST /api/quiz-start  { date }
+app.post('/api/quiz-start', async (req, res) => {
+  const { date } = req.body;
+  if (!date) return res.status(400).json({ error: 'date required' });
+  const starts = (await getKey('quizStarts')) || {};
+  starts[date] = (starts[date] || 0) + 1;
+  await setKey('quizStarts', starts);
+  res.json({ ok: true });
+});
+
+// GET /api/quiz-starts?date=YYYY-MM-DD
+app.get('/api/quiz-starts', async (req, res) => {
+  const { date } = req.query;
+  if (!date) return res.status(400).json({ error: 'date required' });
+  const starts = (await getKey('quizStarts')) || {};
+  res.json({ starts: starts[date] || 0, date });
+});
+
 // ── Article text fetcher ──────────────────────────────────────
 // Fetches full article text for a given URL, stripping HTML tags.
 // Used to give Claude full article content instead of just RSS snippets.
