@@ -3101,7 +3101,9 @@ function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote,
     '- Avoid procedural or bureaucratic trivia: committee names, zoning overlay codes, motion types, filing numbers, meeting agendas.\n' +
     '- Use neighborhood names only when the article explains their significance. Never assume the reader knows where a neighborhood is or what it is known for.\n' +
     '- Aim for topic diversity across the 6 questions: mix government, business/development, culture, transportation, education, sports, and community news where the articles allow.\n' +
-    '- Avoid multiple questions that feel like they are all about a meeting or officials discussing something. Prefer outcomes and decisions over process and proposals.\n\n' +
+    '- Avoid multiple questions that feel like they are all about a meeting or officials discussing something. Prefer outcomes and decisions over process and proposals.\n' +
+    '- NEVER ask who wrote, authored, or contributed an article or commentary. The author byline is never a quiz-worthy fact. Ask about the substance — what was argued, what was proposed, what the implications are.\n' +
+    '- For opinion or commentary pieces, ask what position the author takes or what their central argument reveals — not who they are.\n\n' +
     'OUTPUT: Respond with ONLY valid JSON. No preamble, no markdown. Start with { and end with }.\n\n' +
     'IMPORTANT: Always write questions for ALL 6 assigned articles. Never return an empty questions array.\n' +
     'Set staleWarning to true only if articles appear more than 3 days old.\n\n' +
