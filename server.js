@@ -593,7 +593,104 @@ app.post('/api/quiz/fix-date', async (req, res) => {
   res.json({ ok: true, message: `Copied from ${mostRecent} to ${todayEastern}`, from: mostRecent, to: todayEastern });
 });
 
-// ── GET /api/quiz/all — return all quizzes for admin review ──
+// ── Generate teaser phrases for email ────────────────────────
+async function generateTeasers(questions) {
+  return new Promise((resolve) => {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) { resolve([]); return; }
+    const questionList = questions.map((q, i) => `Q${i+1}: ${q.question}`).join('\n');
+    const prompt = `You are writing teaser lines for a Baltimore local news quiz email.
+Here are today's quiz questions:
+${questionList}
+
+Pick the 3 most interesting or surprising topics. For each, write a 3-5 word teaser phrase that hints at the topic without giving away the answer.
+Style: slightly mysterious, intriguing, like a newspaper front page tease.
+Examples: "A soccer superstar arrives", "Cheese steaks cross state lines", "The Constitution meets zoning law"
+
+Respond with ONLY a JSON array of 3 strings. No preamble, no markdown.`;
+
+    const body = JSON.stringify({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 150,
+      messages: [{ role: 'user', content: prompt }]
+    });
+
+    const req = https.request({
+      hostname: 'api.anthropic.com',
+      path: '/v1/messages',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'Content-Length': Buffer.byteLength(body)
+      }
+    }, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          const parsed = JSON.parse(data);
+          const text = (parsed.content || []).map(c => c.text || '').join('').trim();
+          const clean = text.replace(/```json|```/g, '').trim();
+          const teasers = JSON.parse(clean);
+          resolve(Array.isArray(teasers) ? teasers.slice(0, 3) : []);
+        } catch(e) {
+          console.warn('Teaser parse failed:', e.message);
+          resolve([]);
+        }
+      });
+    });
+    req.on('error', (e) => { console.warn('Teaser request failed:', e.message); resolve([]); });
+    req.setTimeout(15000, () => { req.destroy(); resolve([]); });
+    req.write(body);
+    req.end();
+  });
+}
+
+function buildTeaserHtml(teasers) {
+  if (!teasers || teasers.length === 0) return '';
+  return `
+    <div style="margin:0 0 28px;padding:20px;background:#fff;border:1px solid #e0d8cc;text-align:left;">
+      <div style="font-family:monospace;font-size:10px;letter-spacing:2px;color:#999;margin-bottom:12px;">TODAY'S TOPICS INCLUDE…</div>
+      ${teasers.map(t => `<div style="font-family:Georgia,serif;font-size:15px;color:#1a1008;padding:6px 0;border-bottom:1px solid #f0ebe0;">· ${t}</div>`).join('')}
+    </div>`;
+}
+
+function buildEmailHtml(siteUrl, date, subscriberName, teaserHtml, unsubUrl) {
+  return `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1008;">
+    <div style="background:#1a1008;color:#f5f0e8;text-align:center;padding:24px;">
+      <div style="font-family:monospace;font-size:11px;letter-spacing:3px;color:#f0c040;margin-bottom:6px;">BALTIMORE · DAILY DISPATCH</div>
+      <div style="font-size:28px;font-weight:bold;">The Daily Dispatch Quiz</div>
+      <div style="font-family:monospace;font-size:10px;letter-spacing:2px;color:#aaa;margin-top:6px;">${date}</div>
+    </div>
+    <div style="padding:32px 24px;background:#f5f0e8;text-align:center;">
+      <p style="font-size:18px;margin:0 0 8px;">Hi${subscriberName ? ' ' + subscriberName : ''},</p>
+      <p style="font-size:16px;color:#444;margin:0 0 24px;">Today's quiz is live. How well do you know Baltimore?</p>
+      ${teaserHtml}
+      <a href="${siteUrl}" style="display:inline-block;background:#1a1008;color:#f5f0e8;padding:16px 36px;font-family:monospace;font-size:13px;letter-spacing:2px;text-decoration:none;text-transform:uppercase;">Play Today's Quiz ▸</a>
+    </div>
+    <div style="padding:16px 24px;text-align:center;font-size:11px;color:#999;font-family:monospace;border-top:1px solid #e0d8cc;">
+      <a href="${unsubUrl}" style="color:#999;">Unsubscribe</a>
+    </div>
+  </div>`;
+}
+
+// ── GET /api/quiz/preview-email — generate teaser preview for admin ──
+app.get('/api/quiz/preview-email', async (req, res) => {
+  const data = await readData();
+  const dates = Object.keys(data.quizzes || {}).sort();
+  if (!dates.length) return res.json({ html: '<p>No quiz published yet.</p>' });
+  const mostRecent = dates[dates.length - 1];
+  const quiz = data.quizzes[mostRecent];
+  const siteUrl = process.env.SITE_URL || 'https://dailydispatchquiz.com';
+  const teasers = await generateTeasers(quiz.questions || []);
+  const teaserHtml = buildTeaserHtml(teasers);
+  const html = buildEmailHtml(siteUrl, mostRecent, 'Subscriber', teaserHtml, siteUrl + '/api/unsubscribe?email=example');
+  res.json({ html, teasers });
+});
+
+
 app.get('/api/quiz/all', async (req, res) => {
   const data = await readData();
   res.json({ quizzes: data.quizzes || {} });
@@ -624,7 +721,7 @@ app.get('/api/subscribers', async (req, res) => {
 // ── Quiz persistence ──────────────────────────────────────────
 // Save published quiz to server so it survives browser/device changes
 app.post('/api/quiz', async (req, res) => {
-  const { date, quiz } = req.body;
+  const { date, quiz, silent } = req.body;
   if (!date || !quiz) return res.status(400).json({ error: 'date and quiz required' });
   const data = await readData();
   if (!data.quizzes) data.quizzes = {};
@@ -634,78 +731,23 @@ app.post('/api/quiz', async (req, res) => {
   if (keys.length > 14) keys.slice(0, keys.length - 14).forEach(k => delete data.quizzes[k]);
   await writeData(data);
 
-  // Send notification emails to all active subscribers (fire and forget)
-  const siteUrl = process.env.SITE_URL || 'https://your-app.railway.app';
-  const subscribers = Object.values(data.subscribers || {}).filter(s => s.active);
-  if (subscribers.length > 0) {
-    console.log(`Email: Sending quiz notification to ${subscribers.length} subscribers…`);
-
-    // Generate teaser phrases via Claude
-    let teaserHtml = '';
-    try {
-      const questions = quiz.questions || [];
-      const questionList = questions.map((q, i) => `Q${i+1}: ${q.question}`).join('\n');
-      const teaserPrompt = `You are writing teaser lines for a Baltimore local news quiz email.
-Here are today's 6 quiz questions:
-${questionList}
-
-Pick the 3 most interesting or surprising topics. For each, write a 3-5 word teaser phrase that hints at the topic without giving away the answer. 
-Style: slightly mysterious, intriguing, like a newspaper front page tease.
-Examples: "A soccer superstar arrives", "Cheese steaks cross state lines", "The Constitution meets zoning law"
-
-Respond with ONLY a JSON array of 3 strings. Example: ["A soccer superstar arrives","Cheese steaks cross state lines","The Constitution meets zoning law"]`;
-
-      const teaserRes = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': process.env.ANTHROPIC_API_KEY,
-          'anthropic-version': '2023-06-01'
-        },
-        body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001',
-          max_tokens: 100,
-          messages: [{ role: 'user', content: teaserPrompt }]
-        })
-      });
-      const teaserData = await teaserRes.json();
-      const teaserText = (teaserData.content || []).map(c => c.text || '').join('').trim();
-      const teasers = JSON.parse(teaserText.replace(/```json|```/g, '').trim());
-      if (Array.isArray(teasers) && teasers.length > 0) {
-        teaserHtml = `
-          <div style="margin:0 0 28px;padding:20px;background:#fff;border:1px solid #e0d8cc;text-align:left;">
-            <div style="font-family:monospace;font-size:10px;letter-spacing:2px;color:#999;margin-bottom:12px;">TODAY'S TOPICS INCLUDE…</div>
-            ${teasers.map(t => `<div style="font-family:Georgia,serif;font-size:15px;color:#1a1008;padding:6px 0;border-bottom:1px solid #f0ebe0;">· ${t}</div>`).join('')}
-          </div>`;
-        console.log('Email teasers generated:', teasers);
+  // Send notification emails — skipped for silent saves (emergency save, edits, fixes)
+  if (!silent) {
+    const siteUrl = process.env.SITE_URL || 'https://your-app.railway.app';
+    const subscribers = Object.values(data.subscribers || {}).filter(s => s.active);
+    if (subscribers.length > 0) {
+      console.log(`Email: Sending quiz notification to ${subscribers.length} subscribers…`);
+      const teasers = await generateTeasers(quiz.questions || []);
+      const teaserHtml = buildTeaserHtml(teasers);
+      console.log('Email teasers:', teasers.length ? teasers : 'none generated');
+      for (const sub of subscribers) {
+        const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(sub.email)}`;
+        const emailHtml = buildEmailHtml(siteUrl, date, sub.name, teaserHtml, unsubUrl);
+        sendEmail(sub.email, `Today's Baltimore Daily Dispatch Quiz is live — ${date}`, emailHtml).catch(() => {});
       }
-    } catch(e) {
-      console.warn('Teaser generation failed, sending without teasers:', e.message);
     }
-
-    for (const sub of subscribers) {
-      const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(sub.email)}`;
-      sendEmail(
-        sub.email,
-        `Today's Baltimore Daily Dispatch Quiz is live — ${date}`,
-        `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1008;">
-          <div style="background:#1a1008;color:#f5f0e8;text-align:center;padding:24px;">
-            <div style="font-family:monospace;font-size:11px;letter-spacing:3px;color:#f0c040;margin-bottom:6px;">BALTIMORE · DAILY DISPATCH</div>
-            <div style="font-size:28px;font-weight:bold;">The Daily Dispatch Quiz</div>
-            <div style="font-family:monospace;font-size:10px;letter-spacing:2px;color:#aaa;margin-top:6px;">${date}</div>
-          </div>
-          <div style="padding:32px 24px;background:#f5f0e8;text-align:center;">
-            <p style="font-size:18px;margin:0 0 8px;">Hi${sub.name ? ' ' + sub.name : ''},</p>
-            <p style="font-size:16px;color:#444;margin:0 0 24px;">Today's quiz is live. How well do you know Baltimore?</p>
-            ${teaserHtml}
-            <a href="${siteUrl}" style="display:inline-block;background:#1a1008;color:#f5f0e8;padding:16px 36px;font-family:monospace;font-size:13px;letter-spacing:2px;text-decoration:none;text-transform:uppercase;">Play Today's Quiz ▸</a>
-          </div>
-          <div style="padding:16px 24px;text-align:center;font-size:11px;color:#999;font-family:monospace;border-top:1px solid #e0d8cc;">
-            <a href="${unsubUrl}" style="color:#999;">Unsubscribe</a>
-          </div>
-        </div>`
-      ).catch(() => {});
-    }
+  } else {
+    console.log('Silent save — email notifications skipped.');
   }
 
   res.json({ ok: true });
