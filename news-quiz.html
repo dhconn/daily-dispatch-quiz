@@ -4355,7 +4355,10 @@ async function playArchiveQuiz(date) {
     // Enter archive mode
     archiveMode = true;
     document.body.classList.add('archive-mode');
-    document.getElementById('archive-banner').style.display = 'block';
+    const bannerEl = document.getElementById('archive-banner');
+    console.log('[Archive] banner element:', bannerEl, 'display before:', bannerEl ? bannerEl.style.display : 'NOT FOUND');
+    if (bannerEl) bannerEl.style.display = 'block';
+    console.log('[Archive] banner display after:', bannerEl ? bannerEl.style.display : 'NOT FOUND');
     document.getElementById('archive-date-label').textContent = formatArchiveDate(date);
     // Load archive quiz
     quizQuestions = enforceQuizRules(data.quiz.questions);
