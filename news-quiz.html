@@ -1992,7 +1992,16 @@ function renderQuestion() {
     } catch(e) {}
   }
 
-  document.getElementById('question-area').innerHTML = `
+
+  const archiveBarHtml = archiveMode ? `
+    <div style="background:#5a4a2a;color:#f5e8c0;text-align:center;font-family:'Courier Prime',monospace;font-size:11px;letter-spacing:1px;padding:8px;margin-bottom:16px;display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:8px;">
+      <span>📰 ARCHIVE MODE &nbsp;·&nbsp; ${document.getElementById('archive-date-label').textContent}</span>
+      <span style="display:flex;gap:8px;">
+        <button onclick="showArchiveBrowser()" style="font-family:monospace;font-size:11px;padding:3px 10px;background:transparent;border:1px solid #f5e8c0;color:#f5e8c0;cursor:pointer;border-radius:2px;">◂ Return to Archive</button>
+        <button onclick="exitArchiveMode()" style="font-family:monospace;font-size:11px;padding:3px 10px;background:transparent;border:1px solid #f5e8c0;color:#f5e8c0;cursor:pointer;border-radius:2px;">Today's Quiz ▸</button>
+      </span>
+    </div>` : '';
+  document.getElementById('question-area').innerHTML = archiveBarHtml + `
     <div class="difficulty-band">
       <span class="diff-label ${diff.cls}">${diff.label}</span>
       <span class="pts-label">+${diff.pts} pts if correct</span>
@@ -2203,7 +2212,15 @@ function renderBonus() {
     </button>`;
   });
 
-  document.getElementById('bonus-area').innerHTML = `
+  const archiveBarHtmlBonus = archiveMode ? `
+    <div style="background:#5a4a2a;color:#f5e8c0;text-align:center;font-family:'Courier Prime',monospace;font-size:11px;letter-spacing:1px;padding:8px;margin-bottom:16px;display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:8px;">
+      <span>📰 ARCHIVE MODE &nbsp;·&nbsp; ${document.getElementById('archive-date-label').textContent}</span>
+      <span style="display:flex;gap:8px;">
+        <button onclick="showArchiveBrowser()" style="font-family:monospace;font-size:11px;padding:3px 10px;background:transparent;border:1px solid #f5e8c0;color:#f5e8c0;cursor:pointer;border-radius:2px;">◂ Return to Archive</button>
+        <button onclick="exitArchiveMode()" style="font-family:monospace;font-size:11px;padding:3px 10px;background:transparent;border:1px solid #f5e8c0;color:#f5e8c0;cursor:pointer;border-radius:2px;">Today's Quiz ▸</button>
+      </span>
+    </div>` : '';
+  document.getElementById('bonus-area').innerHTML = archiveBarHtmlBonus + `
     <div class="bonus-question-card">
       <div class="q-number" style="color:rgba(255,215,0,0.5);">Bonus Question · 50 Points</div>
       <div class="q-text">${escHtml(q.question)}</div>
@@ -2394,6 +2411,10 @@ function finishQuiz() {
       <div style="font-size:13px;line-height:1.4;">${q.sourceUrl ? `<a href="${escHtml(q.sourceUrl)}" target="_blank" style="color:var(--green);text-decoration:none;font-weight:600;">✓ ${escHtml(correctAnswer)}</a>` : `<span style="color:var(--green);font-weight:600;">✓ ${escHtml(correctAnswer)}</span>`}</div>
     </div>`;
   });
+  if (archiveMode) {
+    const archiveBarResults = `<div style="background:#5a4a2a;color:#f5e8c0;text-align:center;font-family:'Courier Prime',monospace;font-size:11px;letter-spacing:1px;padding:8px;margin-bottom:16px;display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:8px;"><span>📰 ARCHIVE MODE &nbsp;·&nbsp; ${document.getElementById('archive-date-label').textContent}</span><span style="display:flex;gap:8px;"><button onclick="showArchiveBrowser()" style="font-family:monospace;font-size:11px;padding:3px 10px;background:transparent;border:1px solid #f5e8c0;color:#f5e8c0;cursor:pointer;border-radius:2px;">◂ Return to Archive</button><button onclick="exitArchiveMode()" style="font-family:monospace;font-size:11px;padding:3px 10px;background:transparent;border:1px solid #f5e8c0;color:#f5e8c0;cursor:pointer;border-radius:2px;">Today's Quiz ▸</button></span></div>`;
+    brows = archiveBarResults + brows;
+  }
   document.getElementById('breakdown-table').innerHTML = brows;
   showScreen('screen-results');
 
