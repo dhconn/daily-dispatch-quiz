@@ -1182,7 +1182,16 @@
 <div id="app">
 
   <!-- REGISTER -->
-  <div id="screen-register" class="screen active">
+  <!-- ARCHIVE BANNER (shown in archive mode, sticky above all screens) -->
+  <div id="archive-banner" class="archive-banner" style="display:none;">
+    📰 ARCHIVE MODE — Scores are not recorded &nbsp;·&nbsp; <span id="archive-date-label"></span>
+    <div style="display:flex;gap:10px;justify-content:center;margin-top:8px;">
+      <button onclick="showArchiveBrowser()" style="font-family:monospace;font-size:11px;padding:4px 12px;background:transparent;border:1px solid #f5e8c0;color:#f5e8c0;cursor:pointer;border-radius:2px;">◂ Return to Archive</button>
+      <button onclick="exitArchiveMode()" style="font-family:monospace;font-size:11px;padding:4px 12px;background:transparent;border:1px solid #f5e8c0;color:#f5e8c0;cursor:pointer;border-radius:2px;">Today's Quiz ▸</button>
+    </div>
+  </div>
+
+    <div id="screen-register" class="screen active">
     <div class="edition-rule">Today's Edition</div>
     <h2>Know Your Community.</h2>
     <p>5 questions + a bonus drawn from today's local news — updated daily by your editor.</p>
@@ -1290,14 +1299,7 @@
     </div>
   </div>
 
-  <!-- ARCHIVE BANNER (shown in archive mode) -->
-  <div id="archive-banner" class="archive-banner" style="display:none;">
-    📰 ARCHIVE MODE — Scores are not recorded &nbsp;·&nbsp; <span id="archive-date-label"></span>
-    <div style="display:flex;gap:10px;justify-content:center;margin-top:8px;">
-      <button onclick="showArchiveBrowser()" style="font-family:monospace;font-size:11px;padding:4px 12px;background:none;border:1px solid currentColor;cursor:pointer;border-radius:2px;">◂ Return to Archive</button>
-      <button onclick="exitArchiveMode()" style="font-family:monospace;font-size:11px;padding:4px 12px;background:none;border:1px solid currentColor;cursor:pointer;border-radius:2px;">Today's Quiz ▸</button>
-    </div>
-  </div>
+
 
   <!-- ARCHIVE BROWSER SCREEN -->
   <div id="screen-archive" class="screen">
