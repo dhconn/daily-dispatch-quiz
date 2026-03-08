@@ -2014,18 +2014,21 @@ function selectAnswer(idx) {
 
   // ── Visual feedback on correct answer ───────────────────────
   if (correct) {
-    // Floating +pts popup from the correct answer button
-    const correctBtn = document.getElementById('opt-' + q.correctIndex);
-    if (correctBtn) {
-      const popup = document.createElement('div');
-      popup.className = 'pts-popup' + (q.difficulty === 'bonus' ? ' bonus' : '');
-      popup.textContent = '+' + pts;
-      const rect = correctBtn.getBoundingClientRect();
-      popup.style.left = (rect.left + rect.width / 2 - 24) + 'px';
-      popup.style.top  = (rect.top + rect.height / 2 - 16) + 'px';
-      document.body.appendChild(popup);
-      setTimeout(() => popup.remove(), 1300);
-    }
+    // Score counter pop (fires immediately with confetti)
+    // Floating +pts popup fires 180ms later — one beat after confetti starts
+    setTimeout(() => {
+      const correctBtn = document.getElementById('opt-' + q.correctIndex);
+      if (correctBtn) {
+        const popup = document.createElement('div');
+        popup.className = 'pts-popup' + (q.difficulty === 'bonus' ? ' bonus' : '');
+        popup.textContent = '+' + pts;
+        const rect = correctBtn.getBoundingClientRect();
+        popup.style.left = (rect.left + rect.width / 2 - 24) + 'px';
+        popup.style.top  = (rect.top + rect.height / 2 - 16) + 'px';
+        document.body.appendChild(popup);
+        setTimeout(() => popup.remove(), 1300);
+      }
+    }, 180);
 
     // Score counter pop
     if (scoreEl) {
