@@ -2918,7 +2918,7 @@ async function generateQuestions() {
             } catch(e) { return 0; }
           }
 
-          function quizWorthiness(title, pubDate) {
+          function quizWorthiness(title, pubDate, link) {
             const t = (title || '').toLowerCase();
             let score = 0;
             score += freshnessBonus(pubDate);
@@ -2937,12 +2937,12 @@ async function generateQuestions() {
             // Downweight: opinion/analysis
             if (/\b(opinion|editorial|commentary|analysis|column|perspective|why |how to)\b/.test(t)) score -= 4;
             // Also penalize opinion/column URLs
-            if (/\/opinion\/|\/column\/|\/commentary\/|\/perspective\//.test(item.link || '')) score -= 3;
+            if (/\/opinion\/|\/column\/|\/commentary\/|\/perspective\//.test(link || '')) score -= 3;
             return score;
           }
 
           // Sort by score descending, preserving source interleaving as a tiebreaker
-          const scored = filteredInterleaved.map((item, i) => ({ item, score: quizWorthiness(item.title, item.pubDate), i }));
+          const scored = filteredInterleaved.map((item, i) => ({ item, score: quizWorthiness(item.title, item.pubDate, item.link), i }));
           scored.sort((a, b) => b.score - a.score || a.i - b.i);
           const sortedItems = scored.map(s => s.item);
 
@@ -3075,6 +3075,22 @@ const screenController = new AbortController();
       }
     }));
     rssContent = [...enriched, ...rest].join('\n\n---\n\n');
+  }
+
+  // ── Article pool guard — abort before calling Claude if nothing to work with ──
+  const _articleCount = (rssContent.match(/ARTICLE \d+:/g) || []).length;
+  const _hasAssignedUrls = articleUrlList.length > 0;
+  const _hasManual = !!(manualText && manualText.trim());
+  console.log('[Article pipeline]', {
+    rssArticles: _articleCount,
+    assignedUrls: articleUrlList.length,
+    hasManual: _hasManual,
+    archiveUrlsLoaded: allArchiveUrls.length
+  });
+  if (_articleCount === 0 && !_hasAssignedUrls && !_hasManual) {
+    setStatus('No candidate articles available. Try refreshing the RSS feed, pasting article text manually, or checking your network connection.', 'error');
+    console.warn('[Generation aborted] Article pool is empty — Claude call skipped.');
+    return;
   }
 
   let prompt;
@@ -3441,7 +3457,7 @@ function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote,
     '- BANNED DETAIL TYPES: Never write a question whose correct answer is primarily: an attendance figure or crowd count, an exact street closure schedule or timing, a specific vehicle or equipment type, a block number or address fragment, a menu item or food detail unless the story is fundamentally about that item, a neighborhood location unless that neighborhood IS the story.\n' +
     '- BAD QUESTION PATTERNS — never use these framings: "What was the attendance at...", "In which neighborhood did someone find...", "What unusual timing did officials choose for...", "What type of vehicle did an official use...", "How much exactly was budgeted for...", "On which block did...", "What specific tool did..."\n' +
     '- TOPIC BALANCE: Do not over-concentrate on state legislative politics even if it dominates the feeds. Prefer a mix of city life topics: development, transportation, schools, business openings, culture, community news, local government, sports.\n\n' +
-'GENERATION PROCESS — follow these steps in order:\nStep 1 — CORE FACT IDENTIFICATION: For each article, write one sentence: the central news fact. Must be the main event or development. Reject: incidental details, descriptive color, quotes, statistics, logistical details, column framing.\nStep 2 — NEWS VALUE CHECK: Confirm the core fact passes at least one: decision/approval, new development/opening, major event/milestone, notable person action/statement, visible community change, public controversy.\nStep 3 — QUESTION WRITING: Write a question that tests the core fact. Not a secondary detail.\nStep 4 — OUTPUT: Return JSON only. Include a \'coreFacts\' array (one sentence per question, your Step 1 result) alongside the questions array — this is used for debugging.\n\n' +
+'GENERATION PROCESS — work through these steps in your head before outputting anything:\nStep 1 — CORE FACT: For each article, identify one sentence: the central news fact (main event/development). Reject: incidental details, descriptive color, quotes, statistics, logistical details, column framing.\nStep 2 — NEWS VALUE CHECK: Confirm the core fact is: a decision/approval, new development/opening, major event/milestone, notable person action/statement, visible community change, or public controversy.\nStep 3 — QUESTION: Write a question testing the core fact only.\nDo all of this silently. Output ONLY the final JSON object — no preamble, no reasoning, no markdown. Your entire response must start with { and end with }.\nInclude a coreFacts array in the JSON (one sentence per question from Step 1) for debugging.\n\n' +
     'OUTPUT: Respond with ONLY valid JSON. No preamble, no markdown. Start with { and end with }.\n\n' +
     'IMPORTANT: Always write questions for ALL 6 assigned articles. Never return an empty questions array.\n' +
     'Set staleWarning to true only if articles appear more than 3 days old.\n\n' +
@@ -3519,7 +3535,10 @@ function parseQuestions(text) {
   // Find JSON object
   const start = clean.indexOf('{');
   const end = clean.lastIndexOf('}');
-  if (start === -1 || end === -1) throw new Error('No JSON found in response');
+  if (start === -1 || end === -1) {
+    console.warn('[parseQuestions] No JSON found. Response preview:', text.slice(0, 400));
+    throw new Error('No JSON found in response. Claude said: ' + text.slice(0, 120).replace(/\n/g, ' '));
+  }
   clean = clean.slice(start, end+1);
   const parsed = JSON.parse(clean);
 
