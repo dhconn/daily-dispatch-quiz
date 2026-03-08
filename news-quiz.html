@@ -1292,8 +1292,11 @@
 
   <!-- ARCHIVE BANNER (shown in archive mode) -->
   <div id="archive-banner" class="archive-banner" style="display:none;">
-    📰 ARCHIVE MODE — Scores are not recorded &nbsp;·&nbsp; <span id="archive-date-label"></span> &nbsp;·&nbsp;
-    <span style="cursor:pointer;text-decoration:underline;" onclick="exitArchiveMode()">Exit Archive</span>
+    📰 ARCHIVE MODE — Scores are not recorded &nbsp;·&nbsp; <span id="archive-date-label"></span>
+    <div style="display:flex;gap:10px;justify-content:center;margin-top:8px;">
+      <button onclick="showArchiveBrowser()" style="font-family:monospace;font-size:11px;padding:4px 12px;background:none;border:1px solid currentColor;cursor:pointer;border-radius:2px;">◂ Return to Archive</button>
+      <button onclick="exitArchiveMode()" style="font-family:monospace;font-size:11px;padding:4px 12px;background:none;border:1px solid currentColor;cursor:pointer;border-radius:2px;">Today's Quiz ▸</button>
+    </div>
   </div>
 
   <!-- ARCHIVE BROWSER SCREEN -->
