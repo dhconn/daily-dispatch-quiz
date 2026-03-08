@@ -522,23 +522,28 @@ app.get('/api/scores', async (req, res) => {
 // ── Archive (used article URLs + question text) ───────────────
 app.get('/api/archive', async (req, res) => {
   const data = await readData();
-  res.json({ urls: data.archiveUrls || [], questions: data.archiveQuestions || [] });
+  res.json({ urls: data.archiveUrls || [], questions: data.archiveQuestions || [], slugs: data.archiveSlugs || [] });
 });
 
 app.post('/api/archive', async (req, res) => {
-  const { urls, questions } = req.body;
+  const { urls, questions, slugs } = req.body;
   const data = await readData();
   if (!data.archiveUrls) data.archiveUrls = [];
   if (!data.archiveQuestions) data.archiveQuestions = [];
+  if (!data.archiveSlugs) data.archiveSlugs = [];
   if (urls) {
     urls.forEach(u => { if (!data.archiveUrls.includes(u)) data.archiveUrls.push(u); });
   }
   if (questions) {
     questions.forEach(q => { if (!data.archiveQuestions.includes(q)) data.archiveQuestions.push(q); });
   }
+  if (slugs) {
+    slugs.forEach(s => { if (s && !data.archiveSlugs.includes(s)) data.archiveSlugs.push(s); });
+  }
   // Keep last 60 entries (~1 week)
   if (data.archiveUrls.length > 60) data.archiveUrls = data.archiveUrls.slice(-60);
   if (data.archiveQuestions.length > 60) data.archiveQuestions = data.archiveQuestions.slice(-60);
+  if (data.archiveSlugs.length > 60) data.archiveSlugs = data.archiveSlugs.slice(-60);
   await writeData(data);
   res.json({ ok: true });
 });
