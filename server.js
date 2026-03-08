@@ -1,80 +1,39 @@
 const express = require('express');
 const https = require('https');
 const http = require('http');
-const { Pool } = require('pg');
+const fs = require('fs');
 const path = require('path');
 
 const app = express();
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 3001;
+const DATA_FILE = path.join('/tmp', 'quiz-data.json');
 
 app.use(express.json({ limit: '2mb' }));
 app.use(express.static(path.dirname(__filename)));
 
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS, DELETE');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.sendStatus(204);
   next();
 });
 
-// ── Postgres connection ───────────────────────────────────────
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
-});
-
-// ── Key-value store backed by Postgres ───────────────────────
-// Single table: store(key TEXT PRIMARY KEY, value JSONB)
-// This mirrors the old await readData()/await writeData() pattern exactly.
-
-async function initDb() {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS store (
-      key TEXT PRIMARY KEY,
-      value JSONB NOT NULL
-    )
-  `);
-  console.log('DB: store table ready.');
+// ── Simple file-based data store ─────────────────────────────
+function readData() {
+  try {
+    if (fs.existsSync(DATA_FILE)) {
+      return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+    }
+  } catch(e) {}
+  return {};
 }
 
-async function getKey(key) {
+function writeData(data) {
   try {
-    const r = await pool.query('SELECT value FROM store WHERE key=$1', [key]);
-    return r.rows.length ? r.rows[0].value : null;
-  } catch(e) { console.error('getKey error', key, e.message); return null; }
-}
-
-async function setKey(key, value) {
-  try {
-    await pool.query(
-      'INSERT INTO store(key,value) VALUES($1,$2) ON CONFLICT(key) DO UPDATE SET value=$2',
-      [key, JSON.stringify(value)]
-    );
+    fs.writeFileSync(DATA_FILE, JSON.stringify(data), 'utf8');
     return true;
-  } catch(e) { console.error('setKey error', key, e.message); return false; }
-}
-
-// Legacy sync-style shims — kept so the rest of the code changes minimally.
-// All callers that used await readData()/await writeData() now use async versions below.
-async function readData() {
-  const keys = ['sites','rssCache','scores','dist','quizzes','archiveUrls',
-                 'archiveQuestions','posts','messages','subscribers'];
-  const data = {};
-  await Promise.all(keys.map(async k => {
-    const v = await getKey(k);
-    if (v !== null) data[k] = v;
-  }));
-  return data;
-}
-
-async function writeData(data) {
-  const keys = ['sites','rssCache','scores','dist','quizzes','archiveUrls',
-                 'archiveQuestions','posts','messages','subscribers'];
-  await Promise.all(keys.map(async k => {
-    if (data[k] !== undefined) await setKey(k, data[k]);
-  }));
-  return true;
+  } catch(e) { return false; }
 }
 
 // ── RSS feed fetcher ─────────────────────────────────────────
@@ -175,7 +134,7 @@ function isRecent(pubDate) {
 // The cache is refreshed on startup and via the /api/rss/refresh endpoint.
 
 async function fetchAndCacheRSS() {
-  const data = await readData();
+  const data = readData();
   const savedSites = (data.sites || '').split('\n').map(s => s.trim()).filter(Boolean)
     .filter(s => !s.includes('google.com') && !s.includes('therealnews.com')); // skip non-RSS sources
   if (!savedSites.length) {
@@ -311,17 +270,18 @@ async function fetchAndCacheRSS() {
   });
 
   // Save to data file
-  const freshData = await readData();
+  const freshData = readData();
   freshData.rssCache = {
     items: unique.slice(0, 100),
     fetchedAt: new Date().toISOString(),
     errors: errors.length ? errors : []
   };
-  await writeData(freshData);
+  writeData(freshData);
   console.log(`RSS: Cached ${unique.length} articles. Errors: ${errors.length}`);
 }
 
-// ── Email helper (Resend) ─────────────────────────────────────
+// Fetch RSS on startup (after a short delay to let the server settle)
+setTimeout(fetchAndCacheRSS, 5000);
 
 // Scheduled daily refresh at 6am Eastern time
 function scheduleNextRefresh() {
@@ -341,8 +301,8 @@ function scheduleNextRefresh() {
 scheduleNextRefresh();
 
 // ── GET /api/rss/debug — show all cached articles grouped by source ──
-app.get('/api/rss/debug', async (req, res) => {
-  const data = await readData();
+app.get('/api/rss/debug', (req, res) => {
+  const data = readData();
   const cache = data.rssCache || { items: [], fetchedAt: null };
   
   // Group by source
@@ -363,8 +323,8 @@ app.get('/api/rss/debug', async (req, res) => {
 });
 
 // ── GET /api/rss — return cached articles ─────────────────────
-app.get('/api/rss', async (req, res) => {
-  const data = await readData();
+app.get('/api/rss', (req, res) => {
+  const data = readData();
   const cache = data.rssCache || { items: [], fetchedAt: null, errors: [] };
   res.json(cache);
 });
@@ -376,31 +336,31 @@ app.post('/api/rss/refresh', async (req, res) => {
 });
 
 // ── Redirect root to quiz ────────────────────────────────────
-app.get('/', async (req, res) => {
+app.get('/', (req, res) => {
   res.redirect('/news-quiz.html');
 });
 
 // ── Save/load news sites ──────────────────────────────────────
-app.post('/api/sites', async (req, res) => {
+app.post('/api/sites', (req, res) => {
   const { sites } = req.body;
   if (typeof sites !== 'string') return res.status(400).json({ error: 'sites must be a string' });
-  const data = await readData();
+  const data = readData();
   data.sites = sites;
-  await writeData(data);
+  writeData(data);
   res.json({ ok: true });
 });
 
-app.get('/api/sites', async (req, res) => {
-  const data = await readData();
+app.get('/api/sites', (req, res) => {
+  const data = readData();
   res.json({ sites: data.sites || '' });
 });
 
 // ── Answer distribution aggregation ──────────────────────────
 // POST /api/answers  { date, answers: [{qIdx, correct}] }
-app.post('/api/answers', async (req, res) => {
+app.post('/api/answers', (req, res) => {
   const { date, answers } = req.body;
   if (!date || !Array.isArray(answers)) return res.status(400).json({ error: 'bad request' });
-  const data = await readData();
+  const data = readData();
   if (!data.dist) data.dist = {};
   if (!data.dist[date]) data.dist[date] = {};
   answers.forEach(({ qIdx, correct }) => {
@@ -409,36 +369,16 @@ app.post('/api/answers', async (req, res) => {
     if (correct) data.dist[date][k].correct++;
     else data.dist[date][k].wrong++;
   });
-  await writeData(data);
+  writeData(data);
   res.json({ ok: true });
 });
 
 // GET /api/answers?date=YYYY-MM-DD
-app.get('/api/answers', async (req, res) => {
+app.get('/api/answers', (req, res) => {
   const { date } = req.query;
   if (!date) return res.status(400).json({ error: 'date required' });
-  const data = await readData();
+  const data = readData();
   res.json((data.dist && data.dist[date]) || {});
-});
-
-// ── Quiz start tracking ───────────────────────────────────────
-// Records when a player starts the quiz — used for completion rate.
-// POST /api/quiz-start  { date }
-app.post('/api/quiz-start', async (req, res) => {
-  const { date } = req.body;
-  if (!date) return res.status(400).json({ error: 'date required' });
-  const starts = (await getKey('quizStarts')) || {};
-  starts[date] = (starts[date] || 0) + 1;
-  await setKey('quizStarts', starts);
-  res.json({ ok: true });
-});
-
-// GET /api/quiz-starts?date=YYYY-MM-DD
-app.get('/api/quiz-starts', async (req, res) => {
-  const { date } = req.query;
-  if (!date) return res.status(400).json({ error: 'date required' });
-  const starts = (await getKey('quizStarts')) || {};
-  res.json({ starts: starts[date] || 0, date });
 });
 
 // ── Article text fetcher ──────────────────────────────────────
@@ -494,12 +434,12 @@ app.post('/api/fetch-article', async (req, res) => {
 // ── Leaderboard ───────────────────────────────────────────────
 // Scores stored as data.scores = { playerKey: { displayName, allTime, dailyScores: {date: score} } }
 
-app.post('/api/scores', async (req, res) => {
+app.post('/api/scores', (req, res) => {
   const { playerName, date, score } = req.body;
   if (!playerName || !date || typeof score !== 'number') {
     return res.status(400).json({ error: 'playerName, date, and score required' });
   }
-  const data = await readData();
+  const data = readData();
   if (!data.scores) data.scores = {};
   const key = playerName.toLowerCase().trim();
   if (!data.scores[key]) {
@@ -510,294 +450,72 @@ app.post('/api/scores', async (req, res) => {
     data.scores[key].dailyScores[date] = score;
     data.scores[key].allTime = Object.values(data.scores[key].dailyScores).reduce((a,b) => a+b, 0);
   }
-  await writeData(data);
+  writeData(data);
   res.json({ ok: true });
 });
 
-app.get('/api/scores', async (req, res) => {
-  const data = await readData();
+app.get('/api/scores', (req, res) => {
+  const data = readData();
   res.json({ scores: data.scores || {} });
 });
 
 // ── Archive (used article URLs + question text) ───────────────
-app.get('/api/archive', async (req, res) => {
-  const data = await readData();
-  res.json({ urls: data.archiveUrls || [], questions: data.archiveQuestions || [], slugs: data.archiveSlugs || [] });
+app.get('/api/archive', (req, res) => {
+  const data = readData();
+  res.json({ urls: data.archiveUrls || [], questions: data.archiveQuestions || [] });
 });
 
-app.post('/api/archive', async (req, res) => {
-  const { urls, questions, slugs } = req.body;
-  const data = await readData();
+app.post('/api/archive', (req, res) => {
+  const { urls, questions } = req.body;
+  const data = readData();
   if (!data.archiveUrls) data.archiveUrls = [];
   if (!data.archiveQuestions) data.archiveQuestions = [];
-  if (!data.archiveSlugs) data.archiveSlugs = [];
   if (urls) {
     urls.forEach(u => { if (!data.archiveUrls.includes(u)) data.archiveUrls.push(u); });
   }
   if (questions) {
     questions.forEach(q => { if (!data.archiveQuestions.includes(q)) data.archiveQuestions.push(q); });
   }
-  if (slugs) {
-    slugs.forEach(s => { if (s && !data.archiveSlugs.includes(s)) data.archiveSlugs.push(s); });
-  }
   // Keep last 60 entries (~1 week)
   if (data.archiveUrls.length > 60) data.archiveUrls = data.archiveUrls.slice(-60);
   if (data.archiveQuestions.length > 60) data.archiveQuestions = data.archiveQuestions.slice(-60);
-  if (data.archiveSlugs.length > 60) data.archiveSlugs = data.archiveSlugs.slice(-60);
-  await writeData(data);
+  writeData(data);
   res.json({ ok: true });
-});
-
-// ── Subscribers ───────────────────────────────────────────────
-// Stored as data.subscribers = { email: { name, subscribedAt, active } }
-
-app.post('/api/subscribe', async (req, res) => {
-  const { name, email } = req.body;
-  if (!email || !email.includes('@')) return res.status(400).json({ error: 'Valid email required.' });
-  const data = await readData();
-  if (!data.subscribers) data.subscribers = {};
-  const key = email.toLowerCase().trim();
-  data.subscribers[key] = {
-    name: (name || '').trim().slice(0, 40),
-    email: key,
-    subscribedAt: data.subscribers[key]?.subscribedAt || new Date().toISOString(),
-    active: true
-  };
-  await writeData(data);
-  res.json({ ok: true });
-});
-
-app.get('/api/unsubscribe', async (req, res) => {
-  const { email } = req.query;
-  if (!email) return res.status(400).send('Missing email.');
-  const data = await readData();
-  const key = decodeURIComponent(email).toLowerCase().trim();
-  if (data.subscribers && data.subscribers[key]) {
-    data.subscribers[key].active = false;
-    await writeData(data);
-  }
-  res.send(`
-    <html><body style="font-family:Georgia,serif;max-width:500px;margin:60px auto;text-align:center;">
-      <h2>You've been unsubscribed.</h2>
-      <p style="color:#666;">You won't receive any more quiz notifications at ${key}.</p>
-      <p><a href="/">Return to the quiz</a></p>
-    </body></html>
-  `);
-});
-
-// Helper: get today's date in Eastern time (quiz is Baltimore-based)
-function easternToday() {
-  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
-}
-
-// ── GET /api/quiz/latest — always return the most recently published quiz ──
-app.get('/api/quiz/latest', async (req, res) => {
-  const data = await readData();
-  if (!data.quizzes) return res.json({ quiz: null });
-  const dates = Object.keys(data.quizzes).sort();
-  if (dates.length === 0) return res.json({ quiz: null });
-  const mostRecent = dates[dates.length - 1];
-  res.json({ quiz: data.quizzes[mostRecent], date: mostRecent });
-});
-
-// ── POST /api/quiz/fix-date — copy most recent quiz to today's Eastern date ──
-app.post('/api/quiz/fix-date', async (req, res) => {
-  const data = await readData();
-  if (!data.quizzes) return res.status(404).json({ error: 'No quizzes found' });
-  const dates = Object.keys(data.quizzes).sort();
-  if (dates.length === 0) return res.status(404).json({ error: 'No quizzes found' });
-  const mostRecent = dates[dates.length - 1];
-  // Get today in Eastern time
-  const todayEastern = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
-  if (mostRecent === todayEastern) {
-    return res.json({ ok: true, message: 'Already stored under correct date', date: mostRecent });
-  }
-  // Copy to today's key
-  data.quizzes[todayEastern] = { ...data.quizzes[mostRecent], publishDate: todayEastern };
-  await writeData(data);
-  res.json({ ok: true, message: `Copied from ${mostRecent} to ${todayEastern}`, from: mostRecent, to: todayEastern });
-});
-
-// ── Generate teaser phrases for email ────────────────────────
-async function generateTeasers(questions) {
-  return new Promise((resolve) => {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) { resolve([]); return; }
-    const questionList = questions.map((q, i) => `Q${i+1}: ${q.question}`).join('\n');
-    const prompt = `You are writing teaser lines for a Baltimore local news quiz email.
-Here are today's quiz questions:
-${questionList}
-
-Pick the 3 most interesting or surprising topics. For each, write a 3-5 word teaser phrase that hints at the topic without giving away the answer.
-Style: slightly mysterious, intriguing, like a newspaper front page tease.
-Examples: "A soccer superstar arrives", "Cheese steaks cross state lines", "The Constitution meets zoning law"
-
-Respond with ONLY a JSON array of 3 strings. No preamble, no markdown.`;
-
-    const body = JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 150,
-      messages: [{ role: 'user', content: prompt }]
-    });
-
-    const req = https.request({
-      hostname: 'api.anthropic.com',
-      path: '/v1/messages',
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'Content-Length': Buffer.byteLength(body)
-      }
-    }, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        try {
-          const parsed = JSON.parse(data);
-          const text = (parsed.content || []).map(c => c.text || '').join('').trim();
-          const clean = text.replace(/```json|```/g, '').trim();
-          const teasers = JSON.parse(clean);
-          resolve(Array.isArray(teasers) ? teasers.slice(0, 3) : []);
-        } catch(e) {
-          console.warn('Teaser parse failed:', e.message);
-          resolve([]);
-        }
-      });
-    });
-    req.on('error', (e) => { console.warn('Teaser request failed:', e.message); resolve([]); });
-    req.setTimeout(15000, () => { req.destroy(); resolve([]); });
-    req.write(body);
-    req.end();
-  });
-}
-
-function buildTeaserHtml(teasers) {
-  if (!teasers || teasers.length === 0) return '';
-  return `
-    <div style="margin:0 0 28px;padding:20px;background:#fff;border:1px solid #e0d8cc;text-align:left;">
-      <div style="font-family:monospace;font-size:10px;letter-spacing:2px;color:#999;margin-bottom:12px;">TODAY'S TOPICS INCLUDE…</div>
-      ${teasers.map(t => `<div style="font-family:Georgia,serif;font-size:15px;color:#1a1008;padding:6px 0;border-bottom:1px solid #f0ebe0;">· ${t}</div>`).join('')}
-    </div>`;
-}
-
-function buildEmailHtml(siteUrl, date, subscriberName, teaserHtml, unsubUrl) {
-  return `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1008;">
-    <div style="background:#1a1008;color:#f5f0e8;text-align:center;padding:24px;">
-      <div style="font-family:monospace;font-size:11px;letter-spacing:3px;color:#f0c040;margin-bottom:6px;">BALTIMORE · DAILY DISPATCH</div>
-      <div style="font-size:28px;font-weight:bold;">The Daily Dispatch Quiz</div>
-      <div style="font-family:monospace;font-size:10px;letter-spacing:2px;color:#aaa;margin-top:6px;">${date}</div>
-    </div>
-    <div style="padding:32px 24px;background:#f5f0e8;text-align:center;">
-      <p style="font-size:18px;margin:0 0 8px;">Hi${subscriberName ? ' ' + subscriberName : ''},</p>
-      <p style="font-size:16px;color:#444;margin:0 0 24px;">Today's quiz is live. How well do you know Baltimore?</p>
-      ${teaserHtml}
-      <a href="${siteUrl}" style="display:inline-block;background:#1a1008;color:#f5f0e8;padding:16px 36px;font-family:monospace;font-size:13px;letter-spacing:2px;text-decoration:none;text-transform:uppercase;">Play Today's Quiz ▸</a>
-    </div>
-    <div style="padding:16px 24px;text-align:center;font-size:11px;color:#999;font-family:monospace;border-top:1px solid #e0d8cc;">
-      <a href="${unsubUrl}" style="color:#999;">Unsubscribe</a>
-    </div>
-  </div>`;
-}
-
-// ── GET /api/quiz/preview-email — generate teaser preview for admin ──
-app.get('/api/quiz/preview-email', async (req, res) => {
-  const data = await readData();
-  const dates = Object.keys(data.quizzes || {}).sort();
-  if (!dates.length) return res.json({ html: '<p>No quiz published yet.</p>' });
-  const mostRecent = dates[dates.length - 1];
-  const quiz = data.quizzes[mostRecent];
-  const siteUrl = process.env.SITE_URL || 'https://dailydispatchquiz.com';
-  const teasers = await generateTeasers(quiz.questions || []);
-  const teaserHtml = buildTeaserHtml(teasers);
-  const html = buildEmailHtml(siteUrl, mostRecent, 'Subscriber', teaserHtml, siteUrl + '/api/unsubscribe?email=example');
-  res.json({ html, teasers });
-});
-
-
-app.get('/api/quiz/all', async (req, res) => {
-  const data = await readData();
-  res.json({ quizzes: data.quizzes || {} });
-});
-
-// ── GET /api/quiz/archive — return list of available past quiz dates ──
-app.get('/api/quiz/archive', async (req, res) => {
-  const data = await readData();
-  const quizzes = data.quizzes || {};
-  const today = easternToday();
-  // Return all dates except today, sorted newest first, capped at 7
-  const dates = Object.keys(quizzes)
-    .filter(d => d !== today)
-    .sort()
-    .reverse()
-    .slice(0, 7);
-  res.json({ dates });
-});
-
-// ── GET /api/subscribers — return subscriber list for admin ───
-app.get('/api/subscribers', async (req, res) => {
-  const data = await readData();
-  const subs = Object.values(data.subscribers || {})
-    .sort((a, b) => new Date(b.subscribedAt) - new Date(a.subscribedAt));
-  res.json({ subscribers: subs });
 });
 
 // ── Quiz persistence ──────────────────────────────────────────
 // Save published quiz to server so it survives browser/device changes
-app.post('/api/quiz', async (req, res) => {
-  const { date, quiz, silent } = req.body;
+app.post('/api/quiz', (req, res) => {
+  const { date, quiz } = req.body;
   if (!date || !quiz) return res.status(400).json({ error: 'date and quiz required' });
-  const data = await readData();
+  const data = readData();
   if (!data.quizzes) data.quizzes = {};
   data.quizzes[date] = quiz;
   // Keep only last 14 days
   const keys = Object.keys(data.quizzes).sort();
   if (keys.length > 14) keys.slice(0, keys.length - 14).forEach(k => delete data.quizzes[k]);
-  await writeData(data);
-
-  // Send notification emails — skipped for silent saves (emergency save, edits, fixes)
-  if (!silent) {
-    const siteUrl = process.env.SITE_URL || 'https://your-app.railway.app';
-    const subscribers = Object.values(data.subscribers || {}).filter(s => s.active);
-    if (subscribers.length > 0) {
-      console.log(`Email: Sending quiz notification to ${subscribers.length} subscribers…`);
-      const teasers = await generateTeasers(quiz.questions || []);
-      const teaserHtml = buildTeaserHtml(teasers);
-      console.log('Email teasers:', teasers.length ? teasers : 'none generated');
-      for (const sub of subscribers) {
-        const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(sub.email)}`;
-        const emailHtml = buildEmailHtml(siteUrl, date, sub.name, teaserHtml, unsubUrl);
-        sendEmail(sub.email, `Today's Baltimore Daily Dispatch Quiz is live — ${date}`, emailHtml).catch(() => {});
-      }
-    }
-  } else {
-    console.log('Silent save — email notifications skipped.');
-  }
-
+  writeData(data);
   res.json({ ok: true });
 });
 
-app.get('/api/quiz', async (req, res) => {
+app.get('/api/quiz', (req, res) => {
   const { date } = req.query;
-  const data = await readData();
+  if (!date) return res.status(400).json({ error: 'date required' });
+  const data = readData();
   if (!data.quizzes) return res.json({ quiz: null });
 
+  // Return today's quiz if available
+  if (data.quizzes[date]) return res.json({ quiz: data.quizzes[date] });
+
+  // Fall back to most recently published quiz
   const dates = Object.keys(data.quizzes).sort();
   if (dates.length === 0) return res.json({ quiz: null });
-
-  // Exact date match
-  if (date && data.quizzes[date]) {
-    return res.json({ quiz: data.quizzes[date], date });
-  }
-
-  // Always fall back to most recently published quiz regardless of date
   const mostRecent = dates[dates.length - 1];
-  res.json({ quiz: data.quizzes[mostRecent], date: mostRecent, fallback: true });
+  res.json({ quiz: data.quizzes[mostRecent], fallback: true, fallbackDate: mostRecent });
 });
 
 // ── Anthropic API proxy ───────────────────────────────────────
-app.post('/api/claude', async (req, res) => {
+app.post('/api/claude', (req, res) => {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return res.status(500).json({
@@ -830,21 +548,13 @@ app.post('/api/claude', async (req, res) => {
 });
 
 // ── Start ─────────────────────────────────────────────────────
-initDb().then(() => {
-  app.listen(PORT, () => {
-    console.log(`Daily Dispatch Quiz running on port ${PORT}`);
-    if (process.env.ANTHROPIC_API_KEY) {
-      console.log('✓ Using Anthropic API');
-    } else {
-      console.log('⚠ WARNING: ANTHROPIC_API_KEY is not set.');
-    }
-  });
-  // Fetch RSS after DB is ready
-  setTimeout(fetchAndCacheRSS, 5000);
-  scheduleNextRefresh();
-}).catch(err => {
-  console.error('DB init failed:', err.message);
-  process.exit(1);
+app.listen(PORT, () => {
+  console.log(`Daily Dispatch Quiz running on port ${PORT}`);
+  if (process.env.ANTHROPIC_API_KEY) {
+    console.log('✓ Using Anthropic API');
+  } else {
+    console.log('⚠ WARNING: ANTHROPIC_API_KEY is not set.');
+  }
 });
 
 // ── Email helper (Resend) ─────────────────────────────────────
@@ -855,7 +565,7 @@ async function sendEmail(to, subject, html) {
     return false;
   }
   const body = JSON.stringify({
-    from: 'Editor @ Daily Dispatch Quiz <editor@dailydispatchquiz.com>',
+    from: 'Baltimore Daily Dispatch Quiz <onboarding@resend.dev>',
     to: [to],
     subject,
     html
@@ -883,19 +593,19 @@ async function sendEmail(to, subject, html) {
 // ── Message board ─────────────────────────────────────────────
 // Posts stored as data.posts = [{ id, playerName, text, createdAt, deleted }]
 
-app.get('/api/posts', async (req, res) => {
-  const data = await readData();
+app.get('/api/posts', (req, res) => {
+  const data = readData();
   const posts = (data.posts || []).filter(p => !p.deleted);
   res.json({ posts });
 });
 
-app.post('/api/posts', async (req, res) => {
+app.post('/api/posts', (req, res) => {
   const { playerName, text } = req.body;
   if (!playerName || !playerName.trim()) return res.status(400).json({ error: 'Player name required.' });
   if (!text || !text.trim()) return res.status(400).json({ error: 'Message text required.' });
   if (text.length > 500) return res.status(400).json({ error: 'Message too long (500 char max).' });
 
-  const data = await readData();
+  const data = readData();
   if (!data.posts) data.posts = [];
   const post = {
     id: Date.now().toString(),
@@ -905,16 +615,16 @@ app.post('/api/posts', async (req, res) => {
   };
   data.posts.unshift(post); // newest first
   if (data.posts.length > 200) data.posts = data.posts.slice(0, 200); // cap at 200
-  await writeData(data);
+  writeData(data);
   res.json({ ok: true, post });
 });
 
-app.delete('/api/posts/:id', async (req, res) => {
-  const data = await readData();
+app.delete('/api/posts/:id', (req, res) => {
+  const data = readData();
   const post = (data.posts || []).find(p => p.id === req.params.id);
   if (!post) return res.status(404).json({ error: 'Post not found.' });
   post.deleted = true;
-  await writeData(data);
+  writeData(data);
   res.json({ ok: true });
 });
 
@@ -927,7 +637,7 @@ app.post('/api/contact', async (req, res) => {
   if (!text || !text.trim()) return res.status(400).json({ error: 'Message required.' });
   if (text.length > 1000) return res.status(400).json({ error: 'Message too long (1000 char max).' });
 
-  const data = await readData();
+  const data = readData();
   if (!data.messages) data.messages = [];
   const msg = {
     id: Date.now().toString(),
@@ -937,7 +647,7 @@ app.post('/api/contact', async (req, res) => {
     read: false
   };
   data.messages.unshift(msg);
-  await writeData(data);
+  writeData(data);
 
   // Forward to editor's email
   const editorEmail = process.env.EDITOR_EMAIL;
@@ -957,14 +667,14 @@ app.post('/api/contact', async (req, res) => {
   res.json({ ok: true });
 });
 
-app.get('/api/messages', async (req, res) => {
-  const data = await readData();
+app.get('/api/messages', (req, res) => {
+  const data = readData();
   res.json({ messages: data.messages || [] });
 });
 
-app.post('/api/messages/:id/read', async (req, res) => {
-  const data = await readData();
+app.post('/api/messages/:id/read', (req, res) => {
+  const data = readData();
   const msg = (data.messages || []).find(m => m.id === req.params.id);
-  if (msg) { msg.read = true; await writeData(data); }
+  if (msg) { msg.read = true; writeData(data); }
   res.json({ ok: true });
 });
