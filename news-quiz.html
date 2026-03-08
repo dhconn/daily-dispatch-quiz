@@ -2935,7 +2935,9 @@ async function generateQuestions() {
             // Downweight: individual incidents
             if (/\b(shooting|homicide|stabbing|crash|arrest|charged?|indicted?|sentenced?)\b/.test(t)) score -= 3;
             // Downweight: opinion/analysis
-            if (/\b(opinion|editorial|commentary|analysis|column|perspective|why |how to)\b/.test(t)) score -= 2;
+            if (/\b(opinion|editorial|commentary|analysis|column|perspective|why |how to)\b/.test(t)) score -= 4;
+            // Also penalize opinion/column URLs
+            if (/\/opinion\/|\/column\/|\/commentary\/|\/perspective\//.test(item.link || '')) score -= 3;
             return score;
           }
 
@@ -3218,6 +3220,20 @@ function showRawDebug(text) {
   const el = document.getElementById('raw-debug');
   el.style.display = 'block';
   document.getElementById('raw-debug-text').textContent = text;
+
+  // Show coreFacts in console if present
+  try {
+    const bt = String.fromCharCode(96); const fence = bt+bt+bt;
+    let clean = text.split(fence+'json').join('').split(fence).join('').trim();
+    const start = clean.indexOf('{'); const end = clean.lastIndexOf('}');
+    if (start !== -1 && end !== -1) {
+      const parsed = JSON.parse(clean.slice(start, end+1));
+      if (parsed.coreFacts && parsed.coreFacts.length) {
+        console.log('[CoreFacts] Claude\'s story summaries:');
+        parsed.coreFacts.forEach((f, i) => console.log(`  Q${i+1}: ${f}`));
+      }
+    }
+  } catch(e) {}
 }
 
 function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote, rssContent, isFeedMode, allArchiveUrls, allArchiveSlugs) {
@@ -3249,19 +3265,26 @@ function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote,
   }
 
   function topicsOverlap(h1, h2) {
-    // If either headline contains a new outcome verb, allow it through —
-    // a story that has advanced (bill passed vs. bill considered) is fresh news
-    // even if it shares topic words with an earlier story.
-    const outcomeVerbs = /\b(passed?|approved?|signed|enacted|launched|opened?|announced?|awarded?|funded|broke ground|breaking ground|unveiled?|elected?|appointed?|resigned?|fired?)\b/i;
-    if (outcomeVerbs.test(h1) || outcomeVerbs.test(h2)) return false;
-
-    // Named entity check: if both headlines share a proper noun (capitalized word
-    // 4+ chars, not a stop word) that's a strong signal they cover the same event
-    const namedEntityStops = new Set(['Baltimore','Maryland','City','County','State','Federal','Local','North','South','East','West','Johns','Hopkins']);
+    // Named entity check first: if both headlines share a proper noun (capitalized
+    // word 4+ chars, not a generic stop word) that's a strong signal of same event.
+    // We check this BEFORE the outcome verb exception — a second article about
+    // "Coca-Cola explosion" is still the same event even if it has new details.
+    const namedEntityStops = new Set(['Baltimore','Maryland','City','County','State','Federal','Local','North','South','East','West','Johns','Hopkins','Avenue','Street','Police','Officer']);
     const namedEntities = h => (h.match(/\b[A-Z][a-z]{3,}\b/g) || []).filter(w => !namedEntityStops.has(w));
     const e1 = new Set(namedEntities(h1));
     const shared = namedEntities(h2).filter(w => e1.has(w));
     if (shared.length >= 1) return true;
+
+    // Also catch hyphenated brand/company names by checking lowercased full match
+    // e.g. "coca-cola" appears in both → same event
+    const brands = h => (h.toLowerCase().match(/\b[a-z]+-[a-z]+\b/g) || []);
+    const b1 = new Set(brands(h1));
+    if (brands(h2).some(b => b1.has(b))) return true;
+
+    // Outcome verb exception: only applies when no named entity overlap found above.
+    // A story that has advanced (bill passed vs. bill considered) is fresh news.
+    const outcomeVerbs = /\b(passed?|approved?|signed|enacted|launched|opened?|announced?|awarded?|funded|broke ground|breaking ground|unveiled?|elected?|appointed?|resigned?)\b/i;
+    if (outcomeVerbs.test(h1) || outcomeVerbs.test(h2)) return false;
 
     const w1 = new Set(topicWords(h1));
     return topicWords(h2).filter(w => w1.has(w)).length >= 2;
@@ -3395,7 +3418,8 @@ function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote,
     '- Avoid multiple questions that feel like they are all about a meeting or officials discussing something. Prefer outcomes and decisions over process and proposals.\n' +
 '- NEVER ask who wrote, authored, or contributed an article or commentary. The author byline is never a quiz-worthy fact. Ask about the substance — what was argued, what was proposed, what the implications are.\n' +
     '- NEVER reference the publication, outlet, or writer in the question itself. Questions test news and events, not news coverage. Wrong: "A Baltimore Banner writer discovered...", "According to a Baltimore Sun report...", "What did a Fishbowl reporter find...". Right: frame the question around what happened in the world, not who covered it. Rare exception: if the story is explicitly about a publication or journalist as a newsmaker.\n' +
-    '- For opinion or commentary pieces, ask about the central concrete claim or proposal — not who wrote it, not why they argued it, not what impact their argument has. Test the substance: what specific change did they advocate for, what fact did they highlight, what outcome did they predict?\n' +
+'- For opinion or commentary pieces, ask about the central concrete claim or proposal — not who wrote it, not why they argued it, not what impact their argument has. Test the substance: what specific change did they advocate for, what fact did they highlight, what outcome did they predict?\n' +
+    '- COLUMN/FEATURE ARTICLES: These often bury the news hook deep in the piece. Ignore scene-setting opening paragraphs and narrative framing. Look for the concrete civic fact — a decision, opening, development, or change — that the piece is ultimately reporting on. Ask about that fact, not the narrative wrapper around it.\n' +
     '- AVOID questions framed as "Why does X argue...", "What does X reveal about...", "What does this mean for...", "What does X\'s approach show about...", "What does this analysis suggest...", "What impact does...", "What does X illustrate about..." — these produce vague interpretive answers with no single correct answer.\n' +
 '- BANNED QUESTION WORDS: never use "analyze", "analysis", "impact", "reveal", "illustrate", "suggest", "significance", "implication", "reflect", "indicate" as the operative word in a question. If you catch yourself using these words, rewrite the question as a concrete factual one.\n' +
     '- BANNED QUESTION OPENINGS: never begin a question with "What does this reveal", "What does this demonstrate", "What does this suggest", "What does this show", "What does this mean", "What does this say about", "What does X\'s decision reveal", or any variant of these. These produce interpretive answers with no single correct fact. Rewrite as a concrete factual question.\n' +
@@ -3409,15 +3433,15 @@ function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote,
     '  * If the correct answer is an ORGANIZATION or AGENCY, wrong answers should be other real organizations\n' +
     '- Never use obviously unrelated, impossible, or humorous distractors. All four options should feel realistic to someone who follows Baltimore news.\n' +
     '- LENGTH GIVEAWAY: Do not make the correct answer noticeably longer, more detailed, or more specific than the other options. All four options should be similar in length and grammatical form. Readers often guess the longest option — avoid this.\n' +
-'- HOOK-FIRST RULE: Before writing each question, identify the story hook — the single fact a reader would mention when describing this story to a friend. Write that hook down internally first. The question must test that hook directly. If your question could be answered without knowing the hook, rewrite it.\n' +
-    '- MAIN-POINT TEST: The question must test the main fact from the story\'s one-sentence summary — not a supporting detail, not a colorful aside, not a logistical footnote.\n' +
-    '- STORY HOOK: Base each question on the central hook of the article — the most surprising fact, the key decision, the main person involved, or what will change.\n' +
+'- CORE FACT STEP: Before writing each question, identify the central news fact of the story in one sentence. This must describe the main event or development reported — what actually happened. Only generate a question based on that core fact.\n' +
+    '  Valid core facts: "A Coca-Cola bottling facility explosion injured four workers in Baltimore." | "Baltimore County broke ground on Rockdale Park renovations." | "D.C. United hosted Inter Miami in a sold-out match at M&T Bank Stadium."\n' +
+    '  Invalid core facts (reject these): a specific vehicle someone used | a quote from a source | an attendance or crowd figure | a logistical detail like road closure timing | a descriptive detail not central to the story | the author\'s argument or framing in a column\n' +
     '- SALIENT FACT TEST: Ask: would a reader likely remember this detail when summarizing the story to a friend? If not, find a more central fact.\n' +
     '- NEWS VALUE TYPE: Each question must be based on one of these: a decision or approval, a new development or opening, a major event or milestone, a named person\'s notable action or statement, a visible change affecting the community, or a public controversy with clear local significance. Do not base questions on minor descriptive details.\n' +
     '- BANNED DETAIL TYPES: Never write a question whose correct answer is primarily: an attendance figure or crowd count, an exact street closure schedule or timing, a specific vehicle or equipment type, a block number or address fragment, a menu item or food detail unless the story is fundamentally about that item, a neighborhood location unless that neighborhood IS the story.\n' +
     '- BAD QUESTION PATTERNS — never use these framings: "What was the attendance at...", "In which neighborhood did someone find...", "What unusual timing did officials choose for...", "What type of vehicle did an official use...", "How much exactly was budgeted for...", "On which block did...", "What specific tool did..."\n' +
     '- TOPIC BALANCE: Do not over-concentrate on state legislative politics even if it dominates the feeds. Prefer a mix of city life topics: development, transportation, schools, business openings, culture, community news, local government, sports.\n\n' +
-'INTERNAL PLANNING: Before writing any questions, work through these steps silently: 1) For each assigned article, write one sentence: what is this story really about? 2) Identify the single most memorable or important fact — the hook. 3) Confirm the hook passes the news value test (decision, event, milestone, person, change, controversy). 4) Only then write the question from that hook. Do not return your planning. Return only the final JSON.\n\n' +
+'GENERATION PROCESS — follow these steps in order:\nStep 1 — CORE FACT IDENTIFICATION: For each article, write one sentence: the central news fact. Must be the main event or development. Reject: incidental details, descriptive color, quotes, statistics, logistical details, column framing.\nStep 2 — NEWS VALUE CHECK: Confirm the core fact passes at least one: decision/approval, new development/opening, major event/milestone, notable person action/statement, visible community change, public controversy.\nStep 3 — QUESTION WRITING: Write a question that tests the core fact. Not a secondary detail.\nStep 4 — OUTPUT: Return JSON only. Include a \'coreFacts\' array (one sentence per question, your Step 1 result) alongside the questions array — this is used for debugging.\n\n' +
     'OUTPUT: Respond with ONLY valid JSON. No preamble, no markdown. Start with { and end with }.\n\n' +
     'IMPORTANT: Always write questions for ALL 6 assigned articles. Never return an empty questions array.\n' +
     'Set staleWarning to true only if articles appear more than 3 days old.\n\n' +
@@ -3799,10 +3823,35 @@ function updateDraftSourceUrl(i, val) {
   if (draft && draft.questions[i]) { draft.questions[i].sourceUrl = val; saveDraftQuiz(draft); }
 }
 
+
+function validateQuestions(questions) {
+  const errors = [];
+  if (!questions || questions.length < 6) {
+    errors.push('Need exactly 6 questions, found ' + (questions ? questions.length : 0));
+  }
+  (questions || []).forEach((q, i) => {
+    const label = 'Q' + (i+1);
+    if (!q.question || q.question.trim().length < 10) errors.push(label + ': question text missing or too short');
+    if (!Array.isArray(q.options) || q.options.length !== 4) errors.push(label + ': must have exactly 4 options');
+    if (typeof q.correctIndex !== 'number' || q.correctIndex < 0 || q.correctIndex > 3) errors.push(label + ': correctIndex must be 0-3');
+    if (!q.sourceUrl || q.sourceUrl.trim().length < 10) errors.push(label + ': sourceUrl missing');
+    if (!q.explanation || q.explanation.trim().length < 10) errors.push(label + ': explanation missing or too short');
+    if (!q.difficulty) errors.push(label + ': difficulty missing');
+  });
+  return errors;
+}
+
 async function publishQuestions() {
   const draft = getDraftQuiz();
   if (!draft || !draft.questions) { setStatus('No draft to publish.', 'error'); return; }
-  if (draft.questions.length < 6) { setStatus('Draft has only ' + draft.questions.length + ' unique questions (need 6) — please regenerate.', 'error'); return; }
+
+  // Validate before publishing
+  const validationErrors = validateQuestions(draft.questions);
+  if (validationErrors.length > 0) {
+    setStatus('Cannot publish — quiz has errors: ' + validationErrors.join(' | '), 'error');
+    console.error('[Publish] Validation failed:', validationErrors);
+    return;
+  }
 
   draft.publishDate = todayStr();
   saveTodayQuiz(draft);
