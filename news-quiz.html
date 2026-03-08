@@ -3487,10 +3487,23 @@ function showDraftPreview(questions) {
     const sourceLink = q.sourceUrl ? '<a href="' + escHtml(q.sourceUrl) + '" target="_blank" style="font-family:monospace;font-size:11px;color:var(--blue);white-space:nowrap;">Open</a>' : '';
     const qLabel = i === 5 ? 'BONUS' : ('Q'+(i+1));
     const diffClass = diffMap[diff] || 'easy';
+
+    // ICYMI badge for articles older than 36 hours
+    let icymiBadge = '';
+    if (q.pubDate) {
+      try {
+        const hoursOld = (Date.now() - new Date(q.pubDate).getTime()) / 3600000;
+        if (!isNaN(hoursOld) && hoursOld >= 36) {
+          icymiBadge = '<span style="font-family:monospace;font-size:10px;letter-spacing:1px;color:#fff;background:#888;padding:1px 6px;border-radius:2px;margin-left:6px;">ICYMI</span>';
+        }
+      } catch(e) {}
+    }
+
     html += '<div class="q-review-card" id="qcard-' + i + '">' +
       '<div class="q-meta">' +
         '<span><strong>' + qLabel + '</strong></span>' +
         '<span class="diff-label ' + diffClass + '" style="display:inline-block">' + diff.toUpperCase() + '</span>' +
+        icymiBadge +
         '<span style="margin-left:auto;display:flex;align-items:center;gap:10px;">' +
           '<label style="font-size:10px;color:var(--muted)">Move to position:</label>' +
           '<input type="number" min="1" max="11" style="width:44px;font-size:12px;padding:2px 4px;border:1px solid var(--border);border-radius:3px;" ' +
