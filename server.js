@@ -478,8 +478,8 @@ app.post('/api/fetch-article', async (req, res) => {
       .replace(/\s{2,}/g, ' ')
       .trim();
 
-    // Cap at 3000 chars — enough for Claude to understand the full story
-    const excerpt = text.slice(0, 3000);
+    // Cap at 1500 chars — enough for Claude to write a good question, keeps prompt lean
+    const excerpt = text.slice(0, 1500);
 
     if (excerpt.length < 100) {
       return res.json({ ok: false, reason: 'paywall or insufficient content', excerpt: '' });
@@ -835,7 +835,11 @@ app.post('/api/claude', async (req, res) => {
     proxyRes.pipe(res);
   });
   proxyReq.on('error', (err) => {
-    res.status(502).json({ error: { message: 'Proxy error: ' + err.message } });
+    if (!res.headersSent) res.status(502).json({ error: { message: 'Proxy error: ' + err.message } });
+  });
+  proxyReq.setTimeout(90000, () => {
+    proxyReq.destroy(new Error('Anthropic request timeout'));
+    if (!res.headersSent) res.status(504).json({ error: { message: 'Claude API timed out after 90s. Try again.' } });
   });
   proxyReq.write(body);
   proxyReq.end();
