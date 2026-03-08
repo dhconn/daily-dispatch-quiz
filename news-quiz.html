@@ -3122,16 +3122,77 @@ const screenController = new AbortController();
     console.log('[Claude response] length:', rawResponse.length, 'chars');
     showRawDebug(rawResponse);
 
-    const questions = parseQuestions(rawResponse);
+    let questions = parseQuestions(rawResponse);
 
     if (questions.length === 0) {
       throw new Error('Claude returned a response but no questions were parsed. See Raw Response below.');
     }
 
+    // ── Quality audit + conditional retry ────────────────────
+    const weakQuestions = auditQuestions(questions);
+    if (weakQuestions.length >= 2) {
+      console.warn(`[QualityFilter] ${weakQuestions.length} weak questions — triggering targeted retry`);
+      document.getElementById('gen-progress-text').textContent = 'Refining ' + weakQuestions.length + ' questions…';
+
+      const weakDescriptions = weakQuestions.map(w =>
+        `Q${w.index + 1} ("${questions[w.index].question.slice(0, 60)}…") — issues: ${w.flags.join(', ')}`
+      ).join('\n');
+
+      const retryPrompt =
+        'The following questions from a Baltimore news quiz need to be replaced because they test incidental details rather than the main point of the story:\n\n' +
+        weakDescriptions + '\n\n' +
+        'For each question listed above, write a replacement that:\n' +
+        '- Tests the central hook of the story (the fact a reader would remember when retelling it)\n' +
+        '- Uses no banned openings (What does this reveal/demonstrate/suggest/show)\n' +
+        '- Avoids attendance figures, vehicle types, timing details, neighborhood-as-answer, publication references\n' +
+        '- Keeps the same difficulty and sourceUrl as the original\n\n' +
+        'Return ONLY a JSON array of replacement question objects (same schema as before), one per weak question listed. No preamble.';
+
+      try {
+        const retryRes = await fetch('/api/claude', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'claude-sonnet-4-20250514',
+            max_tokens: 2000,
+            messages: [{ role: 'user', content: retryPrompt }]
+          })
+        });
+        const retryData = await retryRes.json();
+        if (!retryData.error && retryData.content) {
+          const retryText = retryData.content.map(b => b.text || '').join('');
+          console.log('[Retry response] length:', retryText.length);
+          try {
+            const bt = String.fromCharCode(96); const fence = bt+bt+bt;
+            let clean = retryText.split(fence+'json').join('').split(fence).join('').trim();
+            const start = clean.indexOf('[');
+            const end = clean.lastIndexOf(']');
+            if (start !== -1 && end !== -1) {
+              const replacements = JSON.parse(clean.slice(start, end + 1));
+              replacements.forEach((rep, ri) => {
+                if (ri < weakQuestions.length) {
+                  const origIdx = weakQuestions[ri].index;
+                  console.log(`[Retry] Replacing Q${origIdx+1} with: "${rep.question ? rep.question.slice(0,60) : '?'}"`);
+                  questions[origIdx] = { ...questions[origIdx], ...rep };
+                }
+              });
+              console.log('[Retry] Replacements applied.');
+            }
+          } catch(parseErr) {
+            console.warn('[Retry] Could not parse retry response, keeping originals:', parseErr);
+          }
+        }
+      } catch(retryErr) {
+        console.warn('[Retry] Retry call failed, keeping originals:', retryErr);
+      }
+    }
+
     if (questions.length < 6) {
       setStatus(`⚠ Only ${questions.length} questions generated — need 6 to publish. Use "+ Add Question" below to fill the gaps manually.`, 'error');
     } else if (!document.getElementById('gen-status').classList.contains('error')) {
-      setStatus(`✓ ${questions.length} questions generated. Review below, then publish.`, 'success');
+      const weakCount = weakQuestions.length;
+      const retryNote = weakCount >= 2 ? ` (${weakCount} questions auto-refined)` : weakCount === 1 ? ` (1 question flagged — review Q${weakQuestions[0].index+1})` : '';
+      setStatus(`✓ ${questions.length} questions generated${retryNote}. Review below, then publish.`, 'success');
     }
 
     if (questions.length > 0) {
@@ -3336,7 +3397,8 @@ function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote,
     '- NEVER reference the publication, outlet, or writer in the question itself. Questions test news and events, not news coverage. Wrong: "A Baltimore Banner writer discovered...", "According to a Baltimore Sun report...", "What did a Fishbowl reporter find...". Right: frame the question around what happened in the world, not who covered it. Rare exception: if the story is explicitly about a publication or journalist as a newsmaker.\n' +
     '- For opinion or commentary pieces, ask about the central concrete claim or proposal — not who wrote it, not why they argued it, not what impact their argument has. Test the substance: what specific change did they advocate for, what fact did they highlight, what outcome did they predict?\n' +
     '- AVOID questions framed as "Why does X argue...", "What does X reveal about...", "What does this mean for...", "What does X\'s approach show about...", "What does this analysis suggest...", "What impact does...", "What does X illustrate about..." — these produce vague interpretive answers with no single correct answer.\n' +
-    '- BANNED QUESTION WORDS: never use "analyze", "analysis", "impact", "reveal", "illustrate", "suggest", "significance", "implication", "reflect", "indicate" as the operative word in a question. If you catch yourself using these words, rewrite the question as a concrete factual one.\n' +
+'- BANNED QUESTION WORDS: never use "analyze", "analysis", "impact", "reveal", "illustrate", "suggest", "significance", "implication", "reflect", "indicate" as the operative word in a question. If you catch yourself using these words, rewrite the question as a concrete factual one.\n' +
+    '- BANNED QUESTION OPENINGS: never begin a question with "What does this reveal", "What does this demonstrate", "What does this suggest", "What does this show", "What does this mean", "What does this say about", "What does X\'s decision reveal", or any variant of these. These produce interpretive answers with no single correct fact. Rewrite as a concrete factual question.\n' +
     '- Prefer concrete, factual questions: "What did X propose?", "What did X announce?", "What specific change did X call for?", "What will replace X?", "Who attended X?", "How many X attended?", "What opened in X neighborhood?"\n' +
     '- SAME-EVENT RULE: Do not generate multiple questions about the same news event, even if it appears in multiple articles or outlets. Treat coverage of the same legislation, announcement, decision, or incident from different sources as a single topic. One event = one question maximum.\n' +
     '- DISTRACTOR QUALITY: Generate distractors deliberately — do not let them emerge randomly. Incorrect answers must be plausible alternatives in the same category as the correct answer:\n' +
@@ -3347,22 +3409,84 @@ function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote,
     '  * If the correct answer is an ORGANIZATION or AGENCY, wrong answers should be other real organizations\n' +
     '- Never use obviously unrelated, impossible, or humorous distractors. All four options should feel realistic to someone who follows Baltimore news.\n' +
     '- LENGTH GIVEAWAY: Do not make the correct answer noticeably longer, more detailed, or more specific than the other options. All four options should be similar in length and grammatical form. Readers often guess the longest option — avoid this.\n' +
-    '- MAIN-POINT TEST: Before writing each question, write the one-sentence summary of the story. The question must test the main fact from that summary — not a supporting detail, not a colorful aside, not a logistical footnote. If your question could be answered without knowing the main point of the story, rewrite it.\n' +
+'- HOOK-FIRST RULE: Before writing each question, identify the story hook — the single fact a reader would mention when describing this story to a friend. Write that hook down internally first. The question must test that hook directly. If your question could be answered without knowing the hook, rewrite it.\n' +
+    '- MAIN-POINT TEST: The question must test the main fact from the story\'s one-sentence summary — not a supporting detail, not a colorful aside, not a logistical footnote.\n' +
     '- STORY HOOK: Base each question on the central hook of the article — the most surprising fact, the key decision, the main person involved, or what will change.\n' +
     '- SALIENT FACT TEST: Ask: would a reader likely remember this detail when summarizing the story to a friend? If not, find a more central fact.\n' +
     '- NEWS VALUE TYPE: Each question must be based on one of these: a decision or approval, a new development or opening, a major event or milestone, a named person\'s notable action or statement, a visible change affecting the community, or a public controversy with clear local significance. Do not base questions on minor descriptive details.\n' +
     '- BANNED DETAIL TYPES: Never write a question whose correct answer is primarily: an attendance figure or crowd count, an exact street closure schedule or timing, a specific vehicle or equipment type, a block number or address fragment, a menu item or food detail unless the story is fundamentally about that item, a neighborhood location unless that neighborhood IS the story.\n' +
     '- BAD QUESTION PATTERNS — never use these framings: "What was the attendance at...", "In which neighborhood did someone find...", "What unusual timing did officials choose for...", "What type of vehicle did an official use...", "How much exactly was budgeted for...", "On which block did...", "What specific tool did..."\n' +
     '- TOPIC BALANCE: Do not over-concentrate on state legislative politics even if it dominates the feeds. Prefer a mix of city life topics: development, transportation, schools, business openings, culture, community news, local government, sports.\n\n' +
+'INTERNAL PLANNING: Before writing any questions, work through these steps silently: 1) For each assigned article, write one sentence: what is this story really about? 2) Identify the single most memorable or important fact — the hook. 3) Confirm the hook passes the news value test (decision, event, milestone, person, change, controversy). 4) Only then write the question from that hook. Do not return your planning. Return only the final JSON.\n\n' +
     'OUTPUT: Respond with ONLY valid JSON. No preamble, no markdown. Start with { and end with }.\n\n' +
     'IMPORTANT: Always write questions for ALL 6 assigned articles. Never return an empty questions array.\n' +
     'Set staleWarning to true only if articles appear more than 3 days old.\n\n' +
     'difficulty values: "easy" | "medium" | "hard" | "bonus"\n' +
-    'BONUS QUESTION: The bonus question should be based on the most surprising or memorable STORY in the set — not the most obscure detail within a story. A surprising story about a well-known topic beats an obscure factoid from a minor story. The bonus question tests something that would make a reader say "I didn\'t know that" about a real news development.\n' +
+    'BONUS QUESTION: The bonus question should come from the most surprising or memorable story of the day. Prefer: major public events, celebrity or notable-person appearances, unusual civic developments, record-breaking or historic milestones, large public gatherings with local significance. Avoid: routine crime incidents, minor police blotter items, procedural government actions, or stories whose only hook is an obscure detail. The bonus tests something that would make a reader say "I didn\'t know that happened" — about the story itself, not a footnote within it.\n' +
     'Include a "pubDate" field on each question, copied exactly from the DATE: field of the assigned article. This is used to label older stories for readers.\n' +
     'correctIndex: MUST be the 0-based index of the option your explanation describes as correct. Write explanation FIRST, then set correctIndex to match.\n' +
     'sourceUrl: copy ARTICLE_URL exactly. NEVER use a feed URL ending in /feed/ or /rss.\n' +
     'Generate exactly 6 questions, one per assigned article.';
+}
+
+
+// ═══════════════════════════════════════════════════════
+//  QUESTION QUALITY FILTER
+// ═══════════════════════════════════════════════════════
+
+function scoreQuestionQuality(q) {
+  const text = (q.question || '').toLowerCase();
+  const flags = [];
+
+  // Banned openings
+  const bannedOpenings = [
+    'what does this reveal', 'what does this demonstrate', 'what does this suggest',
+    'what does this show', 'what does this mean', 'what does this say about',
+    'what does x', 'what does the'
+  ];
+  if (bannedOpenings.some(p => text.startsWith(p))) {
+    flags.push('interpretive opening: "' + q.question.slice(0, 40) + '"');
+  }
+
+  // Banned detail types in question text
+  const bannedDetails = [
+    { pattern: /attendance/, reason: 'attendance figure question' },
+    { pattern: /how many (fans|people|attendees)/, reason: 'crowd count question' },
+    { pattern: /what (type|kind) of vehicle/, reason: 'vehicle detail question' },
+    { pattern: /which (block|street corner|address)/, reason: 'address detail question' },
+    { pattern: /what (unusual )?timing/, reason: 'timing detail question' },
+    { pattern: /which neighborhood did/, reason: 'neighborhood-as-answer question' },
+    { pattern: /what specific tool/, reason: 'equipment detail question' },
+    { pattern: /how much exactly/, reason: 'exact amount question' },
+  ];
+  for (const { pattern, reason } of bannedDetails) {
+    if (pattern.test(text)) flags.push(reason);
+  }
+
+  // Crime/incident bonus check
+  const crimeTerms = /(arrested?|shooting|homicide|stabbing|robbery|burglary|theft|stolen|murder|assault|crash|fire death)/i;
+  if (q.difficulty === 'bonus' && crimeTerms.test(q.question + ' ' + (q.explanation || ''))) {
+    flags.push('bonus question based on crime/incident story');
+  }
+
+  // Publication reference check
+  const pubRefs = /(banner|fishbowl|sun|brew|matters|reporter|writer|journalist|according to)/i;
+  if (pubRefs.test(text)) {
+    flags.push('references publication or writer in question');
+  }
+
+  return { ok: flags.length === 0, flags };
+}
+
+function auditQuestions(questions) {
+  const results = questions.map((q, i) => {
+    const { ok, flags } = scoreQuestionQuality(q);
+    if (!ok) console.warn(`[QualityFilter] Q${i+1} flagged:`, flags);
+    return { index: i, ok, flags };
+  });
+  const weak = results.filter(r => !r.ok);
+  console.log(`[QualityFilter] ${questions.length - weak.length}/${questions.length} questions passed. ${weak.length} flagged.`);
+  return weak;
 }
 
 function parseQuestions(text) {
