@@ -390,6 +390,25 @@
   .feedback-box.correct .fb-headline { color: var(--green); }
   .feedback-box.wrong .fb-headline { color: var(--red); }
   .feedback-box .fb-text { font-size: 14px; color: var(--ink); line-height: 1.5; font-style: italic; }
+  /* Floating points popup on correct answer */
+  .pts-popup {
+    position: fixed;
+    font-family: 'Playfair Display', serif;
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--green);
+    pointer-events: none;
+    z-index: 9999;
+    animation: pts-float 1.2s ease-out forwards;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.18);
+  }
+  .pts-popup.bonus { color: var(--gold-light, #f0c040); font-size: 36px; }
+  @keyframes pts-float {
+    0%   { opacity: 1; transform: translateY(0) scale(1); }
+    60%  { opacity: 1; transform: translateY(-48px) scale(1.15); }
+    100% { opacity: 0; transform: translateY(-80px) scale(0.9); }
+  }
+
   .feedback-box .pts-earned {
     font-family: 'Playfair Display', serif;
     font-size: 20px;
@@ -1191,8 +1210,9 @@
     </div>
     <p style="font-size:13px; color:var(--muted); margin-top:8px;">Your name is saved across visits. Your score accumulates over time.</p>
     <div id="reg-error" style="color:var(--red);font-family:monospace,monospace;font-size:13px;margin-top:8px;display:none;"></div>
-    <div style="margin-top:30px;">
+    <div style="margin-top:30px;display:flex;flex-direction:column;gap:10px;align-items:center;">
       <button class="btn-secondary" onclick="showLeaderboard()">View Leaderboard ▸</button>
+      <button class="btn-secondary" onclick="showArchiveBrowser()" style="border-color:var(--muted);color:var(--muted);">📰 Browse Past Quizzes</button>
     </div>
   </div>
 
@@ -1991,8 +2011,20 @@ function selectAnswer(idx) {
 
   // ── Visual feedback on correct answer ───────────────────────
   if (correct) {
-    // Score counter pop
+    // Floating +pts popup near the score counter
     const scoreEl = document.getElementById('live-score');
+    if (scoreEl) {
+      const popup = document.createElement('div');
+      popup.className = 'pts-popup' + (q.difficulty === 'bonus' ? ' bonus' : '');
+      popup.textContent = '+' + pts;
+      const rect = scoreEl.getBoundingClientRect();
+      popup.style.left = (rect.left + rect.width / 2 - 24) + 'px';
+      popup.style.top  = (rect.top - 10) + 'px';
+      document.body.appendChild(popup);
+      setTimeout(() => popup.remove(), 1300);
+    }
+
+    // Score counter pop
     if (scoreEl) {
       scoreEl.classList.remove('score-pop');
       void scoreEl.offsetWidth; // force reflow
@@ -2268,8 +2300,8 @@ function finishQuiz() {
   document.getElementById('stat-pct').textContent = pct + '%';
   document.getElementById('stat-rank').textContent = '#' + rank;
 
-  // Breakdown
-  let brows = `<div class="breakdown-header">Question Breakdown</div>`;
+  // Breakdown — full Q&A summary
+  let brows = `<div class="breakdown-header">Today's Answers</div>`;
   state.answers.forEach(a => {
     if (a.qIdx === 'completion') {
       brows += `<div class="breakdown-row">
@@ -2280,11 +2312,22 @@ function finishQuiz() {
       return;
     }
     const q = quizQuestions[a.qIdx];
-    const isBonus = a.qIdx === 5;
-    brows += `<div class="breakdown-row">
-      <span class="q-label">${isBonus ? 'BONUS' : ('Q' + (a.qIdx+1))}</span>
-      <span class="q-short">${escHtml(q.question.slice(0, 55))}${q.question.length > 55 ? '…' : ''}</span>
-      <span class="q-result ${a.correct ? 'c' : 'w'}">${a.correct ? '+'+a.pts : '0'}</span>
+    if (!q) return;
+    const isBonus = q.difficulty === 'bonus';
+    const label = isBonus ? 'BONUS' : ('Q' + (a.qIdx + 1));
+    const correctAnswer = q.options[q.correctIndex] || '';
+    const chosenAnswer = q.options[a.chosen] || '';
+    const resultCls = a.correct ? 'c' : 'w';
+    const resultIcon = a.correct ? '✓' : '✗';
+    brows += `<div class="breakdown-row" style="flex-direction:column;align-items:flex-start;gap:6px;padding:14px 0;border-bottom:1px solid var(--rule);">
+      <div style="display:flex;align-items:center;gap:8px;width:100%;">
+        <span class="q-label">${label}</span>
+        <span class="q-result ${resultCls}" style="font-size:15px;">${resultIcon}</span>
+        <span style="font-size:13px;color:${a.correct ? 'var(--green)' : 'var(--red)'};font-family:monospace;">+${a.pts} pts</span>
+      </div>
+      <div style="font-size:15px;font-weight:600;line-height:1.4;">${escHtml(q.question)}</div>
+      ${!a.correct ? `<div style="font-size:13px;color:var(--red);font-family:monospace;">Your answer: ${escHtml(chosenAnswer)}</div>` : ''}
+      <div style="font-size:13px;line-height:1.4;">${q.sourceUrl ? `<a href="${escHtml(q.sourceUrl)}" target="_blank" style="color:var(--green);text-decoration:none;font-weight:600;">✓ ${escHtml(correctAnswer)}</a>` : `<span style="color:var(--green);font-weight:600;">✓ ${escHtml(correctAnswer)}</span>`}</div>
     </div>`;
   });
   document.getElementById('breakdown-table').innerHTML = brows;
