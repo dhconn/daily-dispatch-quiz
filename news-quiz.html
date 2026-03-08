@@ -1358,7 +1358,7 @@
     <div class="admin-section">
       <h3>Step 1 — Paste News Article URLs</h3>
       <div id="freshness-notice" style="background:#fff8e0;border:1px solid var(--gold);padding:10px 14px;margin-bottom:12px;font-family:monospace,monospace;font-size:12px;color:#7a5f00;line-height:1.6;">
-        <strong>⏱ Freshness filter is active.</strong> Claude will automatically skip any article published more than 24 hours ago and will not generate questions from stale content. Paste only links to <strong>today's</strong> articles for best results. If Claude skips articles, you'll see a warning below.
+        <strong>⏱ Freshness scoring is active.</strong> Articles are ranked by recency — stories from the past 24 hours score highest. Older articles may still appear if they score well on local relevance. Stories older than 36 hours will be labeled <strong>ICYMI</strong> in the quiz. Paste links to recent articles for best results.
       </div>
       <p style="font-size:13px;color:var(--muted);margin-bottom:8px;">Enter your RSS feed or news website URLs once — they'll be saved and pre-filled every time you open the admin panel. <strong>Do not paste specific article URLs here.</strong></p>
       <textarea class="url-input-area" id="urls-input" placeholder="Paste one RSS feed or news site URL per line…&#10;https://baltimorebrew.com/feed/&#10;https://marylandmatters.org/feed/&#10;…"></textarea>
@@ -3122,7 +3122,7 @@ const screenController = new AbortController();
   }
   console.log('[Prompt diagnostics]', {
     promptLength: prompt.length,
-    articleCount: (rssContent.match(/ARTICLE \d+:/g) || []).length,
+    articleCount: (rssContent.match(/---/g) || []).length + (rssContent.trim().length > 0 ? 1 : 0),
     archiveUrlCount: allArchiveUrls.length,
     archiveSlugCount: allArchiveSlugs.length,
     hasManualText: !!manualText
