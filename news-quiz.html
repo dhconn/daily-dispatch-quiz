@@ -2846,14 +2846,17 @@ async function generateQuestions() {
   // Fetch server-side archive (authoritative, works across devices/sessions)
   let serverArchiveUrls = [], serverArchiveQuestions = [], serverArchiveSlugs = [];
   try {
-    const archRes = await fetch('/api/archive');
+    const archRes = await Promise.race([
+      fetch('/api/archive'),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000))
+    ]);
     if (archRes.ok) {
       const archData = await archRes.json();
       serverArchiveUrls = archData.urls || [];
       serverArchiveQuestions = archData.questions || [];
       serverArchiveSlugs = archData.slugs || [];
     }
-  } catch(e) {}
+  } catch(e) { console.warn('[Archive] fetch failed or timed out, using localStorage fallback'); }
   // Merge with localStorage fallback (covers current session before first publish)
   const allArchiveUrls = [...new Set([...serverArchiveUrls, ...getArchiveUrls()])];
   const allArchiveQuestions = [...new Set([...serverArchiveQuestions, ...getArchive()])];
@@ -2963,13 +2966,8 @@ async function generateQuestions() {
         return `${i}: ${m ? m[1].trim() : '(no headline)'} | ${u ? u[1].trim() : ''}`;
       }).join('\n');
 
-      // Load recently used URLs from server archive
-      let recentUrls = getArchiveUrls(); // localStorage fallback
-      try {
-        const archRes = await fetch('/api/archive');
-        const archData = await archRes.json();
-        if (archData.urls && archData.urls.length > 0) recentUrls = archData.urls;
-      } catch(e) { /* use localStorage fallback */ }
+      // Use already-fetched server archive URLs (fetched above, no second request needed)
+      const recentUrls = allArchiveUrls.length > 0 ? allArchiveUrls : getArchiveUrls();
 
       const recentUrlNote = recentUrls.length > 0
         ? 'ALREADY USED THIS WEEK (REJECT these URLs and any article covering the same topic):\n' + recentUrls.join('\n') + '\n\n'
