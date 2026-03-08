@@ -4090,6 +4090,20 @@ async function loadAdminStats() {
   }
 }
 
+async function toggleSubscriber(email, active) {
+  try {
+    const res = await fetch('/api/subscribers/' + encodeURIComponent(email), {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ active })
+    });
+    if (!res.ok) throw new Error('Server error');
+    loadSubscribers(); // Refresh the list
+  } catch(e) {
+    alert('Could not update subscriber: ' + e.message);
+  }
+}
+
 async function loadSubscribers() {
   const listEl = document.getElementById('sub-list');
   const countEl = document.getElementById('sub-count');
@@ -4110,13 +4124,20 @@ async function loadSubscribers() {
           <th style="text-align:left;padding:4px 8px;font-weight:600;">Name</th>
           <th style="text-align:left;padding:4px 8px;font-weight:600;">Subscribed</th>
           <th style="text-align:left;padding:4px 8px;font-weight:600;">Status</th>
+          <th style="padding:4px 8px;"></th>
         </tr>
         ${subscribers.map(s => `
-          <tr style="border-bottom:1px solid #f0ebe0;">
+          <tr style="border-bottom:1px solid #f0ebe0;" id="sub-row-${btoa(s.email).replace(/=/g,'')}">
             <td style="padding:4px 8px;">${s.email}</td>
             <td style="padding:4px 8px;">${s.name || '—'}</td>
             <td style="padding:4px 8px;">${s.subscribedAt ? s.subscribedAt.slice(0,10) : '—'}</td>
-            <td style="padding:4px 8px;color:${s.active ? 'var(--green)' : 'var(--muted)'};">${s.active ? 'Active' : 'Unsubscribed'}</td>
+            <td style="padding:4px 8px;color:${s.active ? 'var(--green)' : 'var(--muted)'};">${s.active ? 'Active' : 'Paused'}</td>
+            <td style="padding:4px 8px;">
+              <button onclick="toggleSubscriber('${s.email}', ${!s.active})"
+                style="font-family:monospace;font-size:10px;padding:2px 8px;cursor:pointer;border-radius:2px;letter-spacing:1px;background:none;border:1px solid ${s.active ? 'var(--muted)' : 'var(--green)'}; color:${s.active ? 'var(--muted)' : 'var(--green)'};">
+                ${s.active ? 'PAUSE' : 'RESTORE'}
+              </button>
+            </td>
           </tr>
         `).join('')}
       </table>
