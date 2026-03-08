@@ -1632,18 +1632,54 @@ function clearDraftQuiz() { localStorage.removeItem('dnq_draft'); }
 // ─── Archive ───
 function getArchive() { return lsGet('dnq_archive') || []; }
 function getArchiveUrls() { return lsGet('dnq_archive_urls') || []; }
+function getArchiveSlugs() { return lsGet('dnq_archive_slugs') || []; }
+
+// Extract a 2-4 word topic slug from a question for cross-day deduplication.
+// Strips stop words, question words, and generic terms to isolate the subject.
+function extractTopicSlug(question) {
+  const stop = new Set([
+    'a','an','the','and','or','but','in','on','at','to','for','of','with','is','are','was',
+    'were','be','been','has','have','had','will','would','that','this','as','from','by',
+    'after','over','about','how','what','who','when','where','which','why','does','do',
+    'did','its','their','into','than','some','could','new','more','year','week','day',
+    'baltimore','maryland','city','county','state','local','major','first',
+    'according','revealed','shows','mean','means','reveal','approach','make','makes',
+    // generic quiz question words
+    'happen','impact','effect','result','response','plan','proposal','effort','initiative',
+    'feature','include','included','hosted','held','took','place','during','between',
+    'following','ahead','recently','announced','said','says',
+    // question framing words that obscure the actual topic
+    'author','argue','argued','argues','serve','served','serves','complete','completing',
+    'mentioned','having','being','surprising','prompted','expressed','concern','concerns',
+    'existing','happening','league','team','neighborhoods','leaders','facility',
+    'small','town','near','best','final','season','speaker','writers','keynote'
+  ]);
+  return question
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length > 3 && !stop.has(w))
+    .slice(0, 4)
+    .join(' ');
+}
+
 function addToArchive(questions) {
   const archive = getArchive();
   const archiveUrls = getArchiveUrls();
+  const archiveSlugs = getArchiveSlugs();
   questions.forEach(q => {
     if (!archive.includes(q.question)) archive.push(q.question);
     if (q.sourceUrl && !archiveUrls.includes(q.sourceUrl)) archiveUrls.push(q.sourceUrl);
+    const slug = extractTopicSlug(q.question);
+    if (slug && !archiveSlugs.includes(slug)) archiveSlugs.push(slug);
   });
   // Keep last 7 days worth (max 60 entries)
   if (archive.length > 60) archive.splice(0, archive.length - 60);
   if (archiveUrls.length > 60) archiveUrls.splice(0, archiveUrls.length - 60);
+  if (archiveSlugs.length > 60) archiveSlugs.splice(0, archiveSlugs.length - 60);
   lsSet('dnq_archive', archive);
   lsSet('dnq_archive_urls', archiveUrls);
+  lsSet('dnq_archive_slugs', archiveSlugs);
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1910,6 +1946,17 @@ function renderQuestion() {
     </button>`;
   });
 
+  // ICYMI label for stories older than 36 hours
+  let icymiHtml = '';
+  if (q.pubDate) {
+    try {
+      const hoursOld = (Date.now() - new Date(q.pubDate).getTime()) / 3600000;
+      if (hoursOld >= 36 && !isNaN(hoursOld)) {
+        icymiHtml = `<div style="font-size:11px;letter-spacing:1px;font-family:monospace;color:var(--muted);margin-bottom:6px;text-transform:uppercase;">⏪ ICYMI</div>`;
+      }
+    } catch(e) {}
+  }
+
   document.getElementById('question-area').innerHTML = `
     <div class="difficulty-band">
       <span class="diff-label ${diff.cls}">${diff.label}</span>
@@ -1917,6 +1964,7 @@ function renderQuestion() {
     </div>
     <div class="question-card">
       <div class="q-number">Question ${state.currentQ + 1} of 5</div>
+      ${icymiHtml}
       <div class="q-text">${escHtml(q.question)}</div>
       <div class="options-grid">${optHtml}</div>
       <div id="feedback-area"></div>
@@ -2826,6 +2874,17 @@ async function generateQuestions() {
               if (queue.length > 0) { interleaved.push(queue.shift()); added = true; }
             }
           }
+          // ── Filter out articles used in previous quizzes ──────
+          const _archivedUrls = new Set(getArchiveUrls());
+          const filteredInterleaved = interleaved.filter(item => {
+            if (!item.link) return true;
+            if (_archivedUrls.has(item.link)) {
+              console.log('[ArchiveFilter] Skipping previously used URL:', item.link);
+              return false;
+            }
+            return true;
+          });
+
           // ── Quiz-worthiness scoring ──────────────────────────
           // Sorts articles so outcome/decision stories float above process stories.
           // Does not filter anything out — just reorders before the screener runs.
@@ -2863,7 +2922,7 @@ async function generateQuestions() {
           }
 
           // Sort by score descending, preserving source interleaving as a tiebreaker
-          const scored = interleaved.map((item, i) => ({ item, score: quizWorthiness(item.title, item.pubDate), i }));
+          const scored = filteredInterleaved.map((item, i) => ({ item, score: quizWorthiness(item.title, item.pubDate), i }));
           scored.sort((a, b) => b.score - a.score || a.i - b.i);
           const sortedItems = scored.map(s => s.item);
 
@@ -2908,6 +2967,7 @@ async function generateQuestions() {
         '- Weather forecast or routine temperature update\n' +
         '- DC team sports story (Nationals, Commanders, Capitals, Wizards) with no Baltimore/Maryland angle\n' +
         '- Routine sports transaction, injury update, or spring training note\n' +
+        '- Sports story that an average Baltimore resident would not be expected to know about\n' +
         '- Headline roundup or headlines digest article (morning, afternoon, evening, weekly, or any multi-story summary)\n' +
         '- Named court case with no broader significance (individual sentencing, routine probation violation)\n' +
         '- Obituary or memorial piece\n' +
@@ -3177,6 +3237,13 @@ function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote,
     (manualBlock ? manualBlock + '\n\n' : '') +
     (fallback ? fallback + '\n\n' : '') +
     (archiveNote ? 'PREVIOUSLY USED TOPICS — do not repeat these:\n' + archiveNote + '\n\n' : '') +
+    ((() => { const urls = getArchiveUrls(); return urls.length > 0 ? 'PREVIOUSLY USED SOURCE URLS — do not generate questions from these exact URLs, even if the article appears in the RSS feed today:\n' + urls.slice(-30).join('\n') + '\n\n' : ''; })()) +
+    ((() => {
+      const slugs = getArchiveSlugs();
+      if (!slugs.length) return '';
+      return 'RECENTLY COVERED TOPICS — do not ask about these subjects again today, even from a different article or outlet, UNLESS the new article contains a concrete new outcome (bill passed, project approved, person appointed, facility opened):\n' +
+        slugs.slice(-42).map(s => '- ' + s).join('\n') + '\n\n';
+    })()) +
     'INSTRUCTIONS:\n' +
     '- Write exactly one question per numbered article — use ONLY the assigned article for that question\n' +
     '- Each article is used for exactly one question — do not reuse any article\n' +
@@ -3207,7 +3274,7 @@ function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote,
     'CRITICAL: Write explanation FIRST, then set correctIndex to match it exactly.\n' +
     'QUESTION LENGTH: Keep questions under 20 words whenever possible. Prefer direct, specific questions over long descriptive ones.\n\n' +
     'ARTICLE SELECTION FILTER — before writing a question, ask: would a well-informed Baltimore resident mention this to a friend over coffee? If no, skip it.\n' +
-    '- SKIP: routine sports transactions, injury updates, spring training notes\n' +
+    '- SKIP: routine sports transactions, injury updates, spring training notes. INCLUDE: sports stories that rise to civic significance — a record-breaking achievement, a major stadium decision, a championship result, a landmark signing that the average Baltimore resident would be expected to know about\n' +
     '- SKIP: minor arts/culture items with no broader community impact\n' +
     '- SKIP: individual incident stories — house fires, car crashes, single shootings — unless mass casualty, systemic pattern, or major public safety policy angle\n' +
     '- SKIP: individual crime stories unless a public figure, major institution, or systemic pattern is central\n' +
@@ -3228,7 +3295,9 @@ function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote,
     '- Avoid multiple questions that feel like they are all about a meeting or officials discussing something. Prefer outcomes and decisions over process and proposals.\n' +
     '- NEVER ask who wrote, authored, or contributed an article or commentary. The author byline is never a quiz-worthy fact. Ask about the substance — what was argued, what was proposed, what the implications are.\n' +
     '- For opinion or commentary pieces, ask about the central concrete claim or proposal — not who wrote it, not why they argued it, not what impact their argument has. Test the substance: what specific change did they advocate for, what fact did they highlight, what outcome did they predict?\n' +
-    '- AVOID questions framed as "Why does X argue..." or "What does X\'s speech reveal about..." — these produce vague interpretive answers. Prefer: "What did X propose?", "What did X announce?", "What specific change did X call for?"\n' +
+    '- AVOID questions framed as "Why does X argue...", "What does X reveal about...", "What does this mean for...", "What does X\'s approach show about...", "What does this analysis suggest...", "What impact does...", "What does X illustrate about..." — these produce vague interpretive answers with no single correct answer.\n' +
+    '- BANNED QUESTION WORDS: never use "analyze", "analysis", "impact", "reveal", "illustrate", "suggest", "significance", "implication", "reflect", "indicate" as the operative word in a question. If you catch yourself using these words, rewrite the question as a concrete factual one.\n' +
+    '- Prefer concrete, factual questions: "What did X propose?", "What did X announce?", "What specific change did X call for?", "What will replace X?", "Who attended X?", "How many X attended?", "What opened in X neighborhood?"\n' +
     '- SAME-EVENT RULE: Do not generate multiple questions about the same news event, even if it appears in multiple articles or outlets. Treat coverage of the same legislation, announcement, decision, or incident from different sources as a single topic. One event = one question maximum.\n' +
     '- DISTRACTOR QUALITY: Generate distractors deliberately — do not let them emerge randomly. Incorrect answers must be plausible alternatives in the same category as the correct answer:\n' +
     '  * If the correct answer is a PERSON, wrong answers should be other real or plausible people (ideally others connected to Baltimore, Maryland, or the relevant field)\n' +
@@ -3245,6 +3314,7 @@ function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote,
     'IMPORTANT: Always write questions for ALL 6 assigned articles. Never return an empty questions array.\n' +
     'Set staleWarning to true only if articles appear more than 3 days old.\n\n' +
     'difficulty values: "easy" | "medium" | "hard" | "bonus"\n' +
+    'Include a "pubDate" field on each question, copied exactly from the DATE: field of the assigned article. This is used to label older stories for readers.\n' +
     'correctIndex: MUST be the 0-based index of the option your explanation describes as correct. Write explanation FIRST, then set correctIndex to match.\n' +
     'sourceUrl: copy ARTICLE_URL exactly. NEVER use a feed URL ending in /feed/ or /rss.\n' +
     'Generate exactly 6 questions, one per assigned article.';
@@ -3654,6 +3724,8 @@ function discardDraft() {
 function clearArchive() {
   if (!confirm('Clear the entire question archive? Past questions may be regenerated.')) return;
   lsSet('dnq_archive', []);
+  lsSet('dnq_archive_urls', []);
+  lsSet('dnq_archive_slugs', []);
   refreshAdminPreviews();
 }
 
