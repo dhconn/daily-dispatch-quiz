@@ -1178,15 +1178,6 @@
   <button id="admin-btn" onclick="showAdminLogin()">Admin ▸</button>
 </div>
 
-<!-- ARCHIVE BANNER (shown in archive mode) -->
-<div id="archive-banner" class="archive-banner" style="display:none;">
-  📰 ARCHIVE MODE — Scores are not recorded &nbsp;·&nbsp; <span id="archive-date-label"></span>
-  <div style="display:flex;gap:10px;justify-content:center;margin-top:8px;">
-    <button onclick="showArchiveBrowser()" style="font-family:monospace;font-size:11px;padding:4px 12px;background:transparent;border:1px solid #f5e8c0;color:#f5e8c0;cursor:pointer;border-radius:2px;">◂ Return to Archive</button>
-    <button onclick="exitArchiveMode()" style="font-family:monospace;font-size:11px;padding:4px 12px;background:transparent;border:1px solid #f5e8c0;color:#f5e8c0;cursor:pointer;border-radius:2px;">Today's Quiz ▸</button>
-  </div>
-</div>
-
 <!-- APP -->
 <div id="app">
 
@@ -1302,6 +1293,14 @@
 
 
 
+  <!-- ARCHIVE BANNER (shown in archive mode) -->
+  <div id="archive-banner" class="archive-banner" style="display:none;">
+    📰 ARCHIVE MODE — Scores are not recorded &nbsp;·&nbsp; <span id="archive-date-label"></span>
+    <div style="display:flex;gap:10px;justify-content:center;margin-top:8px;">
+      <button onclick="showArchiveBrowser()" style="font-family:monospace;font-size:11px;padding:4px 12px;background:transparent;border:1px solid #f5e8c0;color:#f5e8c0;cursor:pointer;border-radius:2px;">◂ Return to Archive</button>
+      <button onclick="exitArchiveMode()" style="font-family:monospace;font-size:11px;padding:4px 12px;background:transparent;border:1px solid #f5e8c0;color:#f5e8c0;cursor:pointer;border-radius:2px;">Today's Quiz ▸</button>
+    </div>
+  </div>
 
   <!-- ARCHIVE BROWSER SCREEN -->
   <div id="screen-archive" class="screen">
@@ -1747,11 +1746,14 @@ document.addEventListener('DOMContentLoaded', () => {
 // ═══════════════════════════════════════════════════════
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
-  const banner = document.getElementById('archive-banner');
-  if (banner) {
-    banner.style.display = archiveMode ? 'block' : 'none';
+  const nextScreen = document.getElementById(id);
+  if (nextScreen) nextScreen.classList.add('active');
+
+  const bannerEl = document.getElementById('archive-banner');
+  if (bannerEl) {
+    bannerEl.style.display = archiveMode ? 'block' : 'none';
   }
+
   window.scrollTo(0, 0);
 }
 
@@ -1996,6 +1998,8 @@ function renderQuestion() {
       }
     } catch(e) {}
   }
+
+
   document.getElementById('question-area').innerHTML = `
     <div class="difficulty-band">
       <span class="diff-label ${diff.cls}">${diff.label}</span>
@@ -2206,6 +2210,7 @@ function renderBonus() {
       <span>${escHtml(opt)}</span>
     </button>`;
   });
+
   document.getElementById('bonus-area').innerHTML = `
     <div class="bonus-question-card">
       <div class="q-number" style="color:rgba(255,215,0,0.5);">Bonus Question · 50 Points</div>
@@ -4358,6 +4363,7 @@ async function playArchiveQuiz(date) {
     // Enter archive mode
     archiveMode = true;
     document.body.classList.add('archive-mode');
+    document.getElementById('archive-banner').style.display = 'block';
     document.getElementById('archive-date-label').textContent = formatArchiveDate(date);
     // Load archive quiz
     quizQuestions = enforceQuizRules(data.quiz.questions);
@@ -4378,6 +4384,7 @@ async function playArchiveQuiz(date) {
 function exitArchiveMode() {
   archiveMode = false;
   document.body.classList.remove('archive-mode');
+  document.getElementById('archive-banner').style.display = 'none';
   showScreen('screen-register');
 }
 
