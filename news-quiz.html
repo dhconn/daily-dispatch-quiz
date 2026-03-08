@@ -2141,6 +2141,7 @@ function selectAnswer(idx) {
 
 function advanceQuestion() {
   state.currentQ++;
+  window.scrollTo(0, 0);
   const regularCount = Math.min(quizQuestions.length - 1, 5);
   if (state.currentQ < regularCount) {
     // Update progress dot
@@ -2223,6 +2224,54 @@ function selectBonus(idx) {
     if (i === q.correctIndex) btn.classList.add('reveal-correct');
     if (i === idx && !correct) btn.classList.add('wrong');
     if (i === idx && correct) { btn.classList.remove('reveal-correct'); btn.classList.add('correct'); }
+  }
+
+  if (correct) {
+    // Confetti burst from chosen button
+    const chosenBtn = document.getElementById('bopt-' + idx);
+    if (chosenBtn) {
+      const rect = chosenBtn.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const colors = ['#f0c040','#ffd700','#fff','#ffe066','#ffb700','#fff8dc','#ffa500','#fffbe6'];
+      const shapes = ['50%', '50%', '50%', '2px', '0%', '0%'];
+      for (let p = 0; p < 40; p++) {
+        const el = document.createElement('div');
+        el.className = 'particle';
+        const angle = (p / 40) * 2 * Math.PI + (Math.random() - 0.5) * 0.4;
+        const dist = 90 + Math.random() * 120;
+        const size = 6 + Math.floor(Math.random() * 12);
+        const shape = shapes[p % shapes.length];
+        const gravity = 40 + Math.random() * 60;
+        const rot = (Math.random() - 0.5) * 720;
+        el.style.cssText = `
+          left:${cx}px; top:${cy}px;
+          width:${shape === '2px' ? 3 : size}px;
+          height:${shape === '2px' ? size * 2 : size}px;
+          background:${colors[p % colors.length]};
+          border-radius:${shape};
+          --dx:${Math.cos(angle) * dist}px;
+          --dy:${Math.sin(angle) * dist + gravity}px;
+          --rot:${rot}deg;
+        `;
+        document.body.appendChild(el);
+        setTimeout(() => el.remove(), 1200);
+      }
+    }
+    // +50 pts popup, 180ms after confetti
+    setTimeout(() => {
+      const correctBtn = document.getElementById('bopt-' + q.correctIndex);
+      if (correctBtn) {
+        const popup = document.createElement('div');
+        popup.className = 'pts-popup bonus';
+        popup.textContent = '+50';
+        const rect = correctBtn.getBoundingClientRect();
+        popup.style.left = (rect.left + rect.width / 2 - 24) + 'px';
+        popup.style.top  = (rect.top + rect.height / 2 - 16) + 'px';
+        document.body.appendChild(popup);
+        setTimeout(() => popup.remove(), 1300);
+      }
+    }, 180);
   }
 
   const fb = document.getElementById('bonus-feedback-area');
