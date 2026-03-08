@@ -3043,11 +3043,14 @@ const screenController = new AbortController();
       if (!urlMatch) return block;
       const articleUrl = urlMatch[1].trim();
       try {
-        const fetchRes = await fetch('/api/fetch-article', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: articleUrl })
-        });
+        const fetchRes = await Promise.race([
+          fetch('/api/fetch-article', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: articleUrl })
+          }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('fetch-article timeout')), 8000))
+        ]);
         const fetchData = await fetchRes.json();
         if (fetchData.ok && fetchData.excerpt && fetchData.excerpt.length > 200) {
           console.log(`[ArticleFetch] Full text retrieved: ${articleUrl.slice(0,60)}`);
@@ -3072,7 +3075,21 @@ const screenController = new AbortController();
     rssContent = [...enriched, ...rest].join('\n\n---\n\n');
   }
 
-  const prompt = buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote, rssContent, isFeedMode);
+  let prompt;
+  try {
+    prompt = buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote, rssContent, isFeedMode, allArchiveUrls, allArchiveSlugs);
+  } catch(err) {
+    console.error('[Prompt build failed]', err);
+    setStatus('Quiz generation failed while building prompt: ' + err.message, 'error');
+    return;
+  }
+  console.log('[Prompt diagnostics]', {
+    promptLength: prompt.length,
+    articleCount: (rssContent.match(/ARTICLE \d+:/g) || []).length,
+    archiveUrlCount: allArchiveUrls.length,
+    archiveSlugCount: allArchiveSlugs.length,
+    hasManualText: !!manualText
+  });
   let rawResponse = '';
 
   // ── Step 2: Generate questions ───────────────────────────────
@@ -3102,6 +3119,7 @@ const screenController = new AbortController();
     if (!data.content || !data.content.length) throw new Error('API returned empty content. Check your API key.');
 
     rawResponse = data.content.map(b => b.text || '').join('');
+    console.log('[Claude response] length:', rawResponse.length, 'chars');
     showRawDebug(rawResponse);
 
     const questions = parseQuestions(rawResponse);
@@ -3141,7 +3159,9 @@ function showRawDebug(text) {
   document.getElementById('raw-debug-text').textContent = text;
 }
 
-function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote, rssContent, isFeedMode) {
+function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote, rssContent, isFeedMode, allArchiveUrls, allArchiveSlugs) {
+  allArchiveUrls = allArchiveUrls || [];
+  allArchiveSlugs = allArchiveSlugs || [];
   const manualBlock = manualText
     ? 'MANUALLY PROVIDED ARTICLE TEXT (use as additional source):\n' + manualText.slice(0, 4000)
     : '';
