@@ -1927,9 +1927,13 @@ function buildProgressTrack(qs) {
 }
 
 function getDifficultyLabel(idx) {
-  if (idx < 4) return { label: 'Starter', cls: 'easy', pts: 10 };
-  if (idx < 7) return { label: 'Feature', cls: 'medium', pts: 20 };
-  return { label: 'Scoop', cls: 'hard', pts: 30 };
+  const q = quizQuestions[idx];
+  const diff = q ? q.difficulty : null;
+  const pts = q ? (q.points || (diff === 'bonus' ? 50 : diff === 'hard' ? 30 : diff === 'medium' ? 20 : 10)) : 10;
+  if (diff === 'bonus') return { label: 'Bonus', cls: 'bonus', pts };
+  if (diff === 'hard')  return { label: 'Scoop',   cls: 'hard',   pts };
+  if (diff === 'medium') return { label: 'Feature', cls: 'medium', pts };
+  return { label: 'Starter', cls: 'easy', pts };
 }
 
 function renderQuestion() {
