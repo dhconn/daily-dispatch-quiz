@@ -3193,6 +3193,15 @@ function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote,
     // even if it shares topic words with an earlier story.
     const outcomeVerbs = /\b(passed?|approved?|signed|enacted|launched|opened?|announced?|awarded?|funded|broke ground|breaking ground|unveiled?|elected?|appointed?|resigned?|fired?)\b/i;
     if (outcomeVerbs.test(h1) || outcomeVerbs.test(h2)) return false;
+
+    // Named entity check: if both headlines share a proper noun (capitalized word
+    // 4+ chars, not a stop word) that's a strong signal they cover the same event
+    const namedEntityStops = new Set(['Baltimore','Maryland','City','County','State','Federal','Local','North','South','East','West','Johns','Hopkins']);
+    const namedEntities = h => (h.match(/\b[A-Z][a-z]{3,}\b/g) || []).filter(w => !namedEntityStops.has(w));
+    const e1 = new Set(namedEntities(h1));
+    const shared = namedEntities(h2).filter(w => e1.has(w));
+    if (shared.length >= 1) return true;
+
     const w1 = new Set(topicWords(h1));
     return topicWords(h2).filter(w => w1.has(w)).length >= 2;
   }
@@ -3323,7 +3332,8 @@ function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote,
     '- Use neighborhood names only when the article explains their significance. Never assume the reader knows where a neighborhood is or what it is known for.\n' +
     '- Aim for topic diversity across the 6 questions: mix government, business/development, culture, transportation, education, sports, and community news where the articles allow.\n' +
     '- Avoid multiple questions that feel like they are all about a meeting or officials discussing something. Prefer outcomes and decisions over process and proposals.\n' +
-    '- NEVER ask who wrote, authored, or contributed an article or commentary. The author byline is never a quiz-worthy fact. Ask about the substance — what was argued, what was proposed, what the implications are.\n' +
+'- NEVER ask who wrote, authored, or contributed an article or commentary. The author byline is never a quiz-worthy fact. Ask about the substance — what was argued, what was proposed, what the implications are.\n' +
+    '- NEVER reference the publication, outlet, or writer in the question itself. Questions test news and events, not news coverage. Wrong: "A Baltimore Banner writer discovered...", "According to a Baltimore Sun report...", "What did a Fishbowl reporter find...". Right: frame the question around what happened in the world, not who covered it. Rare exception: if the story is explicitly about a publication or journalist as a newsmaker.\n' +
     '- For opinion or commentary pieces, ask about the central concrete claim or proposal — not who wrote it, not why they argued it, not what impact their argument has. Test the substance: what specific change did they advocate for, what fact did they highlight, what outcome did they predict?\n' +
     '- AVOID questions framed as "Why does X argue...", "What does X reveal about...", "What does this mean for...", "What does X\'s approach show about...", "What does this analysis suggest...", "What impact does...", "What does X illustrate about..." — these produce vague interpretive answers with no single correct answer.\n' +
     '- BANNED QUESTION WORDS: never use "analyze", "analysis", "impact", "reveal", "illustrate", "suggest", "significance", "implication", "reflect", "indicate" as the operative word in a question. If you catch yourself using these words, rewrite the question as a concrete factual one.\n' +
@@ -3337,13 +3347,18 @@ function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote,
     '  * If the correct answer is an ORGANIZATION or AGENCY, wrong answers should be other real organizations\n' +
     '- Never use obviously unrelated, impossible, or humorous distractors. All four options should feel realistic to someone who follows Baltimore news.\n' +
     '- LENGTH GIVEAWAY: Do not make the correct answer noticeably longer, more detailed, or more specific than the other options. All four options should be similar in length and grammatical form. Readers often guess the longest option — avoid this.\n' +
-    '- STORY HOOK: Base each question on the central hook of the article — the most surprising fact, the key decision, the main person involved, or what will change. Avoid questions built around background statistics, minor supporting details, or secondary facts a reader would not remember when retelling the story.\n' +
-    '- SALIENT FACT TEST: Before writing a question, ask: would a reader likely remember this detail when describing the story to a friend? If not, find a more memorable fact.\n' +
+    '- MAIN-POINT TEST: Before writing each question, write the one-sentence summary of the story. The question must test the main fact from that summary — not a supporting detail, not a colorful aside, not a logistical footnote. If your question could be answered without knowing the main point of the story, rewrite it.\n' +
+    '- STORY HOOK: Base each question on the central hook of the article — the most surprising fact, the key decision, the main person involved, or what will change.\n' +
+    '- SALIENT FACT TEST: Ask: would a reader likely remember this detail when summarizing the story to a friend? If not, find a more central fact.\n' +
+    '- NEWS VALUE TYPE: Each question must be based on one of these: a decision or approval, a new development or opening, a major event or milestone, a named person\'s notable action or statement, a visible change affecting the community, or a public controversy with clear local significance. Do not base questions on minor descriptive details.\n' +
+    '- BANNED DETAIL TYPES: Never write a question whose correct answer is primarily: an attendance figure or crowd count, an exact street closure schedule or timing, a specific vehicle or equipment type, a block number or address fragment, a menu item or food detail unless the story is fundamentally about that item, a neighborhood location unless that neighborhood IS the story.\n' +
+    '- BAD QUESTION PATTERNS — never use these framings: "What was the attendance at...", "In which neighborhood did someone find...", "What unusual timing did officials choose for...", "What type of vehicle did an official use...", "How much exactly was budgeted for...", "On which block did...", "What specific tool did..."\n' +
     '- TOPIC BALANCE: Do not over-concentrate on state legislative politics even if it dominates the feeds. Prefer a mix of city life topics: development, transportation, schools, business openings, culture, community news, local government, sports.\n\n' +
     'OUTPUT: Respond with ONLY valid JSON. No preamble, no markdown. Start with { and end with }.\n\n' +
     'IMPORTANT: Always write questions for ALL 6 assigned articles. Never return an empty questions array.\n' +
     'Set staleWarning to true only if articles appear more than 3 days old.\n\n' +
     'difficulty values: "easy" | "medium" | "hard" | "bonus"\n' +
+    'BONUS QUESTION: The bonus question should be based on the most surprising or memorable STORY in the set — not the most obscure detail within a story. A surprising story about a well-known topic beats an obscure factoid from a minor story. The bonus question tests something that would make a reader say "I didn\'t know that" about a real news development.\n' +
     'Include a "pubDate" field on each question, copied exactly from the DATE: field of the assigned article. This is used to label older stories for readers.\n' +
     'correctIndex: MUST be the 0-based index of the option your explanation describes as correct. Write explanation FIRST, then set correctIndex to match.\n' +
     'sourceUrl: copy ARTICLE_URL exactly. NEVER use a feed URL ending in /feed/ or /rss.\n' +
