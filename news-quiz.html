@@ -2993,7 +2993,11 @@ async function generateQuestions() {
         'When in doubt, ACCEPT. It is better to pass a borderline article than to leave Claude without enough material.\n\n' +
         'EXTRA HINT: If an article URL contains \'headlines\' or \'roundup\' or \'digest\' in the path, it is almost certainly a multi-story summary — REJECT it.\n\n' +
         'ARTICLES:\n' + headlines + '\n\n' +
-        'Respond with ONLY a JSON array of indices you ACCEPT. Example: [0,2,4,7,9]. No explanation.';
+        'DUPLICATE DETECTION: After deciding accept/reject, also identify pairs of accepted articles that cover the same news event from different angles or outlets. Two articles are duplicates if a reader would say they are "about the same thing" — same incident, same decision, same person\'s action. Different takes on a developing story still count as duplicates.\n\n' +
+        'Respond with ONLY a JSON object in this exact format (no explanation):\n' +
+        '{"accepted": [0,2,4,7,9], "duplicates": [[2,7],[4,9]]}\n' +
+        'If no duplicates found, return {"accepted": [0,2,4,7,9], "duplicates": []}\n' +
+        'The duplicates array contains pairs of indices from the accepted list that cover the same event. Only include each pair once.';
 
       
 const screenController = new AbortController();
@@ -3006,7 +3010,7 @@ const screenController = new AbortController();
           signal: screenController.signal,
           body: JSON.stringify({
             model: CLAUDE_MODEL,
-            max_tokens: 400,
+            max_tokens: 600,
             messages: [{ role: 'user', content: screenPrompt }]
           })
         });
@@ -3018,14 +3022,29 @@ const screenController = new AbortController();
       if (!screenData.error && screenData.content && screenData.content.length) {
         const screenText = screenData.content.map(c => c.text || '').join('').trim();
         const clean = screenText.replace(/```json|```/g, '').trim();
-        const acceptedIndices = JSON.parse(clean);
-        console.log(`[PreScreen] Accepted ${acceptedIndices.length} of ${blocks.length} articles:`, acceptedIndices);
-        // Rebuild rssContent with only accepted blocks
+        const parsed = JSON.parse(clean);
+
+        // Handle both old format (array) and new format (object with accepted/duplicates)
+        const acceptedIndices = Array.isArray(parsed) ? parsed : (parsed.accepted || []);
+        const duplicatePairs = Array.isArray(parsed) ? [] : (parsed.duplicates || []);
+
+        // Build set of duplicate indices to suppress — keep only the first of each pair
+        const suppressedByDupe = new Set();
+        for (const pair of duplicatePairs) {
+          if (Array.isArray(pair) && pair.length >= 2) {
+            // Keep pair[0], suppress pair[1] and any further
+            for (let i = 1; i < pair.length; i++) suppressedByDupe.add(pair[i]);
+            console.log(`[PreScreen] Duplicate suppressed: article ${pair[1]} is same event as article ${pair[0]}`);
+          }
+        }
+
+        console.log(`[PreScreen] Accepted ${acceptedIndices.length} of ${blocks.length} articles. Duplicates suppressed: ${suppressedByDupe.size}`);
+
         const acceptedBlocks = acceptedIndices
-          .filter(i => i >= 0 && i < blocks.length)
+          .filter(i => i >= 0 && i < blocks.length && !suppressedByDupe.has(i))
           .map(i => blocks[i]);
         rssContent = acceptedBlocks.join('\n\n---\n\n');
-        console.log(`[PreScreen] RSS content filtered to ${acceptedBlocks.length} articles`);
+        console.log(`[PreScreen] RSS content filtered to ${acceptedBlocks.length} articles after dupe removal`);
       }
     } catch(e) {
       console.warn('[PreScreen] Screening step failed, proceeding with full RSS:', e.message);
@@ -3296,6 +3315,13 @@ function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote,
     const brands = h => (h.toLowerCase().match(/\b[a-z]+-[a-z]+\b/g) || []);
     const b1 = new Set(brands(h1));
     if (brands(h2).some(b => b1.has(b))) return true;
+
+    // Acronym check: catch shared all-caps abbreviations (ICE, DHS, MTA, etc.)
+    // These won't match the named entity regex since they're not Title Case
+    const acronyms = h => (h.match(/\b[A-Z]{2,}\b/g) || []);
+    const a1 = new Set(acronyms(h1));
+    const sharedAcronyms = acronyms(h2).filter(a => a1.has(a));
+    if (sharedAcronyms.length >= 1) return true;
 
     // Outcome verb exception: only applies when no named entity overlap found above.
     // A story that has advanced (bill passed vs. bill considered) is fresh news.
