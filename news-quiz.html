@@ -1111,8 +1111,10 @@
     bottom: 0;
     left: 0;
     right: 0;
-    z-index: 1000;
+    z-index: 9999;
   }
+  /* Add bottom padding to screens so fixed banner doesn't overlap content */
+  .screen.active { padding-bottom: 80px; }
   .archive-card {
     border: 1px solid var(--rule);
     padding: 14px 18px;
@@ -1714,6 +1716,11 @@ function addToArchive(questions) {
 //  INIT
 // ═══════════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
+  // Ensure archive banner is hidden on fresh load
+  const bannerEl = document.getElementById('archive-banner');
+  if (bannerEl) bannerEl.style.display = 'none';
+  archiveMode = false;
+
   document.getElementById('today-dateline').textContent =
     new Date().toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' }).toUpperCase();
 
