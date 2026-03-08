@@ -3031,12 +3031,14 @@ const screenController = new AbortController();
   }
 
   // ── Step 1.5: Fetch full article text ────────────────────────
-  // For each article in the screened RSS pool, attempt to fetch full text.
-  // Fall back to RSS excerpt if fetch fails or returns too little (paywall).
+  // Only enrich the first 6 articles — these are the ones Claude will actually use.
+  // Fetching all candidates was bloating the prompt and causing timeouts.
   if (rssContent) {
     document.getElementById('gen-progress-text').textContent = 'Fetching article content…';
     const blocks = rssContent.split('---').map(b => b.trim()).filter(Boolean);
-    const enriched = await Promise.all(blocks.map(async (block) => {
+    const toEnrich = blocks.slice(0, 6);
+    const rest = blocks.slice(6);
+    const enriched = await Promise.all(toEnrich.map(async (block) => {
       const urlMatch = block.match(/ARTICLE_URL: (.+)/);
       if (!urlMatch) return block;
       const articleUrl = urlMatch[1].trim();
@@ -3067,7 +3069,7 @@ const screenController = new AbortController();
         return block; // keep RSS excerpt on error
       }
     }));
-    rssContent = enriched.join('\n\n---\n\n');
+    rssContent = [...enriched, ...rest].join('\n\n---\n\n');
   }
 
   const prompt = buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote, rssContent, isFeedMode);
