@@ -2843,9 +2843,24 @@ async function generateQuestions() {
   // Feed URLs = RSS/site URLs saved in the feeds box
   const articleUrlList = articleUrls ? articleUrls.split('\n').map(u => u.trim()).filter(u => u.startsWith('http')) : [];
   const urlList = urls ? urls.split('\n').map(u => u.trim()).filter(u => u.startsWith('http')) : [];
-  const archive = getArchive();
-  const archiveNote = archive.length > 0
-    ? `Do NOT generate questions about these previously used topics: ${archive.slice(0, 30).join(' | ')}`
+  // Fetch server-side archive (authoritative, works across devices/sessions)
+  let serverArchiveUrls = [], serverArchiveQuestions = [], serverArchiveSlugs = [];
+  try {
+    const archRes = await fetch('/api/archive');
+    if (archRes.ok) {
+      const archData = await archRes.json();
+      serverArchiveUrls = archData.urls || [];
+      serverArchiveQuestions = archData.questions || [];
+      serverArchiveSlugs = archData.slugs || [];
+    }
+  } catch(e) {}
+  // Merge with localStorage fallback (covers current session before first publish)
+  const allArchiveUrls = [...new Set([...serverArchiveUrls, ...getArchiveUrls()])];
+  const allArchiveQuestions = [...new Set([...serverArchiveQuestions, ...getArchive()])];
+  const allArchiveSlugs = [...new Set([...serverArchiveSlugs, ...getArchiveSlugs()])];
+
+  const archiveNote = allArchiveQuestions.length > 0
+    ? `Do NOT generate questions about these previously used topics: ${allArchiveQuestions.slice(-30).join(' | ')}`
     : '';
 
   // Always fetch RSS cache. If specific articles are provided, they go first;
@@ -2875,7 +2890,7 @@ async function generateQuestions() {
             }
           }
           // ── Filter out articles used in previous quizzes ──────
-          const _archivedUrls = new Set(getArchiveUrls());
+          const _archivedUrls = new Set(allArchiveUrls.length ? allArchiveUrls : getArchiveUrls());
           const filteredInterleaved = interleaved.filter(item => {
             if (!item.link) return true;
             if (_archivedUrls.has(item.link)) {
@@ -3237,13 +3252,8 @@ function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote,
     (manualBlock ? manualBlock + '\n\n' : '') +
     (fallback ? fallback + '\n\n' : '') +
     (archiveNote ? 'PREVIOUSLY USED TOPICS — do not repeat these:\n' + archiveNote + '\n\n' : '') +
-    ((() => { const urls = getArchiveUrls(); return urls.length > 0 ? 'PREVIOUSLY USED SOURCE URLS — do not generate questions from these exact URLs, even if the article appears in the RSS feed today:\n' + urls.slice(-30).join('\n') + '\n\n' : ''; })()) +
-    ((() => {
-      const slugs = getArchiveSlugs();
-      if (!slugs.length) return '';
-      return 'RECENTLY COVERED TOPICS — do not ask about these subjects again today, even from a different article or outlet, UNLESS the new article contains a concrete new outcome (bill passed, project approved, person appointed, facility opened):\n' +
-        slugs.slice(-42).map(s => '- ' + s).join('\n') + '\n\n';
-    })()) +
+    (allArchiveUrls.length > 0 ? 'PREVIOUSLY USED SOURCE URLS — do not generate questions from these exact URLs, even if the article appears in the RSS feed today:\n' + allArchiveUrls.slice(-30).join('\n') + '\n\n' : '') +
+    (allArchiveSlugs.length > 0 ? 'RECENTLY COVERED TOPICS — do not ask about these subjects again today, even from a different article or outlet, UNLESS the new article contains a concrete new outcome (bill passed, project approved, person appointed, facility opened):\n' + allArchiveSlugs.slice(-42).map(s => '- ' + s).join('\n') + '\n\n' : '') +
     'INSTRUCTIONS:\n' +
     '- Write exactly one question per numbered article — use ONLY the assigned article for that question\n' +
     '- Each article is used for exactly one question — do not reuse any article\n' +
@@ -3632,7 +3642,8 @@ async function publishQuestions() {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       urls: draft.questions.map(q => q.sourceUrl).filter(Boolean),
-      questions: draft.questions.map(q => q.question)
+      questions: draft.questions.map(q => q.question),
+      slugs: draft.questions.map(q => extractTopicSlug(q.question)).filter(Boolean)
     })
   }).catch(() => {});
 
