@@ -2014,8 +2014,16 @@ function selectAnswer(idx) {
 
   // ── Visual feedback on correct answer ───────────────────────
   if (correct) {
-    // Score counter pop (fires immediately with confetti)
-    // Floating +pts popup fires 180ms later — one beat after confetti starts
+    // Score counter pop
+    const scoreEl = document.getElementById('live-score');
+    if (scoreEl) {
+      scoreEl.classList.remove('score-pop');
+      void scoreEl.offsetWidth;
+      scoreEl.classList.add('score-pop');
+      setTimeout(() => scoreEl.classList.remove('score-pop'), 400);
+    }
+
+    // +pts popup rises from correct answer button, 180ms after confetti
     setTimeout(() => {
       const correctBtn = document.getElementById('opt-' + q.correctIndex);
       if (correctBtn) {
@@ -2030,13 +2038,6 @@ function selectAnswer(idx) {
       }
     }, 180);
 
-    // Score counter pop
-    if (scoreEl) {
-      scoreEl.classList.remove('score-pop');
-      void scoreEl.offsetWidth; // force reflow
-      scoreEl.classList.add('score-pop');
-      setTimeout(() => scoreEl.classList.remove('score-pop'), 400);
-    }
     // Particle burst from the chosen button
     const btn = document.getElementById('opt-' + idx);
     if (btn) {
