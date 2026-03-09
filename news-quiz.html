@@ -1095,32 +1095,6 @@
   .admin-arc-source { font-size: 11px; font-family: monospace; margin-top: 6px; }
   .admin-arc-source a { color: var(--muted); }
 
-  /* ─── SITE NAV ─── */
-  .site-nav {
-    position: sticky;
-    top: 0;
-    z-index: 2000;
-    background: #f6f3ec;
-    border-bottom: 1px solid #ddd;
-    padding: 10px;
-    display: flex;
-    gap: 10px;
-    justify-content: center;
-    flex-wrap: wrap;
-  }
-  .site-nav button {
-    background: #7a6747;
-    color: white;
-    border: none;
-    padding: 8px 14px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-family: 'Courier Prime', monospace;
-    font-size: 12px;
-    letter-spacing: 1px;
-  }
-  .site-nav button:hover { background: #5c4f37; }
-
   /* ─── ARCHIVE MODE ─── */
   body.archive-mode {
     filter: sepia(0.45) brightness(0.97);
@@ -1202,11 +1176,6 @@
   <h1>The Daily <span>Dispatch</span> Quiz</h1>
   <div class="tagline">Local News · Daily Questions · Community Knowledge</div>
   <button id="admin-btn" onclick="showAdminLogin()">Admin ▸</button>
-</div>
-
-<div id="site-nav" class="site-nav">
-  <button type="button" onclick="showArchiveBrowser()">📰 Browse Past Quizzes</button>
-  <button type="button" id="site-nav-today-btn" onclick="exitArchiveMode()" style="display:none;">Today's Quiz ▸</button>
 </div>
 
 <!-- APP -->
@@ -1618,12 +1587,87 @@ let state = {
   todayKey: todayStr()
 };
 
+const LIVE_SESSION_SNAPSHOT_KEY = 'dnq_live_session_snapshot';
+let liveSessionSnapshot = null;
+
 // ─── Storage helpers (localStorage fallback) ───
 function lsGet(key) {
   try { return JSON.parse(localStorage.getItem(key)); } catch(e) { return null; }
 }
 function lsSet(key, val) {
   try { localStorage.setItem(key, JSON.stringify(val)); } catch(e) {}
+}
+
+function getActiveScreenId() {
+  return document.querySelector('.screen.active')?.id || 'screen-register';
+}
+
+function saveLiveSessionSnapshot() {
+  if (archiveMode) return;
+  const activeScreen = getActiveScreenId();
+  const allowedScreens = new Set(['screen-quiz', 'screen-interstitial', 'screen-bonus', 'screen-results', 'screen-community', 'screen-leaderboard']);
+  if (!allowedScreens.has(activeScreen)) return;
+  if (!state.playerName || !Array.isArray(quizQuestions) || quizQuestions.length < 6) return;
+
+  liveSessionSnapshot = {
+    state: { ...state, answers: Array.isArray(state.answers) ? [...state.answers] : [] },
+    quizQuestions: JSON.parse(JSON.stringify(quizQuestions)),
+    screen: activeScreen,
+    bonusAnswered: !!bonusAnswered,
+    savedAt: Date.now()
+  };
+  lsSet(LIVE_SESSION_SNAPSHOT_KEY, liveSessionSnapshot);
+}
+
+function clearLiveSessionSnapshot() {
+  liveSessionSnapshot = null;
+  try { localStorage.removeItem(LIVE_SESSION_SNAPSHOT_KEY); } catch(e) {}
+}
+
+function restoreLiveSessionSnapshot() {
+  const snap = liveSessionSnapshot || lsGet(LIVE_SESSION_SNAPSHOT_KEY);
+  if (!snap || !snap.state || !Array.isArray(snap.quizQuestions) || snap.quizQuestions.length < 6) return false;
+
+  liveSessionSnapshot = snap;
+  archiveMode = false;
+  document.body.classList.remove('archive-mode');
+  const bannerEl = document.getElementById('archive-banner');
+  if (bannerEl) bannerEl.style.display = 'none';
+
+  quizQuestions = snap.quizQuestions;
+  state = {
+    ...state,
+    ...snap.state,
+    answers: Array.isArray(snap.state.answers) ? [...snap.state.answers] : []
+  };
+  bonusAnswered = !!snap.bonusAnswered;
+
+  document.getElementById('quiz-player-name').textContent = state.playerName || 'Reader';
+  document.getElementById('live-score').textContent = String(state.sessionScore || 0);
+  buildProgressTrack(quizQuestions);
+
+  // Reapply progress-dot state for answered regular questions.
+  state.answers.forEach(a => {
+    if (typeof a.qIdx === 'number' && a.qIdx >= 0 && a.qIdx < 5) {
+      const dot = document.getElementById('pd-' + a.qIdx);
+      if (dot) dot.className = 'progress-dot ' + (a.correct ? 'correct' : 'wrong');
+    }
+  });
+  if (typeof state.currentQ === 'number' && state.currentQ < 5) {
+    const currentDot = document.getElementById('pd-' + state.currentQ);
+    if (currentDot && !state.answers.some(a => a.qIdx === state.currentQ)) currentDot.className = 'progress-dot current';
+  }
+
+  const screen = snap.screen || 'screen-quiz';
+  showScreen(screen);
+  if (screen === 'screen-quiz') {
+    renderQuestion();
+  } else if (screen === 'screen-interstitial') {
+    document.getElementById('interstitial-score').textContent = state.sessionScore;
+  } else if (screen === 'screen-bonus') {
+    renderBonus();
+  }
+  return true;
 }
 
 // ─── Players ───
@@ -1747,7 +1791,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const bannerEl = document.getElementById('archive-banner');
   if (bannerEl) bannerEl.style.display = 'none';
   archiveMode = false;
-  updateNav();
 
   document.getElementById('today-dateline').textContent =
     new Date().toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' }).toUpperCase();
@@ -1771,14 +1814,11 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
   }
-});
 
-function updateNav() {
-  const todayBtn = document.getElementById('site-nav-today-btn');
-  const bannerEl = document.getElementById('archive-banner');
-  if (todayBtn) todayBtn.style.display = archiveMode ? 'inline-block' : 'none';
-  if (bannerEl) bannerEl.style.display = archiveMode ? 'block' : 'none';
-}
+  // If a live quiz was in progress before browsing archives or refreshing,
+  // restore the player to that exact spot.
+  restoreLiveSessionSnapshot();
+});
 
 // ═══════════════════════════════════════════════════════
 //  SCREEN MANAGEMENT
@@ -1786,7 +1826,9 @@ function updateNav() {
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
-  updateNav();
+  const bannerEl = document.getElementById('archive-banner');
+  if (bannerEl) bannerEl.style.display = archiveMode ? 'block' : 'none';
+  if (!archiveMode) saveLiveSessionSnapshot();
   window.scrollTo(0, 0);
 }
 
@@ -1981,6 +2023,7 @@ function startQuiz(quiz) {
   buildProgressTrack(quizQuestions);
   showScreen('screen-quiz');
   renderQuestion();
+  saveLiveSessionSnapshot();
 }
 
 function buildProgressTrack(qs) {
@@ -2031,6 +2074,8 @@ function renderQuestion() {
       }
     } catch(e) {}
   }
+
+
   document.getElementById('question-area').innerHTML = `
     <div class="difficulty-band">
       <span class="diff-label ${diff.cls}">${diff.label}</span>
@@ -2206,6 +2251,7 @@ function advanceQuestion() {
 function showInterstitial() {
   document.getElementById('interstitial-score').textContent = state.sessionScore;
   showScreen('screen-interstitial');
+  saveLiveSessionSnapshot();
   // Auto-advance to bonus after 3-second countdown
   let count = 3;
   const cdEl = document.getElementById('interstitial-countdown');
@@ -2223,6 +2269,7 @@ function showInterstitial() {
 function startBonusRound() {
   showScreen('screen-bonus');
   renderBonus();
+  saveLiveSessionSnapshot();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -2241,6 +2288,7 @@ function renderBonus() {
       <span>${escHtml(opt)}</span>
     </button>`;
   });
+
   document.getElementById('bonus-area').innerHTML = `
     <div class="bonus-question-card">
       <div class="q-number" style="color:rgba(255,215,0,0.5);">Bonus Question · 50 Points</div>
@@ -2261,6 +2309,7 @@ function selectBonus(idx) {
 
   state.sessionScore += pts;
   state.answers.push({ qIdx: 5, chosen: idx, correct, pts });
+  saveLiveSessionSnapshot();
 
   // Style
   for (let i = 0; i < q.options.length; i++) {
@@ -2345,6 +2394,7 @@ function selectBonus(idx) {
 //  RESULTS
 // ═══════════════════════════════════════════════════════
 function finishQuiz() {
+  clearLiveSessionSnapshot();
   // Completion bonus — awarded for answering all 6 questions
   const allAnswered = state.answers.length >= 6;
   if (allAnswered && !archiveMode) {
@@ -2432,6 +2482,10 @@ function finishQuiz() {
       <div style="font-size:13px;line-height:1.4;">${q.sourceUrl ? `<a href="${escHtml(q.sourceUrl)}" target="_blank" style="color:var(--green);text-decoration:none;font-weight:600;">✓ ${escHtml(correctAnswer)}</a>` : `<span style="color:var(--green);font-weight:600;">✓ ${escHtml(correctAnswer)}</span>`}</div>
     </div>`;
   });
+  if (archiveMode) {
+    const archiveBarResults = `<div style="background:#5a4a2a;color:#f5e8c0;text-align:center;font-family:'Courier Prime',monospace;font-size:11px;letter-spacing:1px;padding:8px;margin-bottom:16px;display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:8px;"><span>📰 ARCHIVE MODE &nbsp;·&nbsp; ${document.getElementById('archive-date-label').textContent}</span><span style="display:flex;gap:8px;"><button onclick="showArchiveBrowser()" style="font-family:monospace;font-size:11px;padding:3px 10px;background:transparent;border:1px solid #f5e8c0;color:#f5e8c0;cursor:pointer;border-radius:2px;">◂ Return to Archive</button><button onclick="exitArchiveMode()" style="font-family:monospace;font-size:11px;padding:3px 10px;background:transparent;border:1px solid #f5e8c0;color:#f5e8c0;cursor:pointer;border-radius:2px;">Today's Quiz ▸</button></span></div>`;
+    brows = archiveBarResults + brows;
+  }
   document.getElementById('breakdown-table').innerHTML = brows;
   showScreen('screen-results');
 
@@ -4347,7 +4401,6 @@ let savedQuizDate = null;
 
 async function showArchiveBrowser() {
   showScreen('screen-archive');
-  updateNav();
   const listEl = document.getElementById('archive-list');
   listEl.innerHTML = '<p style="color:var(--muted);font-family:monospace;font-size:13px;">Loading…</p>';
   try {
@@ -4384,14 +4437,15 @@ async function playArchiveQuiz(date) {
       alert('Could not load quiz for ' + date);
       return;
     }
-    // Save current state
+    // Save current live state so Today's Quiz can return the player to where they left off.
+    saveLiveSessionSnapshot();
     savedQuizQuestions = quizQuestions ? [...quizQuestions] : null;
     savedQuizDate = state.todayKey;
     // Enter archive mode
     archiveMode = true;
     document.body.classList.add('archive-mode');
+    document.getElementById('archive-banner').style.display = 'block';
     document.getElementById('archive-date-label').textContent = formatArchiveDate(date);
-    updateNav();
     // Load archive quiz
     quizQuestions = enforceQuizRules(data.quiz.questions);
     state.currentQ = 0;
@@ -4411,7 +4465,8 @@ async function playArchiveQuiz(date) {
 function exitArchiveMode() {
   archiveMode = false;
   document.body.classList.remove('archive-mode');
-  updateNav();
+  document.getElementById('archive-banner').style.display = 'none';
+  if (restoreLiveSessionSnapshot()) return;
   showScreen('screen-register');
 }
 
