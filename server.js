@@ -514,6 +514,20 @@ app.post('/api/scores', async (req, res) => {
   res.json({ ok: true });
 });
 
+// ── DELETE /api/scores/:playerKey — admin delete a player ────
+app.delete('/api/scores/:playerKey', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  const key = req.params.playerKey.toLowerCase().trim();
+  const data = await readData();
+  if (!data.scores || !data.scores[key]) return res.status(404).json({ error: 'Player not found' });
+  const name = data.scores[key].displayName;
+  delete data.scores[key];
+  await writeData(data);
+  console.log('[Admin] Deleted player:', key);
+  res.json({ ok: true, deleted: name });
+});
+
 app.get('/api/scores', async (req, res) => {
   const data = await readData();
   res.json({ scores: data.scores || {} });
@@ -701,17 +715,48 @@ function buildEmailHtml(siteUrl, date, subscriberName, teaserHtml, unsubUrl) {
   </div>`;
 }
 
-// ── GET /api/quiz/preview-email — generate teaser preview for admin ──
-app.get('/api/quiz/preview-email', async (req, res) => {
+// ── GET /api/email-pause — get current pause state ──────────
+app.get('/api/email-pause', async (req, res) => {
   const data = await readData();
-  const dates = Object.keys(data.quizzes || {}).sort();
-  if (!dates.length) return res.json({ html: '<p>No quiz published yet.</p>' });
-  const mostRecent = dates[dates.length - 1];
-  const quiz = data.quizzes[mostRecent];
+  res.json({ paused: !!data.emailPaused });
+});
+
+// ── POST /api/email-pause — set pause state ───────────────────
+app.post('/api/email-pause', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  const data = await readData();
+  data.emailPaused = !!req.body.paused;
+  await writeData(data);
+  console.log('[Admin] Email notifications', data.emailPaused ? 'PAUSED' : 'RESUMED');
+  res.json({ ok: true, paused: data.emailPaused });
+});
+
+// ── GET/POST /api/quiz/preview-email — generate teaser preview for admin ──
+// POST body: { questions: [...] } uses draft questions directly
+// GET falls back to most recently published quiz
+app.all('/api/quiz/preview-email', async (req, res) => {
   const siteUrl = process.env.SITE_URL || 'https://dailydispatchquiz.com';
-  const teasers = await generateTeasers(quiz.questions || []);
+  let questions = null;
+  let dateLabel = new Date().toISOString().slice(0, 10);
+
+  if (req.method === 'POST' && req.body && req.body.questions && req.body.questions.length) {
+    // Use draft questions passed from client
+    questions = req.body.questions;
+    console.log('[PreviewEmail] Using draft questions:', questions.length);
+  } else {
+    // Fall back to most recently published quiz
+    const data = await readData();
+    const dates = Object.keys(data.quizzes || {}).sort();
+    if (!dates.length) return res.json({ html: '<p>No quiz published yet.</p>' });
+    dateLabel = dates[dates.length - 1];
+    questions = data.quizzes[dateLabel].questions || [];
+    console.log('[PreviewEmail] Using published quiz:', dateLabel);
+  }
+
+  const teasers = await generateTeasers(questions);
   const teaserHtml = buildTeaserHtml(teasers);
-  const html = buildEmailHtml(siteUrl, mostRecent, 'Subscriber', teaserHtml, siteUrl + '/api/unsubscribe?email=example');
+  const html = buildEmailHtml(siteUrl, dateLabel, 'Subscriber', teaserHtml, siteUrl + '/api/unsubscribe?email=example');
   res.json({ html, teasers });
 });
 
@@ -771,7 +816,10 @@ app.post('/api/quiz', async (req, res) => {
   // Send notification emails — skipped for silent saves (emergency save, edits, fixes)
   if (!silent) {
     const siteUrl = process.env.SITE_URL || 'https://your-app.railway.app';
-    const subscribers = Object.values(data.subscribers || {}).filter(s => s.active);
+    if (data.emailPaused) {
+      console.log('Email notifications are globally paused — skipping subscriber emails.');
+    }
+    const subscribers = data.emailPaused ? [] : Object.values(data.subscribers || {}).filter(s => s.active);
     if (subscribers.length > 0) {
       console.log(`Email: Sending quiz notification to ${subscribers.length} subscribers…`);
       const teasers = await generateTeasers(quiz.questions || []);
