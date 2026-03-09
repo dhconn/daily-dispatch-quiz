@@ -1551,6 +1551,10 @@
 
     <div class="admin-section" style="margin-top:20px;">
       <h3>Email Subscribers <span id="sub-count" style="font-family:monospace;font-size:12px;color:var(--muted);font-weight:400;"></span></h3>
+      <div style="display:flex;align-items:center;gap:12px;margin:10px 0 8px;">
+        <div id="email-pause-status" style="font-family:monospace;font-size:12px;">Loading…</div>
+        <button id="email-pause-btn" onclick="toggleEmailPause()" style="font-family:monospace;font-size:11px;padding:4px 12px;border-radius:2px;cursor:pointer;border:1px solid;"></button>
+      </div>
       <div id="sub-list" style="margin-top:10px;font-family:monospace;font-size:12px;max-height:220px;overflow-y:auto;border:1px solid var(--rule);padding:8px;">
         <p style="color:var(--muted);">Loading…</p>
       </div>
@@ -1568,6 +1572,21 @@
       <h3>Today's Engagement <span id="stats-date-label" style="font-family:monospace;font-size:12px;color:var(--muted);font-weight:400;"></span></h3>
       <div id="admin-stats" style="font-family:monospace;font-size:13px;color:var(--muted);">
         <p>Loading…</p>
+      </div>
+    </div>
+
+    <div style="margin-top:24px;border-top:1px solid var(--rule);padding-top:20px;">
+      <h3 style="margin-bottom:12px;">Email Notifications</h3>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <div id="email-pause-status" style="font-family:monospace;font-size:13px;"></div>
+        <button id="email-pause-btn" onclick="toggleEmailPause()" style="font-family:monospace;font-size:11px;padding:5px 14px;cursor:pointer;border-radius:2px;border:1px solid var(--ink);background:none;">Loading…</button>
+      </div>
+    </div>
+
+    <div style="margin-top:24px;border-top:1px solid var(--rule);padding-top:20px;">
+      <h3 style="margin-bottom:12px;">Player Management</h3>
+      <div id="player-list" style="font-family:monospace;font-size:13px;color:var(--muted);margin-bottom:12px;">
+        <p>Loading players…</p>
       </div>
     </div>
 
@@ -2598,6 +2617,9 @@ async function showAdminScreen() {
   loadSubscribers();
   loadAdminArchive();
   loadAdminStats();
+  loadPlayerList();
+  loadEmailPauseState();
+  loadEmailPauseState();
 }
 
 // ─── RSS cache helpers ───────────────────────────────────────────────────
@@ -4096,7 +4118,12 @@ async function previewEmail() {
   panel.style.display = 'block';
   inner.innerHTML = '<p style="font-family:monospace;font-size:12px;color:var(--muted);">Generating teasers and building preview… (may take 5-10 seconds)</p>';
   try {
-    const res = await fetch('/api/quiz/preview-email');
+    // Use draft questions if available, otherwise server falls back to published
+    const draft = getDraftQuiz();
+    const fetchOpts = draft && draft.questions && draft.questions.length
+      ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ questions: draft.questions }) }
+      : {};
+    const res = await fetch('/api/quiz/preview-email', fetchOpts);
     const data = await res.json();
     inner.innerHTML = data.html;
     if (data.teasers && data.teasers.length) {
@@ -4423,6 +4450,133 @@ function exitArchiveMode() {
 }
 
 // ── Subscriber list for admin ─────────────────────────────────
+async function loadEmailPauseState() {
+  try {
+    const res = await fetch('/api/email-pause');
+    const data = await res.json();
+    updateEmailPauseUI(data.paused);
+  } catch(e) {
+    const el = document.getElementById('email-pause-status');
+    if (el) el.textContent = 'Could not load status.';
+  }
+}
+
+function updateEmailPauseUI(paused) {
+  const status = document.getElementById('email-pause-status');
+  const btn = document.getElementById('email-pause-btn');
+  if (!status || !btn) return;
+  if (paused) {
+    status.innerHTML = '⏸ <strong style="color:var(--red);">Emails paused</strong> — no notifications will be sent on publish.';
+    btn.textContent = '▶ Resume Emails';
+    btn.style.borderColor = 'var(--green)';
+    btn.style.color = 'var(--green)';
+  } else {
+    status.innerHTML = '✓ <strong style="color:var(--green);">Emails active</strong> — subscribers will be notified on publish.';
+    btn.textContent = '⏸ Pause Emails';
+    btn.style.borderColor = 'var(--red)';
+    btn.style.color = 'var(--red)';
+  }
+}
+
+async function toggleEmailPause() {
+  const btn = document.getElementById('email-pause-btn');
+  const currentlyPaused = btn.textContent.includes('Resume');
+  try {
+    const adminToken = lsGet('dnq_admin_token') || 'admin';
+    const res = await fetch('/api/email-pause', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+      body: JSON.stringify({ paused: !currentlyPaused })
+    });
+    const data = await res.json();
+    if (data.ok) updateEmailPauseUI(data.paused);
+  } catch(e) {
+    alert('Failed to update email pause state: ' + e.message);
+  }
+}
+
+async function loadEmailPauseState() {
+  const statusEl = document.getElementById('email-pause-status');
+  const btnEl = document.getElementById('email-pause-btn');
+  if (!statusEl || !btnEl) return;
+  try {
+    const res = await fetch('/api/email-pause');
+    const data = await res.json();
+    if (data.paused) {
+      statusEl.innerHTML = '⏸ <strong style="color:var(--red);">Emails paused</strong> — no notifications will be sent on publish.';
+      btnEl.textContent = 'Resume Emails';
+      btnEl.style.background = 'var(--green)';
+      btnEl.style.color = 'white';
+      btnEl.style.borderColor = 'var(--green)';
+    } else {
+      statusEl.innerHTML = '✓ <strong style="color:var(--green);">Emails active</strong> — subscribers will be notified on publish.';
+      btnEl.textContent = 'Pause Emails';
+      btnEl.style.background = 'none';
+      btnEl.style.color = 'var(--red)';
+      btnEl.style.borderColor = 'var(--red)';
+    }
+  } catch(e) {
+    statusEl.textContent = 'Could not load email status.';
+  }
+}
+
+async function toggleEmailPause() {
+  const statusEl = document.getElementById('email-pause-status');
+  const btnEl = document.getElementById('email-pause-btn');
+  if (!statusEl || !btnEl) return;
+  try {
+    const current = btnEl.textContent.trim() === 'Pause Emails';
+    const res = await fetch('/api/email-pause', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ paused: current })
+    });
+    const data = await res.json();
+    if (data.ok) loadEmailPauseState();
+  } catch(e) {
+    alert('Failed to toggle email pause: ' + e.message);
+  }
+}
+
+async function loadPlayerList() {
+  const el = document.getElementById('player-list');
+  if (!el) return;
+  try {
+    const res = await fetch('/api/scores');
+    const data = await res.json();
+    const scores = data.scores || {};
+    const players = Object.entries(scores).sort((a,b) => b[1].allTime - a[1].allTime);
+    if (!players.length) { el.innerHTML = '<p>No players yet.</p>'; return; }
+    el.innerHTML = players.map(([key, p]) => `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--rule);">
+        <span>${escHtml(p.displayName)} <span style="color:var(--muted);font-size:11px;">(${p.allTime} pts)</span></span>
+        <button onclick="deletePlayer('${escHtml(key)}')" style="font-family:monospace;font-size:11px;padding:2px 8px;background:none;border:1px solid var(--red);color:var(--red);cursor:pointer;border-radius:2px;">✕ Delete</button>
+      </div>`).join('');
+  } catch(e) {
+    el.innerHTML = '<p style="color:red;">Failed to load players.</p>';
+  }
+}
+
+async function deletePlayer(playerKey) {
+  if (!confirm('Delete player "' + playerKey + '" from the leaderboard? This cannot be undone.')) return;
+  try {
+    const adminToken = lsGet('dnq_admin_token') || 'admin';
+    const res = await fetch('/api/scores/' + encodeURIComponent(playerKey), {
+      method: 'DELETE',
+      headers: { 'x-admin-token': adminToken }
+    });
+    const data = await res.json();
+    if (data.ok) {
+      alert('Deleted: ' + data.deleted);
+      loadPlayerList();
+    } else {
+      alert('Error: ' + (data.error || 'Unknown error'));
+    }
+  } catch(e) {
+    alert('Delete failed: ' + e.message);
+  }
+}
+
 async function loadAdminStats() {
   const el = document.getElementById('admin-stats');
   const labelEl = document.getElementById('stats-date-label');
