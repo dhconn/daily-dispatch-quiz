@@ -4636,6 +4636,7 @@ function updateEmailPauseUI(paused) {
   const status = document.getElementById('email-pause-status');
   const btn = document.getElementById('email-pause-btn');
   if (!status || !btn) return;
+  btn.dataset.paused = paused ? 'true' : 'false';
   if (paused) {
     status.innerHTML = '⏸ <strong style="color:var(--red);">Emails paused</strong> — no notifications will be sent on publish.';
     btn.textContent = '▶ Resume Emails';
@@ -4651,7 +4652,7 @@ function updateEmailPauseUI(paused) {
 
 async function toggleEmailPause() {
   const btn = document.getElementById('email-pause-btn');
-  const currentlyPaused = btn.textContent.includes('Resume');
+  const currentlyPaused = btn.dataset.paused === 'true';
   try {
     const adminToken = lsGet('dnq_admin_token') || 'admin';
     const res = await fetch('/api/email-pause', {
