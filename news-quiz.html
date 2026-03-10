@@ -4660,7 +4660,7 @@ async function toggleEmailPause() {
       body: JSON.stringify({ paused: !currentlyPaused })
     });
     const data = await res.json();
-    if (data.ok) updateEmailPauseUI(data.paused);
+    if (data.ok) { loadEmailPauseState(); loadSubscribers(); }
   } catch(e) {
     alert('Failed to update email pause state: ' + e.message);
   }
