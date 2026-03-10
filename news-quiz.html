@@ -4623,9 +4623,9 @@ function exitArchiveMode() {
 // ── Subscriber list for admin ─────────────────────────────────
 async function loadEmailPauseState() {
   try {
-    const res = await fetch('/api/email-pause');
+    const res = await fetch('/api/email-pause', { cache: 'no-store' });
     const data = await res.json();
-    updateEmailPauseUI(data.paused);
+    updateEmailPauseUI(!!data.paused);
   } catch(e) {
     const el = document.getElementById('email-pause-status');
     if (el) el.textContent = 'Could not load status.';
@@ -4636,10 +4636,12 @@ function updateEmailPauseUI(paused) {
   const status = document.getElementById('email-pause-status');
   const btn = document.getElementById('email-pause-btn');
   if (!status || !btn) return;
+
   btn.dataset.paused = paused ? 'true' : 'false';
+
   if (paused) {
     status.innerHTML = '⏸ <strong style="color:var(--red);">Emails paused</strong> — no notifications will be sent on publish.';
-    btn.textContent = '▶ Resume Emails';
+    btn.textContent = '▶ Restore Emails';
     btn.style.borderColor = 'var(--green)';
     btn.style.color = 'var(--green)';
   } else {
@@ -4652,7 +4654,12 @@ function updateEmailPauseUI(paused) {
 
 async function toggleEmailPause() {
   const btn = document.getElementById('email-pause-btn');
+  if (!btn) return;
+  if (btn.disabled) return;
+
   const currentlyPaused = btn.dataset.paused === 'true';
+  btn.disabled = true;
+
   try {
     const adminToken = lsGet('dnq_admin_token') || 'admin';
     const res = await fetch('/api/email-pause', {
@@ -4661,9 +4668,12 @@ async function toggleEmailPause() {
       body: JSON.stringify({ paused: !currentlyPaused })
     });
     const data = await res.json();
-    if (data.ok) { loadEmailPauseState(); loadSubscribers(); }
+    if (!res.ok || !data.ok) throw new Error(data.error || 'Server error');
+    await loadSubscribers();
   } catch(e) {
     alert('Failed to update email pause state: ' + e.message);
+  } finally {
+    btn.disabled = false;
   }
 }
 
@@ -4804,7 +4814,7 @@ async function toggleSubscriber(email, active) {
       body: JSON.stringify({ active })
     });
     if (!res.ok) throw new Error('Server error');
-    loadSubscribers(); // Refresh the list
+    await loadSubscribers(); // Refresh the list
   } catch(e) {
     alert('Could not update subscriber: ' + e.message);
   }
@@ -4815,8 +4825,10 @@ async function loadSubscribers() {
   const countEl = document.getElementById('sub-count');
   if (!listEl) return;
   try {
-    const res = await fetch('/api/subscribers');
-    const { subscribers } = await res.json();
+    const res = await fetch('/api/subscribers', { cache: 'no-store' });
+    const data = await res.json();
+    const subscribers = data.subscribers || [];
+    updateEmailPauseUI(!!data.emailPaused);
     const active = subscribers.filter(s => s.active);
     countEl.textContent = `(${active.length} active)`;
     if (subscribers.length === 0) {
