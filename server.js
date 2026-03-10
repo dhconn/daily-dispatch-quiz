@@ -727,9 +727,22 @@ app.post('/api/email-pause', async (req, res) => {
   const adminToken = process.env.ADMIN_TOKEN || 'admin';
   if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
   const data = await readData();
-  data.emailPaused = !!req.body.paused;
+  const pausing = !!req.body.paused;
+  data.emailPaused = pausing;
+  const subs = data.subscribers || {};
+  if (pausing) {
+    // Snapshot who is currently active, then pause them all
+    data.emailPausedSnapshot = Object.keys(subs).filter(k => subs[k].active);
+    data.emailPausedSnapshot.forEach(k => { if (subs[k]) subs[k].active = false; });
+    console.log('[Admin] Email PAUSED — ' + data.emailPausedSnapshot.length + ' subscriber(s) paused');
+  } else {
+    // Restore only subscribers who were active before the global pause
+    const snapshot = data.emailPausedSnapshot || [];
+    snapshot.forEach(k => { if (subs[k]) subs[k].active = true; });
+    delete data.emailPausedSnapshot;
+    console.log('[Admin] Email RESUMED — ' + snapshot.length + ' subscriber(s) restored');
+  }
   await writeData(data);
-  console.log('[Admin] Email notifications', data.emailPaused ? 'PAUSED' : 'RESUMED');
   res.json({ ok: true, paused: data.emailPaused });
 });
 
