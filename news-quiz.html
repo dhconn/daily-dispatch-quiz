@@ -1261,6 +1261,22 @@
     <div id="question-area"></div>
   </div>
 
+  <!-- SUBSCRIBE INTERSTITIAL (after Q3 for non-subscribers) -->
+  <div id="screen-subscribe-interstitial" class="screen">
+    <div class="phase-label">✦ Halfway There ✦</div>
+    <h2>Enjoying<br>the Quiz?</h2>
+    <div class="interstitial-rule"></div>
+    <p style="font-size:16px;margin:0 0 6px;">Get tomorrow's automatically.</p>
+    <p style="font-family:monospace;font-size:12px;color:var(--muted);margin:0 0 20px;letter-spacing:1px;">DAILY · FREE · UNSUBSCRIBE ANYTIME</p>
+    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:12px;">
+      <input id="sub-int-email" type="email" placeholder="your@email.com" style="flex:1;min-width:160px;max-width:240px;font-family:serif;font-size:14px;padding:10px 12px;border:1px solid #ccc;box-sizing:border-box;background:#fff;color:#1a1008;">
+      <button onclick="submitSubInterstitial()" style="font-family:'Courier Prime',monospace;font-size:12px;letter-spacing:1px;padding:10px 18px;background:var(--gold);color:var(--ink);border:none;cursor:pointer;white-space:nowrap;">Subscribe ▸</button>
+    </div>
+    <div id="sub-int-status" style="font-family:monospace;font-size:12px;min-height:18px;margin-bottom:16px;"></div>
+    <div class="interstitial-rule"></div>
+    <button onclick="continueAfterSubInterstitial()" style="font-family:'Courier Prime',monospace;font-size:12px;letter-spacing:2px;padding:12px 28px;background:none;border:1px solid var(--paper);color:var(--paper);cursor:pointer;margin-top:8px;">Continue to Q4 ▸</button>
+  </div>
+
   <!-- INTERSTITIAL -->
   <div id="screen-interstitial" class="screen">
     <div class="phase-label">✦ Questions 1–5 Complete ✦</div>
@@ -2314,7 +2330,10 @@ function advanceQuestion() {
   state.currentQ++;
   window.scrollTo(0, 0);
   const regularCount = Math.min(quizQuestions.length - 1, 5);
-  if (state.currentQ < regularCount) {
+  if (state.currentQ === 3 && !lsGet('dnq_subscribed') && !archiveMode) {
+    // Show subscribe prompt after Q3 for non-subscribers
+    showSubscribeInterstitial();
+  } else if (state.currentQ < regularCount) {
     // Update progress dot
     const pd = document.getElementById('pd-' + state.currentQ);
     if (pd) pd.className = 'progress-dot current';
@@ -2327,11 +2346,53 @@ function advanceQuestion() {
 // ═══════════════════════════════════════════════════════
 //  INTERSTITIAL
 // ═══════════════════════════════════════════════════════
+function showSubscribeInterstitial() {
+  showScreen('screen-subscribe-interstitial');
+  // Pre-fill email if player entered one on register screen
+  const emailEl = document.getElementById('sub-int-email');
+  const regEmail = document.getElementById('email-input');
+  if (emailEl && regEmail && regEmail.value) emailEl.value = regEmail.value;
+}
+
+function continueAfterSubInterstitial() {
+  const pd = document.getElementById('pd-' + state.currentQ);
+  if (pd) pd.className = 'progress-dot current';
+  renderQuestion();
+  showScreen('screen-quiz');
+}
+
+async function submitSubInterstitial() {
+  const emailEl = document.getElementById('sub-int-email');
+  const statusEl = document.getElementById('sub-int-status');
+  const email = emailEl ? emailEl.value.trim() : '';
+  if (!email) { if (statusEl) statusEl.textContent = 'Please enter your email.'; return; }
+  if (statusEl) statusEl.textContent = 'Subscribing...';
+  try {
+    const res = await fetch('/api/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, name: state.playerName || '' })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      if (statusEl) statusEl.textContent = "You're in. See you tomorrow!";
+      if (emailEl) emailEl.style.display = 'none';
+      document.querySelector('#screen-subscribe-interstitial button[onclick="submitSubInterstitial()"]').style.display = 'none';
+      lsSet('dnq_subscribed', '1');
+      setTimeout(continueAfterSubInterstitial, 1800);
+    } else {
+      if (statusEl) statusEl.textContent = data.error || 'Something went wrong.';
+    }
+  } catch(e) {
+    if (statusEl) statusEl.textContent = 'Error: ' + e.message;
+  }
+}
+
 function showInterstitial() {
   document.getElementById('interstitial-score').textContent = state.sessionScore;
-  // Hide subscribe CTA on interstitial if already subscribed
+  // Subscribe CTA now shown after Q3 instead — hide it here
   const intSubCta = document.getElementById('interstitial-sub-cta');
-  if (intSubCta) intSubCta.style.display = lsGet('dnq_subscribed') ? 'none' : 'block';
+  if (intSubCta) intSubCta.style.display = 'none';
   showScreen('screen-interstitial');
   // Auto-advance to bonus after 3-second countdown
   let count = 3;
