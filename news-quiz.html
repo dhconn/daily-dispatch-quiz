@@ -1815,6 +1815,12 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('today-dateline').textContent =
     new Date().toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' }).toUpperCase();
 
+  // Restore admin session across refreshes
+  if (lsGet('dnq_admin_open')) {
+    showAdminScreen();
+    return;
+  }
+
   // Restore player name from last session
   const saved = lsGet('dnq_current_player');
   if (saved) {
@@ -1850,6 +1856,7 @@ function updateNav() {
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
+  if (id !== 'screen-admin') lsSet('dnq_admin_open', null);
   updateNav();
   window.scrollTo(0, 0);
 }
@@ -2782,6 +2789,7 @@ function checkAdminPw() {
 }
 
 async function showAdminScreen() {
+  lsSet('dnq_admin_open', '1');
   showScreen('screen-admin');
   await refreshAdminPreviews();
   loadAdminPosts();
