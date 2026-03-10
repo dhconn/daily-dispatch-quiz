@@ -705,7 +705,8 @@ function buildEmailHtml(siteUrl, date, subscriberName, teaserHtml, unsubUrl) {
     </div>
     <div style="padding:32px 24px;background:#f5f0e8;text-align:center;">
       <p style="font-size:18px;margin:0 0 8px;">Hi${subscriberName ? ' ' + subscriberName : ''},</p>
-      <p style="font-size:16px;color:#444;margin:0 0 24px;">Today's quiz is live. How well do you know Baltimore?</p>
+      <p style="font-size:16px;color:#444;margin:0 0 8px;">6 questions. 90 seconds.</p>
+      <p style="font-size:16px;color:#444;margin:0 0 24px;">How well were you paying attention?</p>
       ${teaserHtml}
       <a href="${siteUrl}" style="display:inline-block;background:#1a1008;color:#f5f0e8;padding:16px 36px;font-family:monospace;font-size:13px;letter-spacing:2px;text-decoration:none;text-transform:uppercase;">Play Today's Quiz ▸</a>
     </div>
@@ -828,7 +829,18 @@ app.post('/api/quiz', async (req, res) => {
       for (const sub of subscribers) {
         const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(sub.email)}`;
         const emailHtml = buildEmailHtml(siteUrl, date, sub.name, teaserHtml, unsubUrl);
-        sendEmail(sub.email, `Today's Baltimore Daily Dispatch Quiz is live — ${date}`, emailHtml).catch(() => {});
+        const dow = new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' });
+        const subjects = {
+          Monday:    "How well were you following Baltimore news today?",
+          Tuesday:   "Can you beat today's Baltimore news quiz?",
+          Wednesday: "6 questions about today's Baltimore headlines",
+          Thursday:  "Think you know today's Baltimore news?",
+          Friday:    "Friday's Baltimore News Quiz is live",
+          Saturday:  "Saturday's Baltimore News Quiz is live",
+          Sunday:    "Sunday's Baltimore News Quiz is live"
+        };
+        const subject = subjects[dow] || `Today's Baltimore Daily Dispatch Quiz is live — ${date}`;
+        sendEmail(sub.email, subject, emailHtml).catch(() => {});
       }
     }
   } else {
