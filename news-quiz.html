@@ -1596,10 +1596,6 @@
 
     <div class="admin-section" style="margin-top:20px;">
       <h3>Email Subscribers <span id="sub-count" style="font-family:monospace;font-size:12px;color:var(--muted);font-weight:400;"></span></h3>
-      <div style="display:flex;align-items:center;gap:12px;margin:10px 0 8px;">
-        <div id="email-pause-status" style="font-family:monospace;font-size:12px;">Loading…</div>
-        <button id="email-pause-btn" onclick="toggleEmailPause()" style="font-family:monospace;font-size:11px;padding:4px 12px;border-radius:2px;cursor:pointer;border:1px solid;"></button>
-      </div>
       <div id="sub-list" style="margin-top:10px;font-family:monospace;font-size:12px;max-height:220px;overflow-y:auto;border:1px solid var(--rule);padding:8px;">
         <p style="color:var(--muted);">Loading…</p>
       </div>
@@ -2794,7 +2790,6 @@ async function showAdminScreen() {
   loadAdminArchive();
   loadAdminStats();
   loadPlayerList();
-  loadEmailPauseState();
   loadEmailPauseState();
 }
 
@@ -4668,49 +4663,6 @@ async function toggleEmailPause() {
     if (data.ok) updateEmailPauseUI(data.paused);
   } catch(e) {
     alert('Failed to update email pause state: ' + e.message);
-  }
-}
-
-async function loadEmailPauseState() {
-  const statusEl = document.getElementById('email-pause-status');
-  const btnEl = document.getElementById('email-pause-btn');
-  if (!statusEl || !btnEl) return;
-  try {
-    const res = await fetch('/api/email-pause');
-    const data = await res.json();
-    if (data.paused) {
-      statusEl.innerHTML = '⏸ <strong style="color:var(--red);">Emails paused</strong> — no notifications will be sent on publish.';
-      btnEl.textContent = 'Resume Emails';
-      btnEl.style.background = 'var(--green)';
-      btnEl.style.color = 'white';
-      btnEl.style.borderColor = 'var(--green)';
-    } else {
-      statusEl.innerHTML = '✓ <strong style="color:var(--green);">Emails active</strong> — subscribers will be notified on publish.';
-      btnEl.textContent = 'Pause Emails';
-      btnEl.style.background = 'none';
-      btnEl.style.color = 'var(--red)';
-      btnEl.style.borderColor = 'var(--red)';
-    }
-  } catch(e) {
-    statusEl.textContent = 'Could not load email status.';
-  }
-}
-
-async function toggleEmailPause() {
-  const statusEl = document.getElementById('email-pause-status');
-  const btnEl = document.getElementById('email-pause-btn');
-  if (!statusEl || !btnEl) return;
-  try {
-    const current = btnEl.textContent.trim() === 'Pause Emails';
-    const res = await fetch('/api/email-pause', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ paused: current })
-    });
-    const data = await res.json();
-    if (data.ok) loadEmailPauseState();
-  } catch(e) {
-    alert('Failed to toggle email pause: ' + e.message);
   }
 }
 
