@@ -59,7 +59,7 @@ async function setKey(key, value) {
 // All callers that used await readData()/await writeData() now use async versions below.
 async function readData() {
   const keys = ['sites','rssCache','scores','dist','quizzes','archiveUrls',
-                 'archiveQuestions','posts','messages','subscribers'];
+                 'archiveQuestions','posts','messages','subscribers','emailPaused','emailPausedSnapshot'];
   const data = {};
   await Promise.all(keys.map(async k => {
     const v = await getKey(k);
@@ -70,9 +70,10 @@ async function readData() {
 
 async function writeData(data) {
   const keys = ['sites','rssCache','scores','dist','quizzes','archiveUrls',
-                 'archiveQuestions','posts','messages','subscribers'];
+                 'archiveQuestions','posts','messages','subscribers','emailPaused','emailPausedSnapshot'];
   await Promise.all(keys.map(async k => {
-    if (data[k] !== undefined) await setKey(k, data[k]);
+    if (data[k] === null) await setKey(k, null);
+    else if (data[k] !== undefined) await setKey(k, data[k]);
   }));
   return true;
 }
@@ -739,7 +740,7 @@ app.post('/api/email-pause', async (req, res) => {
     // Restore only subscribers who were active before the global pause
     const snapshot = data.emailPausedSnapshot || [];
     snapshot.forEach(k => { if (subs[k]) subs[k].active = true; });
-    delete data.emailPausedSnapshot;
+    data.emailPausedSnapshot = null;
     console.log('[Admin] Email RESUMED — ' + snapshot.length + ' subscriber(s) restored');
   }
   await writeData(data);
