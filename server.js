@@ -1,8 +1,10 @@
 const express = require('express');
 const https = require('https');
 const http = require('http');
-const { Pool } = require('pg');
 const path = require('path');
+
+// ── Database / key-value store ────────────────────────────────
+const { initDb, getKey, setKey, readData, writeData } = require('./db/store');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -17,66 +19,6 @@ app.use((req, res, next) => {
   if (req.method === 'OPTIONS') return res.sendStatus(204);
   next();
 });
-
-// ── Postgres connection ───────────────────────────────────────
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
-});
-
-// ── Key-value store backed by Postgres ───────────────────────
-// Single table: store(key TEXT PRIMARY KEY, value JSONB)
-// This mirrors the old await readData()/await writeData() pattern exactly.
-
-async function initDb() {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS store (
-      key TEXT PRIMARY KEY,
-      value JSONB NOT NULL
-    )
-  `);
-  console.log('DB: store table ready.');
-}
-
-async function getKey(key) {
-  try {
-    const r = await pool.query('SELECT value FROM store WHERE key=$1', [key]);
-    return r.rows.length ? r.rows[0].value : null;
-  } catch(e) { console.error('getKey error', key, e.message); return null; }
-}
-
-async function setKey(key, value) {
-  try {
-    await pool.query(
-      'INSERT INTO store(key,value) VALUES($1,$2) ON CONFLICT(key) DO UPDATE SET value=$2',
-      [key, JSON.stringify(value)]
-    );
-    return true;
-  } catch(e) { console.error('setKey error', key, e.message); return false; }
-}
-
-// Legacy sync-style shims — kept so the rest of the code changes minimally.
-// All callers that used await readData()/await writeData() now use async versions below.
-async function readData() {
-  const keys = ['sites','rssCache','scores','dist','quizzes','archiveUrls',
-                 'archiveQuestions','posts','messages','subscribers','emailPaused','emailPausedSnapshot'];
-  const data = {};
-  await Promise.all(keys.map(async k => {
-    const v = await getKey(k);
-    if (v !== null) data[k] = v;
-  }));
-  return data;
-}
-
-async function writeData(data) {
-  const keys = ['sites','rssCache','scores','dist','quizzes','archiveUrls',
-                 'archiveQuestions','posts','messages','subscribers','emailPaused','emailPausedSnapshot'];
-  await Promise.all(keys.map(async k => {
-    if (data[k] === null) await setKey(k, null);
-    else if (data[k] !== undefined) await setKey(k, data[k]);
-  }));
-  return true;
-}
 
 // ── RSS feed fetcher ─────────────────────────────────────────
 // Fetches raw RSS/Atom XML from a URL, returns text
