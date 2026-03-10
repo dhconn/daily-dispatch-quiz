@@ -1324,10 +1324,6 @@
       <div class="stat-cell"><div class="val" id="stat-pct">0%</div><div class="lbl">Accuracy</div></div>
       <div class="stat-cell"><div class="val" id="stat-rank">#–</div><div class="lbl">Today's Rank</div></div>
     </div>
-    <div class="results-breakdown" id="breakdown-table"></div>
-    <div id="dist-table"></div>
-    <div id="results-streak-nudge" style="display:none;margin:20px 0 0;padding:14px 16px;background:var(--ink);color:var(--paper);text-align:center;font-family:'Courier Prime',monospace;letter-spacing:1px;line-height:1.7;"></div>
-
     <div id="results-subscribe-cta" style="margin:28px 0 8px;padding:20px;background:white;border:1px solid var(--rule);text-align:left;">
       <div style="font-family:'Courier Prime',monospace;font-size:10px;letter-spacing:2px;color:var(--muted);margin-bottom:10px;">WANT TOMORROW'S QUIZ?</div>
       <p style="font-size:15px;margin:0 0 14px;line-height:1.5;">Get tomorrow's quiz delivered to your inbox — with today's answers included.</p>
@@ -1340,6 +1336,10 @@
       </div>
       <div id="results-sub-done" style="display:none;font-family:'Courier Prime',monospace;font-size:13px;color:var(--green);padding:4px 0;">✓ You're in. See you tomorrow.</div>
     </div>
+
+    <div class="results-breakdown" id="breakdown-table"></div>
+    <div id="dist-table"></div>
+    <div id="results-streak-nudge" style="display:none;margin:20px 0 0;padding:14px 16px;background:var(--ink);color:var(--paper);text-align:center;font-family:'Courier Prime',monospace;letter-spacing:1px;line-height:1.7;"></div>
 
     <div id="share-section" style="margin:20px 0;padding:16px;background:white;border:1px solid var(--rule);text-align:center;display:none;">
       <div style="font-family:monospace;font-size:11px;letter-spacing:2px;color:var(--muted);margin-bottom:8px;">SHARE YOUR SCORE</div>
@@ -4623,9 +4623,9 @@ function exitArchiveMode() {
 // ── Subscriber list for admin ─────────────────────────────────
 async function loadEmailPauseState() {
   try {
-    const res = await fetch('/api/email-pause', { cache: 'no-store' });
+    const res = await fetch('/api/email-pause');
     const data = await res.json();
-    updateEmailPauseUI(!!data.paused);
+    updateEmailPauseUI(data.paused);
   } catch(e) {
     const el = document.getElementById('email-pause-status');
     if (el) el.textContent = 'Could not load status.';
@@ -4636,12 +4636,10 @@ function updateEmailPauseUI(paused) {
   const status = document.getElementById('email-pause-status');
   const btn = document.getElementById('email-pause-btn');
   if (!status || !btn) return;
-
   btn.dataset.paused = paused ? 'true' : 'false';
-
   if (paused) {
     status.innerHTML = '⏸ <strong style="color:var(--red);">Emails paused</strong> — no notifications will be sent on publish.';
-    btn.textContent = '▶ Restore Emails';
+    btn.textContent = '▶ Resume Emails';
     btn.style.borderColor = 'var(--green)';
     btn.style.color = 'var(--green)';
   } else {
@@ -4654,12 +4652,7 @@ function updateEmailPauseUI(paused) {
 
 async function toggleEmailPause() {
   const btn = document.getElementById('email-pause-btn');
-  if (!btn) return;
-  if (btn.disabled) return;
-
   const currentlyPaused = btn.dataset.paused === 'true';
-  btn.disabled = true;
-
   try {
     const adminToken = lsGet('dnq_admin_token') || 'admin';
     const res = await fetch('/api/email-pause', {
@@ -4668,12 +4661,9 @@ async function toggleEmailPause() {
       body: JSON.stringify({ paused: !currentlyPaused })
     });
     const data = await res.json();
-    if (!res.ok || !data.ok) throw new Error(data.error || 'Server error');
-    await loadSubscribers();
+    if (data.ok) { loadEmailPauseState(); loadSubscribers(); }
   } catch(e) {
     alert('Failed to update email pause state: ' + e.message);
-  } finally {
-    btn.disabled = false;
   }
 }
 
@@ -4814,7 +4804,7 @@ async function toggleSubscriber(email, active) {
       body: JSON.stringify({ active })
     });
     if (!res.ok) throw new Error('Server error');
-    await loadSubscribers(); // Refresh the list
+    loadSubscribers(); // Refresh the list
   } catch(e) {
     alert('Could not update subscriber: ' + e.message);
   }
@@ -4825,10 +4815,8 @@ async function loadSubscribers() {
   const countEl = document.getElementById('sub-count');
   if (!listEl) return;
   try {
-    const res = await fetch('/api/subscribers', { cache: 'no-store' });
-    const data = await res.json();
-    const subscribers = data.subscribers || [];
-    updateEmailPauseUI(!!data.emailPaused);
+    const res = await fetch('/api/subscribers');
+    const { subscribers } = await res.json();
     const active = subscribers.filter(s => s.active);
     countEl.textContent = `(${active.length} active)`;
     if (subscribers.length === 0) {
