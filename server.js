@@ -817,10 +817,12 @@ app.post('/api/quiz', async (req, res) => {
   // Send notification emails — skipped for silent saves (emergency save, edits, fixes)
   if (!silent) {
     const siteUrl = process.env.SITE_URL || 'https://your-app.railway.app';
-    if (data.emailPaused) {
+    // Re-read fresh to pick up emailPaused state set after this request started
+    const freshData = await readData();
+    if (freshData.emailPaused) {
       console.log('Email notifications are globally paused — skipping subscriber emails.');
     }
-    const subscribers = data.emailPaused ? [] : Object.values(data.subscribers || {}).filter(s => s.active);
+    const subscribers = freshData.emailPaused ? [] : Object.values(freshData.subscribers || {}).filter(s => s.active);
     if (subscribers.length > 0) {
       console.log(`Email: Sending quiz notification to ${subscribers.length} subscribers…`);
       const teasers = await generateTeasers(quiz.questions || []);
