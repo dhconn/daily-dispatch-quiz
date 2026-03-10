@@ -1270,6 +1270,15 @@
     <div class="score-subtext">points earned so far</div>
     <p>You've answered the day's news — from the straightforward to the substantive. But the hardest question still awaits.</p>
     <div class="interstitial-rule"></div>
+    <div id="interstitial-sub-cta" style="margin:0 0 20px;padding:16px 20px;background:rgba(255,255,255,0.08);border:1px solid rgba(240,192,64,0.3);text-align:center;">
+      <div style="font-size:15px;margin-bottom:4px;">Enjoying the quiz?</div>
+      <div style="font-family:monospace;font-size:12px;color:var(--gold-light);letter-spacing:1px;margin-bottom:12px;">GET TOMORROW'S AUTOMATICALLY.</div>
+      <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+        <input id="interstitial-sub-email" type="email" placeholder="your@email.com" style="flex:1;min-width:160px;max-width:240px;font-family:serif;font-size:14px;padding:8px 10px;border:1px solid #ccc;box-sizing:border-box;background:#fff;color:#1a1008;">
+        <button onclick="submitInterstitialSubscribe()" style="font-family:'Courier Prime',monospace;font-size:12px;letter-spacing:1px;padding:8px 16px;background:var(--gold);color:var(--ink);border:none;cursor:pointer;white-space:nowrap;">Subscribe ▸</button>
+      </div>
+      <div id="interstitial-sub-status" style="font-family:monospace;font-size:12px;margin-top:8px;min-height:16px;"></div>
+    </div>
     <div class="pulse-text" style="font-family:monospace,monospace;font-size:12px;letter-spacing:3px;color:var(--gold-light);margin-bottom:28px;">THE BONUS ROUND AWAITS</div>
     <p style="font-family:monospace,monospace;font-size:12px;color:var(--muted);margin-bottom:8px;">Taking you there now…</p>
     <div id="interstitial-countdown" style="font-family:'Playfair Display',serif;font-size:28px;color:var(--gold);margin-bottom:24px;">3</div>
@@ -1316,6 +1325,17 @@
       <div id="results-sub-done" style="display:none;font-family:'Courier Prime',monospace;font-size:13px;color:var(--green);padding:4px 0;">✓ You're in. See you tomorrow.</div>
     </div>
 
+    <div id="share-section" style="margin:20px 0;padding:16px;background:white;border:1px solid var(--rule);text-align:center;display:none;">
+      <div style="font-family:monospace;font-size:11px;letter-spacing:2px;color:var(--muted);margin-bottom:8px;">SHARE YOUR SCORE</div>
+      <div id="share-text-preview" style="font-size:14px;color:var(--ink);margin-bottom:14px;line-height:1.5;white-space:pre-line;font-family:monospace;"></div>
+      <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+        <button onclick="shareOnX()" style="font-family:monospace;font-size:12px;padding:8px 16px;background:#000;color:#fff;border:none;cursor:pointer;border-radius:2px;">Share on X</button>
+        <button onclick="shareOnBluesky()" style="font-family:monospace;font-size:12px;padding:8px 16px;background:#0085ff;color:#fff;border:none;cursor:pointer;border-radius:2px;">Share on Bluesky</button>
+        <button onclick="copyShareText()" style="font-family:monospace;font-size:12px;padding:8px 16px;background:none;border:1px solid var(--rule);color:var(--ink);cursor:pointer;border-radius:2px;">Copy</button>
+      </div>
+      <div id="share-copy-confirm" style="font-family:monospace;font-size:11px;color:var(--green);margin-top:6px;min-height:14px;"></div>
+    </div>
+
     <div class="result-actions">
       <button class="btn-primary" onclick="showLeaderboard()">View Leaderboard ▸</button>
       <button class="btn-secondary" onclick="showScreen('screen-register')">Play Again</button>
@@ -1342,6 +1362,15 @@
     <p style="font-family:monospace;font-size:12px;color:var(--muted);margin-bottom:16px;">Play past editions of the Daily Dispatch Quiz. Scores are not recorded.</p>
     <div id="archive-list">
       <p style="color:var(--muted);font-family:monospace;font-size:13px;">Loading past quizzes…</p>
+    </div>
+    <div style="margin-top:24px;padding:20px;background:white;border:1px solid var(--rule);text-align:center;">
+      <div style="font-size:17px;font-weight:600;margin-bottom:4px;">Never miss tomorrow's quiz.</div>
+      <div style="font-family:monospace;font-size:12px;color:var(--muted);margin-bottom:14px;">Get it delivered to your inbox each morning.</div>
+      <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+        <input id="archive-sub-email" type="email" placeholder="your@email.com" style="flex:1;min-width:160px;max-width:240px;font-family:serif;font-size:14px;padding:9px 12px;border:1px solid #ccc;box-sizing:border-box;">
+        <button onclick="submitArchiveSubscribe()" style="font-family:'Courier Prime',monospace;font-size:12px;letter-spacing:1px;padding:9px 20px;background:var(--ink);color:var(--paper);border:none;cursor:pointer;white-space:nowrap;">Subscribe ▸</button>
+      </div>
+      <div id="archive-sub-status" style="font-family:monospace;font-size:12px;margin-top:8px;min-height:16px;color:var(--green);"></div>
     </div>
     <div style="margin-top:16px;">
       <button class="btn-secondary" onclick="exitArchiveMode()">◂ Back</button>
@@ -1816,6 +1845,78 @@ function showScreen(id) {
 // ═══════════════════════════════════════════════════════
 //  REGISTER
 // ═══════════════════════════════════════════════════════
+async function submitInterstitialSubscribe() {
+  const emailEl = document.getElementById('interstitial-sub-email');
+  const statusEl = document.getElementById('interstitial-sub-status');
+  const email = emailEl ? emailEl.value.trim() : '';
+  if (!email) { if (statusEl) statusEl.textContent = 'Please enter your email.'; return; }
+  if (statusEl) statusEl.textContent = 'Subscribing…';
+  try {
+    const name = state.playerName || '';
+    const res = await fetch('/api/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, name }) });
+    const data = await res.json();
+    if (data.ok) {
+      if (statusEl) statusEl.textContent = "\u2713 You're in. See you tomorrow!";
+      if (emailEl) emailEl.style.display = 'none';
+      lsSet('dnq_subscribed', '1');
+      document.getElementById('interstitial-sub-cta').querySelector('button') && (document.getElementById('interstitial-sub-cta').querySelector('button').style.display = 'none');
+    } else {
+      if (statusEl) statusEl.textContent = data.error || 'Something went wrong.';
+    }
+  } catch(e) {
+    if (statusEl) statusEl.textContent = 'Error: ' + e.message;
+  }
+}
+
+async function submitArchiveSubscribe() {
+  const emailEl = document.getElementById('archive-sub-email');
+  const statusEl = document.getElementById('archive-sub-status');
+  const email = emailEl ? emailEl.value.trim() : '';
+  if (!email) { if (statusEl) statusEl.textContent = 'Please enter your email.'; return; }
+  if (statusEl) statusEl.textContent = 'Subscribing…';
+  try {
+    const name = state.playerName || '';
+    const res = await fetch('/api/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, name }) });
+    const data = await res.json();
+    if (data.ok) {
+      if (statusEl) statusEl.textContent = "You're in. See you tomorrow!";
+      if (emailEl) emailEl.value = '';
+      lsSet('dnq_subscribed', '1');
+    } else {
+      if (statusEl) statusEl.textContent = data.error || 'Something went wrong.';
+    }
+  } catch(e) {
+    if (statusEl) statusEl.textContent = 'Error: ' + e.message;
+  }
+}
+
+function buildShareText() {
+  const score = state.sessionScore;
+  const maxScore = 10 + 10 + 20 + 20 + 30 + 50 + 10; // 150 with completion bonus
+  const siteUrl = 'https://dailydispatchquiz.com';
+  return `Daily Dispatch Quiz
+Score: ${score}/${maxScore}
+How closely were you following Baltimore news today?
+${siteUrl}`;
+}
+
+function shareOnX() {
+  const text = encodeURIComponent(buildShareText());
+  window.open('https://x.com/intent/tweet?text=' + text, '_blank');
+}
+
+function shareOnBluesky() {
+  const text = encodeURIComponent(buildShareText());
+  window.open('https://bsky.app/intent/compose?text=' + text, '_blank');
+}
+
+function copyShareText() {
+  navigator.clipboard.writeText(buildShareText()).then(() => {
+    const el = document.getElementById('share-copy-confirm');
+    if (el) { el.textContent = '✓ Copied!'; setTimeout(() => el.textContent = '', 2000); }
+  });
+}
+
 async function submitResultsSubscribe() {
   const emailEl = document.getElementById('results-sub-email');
   const statusEl = document.getElementById('results-sub-status');
@@ -2228,6 +2329,9 @@ function advanceQuestion() {
 // ═══════════════════════════════════════════════════════
 function showInterstitial() {
   document.getElementById('interstitial-score').textContent = state.sessionScore;
+  // Hide subscribe CTA on interstitial if already subscribed
+  const intSubCta = document.getElementById('interstitial-sub-cta');
+  if (intSubCta) intSubCta.style.display = lsGet('dnq_subscribed') ? 'none' : 'block';
   showScreen('screen-interstitial');
   // Auto-advance to bonus after 3-second countdown
   let count = 3;
@@ -2460,6 +2564,15 @@ function finishQuiz() {
     brows = archiveBarResults + brows;
   }
   document.getElementById('breakdown-table').innerHTML = brows;
+  // Show share section with current score
+  if (!archiveMode) {
+    const shareSection = document.getElementById('share-section');
+    const sharePreview = document.getElementById('share-text-preview');
+    if (shareSection && sharePreview) {
+      sharePreview.textContent = buildShareText();
+      shareSection.style.display = 'block';
+    }
+  }
   showScreen('screen-results');
 
   // Hide subscribe CTA if player already subscribed this session or previously
@@ -2476,12 +2589,14 @@ function finishQuiz() {
     if (milestone) {
       nudgeHtml = `<span style="font-size:15px;">${milestone}</span><br><span style="font-size:13px;opacity:0.85;">Come back tomorrow to extend your streak to ${dayStreak + 1} days.</span>`;
     } else if (dayStreak >= 2) {
-      nudgeHtml = `<span>🔥 ${dayStreak}-day streak</span><br><span style="font-size:13px;opacity:0.85;">Come back tomorrow to extend it to ${dayStreak + 1} days.</span>`;
-    } else {
+      nudgeHtml = `<span>🔥 ${dayStreak}-day streak</span><br><span style="font-size:13px;opacity:0.85;">Come back tomorrow to keep it alive.</span>`;
+    } else if (dayStreak === 1) {
       nudgeHtml = `<span style="font-size:13px;opacity:0.85;">Come back tomorrow to start a streak.</span>`;
     }
-    streakNudgeEl.innerHTML = nudgeHtml;
-    streakNudgeEl.style.display = 'block';
+    if (nudgeHtml) {
+      streakNudgeEl.innerHTML = nudgeHtml;
+      streakNudgeEl.style.display = 'block';
+    }
   }
 
   document.getElementById('dist-table').innerHTML = '<div class="breakdown-header" style="margin-top:24px;">How Others Did</div><div style="font-size:13px;color:var(--muted);padding:8px 0;">Loading…</div>';
