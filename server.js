@@ -4,7 +4,7 @@ const http = require('http');
 const path = require('path');
 
 // ── Database / key-value store ────────────────────────────────
-const { initDb, getKey, setKey, readData, writeData } = require('./db/store');
+const { initDb, getKey, setKey, readData, writeData } = require('./store');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
