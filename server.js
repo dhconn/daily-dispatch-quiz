@@ -800,7 +800,14 @@ app.get('/api/subscribers', async (req, res) => {
   const data = await readData();
   const subs = Object.values(data.subscribers || {})
     .sort((a, b) => new Date(b.subscribedAt) - new Date(a.subscribedAt));
-  res.json({ subscribers: subs });
+
+    // Prevent browser/admin panel caching
+   res.setHeader('Cache-Control', 'no-store');
+
+  res.json({
+    subscribers: subs,
+    emailPaused: !!data.emailPaused
+ });
 });
 
 // ── PATCH /api/subscribers/:email — toggle active status ──────
