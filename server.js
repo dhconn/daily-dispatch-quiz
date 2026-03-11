@@ -1,12 +1,8 @@
 const express = require('express');
 const https = require('https');
+const http = require('http');
+const { Pool } = require('pg');
 const path = require('path');
-
-// ── Database / key-value store ────────────────────────────────
-const { initDb, getKey, setKey, readData, writeData } = require('./store');
-
-// ── RSS service ───────────────────────────────────────────────
-const rssService = require('./rssService');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -22,8 +18,363 @@ app.use((req, res, next) => {
   next();
 });
 
-// ── RSS routes (GET /api/rss, /api/rss/debug, POST /api/rss/refresh) ──
-rssService.registerRoutes(app);
+// ── Postgres connection ───────────────────────────────────────
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
+});
+
+// ── Key-value store backed by Postgres ───────────────────────
+// Single table: store(key TEXT PRIMARY KEY, value JSONB)
+// This mirrors the old await readData()/await writeData() pattern exactly.
+
+async function initDb() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS store (
+      key TEXT PRIMARY KEY,
+      value JSONB NOT NULL
+    )
+  `);
+  console.log('DB: store table ready.');
+}
+
+async function getKey(key) {
+  try {
+    const r = await pool.query('SELECT value FROM store WHERE key=$1', [key]);
+    return r.rows.length ? r.rows[0].value : null;
+  } catch(e) { console.error('getKey error', key, e.message); return null; }
+}
+
+async function setKey(key, value) {
+  try {
+    await pool.query(
+      'INSERT INTO store(key,value) VALUES($1,$2) ON CONFLICT(key) DO UPDATE SET value=$2',
+      [key, JSON.stringify(value)]
+    );
+    return true;
+  } catch(e) { console.error('setKey error', key, e.message); return false; }
+}
+
+// Legacy sync-style shims — kept so the rest of the code changes minimally.
+// All callers that used await readData()/await writeData() now use async versions below.
+async function readData() {
+  const keys = ['sites','rssCache','scores','dist','quizzes','archiveUrls',
+                 'archiveQuestions','posts','messages','subscribers','emailPaused','emailPausedSnapshot','topicBlocklist'];
+  const data = {};
+  await Promise.all(keys.map(async k => {
+    const v = await getKey(k);
+    if (v !== null) data[k] = v;
+  }));
+  return data;
+}
+
+async function writeData(data) {
+  const keys = ['sites','rssCache','scores','dist','quizzes','archiveUrls',
+                 'archiveQuestions','posts','messages','subscribers','emailPaused','emailPausedSnapshot','topicBlocklist'];
+  await Promise.all(keys.map(async k => {
+    if (data[k] === null) await setKey(k, null);
+    else if (data[k] !== undefined) await setKey(k, data[k]);
+  }));
+  return true;
+}
+
+// ── RSS feed fetcher ─────────────────────────────────────────
+// Fetches raw RSS/Atom XML from a URL, returns text
+function fetchUrl(url) {
+  return new Promise((resolve, reject) => {
+    const protocol = url.startsWith('https') ? https : http;
+    const req = protocol.get(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; NewsQuizBot/1.0)' },
+      timeout: 10000
+    }, (res) => {
+      // Follow redirects
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        return fetchUrl(res.headers.location).then(resolve).catch(reject);
+      }
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => resolve(data));
+    });
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')); });
+  });
+}
+
+// Parse RSS/Atom XML — extracts titles, descriptions, links, pubDates
+function parseRSS(xml) {
+  const items = [];
+  // Match both RSS <item> and Atom <entry> tags
+  const itemRegex = /<(?:item|entry)[\s>]([\s\S]*?)<\/(?:item|entry)>/gi;
+  let match;
+  while ((match = itemRegex.exec(xml)) !== null) {
+    const block = match[1];
+    const get = (tag) => {
+      const m = block.match(new RegExp(`<${tag}[^>]*><!\\[CDATA\\[([\\s\\S]*?)\\]\\]></${tag}>`, 'i'))
+        || block.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, 'i'));
+      return m ? m[1].replace(/<[^>]+>/g, '').trim() : '';
+    };
+    const title = get('title');
+    const description = get('description') || get('summary') || get('content');
+    const link = get('link')
+      || (block.match(/<link[^>]+href="([^"]+)"/i)||[])[1]
+      || (block.match(/<guid[^>]*>([^<]+)<\/guid>/i)||[])[1]
+      || (block.match(/href="(https?:\/\/[^"]+)"/)||[])[1]
+      || '';
+    const pubDate = get('pubDate') || get('published') || get('updated') || '';
+
+    if (title) {
+      items.push({ title, description: description.slice(0, 2000), link, pubDate });
+    }
+  }
+  return items;
+}
+
+// Known RSS feeds for Baltimore news sites
+const BALTIMORE_RSS_FEEDS = {
+  // Pure local outlets — confirmed working
+  'baltimoretimes-online.com':  'https://baltimoretimes-online.com/feed/',
+  'marylandmatters.org':        'https://marylandmatters.org/feed/',
+  'thedailyrecord.com':         'https://thedailyrecord.com/feed/',
+  'baltimorefishbowl.com':      'https://baltimorefishbowl.com/feed/',
+  'southbmore.com':             'https://www.southbmore.com/feed/',
+  'cbsnews.com/baltimore':      'https://www.cbsnews.com/baltimore/latest/rss/main',
+  // Pure local — feed URLs need alternate versions
+  'baltimorebrew.com':          'https://baltimorebrew.com/feed/rss/',
+  'thebanner.com':              'https://www.thebaltimorebanner.com/arc/outboundfeeds/rss/',
+  'thebaltimorebanner.com':     'https://www.thebaltimorebanner.com/arc/outboundfeeds/rss/',
+  'wypr.org':                   'https://www.wypr.org/podcast/news/rss.xml',
+  'baltimoresun.com':           'https://www.baltimoresun.com/arc/outboundfeeds/rss/',
+  'bizjournals.com/baltimore':  'https://www.bizjournals.com/baltimore/feed/news/local.rss',
+  'technical.ly':               'https://technical.ly/baltimore/feed/',
+  'dailyvoice.com':             'https://dailyvoice.com/maryland/feed.rss',
+  // TV stations — keyword filtered
+  'foxbaltimore.com':           'https://foxbaltimore.com/rss',
+  'wbaltv.com':                 'https://www.wbaltv.com/rss',
+  'wmar2news.com':              'https://www.wmar2news.com/rss',
+  'wbal.com':                   'https://www.wbal.com/rss',
+  'mytvbaltimore.com':          'https://foxbaltimore.com/rss',
+  'cwbaltimore.com':            'https://www.wmar2news.com/rss',
+  // Additional local sources
+  'afro.com':                   'https://afro.com/feed/',
+  'urbanleaguebaltimore.org':   'https://urbanleaguebaltimore.org/feed/',
+  'baltimoremagazine.com':      'https://www.baltimoremagazine.com/feed/',
+  'citypaper.com':              'https://www.citypaper.com/feed/',
+};
+
+// Filter items to last 24 hours
+function isRecent(pubDate) {
+  if (!pubDate) return true; // include if no date
+  try {
+    const d = new Date(pubDate);
+    if (isNaN(d.getTime())) return true; // unparseable date — include it
+    return (Date.now() - d.getTime()) < 72 * 60 * 60 * 1000; // 72hr window
+  } catch(e) { return true; }
+}
+
+// ── RSS cache ─────────────────────────────────────────────────
+// Articles are fetched in the background and cached in memory.
+// The cache is refreshed on startup and via the /api/rss/refresh endpoint.
+
+async function fetchAndCacheRSS() {
+  const data = await readData();
+  const savedSites = (data.sites || '').split('\n').map(s => s.trim()).filter(Boolean)
+    .filter(s => !s.includes('google.com') && !s.includes('therealnews.com')); // skip non-RSS sources
+  if (!savedSites.length) {
+    console.log('RSS: No sites saved yet, skipping fetch.');
+    return;
+  }
+
+  console.log(`RSS: Fetching feeds for ${savedSites.length} sites…`);
+
+  const feedsToFetch = [];
+  for (const site of savedSites) {
+    let matched = false;
+    for (const [key, feedUrl] of Object.entries(BALTIMORE_RSS_FEEDS)) {
+      if (site.includes(key)) {
+        feedsToFetch.push({ site, feedUrl });
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) {
+      const base = site.replace(/\/$/, '');
+      feedsToFetch.push({ site, feedUrl: base + '/feed/' });
+      feedsToFetch.push({ site, feedUrl: base + '/rss' });
+    }
+  }
+
+  const allItems = [];
+  const errors = [];
+
+  // Keywords that indicate a story is local to Baltimore/Central Maryland
+  const LOCAL_KEYWORDS = [
+    'baltimore', 'maryland', ' md ', 'md\'s', ' md:', 'annapolis', 'towson', 'bethesda', 'silver spring',
+    'columbia', 'ellicott city', 'bowie', 'laurel', 'rockville', 'gaithersburg',
+    'hagerstown', 'frederick', 'salisbury', 'ocean city', 'chesapeake',
+    'orioles', 'ravens', 'terps', 'terrapins', 'shock trauma', 'jhu', 'johns hopkins',
+    'morgan state', 'loyola', 'umbc', 'umd', 'bge', 'mta maryland',
+    'harford', 'howard county', 'anne arundel', 'carroll county', 'prince george',
+    'washington county', 'wicomico', 'worcester', 'somerset', 'dorchester',
+    'kent county', 'queen anne', 'talbot', 'caroline', 'cecil county', 'calvert', 'charles county'
+  ];
+
+  // URLs that are too sensitive/graphic for a community quiz
+  const BLACKLISTED_URLS = [
+    'university-maryland-police-sexual-misconduct',
+    '/sponsored-content/',
+    '/advertorial/',
+    '/paid-content/',
+    // Persistent national wire stories with no Maryland angle
+    'us-rules-supreme-court-colorado-oil-climate-lawsuit',
+    'heres-what-to-know-about-the-dhs-funding-shutdown',
+    'supreme-court-nra-free-speech-ny-official',
+    'federal-rules-louisiana-ten-commandments-law-schools-appeals',
+    // Baltimore Times food article — Claude invariably asks about Atlanta conference detail
+    'the-weight-we-carry-food-labor-and-black-womens-bodies-as-living-archives',
+  ];
+
+  function isLocalStory(item, site) {
+    // Skip CBS video pages — articles have more usable text for quiz generation
+    if (site.includes('cbsnews') && (item.link || '').includes('/video/')) return false;
+
+    // Filter DC sports teams — Nationals, Commanders, Capitals, Wizards
+    // These appear in Banner's sports section but have no Baltimore relevance
+    const itemLink = (item.link || '').toLowerCase();
+    const itemTitle = (item.title || '').toLowerCase();
+    const dcSportsPatterns = [
+      '/nationals-mlb/', '/commanders-nfl/', '/capitals-nhl/', '/wizards-nba/',
+      'nationals spring training', 'washington nationals',
+      'washington commanders'
+    ];
+    if (dcSportsPatterns.some(p => itemLink.includes(p) || itemTitle.includes(p))) return false;
+
+    // Filter weather forecasts — only keep if headline suggests historic/major storm
+    const weatherPatterns = ['first alert', 'degrees', 'temperatures', 'forecast',
+      'rain and snow', 'showers', 'warmer', 'colder', 'milder', 'weekend weather'];
+    const majorWeather = ['blizzard', 'hurricane', 'tornado', 'historic storm',
+      'state of emergency', 'major flooding', 'power outages'];
+    if (weatherPatterns.some(p => itemTitle.includes(p)) &&
+        !majorWeather.some(p => itemTitle.includes(p))) return false;
+    // These outlets publish ONLY local Baltimore/Maryland content — trust everything
+    // Truly hyper-local outlets — every story is Baltimore/Maryland specific
+    // Hyper-local outlets — trust everything they publish
+    const pureLocalSites = [
+      'baltimorebrew', 'baltimoretimes', 'baltimorefishbowl', 'southbmore',
+      'bizjournals.com/baltimore', 'technical.ly', 'wypr.org', 'marylandmatters',
+      'baltimorebanner', 'thebanner.com', 'baltimoresun', 'afro.com',
+      'baltimoremagazine', 'citypaper.com'
+    ];
+    if (pureLocalSites.some(s => site.includes(s))) return true;
+
+    // Daily Record and TV stations mix local with national wire — require keyword in title
+    const title = (item.title || '').toLowerCase();
+    return LOCAL_KEYWORDS.some(kw => title.includes(kw)) || title.startsWith('md ');
+  }
+
+  const fetchWithTimeout = (site, feedUrl) => new Promise(async (resolve) => {
+    const timer = setTimeout(() => resolve(), 8000);
+    try {
+      const xml = await fetchUrl(feedUrl);
+      const parsed = parseRSS(xml);
+      const recent = parsed.filter(item => isRecent(item.pubDate));
+      const items = recent.filter(item => isLocalStory(item, site));
+      console.log(`RSS OK: ${feedUrl} — ${parsed.length} total, ${recent.length} recent, ${items.length} local`);
+      if (parsed.length > 0 && recent.length === 0) {
+        console.log(`  oldest item date: ${parsed[parsed.length-1].pubDate}`);
+      }
+      items.forEach(item => allItems.push({ ...item, source: site }));
+    } catch(e) {
+      errors.push(`${feedUrl}: ${e.message}`);
+      console.log(`RSS FAIL: ${feedUrl} — ${e.message}`);
+    } finally {
+      clearTimeout(timer);
+      resolve();
+    }
+  });
+
+  await Promise.allSettled(feedsToFetch.map(({ site, feedUrl }) => fetchWithTimeout(site, feedUrl)));
+
+  // Deduplicate by title, then cap per source at 10 articles
+  const seen = new Set();
+  const sourceCount = {};
+  const unique = allItems.filter(item => {
+    // Exact title dedup
+    const titleKey = item.title.toLowerCase().trim();
+    if (seen.has(titleKey)) return false;
+    seen.add(titleKey);
+    // Per-source cap — prevent any one source dominating
+    const src = item.source || 'unknown';
+    sourceCount[src] = (sourceCount[src] || 0) + 1;
+    // Baltimore Banner gets a higher cap since it's our richest pure-local source
+    const cap = src.includes('thebanner') || src.includes('thebaltimorebanner') ? 30 : 15;
+    if (sourceCount[src] > cap) return false;
+    return true;
+  });
+
+  // Save to data file
+  const freshData = await readData();
+  freshData.rssCache = {
+    items: unique.slice(0, 100),
+    fetchedAt: new Date().toISOString(),
+    errors: errors.length ? errors : []
+  };
+  await writeData(freshData);
+  console.log(`RSS: Cached ${unique.length} articles. Errors: ${errors.length}`);
+}
+
+// ── Email helper (Resend) ─────────────────────────────────────
+
+// Scheduled daily refresh at 6am Eastern time
+function scheduleNextRefresh() {
+  const now = new Date();
+  const next = new Date();
+  // 6am Eastern = 11am UTC (EST) or 10am UTC (EDT)
+  const utcHour = 11;
+  next.setUTCHours(utcHour, 0, 0, 0);
+  if (next <= now) next.setUTCDate(next.getUTCDate() + 1); // tomorrow if already past
+  const msUntil = next - now;
+  console.log(`RSS: Next scheduled refresh in ${Math.round(msUntil/60000)} minutes (6am Eastern).`);
+  setTimeout(() => {
+    fetchAndCacheRSS();
+    scheduleNextRefresh(); // schedule the next day's refresh
+  }, msUntil);
+}
+scheduleNextRefresh();
+
+// ── GET /api/rss/debug — show all cached articles grouped by source ──
+app.get('/api/rss/debug', async (req, res) => {
+  const data = await readData();
+  const cache = data.rssCache || { items: [], fetchedAt: null };
+  
+  // Group by source
+  const bySource = {};
+  for (const item of cache.items) {
+    const src = item.source || 'unknown';
+    if (!bySource[src]) bySource[src] = [];
+    bySource[src].push({ title: item.title, pubDate: item.pubDate, link: item.link });
+  }
+
+  res.json({
+    version: '2.2-banner30',
+    fetchedAt: cache.fetchedAt,
+    totalCount: cache.items.length,
+    errors: cache.errors || [],
+    bySource
+  });
+});
+
+// ── GET /api/rss — return cached articles ─────────────────────
+app.get('/api/rss', async (req, res) => {
+  const data = await readData();
+  const cache = data.rssCache || { items: [], fetchedAt: null, errors: [] };
+  res.json(cache);
+});
+
+// ── POST /api/rss/refresh — manually trigger a fresh fetch ────
+app.post('/api/rss/refresh', async (req, res) => {
+  res.json({ ok: true, message: 'RSS refresh started in background.' });
+  fetchAndCacheRSS(); // run in background, don't await
+});
 
 // ── Redirect root to quiz ────────────────────────────────────
 app.get('/', async (req, res) => {
@@ -99,7 +450,7 @@ app.post('/api/fetch-article', async (req, res) => {
   if (!url) return res.status(400).json({ error: 'url required' });
 
   try {
-    const html = await rssService.fetchUrl(url);
+    const html = await fetchUrl(url);
 
     // Strip script/style blocks first
     let text = html
@@ -366,6 +717,23 @@ function buildEmailHtml(siteUrl, date, subscriberName, teaserHtml, unsubUrl) {
   </div>`;
 }
 
+// ── GET /api/blocklist — fetch topic blocklist ───────────────
+app.get('/api/blocklist', async (req, res) => {
+  const data = await readData();
+  res.json({ blocklist: data.topicBlocklist || [] });
+});
+
+// ── POST /api/blocklist — save topic blocklist ────────────────
+app.post('/api/blocklist', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  const data = await readData();
+  data.topicBlocklist = Array.isArray(req.body.blocklist) ? req.body.blocklist : [];
+  await writeData(data);
+  console.log('[Admin] Topic blocklist updated: ' + data.topicBlocklist.length + ' item(s)');
+  res.json({ ok: true, blocklist: data.topicBlocklist });
+});
+
 // ── GET /api/email-pause — get current pause state ──────────
 app.get('/api/email-pause', async (req, res) => {
   const data = await readData();
@@ -449,14 +817,7 @@ app.get('/api/subscribers', async (req, res) => {
   const data = await readData();
   const subs = Object.values(data.subscribers || {})
     .sort((a, b) => new Date(b.subscribedAt) - new Date(a.subscribedAt));
-
-    // Prevent browser/admin panel caching
-   res.setHeader('Cache-Control', 'no-store');
-
-  res.json({
-    subscribers: subs,
-    emailPaused: !!data.emailPaused
- });
+  res.json({ subscribers: subs });
 });
 
 // ── PATCH /api/subscribers/:email — toggle active status ──────
@@ -588,8 +949,8 @@ initDb().then(() => {
     }
   });
   // Fetch RSS after DB is ready
-  setTimeout(rssService.fetchAndCacheRSS, 5000);
-  rssService.startScheduler();
+  setTimeout(fetchAndCacheRSS, 5000);
+  scheduleNextRefresh();
 }).catch(err => {
   console.error('DB init failed:', err.message);
   process.exit(1);
