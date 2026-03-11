@@ -3773,7 +3773,7 @@ function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote,
     (manualBlock ? manualBlock + '\n\n' : '') +
     (fallback ? fallback + '\n\n' : '') +
     (archiveNote ? 'PREVIOUSLY USED TOPICS — do not repeat these:\n' + archiveNote + '\n\n' : '') +
-    (getTopicBlocklist().length > 0 ? 'BLOCKED TOPICS — the editor has explicitly blocked these topics from today\'s quiz. Do not generate any questions about these subjects under any circumstances:\n' + getTopicBlocklist().map(t => '- ' + t).join('\n') + '\n\n' : '') +
+    (getTopicBlocklist().length > 0 ? 'BLOCKED TOPICS — the editor has explicitly blocked these topics from today\'s quiz. Do not generate any questions about these subjects under any circumstances:\n' + getTopicBlocklist().filter(t => !t.startsWith('http')).map(t => '- ' + t).join('\n') + (getTopicBlocklist().some(t => t.startsWith('http')) ? '\n\nBLOCKED URLS — do not use these source articles:\n' + getTopicBlocklist().filter(t => t.startsWith('http')).map(t => '- ' + t).join('\n') : '') + '\n\n' : '') +
     (allArchiveUrls.length > 0 ? 'PREVIOUSLY USED SOURCE URLS — do not generate questions from these exact URLs, even if the article appears in the RSS feed today:\n' + allArchiveUrls.slice(-30).join('\n') + '\n\n' : '') +
     (allArchiveSlugs.length > 0 ? 'RECENTLY COVERED TOPICS — do not ask about these subjects again today, even from a different article or outlet, UNLESS the new article contains a concrete new outcome (bill passed, project approved, person appointed, facility opened):\n' + allArchiveSlugs.slice(-42).map(s => '- ' + s).join('\n') + '\n\n' : '') +
     'INSTRUCTIONS:\n' +
@@ -4149,6 +4149,8 @@ async function blockQuestionTopic(idx) {
   const list = getTopicBlocklist();
   if (list.includes(topic)) { alert('This topic is already blocked.'); return; }
   list.push(topic);
+  // Also block by source URL if available, for stronger matching
+  if (q.sourceUrl && !list.includes(q.sourceUrl)) list.push(q.sourceUrl);
   await saveTopicBlocklist(list);
   // Also delete the question from draft
   draft.questions.splice(idx, 1);
@@ -4246,6 +4248,7 @@ async function replaceQuestion(idx) {
 
   const prompt = 'You are writing ONE replacement question for a Baltimore local news quiz.\n\n' +
     'ALREADY USED TOPICS — do not repeat these:\n' + usedHeadlines.join('\n') + '\n\n' +
+    (getTopicBlocklist().length > 0 ? 'BLOCKED TOPICS — do not generate questions about any of these subjects under any circumstances:\n' + getTopicBlocklist().filter(t => !t.startsWith('http')).map(t => '- ' + t).join('\n') + (getTopicBlocklist().some(t => t.startsWith('http')) ? '\n\nBLOCKED URLS — do not use these source articles:\n' + getTopicBlocklist().filter(t => t.startsWith('http')).map(t => '- ' + t).join('\n') : '') + '\n\n' : '') +
     'AVAILABLE ARTICLES (pick the single most newsworthy one not already covered):\n\n' + rssSnippet + '\n\n' +
     'QUESTION FOCUS RULES:\n' +
     '- Ask about the WHO or WHAT that makes the story newsworthy, NOT dollar amounts, durations, or counts\n' +
