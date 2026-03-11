@@ -1843,6 +1843,11 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
   }
+
+  // Restore admin session if previously authenticated
+  if (lsGet('dnq_admin_authed') === '1') {
+    showAdminScreen();
+  }
 });
 
 // ═══════════════════════════════════════════════════════
@@ -2783,6 +2788,7 @@ function showAdminLogin() {
 function checkAdminPw() {
   const pw = document.getElementById('admin-pw-input').value;
   if (pw === ADMIN_PASSWORD) {
+    lsSet('dnq_admin_authed', '1');
     document.getElementById('admin-login-overlay').classList.remove('show');
     showAdminScreen();
   } else {
@@ -2800,7 +2806,7 @@ async function showAdminScreen() {
   loadAdminStats();
   loadPlayerList();
   loadEmailPauseState();
-  renderBlocklist();
+  loadTopicBlocklist();
 }
 
 // ─── RSS cache helpers ───────────────────────────────────────────────────
@@ -4101,27 +4107,49 @@ function showDraftPreview(questions) {
 
 // Live-edit helpers — update the draft in localStorage as admin types
 // ── Topic Blocklist ─────────────────────────────────────────
-const BLOCKLIST_KEY = 'dnq_topic_blocklist';
+// ── Topic Blocklist (server-backed) ─────────────────────────
+let _blocklist = null; // in-memory cache
+
+async function loadTopicBlocklist() {
+  try {
+    const res = await fetch('/api/blocklist');
+    const data = await res.json();
+    _blocklist = data.blocklist || [];
+  } catch(e) {
+    _blocklist = [];
+  }
+  renderBlocklist();
+  return _blocklist;
+}
 
 function getTopicBlocklist() {
-  try { return JSON.parse(localStorage.getItem(BLOCKLIST_KEY) || '[]'); } catch(e) { return []; }
+  return _blocklist || [];
 }
 
-function saveTopicBlocklist(list) {
-  localStorage.setItem(BLOCKLIST_KEY, JSON.stringify(list));
-  renderBlocklist();
+async function saveTopicBlocklist(list) {
+  const adminToken = lsGet('dnq_admin_token') || 'admin';
+  try {
+    await fetch('/api/blocklist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+      body: JSON.stringify({ blocklist: list })
+    });
+    _blocklist = list;
+    renderBlocklist();
+  } catch(e) {
+    alert('Failed to save blocklist: ' + e.message);
+  }
 }
 
-function blockQuestionTopic(idx) {
+async function blockQuestionTopic(idx) {
   const draft = getDraftQuiz();
   if (!draft || !draft.questions || !draft.questions[idx]) return;
   const q = draft.questions[idx];
-  // Use first ~80 chars of question text as the topic descriptor
   const topic = q.question.slice(0, 120).replace(/"/g, '');
   const list = getTopicBlocklist();
   if (list.includes(topic)) { alert('This topic is already blocked.'); return; }
   list.push(topic);
-  saveTopicBlocklist(list);
+  await saveTopicBlocklist(list);
   // Also delete the question from draft
   draft.questions.splice(idx, 1);
   saveDraftQuiz(draft);
@@ -4129,15 +4157,15 @@ function blockQuestionTopic(idx) {
   setStatus('Topic blocked and question removed. It won\'t appear in regenerated questions.', 'info');
 }
 
-function unblockTopic(idx) {
+async function unblockTopic(idx) {
   const list = getTopicBlocklist();
   list.splice(idx, 1);
-  saveTopicBlocklist(list);
+  await saveTopicBlocklist(list);
 }
 
-function clearBlocklist() {
+async function clearBlocklist() {
   if (!confirm('Clear all blocked topics?')) return;
-  saveTopicBlocklist([]);
+  await saveTopicBlocklist([]);
 }
 
 function renderBlocklist() {
@@ -4152,10 +4180,19 @@ function renderBlocklist() {
   }
   el.innerHTML = list.map((t, i) =>
     '<div style="display:flex;align-items:flex-start;gap:8px;padding:5px 0;border-bottom:1px solid var(--rule);">' +
-    '<span style="font-family:monospace;font-size:11px;flex:1;line-height:1.4;">' + escHtml(t) + '</span>' +
-    '<button onclick="unblockTopic(' + i + ')" style="font-family:monospace;font-size:10px;padding:2px 7px;background:none;border:1px solid var(--muted);color:var(--muted);cursor:pointer;white-space:nowrap;border-radius:2px;">Remove</button>' +
+    '<span contenteditable="true" onblur="editBlocklistItem(' + i + ', this.textContent.trim())" ' +
+      'style="font-family:monospace;font-size:11px;flex:1;line-height:1.4;outline:none;border-bottom:1px dashed var(--muted);">' + escHtml(t) + '</span>' +
+    '<button onclick="unblockTopic(' + i + ')" style="font-family:monospace;font-size:10px;padding:2px 7px;background:none;border:1px solid var(--muted);color:var(--muted);cursor:pointer;white-space:nowrap;border-radius:2px;flex-shrink:0;">Remove</button>' +
     '</div>'
   ).join('');
+}
+
+async function editBlocklistItem(idx, newText) {
+  if (!newText) return;
+  const list = getTopicBlocklist();
+  if (list[idx] === newText) return; // no change
+  list[idx] = newText;
+  await saveTopicBlocklist(list);
 }
 
 function deleteQuestion(idx) {
