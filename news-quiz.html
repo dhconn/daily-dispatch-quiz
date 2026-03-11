@@ -1324,6 +1324,10 @@
       <div class="stat-cell"><div class="val" id="stat-pct">0%</div><div class="lbl">Accuracy</div></div>
       <div class="stat-cell"><div class="val" id="stat-rank">#–</div><div class="lbl">Today's Rank</div></div>
     </div>
+    <div class="results-breakdown" id="breakdown-table"></div>
+    <div id="dist-table"></div>
+    <div id="results-streak-nudge" style="display:none;margin:20px 0 0;padding:14px 16px;background:var(--ink);color:var(--paper);text-align:center;font-family:'Courier Prime',monospace;letter-spacing:1px;line-height:1.7;"></div>
+
     <div id="results-subscribe-cta" style="margin:28px 0 8px;padding:20px;background:white;border:1px solid var(--rule);text-align:left;">
       <div style="font-family:'Courier Prime',monospace;font-size:10px;letter-spacing:2px;color:var(--muted);margin-bottom:10px;">WANT TOMORROW'S QUIZ?</div>
       <p style="font-size:15px;margin:0 0 14px;line-height:1.5;">Get tomorrow's quiz delivered to your inbox — with today's answers included.</p>
@@ -1336,10 +1340,6 @@
       </div>
       <div id="results-sub-done" style="display:none;font-family:'Courier Prime',monospace;font-size:13px;color:var(--green);padding:4px 0;">✓ You're in. See you tomorrow.</div>
     </div>
-
-    <div class="results-breakdown" id="breakdown-table"></div>
-    <div id="dist-table"></div>
-    <div id="results-streak-nudge" style="display:none;margin:20px 0 0;padding:14px 16px;background:var(--ink);color:var(--paper);text-align:center;font-family:'Courier Prime',monospace;letter-spacing:1px;line-height:1.7;"></div>
 
     <div id="share-section" style="margin:20px 0;padding:16px;background:white;border:1px solid var(--rule);text-align:center;display:none;">
       <div style="font-family:monospace;font-size:11px;letter-spacing:2px;color:var(--muted);margin-bottom:8px;">SHARE YOUR SCORE</div>
@@ -1595,6 +1595,15 @@
     </div>
 
     <div class="admin-section" style="margin-top:20px;">
+      <h3>Blocked Topics <span id="blocklist-count" style="font-family:monospace;font-size:12px;color:var(--muted);font-weight:400;"></span></h3>
+      <p style="font-size:12px;color:var(--muted);font-family:monospace;margin-bottom:10px;">Topics blocked from appearing during question generation. Use the 🚫 Block button on any draft question to add one.</p>
+      <div id="blocklist-items" style="margin-bottom:10px;">
+        <p style="color:var(--muted);font-family:monospace;font-size:12px;margin:0;">No topics blocked.</p>
+      </div>
+      <button onclick="clearBlocklist()" style="font-family:monospace;font-size:11px;padding:3px 10px;background:none;border:1px solid var(--muted);color:var(--muted);cursor:pointer;border-radius:2px;">Clear All</button>
+    </div>
+
+    <div class="admin-section" style="margin-top:20px;">
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
         <h3 style="margin:0;">Email Subscribers <span id="sub-count" style="font-family:monospace;font-size:12px;color:var(--muted);font-weight:400;"></span></h3>
         <div style="display:flex;align-items:center;gap:10px;">
@@ -1815,12 +1824,6 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('today-dateline').textContent =
     new Date().toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' }).toUpperCase();
 
-  // Restore admin session across refreshes
-  if (lsGet('dnq_admin_open')) {
-    showAdminScreen();
-    return;
-  }
-
   // Restore player name from last session
   const saved = lsGet('dnq_current_player');
   if (saved) {
@@ -1856,7 +1859,6 @@ function updateNav() {
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
-  if (id !== 'screen-admin') lsSet('dnq_admin_open', null);
   updateNav();
   window.scrollTo(0, 0);
 }
@@ -2789,7 +2791,6 @@ function checkAdminPw() {
 }
 
 async function showAdminScreen() {
-  lsSet('dnq_admin_open', '1');
   showScreen('screen-admin');
   await refreshAdminPreviews();
   loadAdminPosts();
@@ -2799,6 +2800,7 @@ async function showAdminScreen() {
   loadAdminStats();
   loadPlayerList();
   loadEmailPauseState();
+  renderBlocklist();
 }
 
 // ─── RSS cache helpers ───────────────────────────────────────────────────
@@ -3765,6 +3767,7 @@ function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote,
     (manualBlock ? manualBlock + '\n\n' : '') +
     (fallback ? fallback + '\n\n' : '') +
     (archiveNote ? 'PREVIOUSLY USED TOPICS — do not repeat these:\n' + archiveNote + '\n\n' : '') +
+    (getTopicBlocklist().length > 0 ? 'BLOCKED TOPICS — the editor has explicitly blocked these topics from today\'s quiz. Do not generate any questions about these subjects under any circumstances:\n' + getTopicBlocklist().map(t => '- ' + t).join('\n') + '\n\n' : '') +
     (allArchiveUrls.length > 0 ? 'PREVIOUSLY USED SOURCE URLS — do not generate questions from these exact URLs, even if the article appears in the RSS feed today:\n' + allArchiveUrls.slice(-30).join('\n') + '\n\n' : '') +
     (allArchiveSlugs.length > 0 ? 'RECENTLY COVERED TOPICS — do not ask about these subjects again today, even from a different article or outlet, UNLESS the new article contains a concrete new outcome (bill passed, project approved, person appointed, facility opened):\n' + allArchiveSlugs.slice(-42).map(s => '- ' + s).join('\n') + '\n\n' : '') +
     'INSTRUCTIONS:\n' +
@@ -4074,6 +4077,7 @@ function showDraftPreview(questions) {
           '<label style="font-size:10px;color:var(--muted)">Move to position:</label>' +
           '<input type="number" min="1" max="11" style="width:44px;font-size:12px;padding:2px 4px;border:1px solid var(--border);border-radius:3px;" ' +
             'placeholder="' + (i+1) + '" onchange="reorderQuestion(' + i + ', parseInt(this.value)-1, this)">' +
+          '<button onclick="blockQuestionTopic(' + i + ')" title="Block this topic from being regenerated" style="background:none;border:1px solid #888;color:#888;border-radius:3px;padding:2px 8px;font-size:11px;cursor:pointer;font-family:inherit;">🚫 Block</button>' +
           '<button onclick="replaceQuestion(' + i + ')" title="Replace with a new question" style="background:none;border:1px solid var(--gold);color:var(--gold,#b8860b);border-radius:3px;padding:2px 8px;font-size:11px;cursor:pointer;font-family:inherit;">↺ Replace</button>' +
           '<button onclick="deleteQuestion(' + i + ')" title="Delete this question" style="background:none;border:1px solid var(--red);color:var(--red);border-radius:3px;padding:2px 8px;font-size:11px;cursor:pointer;font-family:inherit;">✕ Delete</button>' +
         '</span>' +
@@ -4096,6 +4100,64 @@ function showDraftPreview(questions) {
 }
 
 // Live-edit helpers — update the draft in localStorage as admin types
+// ── Topic Blocklist ─────────────────────────────────────────
+const BLOCKLIST_KEY = 'dnq_topic_blocklist';
+
+function getTopicBlocklist() {
+  try { return JSON.parse(localStorage.getItem(BLOCKLIST_KEY) || '[]'); } catch(e) { return []; }
+}
+
+function saveTopicBlocklist(list) {
+  localStorage.setItem(BLOCKLIST_KEY, JSON.stringify(list));
+  renderBlocklist();
+}
+
+function blockQuestionTopic(idx) {
+  const draft = getDraftQuiz();
+  if (!draft || !draft.questions || !draft.questions[idx]) return;
+  const q = draft.questions[idx];
+  // Use first ~80 chars of question text as the topic descriptor
+  const topic = q.question.slice(0, 120).replace(/"/g, '');
+  const list = getTopicBlocklist();
+  if (list.includes(topic)) { alert('This topic is already blocked.'); return; }
+  list.push(topic);
+  saveTopicBlocklist(list);
+  // Also delete the question from draft
+  draft.questions.splice(idx, 1);
+  saveDraftQuiz(draft);
+  showDraftPreview(draft.questions);
+  setStatus('Topic blocked and question removed. It won\'t appear in regenerated questions.', 'info');
+}
+
+function unblockTopic(idx) {
+  const list = getTopicBlocklist();
+  list.splice(idx, 1);
+  saveTopicBlocklist(list);
+}
+
+function clearBlocklist() {
+  if (!confirm('Clear all blocked topics?')) return;
+  saveTopicBlocklist([]);
+}
+
+function renderBlocklist() {
+  const el = document.getElementById('blocklist-items');
+  if (!el) return;
+  const list = getTopicBlocklist();
+  const countEl = document.getElementById('blocklist-count');
+  if (countEl) countEl.textContent = list.length ? '(' + list.length + ')' : '';
+  if (!list.length) {
+    el.innerHTML = '<p style="color:var(--muted);font-family:monospace;font-size:12px;margin:0;">No topics blocked.</p>';
+    return;
+  }
+  el.innerHTML = list.map((t, i) =>
+    '<div style="display:flex;align-items:flex-start;gap:8px;padding:5px 0;border-bottom:1px solid var(--rule);">' +
+    '<span style="font-family:monospace;font-size:11px;flex:1;line-height:1.4;">' + escHtml(t) + '</span>' +
+    '<button onclick="unblockTopic(' + i + ')" style="font-family:monospace;font-size:10px;padding:2px 7px;background:none;border:1px solid var(--muted);color:var(--muted);cursor:pointer;white-space:nowrap;border-radius:2px;">Remove</button>' +
+    '</div>'
+  ).join('');
+}
+
 function deleteQuestion(idx) {
   const draft = getDraftQuiz();
   if (!draft || !draft.questions) return;
@@ -4345,6 +4407,7 @@ async function emergencySave() {
     });
     const data = await res.json();
     if (data.ok) {
+      saveDraftQuiz({ questions, generatedAt: new Date().toISOString(), urls: [] });
       setStatus('⚑ Emergency save successful! Quiz saved for ' + key, 'success');
     } else {
       setStatus('⚑ Emergency save FAILED — try again.', 'error');
