@@ -3304,6 +3304,10 @@ async function generateQuestions() {
             if (/\b(committee|hearing|testimony|task force|amendment|debate|markup|session|proposal|consideration|discusses?|reviews?|weighs?|mulls?)\b/.test(t)) score -= 2;
             // Downweight: individual incidents
             if (/\b(shooting|homicide|stabbing|crash|arrest|charged?|indicted?|sentenced?)\b/.test(t)) score -= 3;
+            // Extra penalty: routine individual crime with no systemic angle
+            if (/\b(shooting|homicide|stabbing|gunshot|gun fire|gunman|killed|fatal|dead|murder|robbery|burglary|carjack|assault)\b/.test(t)) score -= 3;
+            // But restore some credit if it involves public officials or systemic significance
+            if (/\b(police officer|officer shot|officer killed|detective|commissioner|police chief|systemic|pattern|department)\b/.test(t)) score += 3;
             // Downweight: opinion/analysis
             if (/\b(opinion|editorial|commentary|analysis|column|perspective|why |how to)\b/.test(t)) score -= 4;
             // Also penalize opinion/column URLs
@@ -3813,7 +3817,7 @@ function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote,
     '- SKIP: routine sports transactions, injury updates, spring training notes. INCLUDE: sports stories that rise to civic significance — a record-breaking achievement, a major stadium decision, a championship result, a landmark signing that the average Baltimore resident would be expected to know about\n' +
     '- SKIP: minor arts/culture items with no broader community impact\n' +
     '- SKIP: individual incident stories — house fires, car crashes, single shootings — unless mass casualty, systemic pattern, or major public safety policy angle\n' +
-    '- SKIP: individual crime stories unless a public figure, major institution, or systemic pattern is central\n' +
+    '- SKIP: individual crime incidents (shootings, stabbings, robberies, burglaries, arrests, officer-involved shootings) unless a major public figure or systemic citywide pattern is central. The test: would a Baltimore resident who missed this story feel meaningfully less informed about their city? Individual crimes almost never pass this test.\n' +
     '- SKIP: ALL weather stories unless a historic storm caused major documented damage\n' +
     '- SKIP: anniversary or milestone articles unless a specific newsworthy development is the focus\n' +
     '- SKIP: DC-area team stories (Nationals, Commanders, Capitals, Wizards) without explicit Baltimore/Maryland angle\n' +
@@ -3966,13 +3970,26 @@ function enforceQuizRules(questions) {
     return true;
   });
 
-  // 2. // 2. Validate correctIndex and strip feed URLs
+  // 2. Validate correctIndex, shuffle options, and strip feed URLs
   const feedPatterns = ['/feed/', '/rss', 'outboundfeeds/rss'];
   return deduped.map(q => {
     let fixed = { ...q };
 
     // Range check
     if (fixed.correctIndex < 0 || fixed.correctIndex > 3) fixed.correctIndex = 0;
+
+    // Shuffle options while keeping correctIndex in sync
+    if (fixed.options && fixed.options.length === 4) {
+      const correctAnswer = fixed.options[fixed.correctIndex];
+      // Fisher-Yates shuffle
+      const opts = [...fixed.options];
+      for (let i = opts.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [opts[i], opts[j]] = [opts[j], opts[i]];
+      }
+      fixed.options = opts;
+      fixed.correctIndex = opts.indexOf(correctAnswer);
+    }
 
     // Mismatch detection: check explanation matches marked correct option
     if (fixed.explanation && fixed.options && fixed.options.length === 4) {
