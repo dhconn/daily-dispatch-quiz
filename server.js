@@ -59,7 +59,7 @@ async function setKey(key, value) {
 // All callers that used await readData()/await writeData() now use async versions below.
 async function readData() {
   const keys = ['sites','rssCache','scores','dist','quizzes','archiveUrls',
-                 'archiveQuestions','posts','messages','subscribers','emailPaused','emailPausedSnapshot','topicBlocklist'];
+                 'archiveQuestions','posts','messages','subscribers','emailPaused','emailPausedSnapshot','topicBlocklist','cachedTeaserHtml','cachedTeaserDate'];
   const data = {};
   await Promise.all(keys.map(async k => {
     const v = await getKey(k);
@@ -70,7 +70,7 @@ async function readData() {
 
 async function writeData(data) {
   const keys = ['sites','rssCache','scores','dist','quizzes','archiveUrls',
-                 'archiveQuestions','posts','messages','subscribers','emailPaused','emailPausedSnapshot','topicBlocklist'];
+                 'archiveQuestions','posts','messages','subscribers','emailPaused','emailPausedSnapshot','topicBlocklist','cachedTeaserHtml','cachedTeaserDate'];
   await Promise.all(keys.map(async k => {
     if (data[k] === null) await setKey(k, null);
     else if (data[k] !== undefined) await setKey(k, data[k]);
@@ -789,6 +789,11 @@ app.all('/api/quiz/preview-email', async (req, res) => {
   const teasers = await generateTeasers(questions);
   const teaserHtml = buildTeaserHtml(teasers);
   const html = buildEmailHtml(siteUrl, dateLabel, 'Subscriber', teaserHtml, siteUrl + '/api/unsubscribe?email=example');
+  // Cache teasers so publish can reuse them without regenerating
+  const previewData = await readData();
+  previewData.cachedTeaserHtml = teaserHtml;
+  previewData.cachedTeaserDate = dateLabel;
+  await writeData(previewData);
   res.json({ html, teasers });
 });
 
@@ -856,9 +861,17 @@ app.post('/api/quiz', async (req, res) => {
     const subscribers = freshData.emailPaused ? [] : Object.values(freshData.subscribers || {}).filter(s => s.active);
     if (subscribers.length > 0) {
       console.log(`Email: Sending quiz notification to ${subscribers.length} subscribers…`);
-      const teasers = await generateTeasers(quiz.questions || []);
-      const teaserHtml = buildTeaserHtml(teasers);
-      console.log('Email teasers:', teasers.length ? teasers : 'none generated');
+      // Reuse cached teasers from preview if available for this date, otherwise regenerate
+      let teaserHtml;
+      if (freshData.cachedTeaserHtml && freshData.cachedTeaserDate === date) {
+        console.log('[Email] Reusing cached teasers from preview for', date);
+        teaserHtml = freshData.cachedTeaserHtml;
+      } else {
+        console.log('[Email] No cached teasers found, generating fresh');
+        const teasers = await generateTeasers(quiz.questions || []);
+        teaserHtml = buildTeaserHtml(teasers);
+        console.log('Email teasers:', teasers.length ? teasers : 'none generated');
+      }
       for (const sub of subscribers) {
         const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(sub.email)}`;
         const emailHtml = buildEmailHtml(siteUrl, date, sub.name, teaserHtml, unsubUrl);
