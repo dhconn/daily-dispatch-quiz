@@ -1402,7 +1402,7 @@
     </div>
     <div id="lb-content"></div>
     <div class="lb-back">
-      <button class="btn-secondary" onclick="showScreen('screen-register')">◂ Back</button>
+      <button class="btn-secondary" onclick="showScreen(previousScreen)">◂ Back</button>
     </div>
   </div>
 
@@ -1634,7 +1634,7 @@
     <div class="admin-section" style="margin-top:20px;">
       <h3>Leaderboard</h3>
       <p style="font-family:monospace;font-size:12px;color:var(--muted);margin-bottom:8px;">View without affecting scores.</p>
-      <button class="btn-secondary" onclick="showScreen('screen-leaderboard');showLbTab('alltime',document.querySelector('.lb-tab'));" style="font-size:12px;padding:6px 16px;">View Leaderboard ▸</button>
+      <button class="btn-secondary" onclick="previousScreen='screen-admin';showScreen('screen-leaderboard');showLbTab('alltime',document.querySelector('.lb-tab'));" style="font-size:12px;padding:6px 16px;">View Leaderboard ▸</button>
     </div>
 
     <div style="margin-top:24px;border-top:1px solid var(--rule);padding-top:20px;">
@@ -2711,6 +2711,7 @@ function finishQuiz() {
 //  LEADERBOARD
 // ═══════════════════════════════════════════════════════
 let currentLbTab = 'alltime';
+let previousScreen = 'screen-register';
 
 function showLeaderboard() {
   currentLbTab = 'alltime';
@@ -4858,13 +4859,23 @@ async function loadAdminStats() {
     const completions = q4; // reached final regular question
     const bonusAttempts = q5;
 
-    // Average question reached: weighted sum of players at each question
+    // Average question reached: estimate from drop-off between questions.
+    // Players who reached Q(i) but not Q(i+1) = n[i] - n[i+1].
+    // Weighted avg = sum(players_who_stopped_at_i * i) / total_starters
     let totalReached = 0, totalPlayers = 0;
-    for (let i = 0; i <= 4; i++) {
+    const qCounts = [];
+    for (let i = 0; i <= 5; i++) {
       const k = 'q' + i;
-      const n = dist[k] ? dist[k].correct + dist[k].wrong : 0;
-      totalReached += n * (i + 1);
-      if (i === 0) totalPlayers = n;
+      qCounts[i] = dist[k] ? dist[k].correct + dist[k].wrong : 0;
+    }
+    totalPlayers = qCounts[0];
+    if (totalPlayers > 0) {
+      for (let i = 0; i <= 5; i++) {
+        const stoppedHere = qCounts[i] - (qCounts[i + 1] || 0);
+        totalReached += Math.max(0, stoppedHere) * (i + 1);
+      }
+      // Players who made it through all 6 questions
+      totalReached += qCounts[5] * 6;
     }
     const avgQReached = totalPlayers > 0 ? (totalReached / totalPlayers).toFixed(1) : '—';
 
