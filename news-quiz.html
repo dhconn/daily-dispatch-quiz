@@ -1524,6 +1524,12 @@
         <div id="email-preview-inner" style="padding:16px;background:#fff;max-height:500px;overflow-y:auto;">
           <p style="font-family:monospace;font-size:12px;color:var(--muted);">Loading preview…</p>
         </div>
+        <div id="teaser-editor" style="display:none;padding:12px 16px;background:#f5f0e8;border-top:1px solid var(--gold);">
+          <div style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:8px;">EDIT TEASERS — these lines appear in the email</div>
+          <div id="teaser-fields"></div>
+          <button onclick="saveTeasers()" style="font-family:monospace;font-size:11px;letter-spacing:1px;padding:6px 16px;background:var(--ink);color:var(--paper);border:none;cursor:pointer;margin-top:10px;">✓ Save Teasers</button>
+          <span id="teaser-save-status" style="font-family:monospace;font-size:11px;color:var(--green);margin-left:10px;"></span>
+        </div>
       </div>
 
       <div class="admin-actions">
@@ -2046,8 +2052,8 @@ async function registerPlayer() {
     }
   }
 
-  // Store the quiz's actual publish date in state so completion checks use the right key
-  state.todayKey = quizDate;
+  // Use today's date as the key for score recording — never an old publish date
+  state.todayKey = todayStr();
   if (!quiz || !quiz.questions || quiz.questions.length < 6) {
     // Show no-quiz state
     showScreen('screen-quiz');
@@ -4409,8 +4415,8 @@ async function previewEmail() {
   const inner = document.getElementById('email-preview-inner');
   panel.style.display = 'block';
   inner.innerHTML = '<p style="font-family:monospace;font-size:12px;color:var(--muted);">Generating teasers and building preview… (may take 5-10 seconds)</p>';
+  document.getElementById('teaser-editor').style.display = 'none';
   try {
-    // Use draft questions if available, otherwise server falls back to published
     const draft = getDraftQuiz();
     const fetchOpts = draft && draft.questions && draft.questions.length
       ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ questions: draft.questions }) }
@@ -4419,13 +4425,53 @@ async function previewEmail() {
     const data = await res.json();
     inner.innerHTML = data.html;
     if (data.teasers && data.teasers.length) {
-      const note = document.createElement('div');
-      note.style = 'font-family:monospace;font-size:11px;color:var(--muted);padding:8px;border-top:1px solid #eee;margin-top:8px;';
-      note.textContent = '✓ Teasers: ' + data.teasers.join(' · ');
-      inner.appendChild(note);
+      const fieldsEl = document.getElementById('teaser-fields');
+      fieldsEl.innerHTML = data.teasers.map((t, i) =>
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">' +
+        '<span style="font-family:monospace;font-size:11px;color:var(--muted);width:16px;">·</span>' +
+        '<input type="text" id="teaser-' + i + '" value="' + escHtml(t) + '" ' +
+        'style="flex:1;font-family:Georgia,serif;font-size:13px;padding:5px 8px;border:1px solid var(--rule);background:#fff;">' +
+        '</div>'
+      ).join('');
+      document.getElementById('teaser-editor').style.display = 'block';
+      document.getElementById('teaser-save-status').textContent = '';
     }
   } catch(e) {
     inner.innerHTML = '<p style="font-family:monospace;font-size:12px;color:red;">Preview failed: ' + e.message + '</p>';
+  }
+}
+
+async function saveTeasers() {
+  const statusEl = document.getElementById('teaser-save-status');
+  const teasers = [];
+  let i = 0;
+  while (document.getElementById('teaser-' + i)) {
+    teasers.push(document.getElementById('teaser-' + i).value.trim());
+    i++;
+  }
+  // Build updated teaserHtml and cache it on the server
+  const teaserHtml = teasers.filter(Boolean).map(t =>
+    `<div style="font-family:Georgia,serif;font-size:15px;color:#1a1008;padding:6px 0;border-bottom:1px solid #f0ebe0;">· ${t}</div>`
+  ).join('');
+  const wrappedHtml = `<div style="margin:0 0 28px;padding:20px;background:#fff;border:1px solid #e0d8cc;text-align:left;"><div style="font-family:monospace;font-size:10px;letter-spacing:2px;color:#999;margin-bottom:12px;">TODAY'S TOPICS INCLUDE…</div>${teaserHtml}</div>`;
+  try {
+    const adminToken = lsGet('dnq_admin_token') || 'admin';
+    const res = await fetch('/api/teaser-cache', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+      body: JSON.stringify({ teaserHtml: wrappedHtml, date: todayStr() })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      statusEl.textContent = '✓ Saved — these teasers will be used on publish.';
+      // Refresh the preview to show updated teasers
+      const inner = document.getElementById('email-preview-inner');
+      inner.innerHTML = inner.innerHTML; // force repaint hint
+    } else {
+      statusEl.textContent = 'Save failed.';
+    }
+  } catch(e) {
+    statusEl.textContent = 'Error: ' + e.message;
   }
 }
 
