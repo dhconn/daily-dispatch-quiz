@@ -764,6 +764,20 @@ app.post('/api/email-pause', async (req, res) => {
   res.json({ ok: true, paused: data.emailPaused });
 });
 
+// ── POST /api/teaser-cache — save edited teasers for use on publish ──────
+app.post('/api/teaser-cache', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  const { teaserHtml, date } = req.body;
+  if (!teaserHtml || !date) return res.status(400).json({ error: 'teaserHtml and date required' });
+  const data = await readData();
+  data.cachedTeaserHtml = teaserHtml;
+  data.cachedTeaserDate = date;
+  await writeData(data);
+  console.log('[Admin] Teaser cache updated for', date);
+  res.json({ ok: true });
+});
+
 // ── GET/POST /api/quiz/preview-email — generate teaser preview for admin ──
 // POST body: { questions: [...] } uses draft questions directly
 // GET falls back to most recently published quiz
