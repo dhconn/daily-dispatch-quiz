@@ -2546,7 +2546,7 @@ function selectBonus(idx) {
 // ═══════════════════════════════════════════════════════
 //  RESULTS
 // ═══════════════════════════════════════════════════════
-function finishQuiz() {
+async function finishQuiz() {
   // Completion bonus — awarded for answering all 6 questions
   const allAnswered = state.answers.length >= 6;
   if (allAnswered && !archiveMode) {
@@ -2563,15 +2563,19 @@ function finishQuiz() {
   const dayStreak = getDayStreak(players[playerKey]);
 
   // Submit score to server for shared leaderboard (not in archive mode)
-  if (!archiveMode) fetch('/api/scores', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      playerName: state.playerName,
-      date: state.todayKey,
-      score: state.sessionScore
-    })
-  }).catch(() => {});
+  if (!archiveMode) {
+    try {
+      await fetch('/api/scores', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          playerName: state.playerName,
+          date: state.todayKey,
+          score: state.sessionScore
+        })
+      });
+    } catch(e) {}
+  }
 
   // POST this player's answers to server for community distribution (not in archive mode)
   if (!archiveMode) fetch('/api/answers', {
@@ -2731,7 +2735,7 @@ async function renderLeaderboard(tab) {
   const el = document.getElementById('lb-content');
   if (el) el.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px;font-family:monospace;font-size:12px;">Loading…</div>';
 
-  // Server is the source of truth for all scores
+  // Server is the sole source of truth — all players see the same leaderboard
   let players = {};
   try {
     const res = await fetch('/api/scores');
@@ -2739,18 +2743,7 @@ async function renderLeaderboard(tab) {
     if (data.scores) players = data.scores;
   } catch(e) {}
 
-  // Merge in any local-only scores (e.g. current session not yet on server)
-  const localPlayers = getPlayers();
-  for (const [key, p] of Object.entries(localPlayers)) {
-    if (!players[key]) {
-      players[key] = p;
-    } else {
-      players[key].dailyScores = { ...p.dailyScores, ...players[key].dailyScores };
-      players[key].allTime = Object.values(players[key].dailyScores).reduce((a,b) => a+b, 0);
-    }
-  }
-
-  const today = todayStr(); // always use fresh todayStr(), not stale state.todayKey
+  const today = todayStr();
   let rows = Object.entries(players).map(([key, p]) => ({
     name: p.displayName || key,
     score: tab === 'alltime' ? (p.allTime || 0) : ((p.dailyScores || {})[today] || 0),
