@@ -754,11 +754,13 @@ app.post('/api/email-pause', async (req, res) => {
     data.emailPausedSnapshot.forEach(k => { if (subs[k]) subs[k].active = false; });
     console.log('[Admin] Email PAUSED — ' + data.emailPausedSnapshot.length + ' subscriber(s) paused');
   } else {
-    // Restore only subscribers who were active before the global pause
+    // Restore snapshot subscribers, but also keep anyone manually activated during the pause
     const snapshot = data.emailPausedSnapshot || [];
     snapshot.forEach(k => { if (subs[k]) subs[k].active = true; });
+    // Anyone already active (manually reactivated during pause) stays active — no change needed
     data.emailPausedSnapshot = null;
-    console.log('[Admin] Email RESUMED — ' + snapshot.length + ' subscriber(s) restored');
+    const restored = Object.values(subs).filter(s => s.active).length;
+    console.log('[Admin] Email RESUMED — ' + restored + ' subscriber(s) active');
   }
   await writeData(data);
   res.json({ ok: true, paused: data.emailPaused });
@@ -900,7 +902,9 @@ app.post('/api/quiz', async (req, res) => {
           Sunday:    "Sunday's Baltimore News Quiz is live"
         };
         const subject = subjects[dow] || `Today's Baltimore Daily Dispatch Quiz is live — ${date}`;
-        sendEmail(sub.email, subject, emailHtml).catch(() => {});
+        await sendEmail(sub.email, subject, emailHtml);
+        // Respect Resend rate limit of 2 req/s
+        await new Promise(r => setTimeout(r, 600));
       }
     }
   } else {
@@ -1007,10 +1011,22 @@ async function sendEmail(to, subject, html) {
         'Content-Length': Buffer.byteLength(body)
       }
     }, (res) => {
-      res.on('data', () => {});
-      res.on('end', () => resolve(res.statusCode < 300));
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        if (res.statusCode < 300) {
+          console.log(`[Email] Sent to ${to} — status ${res.statusCode}`);
+          resolve(true);
+        } else {
+          console.error(`[Email] FAILED to ${to} — status ${res.statusCode} — ${data}`);
+          resolve(false);
+        }
+      });
     });
-    req.on('error', () => resolve(false));
+    req.on('error', (e) => {
+      console.error(`[Email] Request error to ${to}:`, e.message);
+      resolve(false);
+    });
     req.write(body);
     req.end();
   });
