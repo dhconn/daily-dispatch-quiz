@@ -888,24 +888,27 @@ app.post('/api/quiz', async (req, res) => {
         teaserHtml = buildTeaserHtml(teasers);
         console.log('Email teasers:', teasers.length ? teasers : 'none generated');
       }
-      for (const sub of subscribers) {
+      const dow = new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' });
+      const subjects = {
+        Monday:    "How well were you following Baltimore news today?",
+        Tuesday:   "Can you beat today's Baltimore news quiz?",
+        Wednesday: "6 questions about today's Baltimore headlines",
+        Thursday:  "Think you know today's Baltimore news?",
+        Friday:    "Friday's Baltimore News Quiz is live",
+        Saturday:  "Saturday's Baltimore News Quiz is live",
+        Sunday:    "Sunday's Baltimore News Quiz is live"
+      };
+      const subject = subjects[dow] || `Today's Baltimore Daily Dispatch Quiz is live — ${date}`;
+      const emails = subscribers.map(sub => {
         const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(sub.email)}`;
-        const emailHtml = buildEmailHtml(siteUrl, date, sub.name, teaserHtml, unsubUrl);
-        const dow = new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' });
-        const subjects = {
-          Monday:    "How well were you following Baltimore news today?",
-          Tuesday:   "Can you beat today's Baltimore news quiz?",
-          Wednesday: "6 questions about today's Baltimore headlines",
-          Thursday:  "Think you know today's Baltimore news?",
-          Friday:    "Friday's Baltimore News Quiz is live",
-          Saturday:  "Saturday's Baltimore News Quiz is live",
-          Sunday:    "Sunday's Baltimore News Quiz is live"
+        return {
+          from: 'Editor @ Daily Dispatch Quiz <editor@dailydispatchquiz.com>',
+          to: [sub.email],
+          subject,
+          html: buildEmailHtml(siteUrl, date, sub.name, teaserHtml, unsubUrl)
         };
-        const subject = subjects[dow] || `Today's Baltimore Daily Dispatch Quiz is live — ${date}`;
-        await sendEmail(sub.email, subject, emailHtml);
-        // Respect Resend rate limit of 2 req/s
-        await new Promise(r => setTimeout(r, 600));
-      }
+      });
+      await sendEmailBatch(emails);
     }
   } else {
     console.log('Silent save — email notifications skipped.');
@@ -988,48 +991,68 @@ initDb().then(() => {
 });
 
 // ── Email helper (Resend) ─────────────────────────────────────
+// Single email send (used for unsubscribe confirmations etc.)
 async function sendEmail(to, subject, html) {
   const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) {
-    console.log('Email skipped: RESEND_API_KEY not set.');
-    return false;
-  }
+  if (!apiKey) { console.log('Email skipped: RESEND_API_KEY not set.'); return false; }
   const body = JSON.stringify({
     from: 'Editor @ Daily Dispatch Quiz <editor@dailydispatchquiz.com>',
-    to: [to],
-    subject,
-    html
+    to: [to], subject, html
   });
   return new Promise((resolve) => {
     const req = https.request({
-      hostname: 'api.resend.com',
-      path: '/emails',
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(body)
-      }
+      hostname: 'api.resend.com', path: '/emails', method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) }
     }, (res) => {
       let data = '';
       res.on('data', chunk => data += chunk);
       res.on('end', () => {
-        if (res.statusCode < 300) {
-          console.log(`[Email] Sent to ${to} — status ${res.statusCode}`);
-          resolve(true);
-        } else {
-          console.error(`[Email] FAILED to ${to} — status ${res.statusCode} — ${data}`);
-          resolve(false);
-        }
+        if (res.statusCode < 300) { console.log(`[Email] Sent to ${to} — status ${res.statusCode}`); resolve(true); }
+        else { console.error(`[Email] FAILED to ${to} — status ${res.statusCode} — ${data}`); resolve(false); }
       });
     });
-    req.on('error', (e) => {
-      console.error(`[Email] Request error to ${to}:`, e.message);
-      resolve(false);
-    });
+    req.on('error', (e) => { console.error(`[Email] Request error to ${to}:`, e.message); resolve(false); });
     req.write(body);
     req.end();
   });
+}
+
+// Batch email send — sends up to 100 emails per request, chunked with delay between batches
+async function sendEmailBatch(emails) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) { console.log('Email skipped: RESEND_API_KEY not set.'); return; }
+  const CHUNK_SIZE = 100;
+  const CHUNK_DELAY = 1000; // 1 second between chunks
+  const chunks = [];
+  for (let i = 0; i < emails.length; i += CHUNK_SIZE) {
+    chunks.push(emails.slice(i, i + CHUNK_SIZE));
+  }
+  console.log(`[Email] Sending ${emails.length} emails in ${chunks.length} batch(es)`);
+  for (let c = 0; c < chunks.length; c++) {
+    const chunk = chunks[c];
+    const body = JSON.stringify(chunk);
+    await new Promise((resolve) => {
+      const req = https.request({
+        hostname: 'api.resend.com', path: '/emails/batch', method: 'POST',
+        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) }
+      }, (res) => {
+        let data = '';
+        res.on('data', d => data += d);
+        res.on('end', () => {
+          if (res.statusCode < 300) {
+            console.log(`[Email] Batch ${c + 1}/${chunks.length} sent (${chunk.length} emails) — status ${res.statusCode}`);
+          } else {
+            console.error(`[Email] Batch ${c + 1}/${chunks.length} FAILED — status ${res.statusCode} — ${data}`);
+          }
+          resolve();
+        });
+      });
+      req.on('error', (e) => { console.error(`[Email] Batch request error:`, e.message); resolve(); });
+      req.write(body);
+      req.end();
+    });
+    if (c < chunks.length - 1) await new Promise(r => setTimeout(r, CHUNK_DELAY));
+  }
 }
 
 // ── Message board ─────────────────────────────────────────────
