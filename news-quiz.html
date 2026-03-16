@@ -3648,8 +3648,9 @@ function showRawDebug(text) {
 function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote, rssContent, isFeedMode, allArchiveUrls, allArchiveSlugs) {
   allArchiveUrls = allArchiveUrls || [];
   allArchiveSlugs = allArchiveSlugs || [];
+
   const manualBlock = manualText
-    ? 'MANUALLY PROVIDED ARTICLE TEXT (use as additional source):\n' + manualText.slice(0, 4000)
+    ? 'MANUALLY PROVIDED ARTICLE TEXT (use as additional source):\n' + manualText.slice(0, 5000)
     : '';
 
   const isSpecificArticles = articleUrlList.length > 0;
@@ -3659,216 +3660,185 @@ function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote,
     : '';
 
   const specificArticlesBlock = isSpecificArticles
-    ? 'EDITOR-PICKED ARTICLES (these are assigned to Q1–' + articleUrlList.length + ' — use ONLY these URLs for those questions, in order):\n' + articleUrlList.join('\n') + '\n\nRemaining question slots will be filled from the RSS articles provided below.\n'
+    ? 'EDITOR-PICKED ARTICLES (these are assigned first and must be used in order):\n' + articleUrlList.join('\n') + '\n\nUse these first. Fill any remaining slots from the RSS articles below.\n'
     : '';
 
-  // ── Topic deduplication: pick 11 topically distinct articles ──
+  const difficulties = ['easy','easy','medium','medium','hard','bonus'];
+  const points = [10,10,20,20,30,50];
+
   function topicWords(headline) {
     const stop = new Set(['a','an','the','and','or','but','in','on','at','to','for','of','with',
       'is','are','was','were','be','been','has','have','had','will','would','that','this','as',
       'from','by','after','over','about','how','what','who','when','where','says','say','amid',
       'new','more','year','week','day','monday','tuesday','wednesday','thursday','friday',
-      'saturday','sunday','after','its','their','amid','into','than','some','could','local']);
+      'saturday','sunday','into','than','some','could','local']);
     return headline.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\s+/)
       .filter(w => w.length > 3 && !stop.has(w));
   }
 
   function topicsOverlap(h1, h2) {
-    // Named entity check first: if both headlines share a proper noun (capitalized
-    // word 4+ chars, not a generic stop word) that's a strong signal of same event.
-    // We check this BEFORE the outcome verb exception — a second article about
-    // "Coca-Cola explosion" is still the same event even if it has new details.
     const namedEntityStops = new Set(['Baltimore','Maryland','City','County','State','Federal','Local','North','South','East','West','Johns','Hopkins','Avenue','Street','Police','Officer']);
     const namedEntities = h => (h.match(/\b[A-Z][a-z]{3,}\b/g) || []).filter(w => !namedEntityStops.has(w));
     const e1 = new Set(namedEntities(h1));
     const shared = namedEntities(h2).filter(w => e1.has(w));
     if (shared.length >= 1) return true;
 
-    // Also catch hyphenated brand/company names by checking lowercased full match
-    // e.g. "coca-cola" appears in both → same event
     const brands = h => (h.toLowerCase().match(/\b[a-z]+-[a-z]+\b/g) || []);
     const b1 = new Set(brands(h1));
     if (brands(h2).some(b => b1.has(b))) return true;
 
-    // Acronym check: catch shared all-caps abbreviations (ICE, DHS, MTA, etc.)
-    // These won't match the named entity regex since they're not Title Case
     const acronyms = h => (h.match(/\b[A-Z]{2,}\b/g) || []);
     const a1 = new Set(acronyms(h1));
     const sharedAcronyms = acronyms(h2).filter(a => a1.has(a));
     if (sharedAcronyms.length >= 1) return true;
 
-    // Outcome verb exception: only applies when no named entity overlap found above.
-    // A story that has advanced (bill passed vs. bill considered) is fresh news.
-    const outcomeVerbs = /\b(passed?|approved?|signed|enacted|launched|opened?|announced?|awarded?|funded|broke ground|breaking ground|unveiled?|elected?|appointed?|resigned?)\b/i;
-    if (outcomeVerbs.test(h1) || outcomeVerbs.test(h2)) return false;
-
     const w1 = new Set(topicWords(h1));
     return topicWords(h2).filter(w => w1.has(w)).length >= 2;
   }
 
-  const difficulties = ['easy','easy','medium','medium','hard','bonus'];
-  const points =       ['10',  '10',  '20',  '20',  '30',  '50'];
-
   let assignedArticles = '';
 
   if (isSpecificArticles) {
-    // Specific articles go first, guaranteed. RSS fills remaining slots up to 11.
-    const specificBlocks = articleUrlList.map((url, i) =>
-      `ARTICLE ${i + 1}:\nURL: ${url}`
-    );
-    const chosenHeadlines = []; // track headlines from RSS fill to dedup
+    const specificBlocks = articleUrlList.map((url, i) => `ARTICLE ${i + 1}:\nURL: ${url}`);
+    const chosenHeadlines = [];
     const rssBlocks = [];
 
     if (rssContent) {
       const blocks = rssContent.split('---').map(b => b.trim()).filter(Boolean);
       const needed = 6 - specificBlocks.length;
-      console.log(`[TopicDedup] ${specificBlocks.length} specific articles, need ${needed} more from RSS`);
       for (const block of blocks) {
         if (rssBlocks.length >= needed) break;
         const m = block.match(/HEADLINE: (.+)/);
         if (!m) continue;
         const headline = m[1].trim();
         const overlap = chosenHeadlines.find(h => topicsOverlap(h, headline));
-        if (overlap) {
-          console.log(`[TopicDedup] SKIPPED (overlaps with "${overlap}"): ${headline}`);
-          continue;
-        }
+        if (overlap) continue;
         chosenHeadlines.push(headline);
         rssBlocks.push(block);
-        console.log(`[TopicDedup] RSS FILL (${rssBlocks.length}/${needed}): ${headline}`);
       }
     }
 
     const allBlocks = [...specificBlocks, ...rssBlocks];
     assignedArticles = allBlocks.map((block, i) => {
       const label = i < specificBlocks.length ? ' [EDITOR PICK]' : '';
-      const urlMatch = block.match(/ARTICLE_URL: (.+)/);
-      const articleUrl = urlMatch ? urlMatch[1].trim() : '';
-      const urlReminder = articleUrl ? `\n      ⚠ sourceUrl MUST be: ${articleUrl}` : '';
-      return 'QUESTION ' + (i+1) + ' (' + difficulties[i] + ', ' + points[i] + ' pts)' + label + ' — write exactly ONE question about THIS article:' + urlReminder + '\n' + block;
+      const urlMatch = block.match(/ARTICLE_URL: (.+)|URL: (.+)/);
+      const articleUrl = urlMatch ? (urlMatch[1] || urlMatch[2]).trim() : '';
+      const urlReminder = articleUrl ? `\nsourceUrl MUST be exactly: ${articleUrl}` : '';
+      return `QUESTION ${i+1} (${difficulties[i]}, ${points[i]} pts)${label} — write exactly ONE question about THIS article:${urlReminder}\n${block}`;
     }).join('\n\n===\n\n');
-
   } else if (rssContent) {
     const blocks = rssContent.split('---').map(b => b.trim()).filter(Boolean);
     const chosen = [];
     const chosenHeadlines = [];
-    console.log(`[TopicDedup] Starting with ${blocks.length} article blocks`);
     for (const block of blocks) {
       const m = block.match(/HEADLINE: (.+)/);
       if (!m) continue;
       const headline = m[1].trim();
       const overlap = chosenHeadlines.find(h => topicsOverlap(h, headline));
-      if (overlap) {
-        console.log(`[TopicDedup] SKIPPED (overlaps with "${overlap}"): ${headline}`);
-        continue;
-      }
+      if (overlap) continue;
       chosenHeadlines.push(headline);
       chosen.push(block);
-      console.log(`[TopicDedup] CHOSEN (${chosen.length}/11): ${headline}`);
       if (chosen.length >= 6) break;
     }
-    console.log(`[TopicDedup] Final count: ${chosen.length} articles assigned to Claude`);
     assignedArticles = chosen.map((block, i) => {
       const urlMatch = block.match(/ARTICLE_URL: (.+)/);
       const articleUrl = urlMatch ? urlMatch[1].trim() : '';
-      const urlReminder = articleUrl ? `\n      ⚠ sourceUrl MUST be: ${articleUrl}` : '';
-      return 'QUESTION ' + (i+1) + ' (' + difficulties[i] + ', ' + points[i] + ' pts) — write exactly ONE question about THIS article:' + urlReminder + '\n' + block;
+      const urlReminder = articleUrl ? `\nsourceUrl MUST be exactly: ${articleUrl}` : '';
+      return `QUESTION ${i+1} (${difficulties[i]}, ${points[i]} pts) — write exactly ONE question about THIS article:${urlReminder}\n${block}`;
     }).join('\n\n===\n\n');
   }
 
-  return 'You are writing questions for a LOCAL NEWS QUIZ about Baltimore and the Central Maryland region.\n\n' +
-    (specificArticlesBlock ? specificArticlesBlock + '\n\n' : '') +
-    (manualBlock ? manualBlock + '\n\n' : '') +
-    (fallback ? fallback + '\n\n' : '') +
-    (archiveNote ? 'PREVIOUSLY USED TOPICS — do not repeat these:\n' + archiveNote + '\n\n' : '') +
-    (getTopicBlocklist().length > 0 ? 'BLOCKED TOPICS — the editor has explicitly blocked these topics from today\'s quiz. Do not generate any questions about these subjects under any circumstances:\n' + getTopicBlocklist().filter(t => !t.startsWith('http')).map(t => '- ' + t).join('\n') + (getTopicBlocklist().some(t => t.startsWith('http')) ? '\n\nBLOCKED URLS — do not use these source articles:\n' + getTopicBlocklist().filter(t => t.startsWith('http')).map(t => '- ' + t).join('\n') : '') + '\n\n' : '') +
-    (allArchiveUrls.length > 0 ? 'PREVIOUSLY USED SOURCE URLS — do not generate questions from these exact URLs, even if the article appears in the RSS feed today:\n' + allArchiveUrls.slice(-30).join('\n') + '\n\n' : '') +
-    (allArchiveSlugs.length > 0 ? 'RECENTLY COVERED TOPICS — do not ask about these subjects again today, even from a different article or outlet, UNLESS the new article contains a concrete new outcome (bill passed, project approved, person appointed, facility opened):\n' + allArchiveSlugs.slice(-42).map(s => '- ' + s).join('\n') + '\n\n' : '') +
-    'INSTRUCTIONS:\n' +
-    '- Write exactly one question per numbered article — use ONLY the assigned article for that question\n' +
-    '- Each article is used for exactly one question — do not reuse any article\n' +
-    '- If two articles cover the same event or person, only the first one appears below — ignore any duplicates\n' +
-    '- Use the exact URL from each article as the sourceUrl\n' +
-    '- Do NOT use training knowledge — only facts from the assigned article\n' +
-    '- Keep all questions appropriate for a general community audience\n' +
-    '- For articles touching national topics, frame the question around the Maryland/Baltimore local angle\n\n' +
-    'DO NOT CREATE QUESTIONS ABOUT:\n' +
-    '- Street names or exact addresses\n' +
-    '- Procedural court motions or legal filings\n' +
-    '- Minor individual defendants with no broader significance\n' +
-    '- Groundbreaking ceremony details (who held a shovel, what color the hard hats were)\n' +
-    '- Hyper-local trivia unless it has clear policy or economic impact\n' +
-    '- Dollar amounts, durations, unit counts, vote tallies, dates, or times — unless the number IS the entire headline (e.g. a record-breaking figure everyone is talking about)\n\n' +
-    'QUESTION DESIGN RULES:\n' +
-    'Q1 (easy, 10pts): FACTUAL. Ask what happened, who decided, or what was announced. Answerable from the headline alone.\n' +
-    'Q2 (easy, 10pts): SPECIFIC DETAIL. A concrete fact requiring reading: a named person, org, place, or stated reason.\n' +
-    'GUARDRAIL for Q1+Q2: NEVER ask about exact dollar amounts, street addresses, specific years/dates, or minor officials. Test decisions, outcomes, roles, relationships.\n' +
-    'BAD: How much does the city earn from the marina? GOOD: Why did Baltimore choose private management for the marina?\n' +
-    'Q3 (medium, 20pts): CAUSE. Ask why something happened or what triggered a decision.\n' +
-    'Q4 (medium, 20pts): EFFECT. Ask what this means for a specific group, institution, or situation.\n' +
-    'Q5 (hard, 30pts): IMPLICATION. Ask what this reveals or signals. A non-obvious takeaway requiring analysis.\n' +
-    'Q6 (bonus, 50pts): THE MOST MEMORABLE STORY. Choose the article with the most surprising, distinctive, or shareable fact — something a reader would say "wait, really?" about. Frame the question around that hook. Do NOT make it hard by relying on obscure details or statistics. It should be the fact that makes the story stick.\n' +
-    'WRONG ANSWERS: Same category as correct answer. Plausible to someone who did NOT read the article. Never all dates/amounts/similar numbers.\n' +
-    'EXPLANATIONS: Q1/Q2 = plain fact only, no policy analysis. Q3/Q4 = one sentence of cause or effect. Q5/Q6 = analysis welcome.\n' +
-    'EXPLANATION STYLE: Write explanations as short news-style summaries of the story — what happened, who was involved, what it means. Do NOT refer to "the article", "the headline", "the summary", or "according to the source". Write as if briefing someone who missed the news.\n' +
-    'CRITICAL: Write explanation FIRST, then set correctIndex to match it exactly.\n' +
-    'QUESTION LENGTH: Keep questions under 20 words whenever possible. Prefer direct, specific questions over long descriptive ones.\n\n' +
-    'ARTICLE SELECTION FILTER — before writing a question, ask: would a well-informed Baltimore resident mention this to a friend over coffee? If no, skip it.\n' +
-    '- SKIP: routine sports transactions, injury updates, spring training notes. INCLUDE: sports stories that rise to civic significance — a record-breaking achievement, a major stadium decision, a championship result, a landmark signing that the average Baltimore resident would be expected to know about\n' +
-    '- SKIP: minor arts/culture items with no broader community impact\n' +
-    '- SKIP: individual incident stories — house fires, car crashes, single shootings — unless mass casualty, systemic pattern, or major public safety policy angle\n' +
-    '- SKIP: individual crime incidents (shootings, stabbings, robberies, burglaries, arrests, officer-involved shootings) unless a major public figure or systemic citywide pattern is central. The test: would a Baltimore resident who missed this story feel meaningfully less informed about their city? Individual crimes almost never pass this test.\n' +
-    '- SKIP: ALL weather stories unless a historic storm caused major documented damage\n' +
-    '- SKIP: anniversary or milestone articles unless a specific newsworthy development is the focus\n' +
-    '- SKIP: DC-area team stories (Nationals, Commanders, Capitals, Wizards) without explicit Baltimore/Maryland angle\n' +
-    '- USE: sports stories about record-breaking achievements, major roster decisions, or stadium/ownership news\n' +
-    '- USE: arts/culture stories involving major institutions (BSO, BMA, Center Stage) or nationally recognized figures\n' +
-    '- USE: anything involving public money, public safety, elections, housing, schools, or the local economy\n\n' +
-    'HERE ARE YOUR 6 ASSIGNED ARTICLES:\n\n' +
-    (assignedArticles || rssContent) + '\n\n' +
-    'QUESTION QUALITY CONSTRAINTS:\n' +
-    '- Every question must contain a specific factual anchor: a named person, a specific location or neighborhood, a concrete decision or outcome, or a number that IS the story (record-breaking, historic, etc.)\n' +
-    '- Questions must be answerable by an attentive reader of the article — not by someone with insider knowledge of local government. Prefer: who did something, what was approved, where something will happen, what changed.\n' +
-    '- Avoid procedural or bureaucratic trivia: committee names, zoning overlay codes, motion types, filing numbers, meeting agendas.\n' +
-    '- Use neighborhood names only when the article explains their significance. Never assume the reader knows where a neighborhood is or what it is known for.\n' +
-    '- Aim for topic diversity across the 6 questions: mix government, business/development, culture, transportation, education, sports, and community news where the articles allow.\n' +
-    '- Avoid multiple questions that feel like they are all about a meeting or officials discussing something. Prefer outcomes and decisions over process and proposals.\n' +
-'- NEVER ask who wrote, authored, or contributed an article or commentary. The author byline is never a quiz-worthy fact. Ask about the substance — what was argued, what was proposed, what the implications are.\n' +
-    '- NEVER reference the publication, outlet, or writer in the question itself. Questions test news and events, not news coverage. Wrong: "A Baltimore Banner writer discovered...", "According to a Baltimore Sun report...", "What did a Fishbowl reporter find...". Right: frame the question around what happened in the world, not who covered it. Rare exception: if the story is explicitly about a publication or journalist as a newsmaker.\n' +
-'- For opinion or commentary pieces, ask about the central concrete claim or proposal — not who wrote it, not why they argued it, not what impact their argument has. Test the substance: what specific change did they advocate for, what fact did they highlight, what outcome did they predict?\n' +
-    '- COLUMN/FEATURE ARTICLES: These often bury the news hook deep in the piece. Ignore scene-setting opening paragraphs and narrative framing. Look for the concrete civic fact — a decision, opening, development, or change — that the piece is ultimately reporting on. Ask about that fact, not the narrative wrapper around it.\n' +
-    '- AVOID questions framed as "Why does X argue...", "What does X reveal about...", "What does this mean for...", "What does X\'s approach show about...", "What does this analysis suggest...", "What impact does...", "What does X illustrate about..." — these produce vague interpretive answers with no single correct answer.\n' +
-'- BANNED QUESTION WORDS: never use "analyze", "analysis", "impact", "reveal", "illustrate", "suggest", "significance", "implication", "reflect", "indicate" as the operative word in a question. If you catch yourself using these words, rewrite the question as a concrete factual one.\n' +
-    '- BANNED QUESTION OPENINGS: never begin a question with "What does this reveal", "What does this demonstrate", "What does this suggest", "What does this show", "What does this mean", "What does this say about", "What does X\'s decision reveal", or any variant of these. These produce interpretive answers with no single correct fact. Rewrite as a concrete factual question.\n' +
-    '- Prefer concrete, factual questions: "What did X propose?", "What did X announce?", "What specific change did X call for?", "What will replace X?", "Who attended X?", "How many X attended?", "What opened in X neighborhood?"\n' +
-    '- SAME-EVENT RULE: Do not generate multiple questions about the same news event, even if it appears in multiple articles or outlets. Treat coverage of the same legislation, announcement, decision, or incident from different sources as a single topic. One event = one question maximum.\n' +
-    '- DISTRACTOR QUALITY: Generate distractors deliberately — do not let them emerge randomly. Incorrect answers must be plausible alternatives in the same category as the correct answer:\n' +
-    '  * If the correct answer is a PERSON, wrong answers should be other real or plausible people (ideally others connected to Baltimore, Maryland, or the relevant field)\n' +
-    '  * If the correct answer is a PROJECT FEATURE or PROPOSAL, wrong answers should be other plausible features or proposals of the same type\n' +
-    '  * If the correct answer is a LOCATION, wrong answers should be other real locations\n' +
-    '  * If the correct answer is a NUMBER or AMOUNT, wrong answers should be other plausible numbers in the same range\n' +
-    '  * If the correct answer is an ORGANIZATION or AGENCY, wrong answers should be other real organizations\n' +
-    '- Never use obviously unrelated, impossible, or humorous distractors. All four options should feel realistic to someone who follows Baltimore news.\n' +
-    '- LENGTH GIVEAWAY: Do not make the correct answer noticeably longer, more detailed, or more specific than the other options. All four options should be similar in length and grammatical form. Readers often guess the longest option — avoid this.\n' +
-'- CORE FACT STEP: Before writing each question, identify the central news fact of the story in one sentence. This must describe the main event or development reported — what actually happened. Only generate a question based on that core fact.\n' +
-    '  Valid core facts: "A Coca-Cola bottling facility explosion injured four workers in Baltimore." | "Baltimore County broke ground on Rockdale Park renovations." | "D.C. United hosted Inter Miami in a sold-out match at M&T Bank Stadium."\n' +
-    '  Invalid core facts (reject these): a specific vehicle someone used | a quote from a source | an attendance or crowd figure | a logistical detail like road closure timing | a descriptive detail not central to the story | the author\'s argument or framing in a column\n' +
-    '- SALIENT FACT TEST: Ask: would a reader likely remember this detail when summarizing the story to a friend? If not, find a more central fact.\n' +
-    '- NEWS VALUE TYPE: Each question must be based on one of these: a decision or approval, a new development or opening, a major event or milestone, a named person\'s notable action or statement, a visible change affecting the community, or a public controversy with clear local significance. Do not base questions on minor descriptive details.\n' +
-    '- BANNED DETAIL TYPES: Never write a question whose correct answer is primarily: an attendance figure or crowd count, an exact street closure schedule or timing, a specific vehicle or equipment type, a block number or address fragment, a menu item or food detail unless the story is fundamentally about that item, a neighborhood location unless that neighborhood IS the story.\n' +
-    '- BAD QUESTION PATTERNS — never use these framings: "What was the attendance at...", "In which neighborhood did someone find...", "What unusual timing did officials choose for...", "What type of vehicle did an official use...", "How much exactly was budgeted for...", "On which block did...", "What specific tool did..."\n' +
-    '- TOPIC BALANCE: Do not over-concentrate on state legislative politics even if it dominates the feeds. Prefer a mix of city life topics: development, transportation, schools, business openings, culture, community news, local government, sports.\n\n' +
-'GENERATION PROCESS — work through these steps in your head before outputting anything:\nStep 1 — CORE FACT: For each article, identify one sentence: the central news fact (main event/development). Reject: incidental details, descriptive color, quotes, statistics, logistical details, column framing.\nStep 2 — NEWS VALUE CHECK: Confirm the core fact is: a decision/approval, new development/opening, major event/milestone, notable person action/statement, visible community change, or public controversy.\nStep 3 — QUESTION: Write a question testing the core fact only.\nDo all of this silently. Output ONLY the final JSON object — no preamble, no reasoning, no markdown. Your entire response must start with { and end with }.\nInclude a coreFacts array in the JSON (one sentence per question from Step 1) for debugging.\n\n' +
-    'OUTPUT: Respond with ONLY valid JSON. No preamble, no markdown. Start with { and end with }.\n\n' +
-    'IMPORTANT: Always write questions for ALL 6 assigned articles. Never return an empty questions array.\n' +
-    'Set staleWarning to true only if articles appear more than 3 days old.\n\n' +
-    'difficulty values: "easy" | "medium" | "hard" | "bonus"\n' +
-    'BONUS QUESTION: The bonus question should come from the most surprising or memorable story of the day. Prefer: major public events, celebrity or notable-person appearances, unusual civic developments, record-breaking or historic milestones, large public gatherings with local significance. Avoid: routine crime incidents, minor police blotter items, procedural government actions, or stories whose only hook is an obscure detail. The bonus tests something that would make a reader say "I didn\'t know that happened" — about the story itself, not a footnote within it.\n' +
-    'Include a "pubDate" field on each question, copied exactly from the DATE: field of the assigned article. This is used to label older stories for readers.\n' +
-    'correctIndex: MUST be the 0-based index of the option your explanation describes as correct. Write explanation FIRST, then set correctIndex to match.\n' +
-    'sourceUrl: copy ARTICLE_URL exactly. NEVER use a feed URL ending in /feed/ or /rss.\n' +
-    'Generate exactly 6 questions, one per assigned article.';
+  return [
+    'You are the quiz editor for a daily Baltimore-area local news quiz.',
+    '',
+    'AUDIENCE:',
+    '- General Baltimore and Central Maryland readers',
+    '- Civically aware but not specialists',
+    '- People who may have skimmed headlines or short summaries',
+    '',
+    'GOAL:',
+    'Write 6 strong multiple-choice questions that feel meaningful, local, and memorable — not cheap trivia.',
+    '',
+    specificArticlesBlock,
+    manualBlock,
+    fallback,
+    archiveNote ? 'PREVIOUSLY USED TOPICS — do not repeat these:\n' + archiveNote + '\n' : '',
+    getTopicBlocklist().length > 0 ? 'BLOCKED TOPICS / URLS — do not use these subjects or URLs:\n' + getTopicBlocklist().map(t => '- ' + t).join('\n') + '\n' : '',
+    allArchiveUrls.length > 0 ? 'PREVIOUSLY USED SOURCE URLS — do not reuse these exact URLs:\n' + allArchiveUrls.slice(-40).join('\n') + '\n' : '',
+    allArchiveSlugs.length > 0 ? 'RECENTLY COVERED TOPICS — avoid these subjects unless the new article contains a concrete new outcome:\n' + allArchiveSlugs.slice(-50).map(s => '- ' + s).join('\n') + '\n' : '',
+    'QUESTION QUALITY RULES:',
+    '- Use exactly one article per question.',
+    '- Use only the assigned article for each question.',
+    '- If two articles cover the same event, only one question should exist for that event.',
+    '- The question must be answerable by someone who read a headline or short summary; do not require memorized minutiae.',
+    '- Use the exact article URL as sourceUrl.',
+    '- Never use feed URLs as sourceUrl.',
+    '',
+    'PREFER QUESTIONS ABOUT:',
+    '- major local decisions or approvals',
+    '- visible public changes (parks, schools, transit, development, openings)',
+    '- big local events or milestones',
+    '- notable actions/statements by well-known public figures',
+    '- controversies with clear local civic significance',
+    '',
+    'AVOID QUESTIONS ABOUT:',
+    '- individual crime incidents unless there is a broader public policy or system angle',
+    '- exact grant or budget dollar amounts',
+    '- exact vote tallies, dates, times, durations, or attendance counts',
+    '- obscure personal names unless the person is the actual news hook',
+    '- street addresses, block numbers, lane closure timing, vehicle types, equipment details',
+    '- which publication or reporter covered the story',
+    '- what an event “reveals,” “demonstrates,” or “suggests”',
+    '',
+    'CENTRAL-FACT TEST (MANDATORY):',
+    'Before writing each question, silently identify the central news fact of the story in one sentence.',
+    'The question must test that central fact, not a colorful side detail.',
+    'If a reader would not mention the fact when summarizing the story to a friend, do not use it.',
+    '',
+    'BAD QUESTION PATTERNS TO REJECT:',
+    '- attendance or crowd size',
+    '- exact dollar amounts',
+    '- what type of vehicle/equipment someone used',
+    '- what unusual timing officials chose',
+    '- in which neighborhood did a writer find something',
+    '- interpretive/philosophical wording (reveal/demonstrate/suggest/impact)',
+    '',
+    'DIFFICULTY GUIDE:',
+    '- Q1 easy: straightforward headline-level fact',
+    '- Q2 easy: another headline-level or obvious local fact',
+    '- Q3 medium: a meaningful detail from the story, still central',
+    '- Q4 medium: a meaningful detail from the story, still central',
+    '- Q5 hard: harder because it is a less obvious but still central fact — never because it is trivial',
+    '- Q6 bonus: the most surprising, memorable, or talked-about story of the set; not routine crime and not an obscure detail',
+    '',
+    'DISTRACTOR RULES:',
+    '- 4 options only',
+    '- wrong answers must be plausible and in the same category as the correct answer',
+    '- do not make the correct answer obviously longer or more specific than the others',
+    '- no joke answers, impossible answers, or wildly unrelated answers',
+    '',
+    'INTERNAL PROCESS (DO NOT SHOW):',
+    '1. Silently identify the best central fact for each assigned article.',
+    '2. Silently reject any candidate question that depends on cheap trivia or incidental details.',
+    '3. Silently draft more than one possible question angle if needed and choose the strongest one.',
+    '4. Output only the final best 6 questions.',
+    '',
+    'OUTPUT REQUIREMENTS:',
+    '- Return ONLY valid JSON beginning with { and ending with }.',
+    '- Include: questions, staleWarning, coreFacts.',
+    '- Generate exactly 6 questions.',
+    '- Each question must include: question, options, correctIndex, difficulty, points, explanation, sourceUrl, pubDate.',
+    '- explanation should read like a short news-style summary, not a note about the article or headline.',
+    '- correctIndex must match the explanation.',
+    '- Include one coreFacts entry per question for debugging.',
+    '',
+    'ASSIGNED ARTICLES:',
+    assignedArticles,
+    '',
+    'Return ONLY JSON.'
+  ].filter(Boolean).join('\n\n');
 }
+
 
 
 // ═══════════════════════════════════════════════════════
@@ -3877,43 +3847,44 @@ function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote,
 
 function scoreQuestionQuality(q) {
   const text = (q.question || '').toLowerCase();
+  const expl = (q.explanation || '').toLowerCase();
+  const combined = text + ' ' + expl;
   const flags = [];
 
-  // Banned openings
   const bannedOpenings = [
     'what does this reveal', 'what does this demonstrate', 'what does this suggest',
     'what does this show', 'what does this mean', 'what does this say about',
-    'what does x', 'what does the'
+    'why does', 'what impact does'
   ];
   if (bannedOpenings.some(p => text.startsWith(p))) {
-    flags.push('interpretive opening: "' + q.question.slice(0, 40) + '"');
+    flags.push('interpretive opening');
   }
 
-  // Banned detail types in question text
-  const bannedDetails = [
-    { pattern: /attendance/, reason: 'attendance figure question' },
-    { pattern: /how many (fans|people|attendees)/, reason: 'crowd count question' },
-    { pattern: /what (type|kind) of vehicle/, reason: 'vehicle detail question' },
-    { pattern: /which (block|street corner|address)/, reason: 'address detail question' },
-    { pattern: /what (unusual )?timing/, reason: 'timing detail question' },
-    { pattern: /which neighborhood did/, reason: 'neighborhood-as-answer question' },
-    { pattern: /what specific tool/, reason: 'equipment detail question' },
-    { pattern: /how much exactly/, reason: 'exact amount question' },
+  const bannedPatterns = [
+    { pattern: /\battendance\b|\bcrowd\b/, reason: 'attendance/crowd detail' },
+    { pattern: /\bhow many (fans|people|attendees|voters)\b/, reason: 'count-based question' },
+    { pattern: /\bwhat (type|kind) of vehicle\b/, reason: 'vehicle detail' },
+    { pattern: /\bwhat (unusual )?timing\b/, reason: 'timing detail' },
+    { pattern: /\bwhich (block|street corner|address)\b/, reason: 'address detail' },
+    { pattern: /\bwhich neighborhood did\b/, reason: 'neighborhood-as-answer' },
+    { pattern: /\bhow much( exactly)?\b|\bwhat amount\b/, reason: 'exact amount/dollar figure' },
+    { pattern: /\bwhat specific tool\b|\bwhat equipment\b/, reason: 'equipment detail' },
+    { pattern: /\baccording to\b|\breporter\b|\bwriter\b|\bjournalist\b|\bbanner\b|\bfishbowl\b|\bsun\b|\bbrew\b|\bmatters\b/, reason: 'publication/writer reference' }
   ];
-  for (const { pattern, reason } of bannedDetails) {
+  for (const { pattern, reason } of bannedPatterns) {
     if (pattern.test(text)) flags.push(reason);
   }
 
-  // Crime/incident bonus check
-  const crimeTerms = /(arrested?|shooting|homicide|stabbing|robbery|burglary|theft|stolen|murder|assault|crash|fire death)/i;
-  if (q.difficulty === 'bonus' && crimeTerms.test(q.question + ' ' + (q.explanation || ''))) {
-    flags.push('bonus question based on crime/incident story');
+  const crimeTerms = /\b(arrested?|shooting|homicide|stabbing|robbery|burglary|theft|murder|assault|carjacking)\b/i;
+  if ((q.difficulty === 'bonus' || q.difficulty === 'hard') && crimeTerms.test(combined)) {
+    flags.push('crime/incident story used for hard or bonus');
   }
 
-  // Publication reference check
-  const pubRefs = /(banner|fishbowl|sun|brew|matters|reporter|writer|journalist|according to)/i;
-  if (pubRefs.test(text)) {
-    flags.push('references publication or writer in question');
+  const options = Array.isArray(q.options) ? q.options : [];
+  if (options.length === 4) {
+    const lengths = options.map(o => String(o || '').length);
+    const max = Math.max(...lengths), min = Math.min(...lengths);
+    if (max - min > 35) flags.push('option length giveaway');
   }
 
   return { ok: flags.length === 0, flags };
