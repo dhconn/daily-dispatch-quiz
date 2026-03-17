@@ -1700,6 +1700,15 @@ let state = {
   todayKey: todayStr()
 };
 
+function postAnswerDist(date, qIdx, correct) {
+  if (archiveMode) return;
+  fetch('/api/answers', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ date, answers: [{ qIdx, correct }] })
+  }).catch(() => {});
+}
+
 // ─── Storage helpers (localStorage fallback) ───
 function lsGet(key) {
   try { return JSON.parse(localStorage.getItem(key)); } catch(e) { return null; }
@@ -2217,6 +2226,7 @@ function selectAnswer(idx) {
 
   state.sessionScore += pts;
   state.answers.push({ qIdx: state.currentQ, chosen: idx, correct, pts });
+  postAnswerDist(state.todayKey, state.currentQ, correct);
   document.getElementById('live-score').textContent = state.sessionScore;
 
   // ── Visual feedback on correct answer ───────────────────────
@@ -2583,17 +2593,7 @@ async function finishQuiz() {
     } catch(e) {}
   }
 
-  // POST this player's answers to server for community distribution (not in archive mode)
-  if (!archiveMode) fetch('/api/answers', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      date: state.todayKey,
-      answers: state.answers.map(a => ({ qIdx: a.qIdx, correct: a.correct }))
-    })
-  }).catch(() => {}); // fire and forget
-
-  // Compute stats
+    // Compute stats
   const total = state.answers.length;
   const correct = state.answers.filter(a => a.correct).length;
   const pct = total ? Math.round(correct/total*100) : 0;
@@ -4922,7 +4922,9 @@ async function loadAdminStats() {
       for (let i = 0; i <= 5; i++) {
         const stoppedHere = qCounts[i] - (qCounts[i + 1] || 0);
         totalReached += Math.max(0, stoppedHere) * (i + 1);
-      }    
+      }
+      // Players who made it through all 6 questions
+      totalReached += qCounts[5] * 6;
     }
     const avgQReached = totalPlayers > 0 ? (totalReached / totalPlayers).toFixed(1) : '—';
 
