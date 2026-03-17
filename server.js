@@ -707,7 +707,7 @@ function buildEmailHtml(siteUrl, date, subscriberName, teaserHtml, unsubUrl) {
     <div style="padding:32px 24px;background:#f5f0e8;text-align:center;">
       <p style="font-size:18px;margin:0 0 8px;">Hi${subscriberName ? ' ' + subscriberName : ''},</p>
       <p style="font-size:16px;color:#444;margin:0 0 8px;">6 questions. 90 seconds.</p>
-      <p style="font-size:16px;color:#444;margin:0 0 24px;">How well were you paying attention?</p>
+      <p style="font-size:16px;color:#444;margin:0 0 24px;">How closely are you following the news?</p>
       ${teaserHtml}
       <a href="${siteUrl}" style="display:inline-block;background:#1a1008;color:#f5f0e8;padding:16px 36px;font-family:monospace;font-size:13px;letter-spacing:2px;text-decoration:none;text-transform:uppercase;">Play Today's Quiz ▸</a>
     </div>
@@ -890,13 +890,13 @@ app.post('/api/quiz', async (req, res) => {
       }
       const dow = new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' });
       const subjects = {
-        Monday:    "How well were you following Baltimore news today?",
+        Monday:    "Start off the week by climbing the Baltimore news Leaderboard",
         Tuesday:   "Can you beat today's Baltimore news quiz?",
         Wednesday: "6 questions about today's Baltimore headlines",
         Thursday:  "Think you know today's Baltimore news?",
-        Friday:    "Friday's Baltimore News Quiz is live",
-        Saturday:  "Saturday's Baltimore News Quiz is live",
-        Sunday:    "Sunday's Baltimore News Quiz is live"
+        Friday:    "Friday - I'm in love, with the Daily Dispatch News Quiz",
+        Saturday:  "A very special Saturday Dispatch News Quiz is live",
+        Sunday:    "It's Sunday - relax and play the (90-second) Balt. News Quiz"
       };
       const subject = subjects[dow] || `Today's Baltimore Daily Dispatch Quiz is live — ${date}`;
       const emails = subscribers.map(sub => {
