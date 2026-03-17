@@ -3755,45 +3755,28 @@ return 'You are the editor of a daily Baltimore news quiz.\n\n' +
 
   'YOUR TASK HAS TWO INTERNAL STEPS:\n\n' +
 
-  'STEP 1 — CHOOSE THE RIGHT FACT\n' +
-  'Before writing each question, identify the MAIN POINT of the article in one sentence.\n' +
-  'Ask yourself: if a reader described this story to a friend in one sentence, what fact would they mention?\n' +
-  'That fact must become the question anchor.\n\n' +
+  'STEP 1 — THE "FRONT PAGE" TEST\n' +
+  'Before writing, identify the MAIN POINT of the article.\n' +
+  'Ask yourself: "If I told a neighbor about this story, would they care about the impact, or just a random number?"\n' +
+  'The question MUST anchor on the primary civic or social development.\n\n' +
 
-  'A good question anchor is:\n' +
-  '- the main public-facing development\n' +
-  '- a visible or civic change\n' +
-  '- a notable event or milestone\n' +
-  '- a recognizable person’s action or announcement\n' +
-  '- something residents would likely remember\n\n' +
+  'THE "BANNED TRIVIA" LIST (STRICT ENFORCEMENT):\n' +
+  '- NO questions where the answer is a date (e.g., reopening dates, event starts).\n' +
+  '- NO questions where the answer is a dollar amount (e.g., grant sizes, budget items, lease costs).\n' +
+  '- NO questions where the answer is a specific street address, school name, or building number.\n' +
+  '- NO names of minor bureaucrats, spokespeople, victims, or witnesses.\n' +
+  '- NO "logistical" facts (e.g., parking changes, permit deadlines, equipment types).\n\n' +
 
-  'Do NOT use these as the main anchor of a question:\n' +
-  '- a date or reopening date\n' +
-  '- a dollar amount, grant amount, or budget figure\n' +
-  '- a lease expiration, permit timing, or administrative deadline\n' +
-  '- a minor personal name\n' +
-  '- a street address or block number\n' +
-  '- a technical, procedural, or logistical detail\n' +
-  '- a vehicle, equipment type, traffic timing, or similar operational detail\n\n' +
-
-  'If your first question idea relies on one of those weak anchors, choose a better angle from the SAME story instead of discarding the story.\n\n' +
+  'If an article only contains "Banned Trivia," find a broader "So What?" angle from that same story. If no such angle exists, you have failed the task.\n\n' +
 
   'STEP 2 — WRITE THE QUESTION\n' +
   'Write exactly one question per assigned article.\n' +
-  'Use ONLY the assigned article for that question.\n' +
-  'Each article is used for exactly one question.\n' +
-  'Use the exact ARTICLE_URL as sourceUrl.\n' +
-  'Do NOT use outside knowledge.\n\n' +
-
+  'Questions must be answerable by someone who read the headline.\n' +
+  'Focus on: What opened/closed, what law changed, what milestone was reached, or what major public project was approved.\n\n' +
+  
   'QUESTIONS MUST BE FACTUAL, NOT ANALYTICAL.\n' +
-  'Never write questions such as:\n' +
-  '- What does this suggest about...\n' +
-  '- What does this reveal about...\n' +
-  '- What does this demonstrate about...\n' +
-  '- What perspective does this deal suggest about...\n' +
-  '- What does this indicate about policy priorities...\n' +
-  '- What does this mean for...\n\n' +
-
+  'Do not ask: "What does this suggest..." or "What is the implication..."\n' +
+  'The question must be a concrete fact about a MEANINGFUL event.\n\n' +
   'The question must be answerable directly from the story’s facts, not by interpretation or inference.\n\n' +
 
   'QUESTION QUALITY RULES:\n' +
@@ -3809,9 +3792,10 @@ return 'You are the editor of a daily Baltimore news quiz.\n\n' +
   'DISTRACTOR RULES:\n' +
   '- Write four answer choices\n' +
   '- Only one choice is correct\n' +
-  '- Wrong answers must be plausible and in the same category as the correct answer\n' +
-  '- Do not make the correct answer noticeably longer or more detailed than the others\n\n' +
-
+  '- Wrong answers (distractors) MUST be of the same "class" as the correct answer (e.g., if the answer is a neighborhood, all distractors must be real Baltimore neighborhoods).\n' +
+  '- Avoid "Internal Logic" giveaways: Do not make the correct answer significantly longer, more specific, or more "official" sounding than the distractors.\n' +
+  '- For harder questions (Q4–Q6), use "Near-Miss" distractors: mention other real Baltimore entities or places that are currently in the news to make the choice less obvious.\n\n' +
+  
   'DIFFICULTY:\n' +
   'Q1–2 easy\n' +
   'Q3–4 medium\n' +
@@ -3884,10 +3868,10 @@ function scoreQuestionQuality(q) {
     { pattern: /\bhow many (fans|people|attendees|voters)\b/, reason: 'count-based question' },
     { pattern: /\bwhat (type|kind) of vehicle\b/, reason: 'vehicle detail' },
     { pattern: /\bwhat (unusual )?timing\b/, reason: 'timing detail' },
-    { pattern: /\bwhich (block|street corner|address)\b/, reason: 'address detail' },
-    { pattern: /\bwhich neighborhood did\b/, reason: 'neighborhood-as-answer' },
-    { pattern: /\bhow much( exactly)?\b|\bwhat amount\b/, reason: 'exact amount/dollar figure' },
-    { pattern: /\bwhat specific tool\b|\bwhat equipment\b/, reason: 'equipment detail' },
+    { pattern: /\bwhich (block|street corner|address|high school|elementary|middle school)\b/i, reason: 'hyper-local/address detail' },
+    { pattern: /\bhow much( exactly)?\b|\bwhat amount\b|\b(grant|budget|cost|price|fee|worth)\b/i, reason: 'monetary/dollar figure' },
+    { pattern: /\b(official|spokesperson|representative|bureaucrat|witness|victim)\b/i, reason: 'minor person name' },
+    { pattern: /\b(reopen|opening|open|launch|start|begin)\b.*\b(on|in)\b/i, reason: 'timing/date trivia' },
     { pattern: /\baccording to\b|\breporter\b|\bwriter\b|\bjournalist\b|\bbanner\b|\bfishbowl\b|\bsun\b|\bbrew\b|\bmatters\b/, reason: 'publication/writer reference' }
   ];
   for (const { pattern, reason } of bannedPatterns) {
