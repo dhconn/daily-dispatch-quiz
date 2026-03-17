@@ -4922,9 +4922,7 @@ async function loadAdminStats() {
       for (let i = 0; i <= 5; i++) {
         const stoppedHere = qCounts[i] - (qCounts[i + 1] || 0);
         totalReached += Math.max(0, stoppedHere) * (i + 1);
-      }
-      // Players who made it through all 6 questions
-      totalReached += qCounts[5] * 6;
+      }    
     }
     const avgQReached = totalPlayers > 0 ? (totalReached / totalPlayers).toFixed(1) : '—';
 
