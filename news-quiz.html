@@ -3850,6 +3850,7 @@ function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote,
     '  * If the correct answer is an ORGANIZATION or AGENCY, wrong answers should be other real organizations\n' +
     '- Never use obviously unrelated, impossible, or humorous distractors. All four options should feel realistic to someone who follows Baltimore news.\n' +
     '- LENGTH GIVEAWAY: Do not make the correct answer noticeably longer, more detailed, or more specific than the other options. All four options should be similar in length and grammatical form. Readers often guess the longest option — avoid this.\n' +
+    '- For harder questions (Q4–Q6), use "Near-Miss" distractors: mention other real Baltimore entities or places that are currently in the news to make the choice less obvious.\n\n' +
 '- CORE FACT STEP: Before writing each question, identify the central news fact of the story in one sentence. This must describe the main event or development reported — what actually happened. Only generate a question based on that core fact.\n' +
     '  Valid core facts: "A Coca-Cola bottling facility explosion injured four workers in Baltimore." | "Baltimore County broke ground on Rockdale Park renovations." | "D.C. United hosted Inter Miami in a sold-out match at M&T Bank Stadium."\n' +
     '  Invalid core facts (reject these): a specific vehicle someone used | a quote from a source | an attendance or crowd figure | a logistical detail like road closure timing | a descriptive detail not central to the story | the author\'s argument or framing in a column\n' +
@@ -3891,14 +3892,23 @@ function scoreQuestionQuality(q) {
 
   // Banned detail types in question text
   const bannedDetails = [
-    { pattern: /attendance/, reason: 'attendance figure question' },
-    { pattern: /how many (fans|people|attendees)/, reason: 'crowd count question' },
-    { pattern: /what (type|kind) of vehicle/, reason: 'vehicle detail question' },
-    { pattern: /which (block|street corner|address)/, reason: 'address detail question' },
-    { pattern: /what (unusual )?timing/, reason: 'timing detail question' },
-    { pattern: /which neighborhood did/, reason: 'neighborhood-as-answer question' },
-    { pattern: /what specific tool/, reason: 'equipment detail question' },
-    { pattern: /how much exactly/, reason: 'exact amount question' },
+    { pattern: /\attendance/, reason: 'attendance figure question' },
+    { pattern: /\how many (fans|people|attendees)/, reason: 'crowd count question' },
+    { pattern: /\what (type|kind) of vehicle/, reason: 'vehicle detail question' },
+    { pattern: /\which (block|street corner|address)/, reason: 'address detail question' },
+    { pattern: /\what (unusual )?timing/, reason: 'timing detail question' },
+    { pattern: /\which neighborhood did/, reason: 'neighborhood-as-answer question' },
+    { pattern: /\what specific tool/, reason: 'equipment detail question' },
+    { pattern: /\how much exactly/, reason: 'exact amount question' },
+    { pattern: /\battendance\b|\bcrowd\b/, reason: 'attendance/crowd detail' },
+    { pattern: /\bhow many (fans|people|attendees|voters)\b/, reason: 'count-based question' },
+    { pattern: /\bwhat (type|kind) of vehicle\b/, reason: 'vehicle detail' },
+    { pattern: /\bwhat (unusual )?timing\b/, reason: 'timing detail' },
+    { pattern: /\bwhich (block|street corner|address|high school|elementary|middle school)\b/i, reason: 'hyper-local/address detail' },
+    { pattern: /\bhow much( exactly)?\b|\bwhat amount\b|\b(grant|budget|cost|price|fee|worth)\b/i, reason: 'monetary/dollar figure' },
+    { pattern: /\b(official|spokesperson|representative|bureaucrat|witness|victim)\b/i, reason: 'minor person name' },
+    { pattern: /\b(reopen|opening|open|launch|start|begin)\b.*\b(on|in)\b/i, reason: 'timing/date trivia' },
+    { pattern: /\baccording to\b|\breporter\b|\bwriter\b|\bjournalist\b|\bbanner\b|\bfishbowl\b|\bsun\b|\bbrew\b|\bmatters\b/, reason: 'publication/writer reference' }
   ];
   for (const { pattern, reason } of bannedDetails) {
     if (pattern.test(text)) flags.push(reason);
