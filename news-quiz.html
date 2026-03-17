@@ -3545,9 +3545,14 @@ const screenController = new AbortController();
       console.warn(`[QualityFilter] ${weakQuestions.length} weak questions — triggering targeted retry`);
       document.getElementById('gen-progress-text').textContent = 'Refining ' + weakQuestions.length + ' questions…';
 
-      const weakDescriptions = weakQuestions.map(w =>
-        `Q${w.index + 1} ("${questions[w.index].question.slice(0, 60)}…") — issues: ${w.flags.join(', ')}`
-      ).join('\n');
+      const weakDescriptions = weakQuestions.map(w => {
+        const q = questions[w.index];
+        return `Q${w.index + 1}
+      Original question: ${q.question}
+      Difficulty: ${q.difficulty}
+      Source URL: ${q.sourceUrl}
+      Issues: ${w.flags.join(', ')}`;
+      }).join('\n\n');
 
       const retryPrompt =
         'The following questions from a Baltimore news quiz need to be replaced because they test incidental details rather than the main point of the story:\n\n' +
@@ -3748,98 +3753,129 @@ function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote,
     }).join('\n\n===\n\n');
   }
 
-  return [
-    'You are the quiz editor for a daily Baltimore-area local news quiz.',
-    '',
-    'AUDIENCE:',
-    '- General Baltimore and Central Maryland readers',
-    '- Civically aware but not specialists',
-    '- People who may have skimmed headlines or short summaries',
-    '',
-    'GOAL:',
-    'Write 6 strong multiple-choice questions that feel meaningful, local, and memorable — not cheap trivia.',
-    '',
-    specificArticlesBlock,
-    manualBlock,
-    fallback,
-    archiveNote ? 'PREVIOUSLY USED TOPICS — do not repeat these:\n' + archiveNote + '\n' : '',
-    getTopicBlocklist().length > 0 ? 'BLOCKED TOPICS / URLS — do not use these subjects or URLs:\n' + getTopicBlocklist().map(t => '- ' + t).join('\n') + '\n' : '',
-    allArchiveUrls.length > 0 ? 'PREVIOUSLY USED SOURCE URLS — do not reuse these exact URLs:\n' + allArchiveUrls.slice(-40).join('\n') + '\n' : '',
-    allArchiveSlugs.length > 0 ? 'RECENTLY COVERED TOPICS — avoid these subjects unless the new article contains a concrete new outcome:\n' + allArchiveSlugs.slice(-50).map(s => '- ' + s).join('\n') + '\n' : '',
-    'QUESTION QUALITY RULES:',
-    '- Use exactly one article per question.',
-    '- Use only the assigned article for each question.',
-    '- If two articles cover the same event, only one question should exist for that event.',
-    '- The question must be answerable by someone who read a headline or short summary; do not require memorized minutiae.',
-    '- Use the exact article URL as sourceUrl.',
-    '- Never use feed URLs as sourceUrl.',
-    '',
-    'PREFER QUESTIONS ABOUT:',
-    '- major local decisions or approvals',
-    '- visible public changes (parks, schools, transit, development, openings)',
-    '- big local events or milestones',
-    '- notable actions/statements by well-known public figures',
-    '- controversies with clear local civic significance',
-    '',
-    'AVOID QUESTIONS ABOUT:',
-    '- individual crime incidents unless there is a broader public policy or system angle',
-    '- exact grant or budget dollar amounts',
-    '- exact vote tallies, dates, times, durations, or attendance counts',
-    '- obscure personal names unless the person is the actual news hook',
-    '- street addresses, block numbers, lane closure timing, vehicle types, equipment details',
-    '- which publication or reporter covered the story',
-    '- what an event “reveals,” “demonstrates,” or “suggests”',
-    '',
-    'CENTRAL-FACT TEST (MANDATORY):',
-    'Before writing each question, silently identify the central news fact of the story in one sentence.',
-    'The question must test that central fact, not a colorful side detail.',
-    'If a reader would not mention the fact when summarizing the story to a friend, do not use it.',
-    '',
-    'BAD QUESTION PATTERNS TO REJECT:',
-    '- attendance or crowd size',
-    '- exact dollar amounts',
-    '- what type of vehicle/equipment someone used',
-    '- what unusual timing officials chose',
-    '- in which neighborhood did a writer find something',
-    '- interpretive/philosophical wording (reveal/demonstrate/suggest/impact)',
-    '',
-    'DIFFICULTY GUIDE:',
-    '- Q1 easy: straightforward headline-level fact',
-    '- Q2 easy: another headline-level or obvious local fact',
-    '- Q3 medium: a meaningful detail from the story, still central',
-    '- Q4 medium: a meaningful detail from the story, still central',
-    '- Q5 hard: harder because it is a less obvious but still central fact — never because it is trivial',
-    '- Q6 bonus: the most surprising, memorable, or talked-about story of the set; not routine crime and not an obscure detail',
-    '',
-    'DISTRACTOR RULES:',
-    '- 4 options only',
-    '- wrong answers must be plausible and in the same category as the correct answer',
-    '- do not make the correct answer obviously longer or more specific than the others',
-    '- no joke answers, impossible answers, or wildly unrelated answers',
-    '',
-    'INTERNAL PROCESS (DO NOT SHOW):',
-    '1. Silently identify the best central fact for each assigned article.',
-    '2. Silently reject any candidate question that depends on cheap trivia or incidental details.',
-    '3. Silently draft more than one possible question angle if needed and choose the strongest one.',
-    '4. Output only the final best 6 questions.',
-    '',
-    'OUTPUT REQUIREMENTS:',
-    '- Return ONLY valid JSON beginning with { and ending with }.',
-    '- Include: questions, staleWarning, coreFacts.',
-    '- Generate exactly 6 questions.',
-    '- Each question must include: question, options, correctIndex, difficulty, points, explanation, sourceUrl, pubDate.',
-    '- explanation should read like a short news-style summary, not a note about the article or headline.',
-    '- correctIndex must match the explanation.',
-    '- Include one coreFacts entry per question for debugging.',
-    '',
-    'ASSIGNED ARTICLES:',
-    assignedArticles,
-    '',
-    'Return ONLY JSON.'
-  ].filter(Boolean).join('\n\n');
+return 'You are the editor of a daily Baltimore news quiz.\n\n' +
+  (specificArticlesBlock ? specificArticlesBlock + '\n\n' : '') +
+  (manualBlock ? manualBlock + '\n\n' : '') +
+  (fallback ? fallback + '\n\n' : '') +
+  (archiveNote ? 'PREVIOUSLY USED TOPICS — do not repeat these:\n' + archiveNote + '\n\n' : '') +
+  (getTopicBlocklist().length > 0
+    ? 'BLOCKED TOPICS — do not generate questions about these topics:\n' +
+      getTopicBlocklist().filter(t => !t.startsWith('http')).map(t => '- ' + t).join('\n') +
+      (getTopicBlocklist().some(t => t.startsWith('http'))
+        ? '\n\nBLOCKED URLS — do not use these source articles:\n' +
+          getTopicBlocklist().filter(t => t.startsWith('http')).map(t => '- ' + t).join('\n')
+        : '') + '\n\n'
+    : '') +
+  (allArchiveUrls.length > 0
+    ? 'PREVIOUSLY USED SOURCE URLS — do not generate questions from these exact URLs:\n' +
+      allArchiveUrls.slice(-30).join('\n') + '\n\n'
+    : '') +
+  (allArchiveSlugs.length > 0
+    ? 'RECENTLY COVERED TOPICS — avoid repeating these unless there is a concrete new outcome:\n' +
+      allArchiveSlugs.slice(-42).map(s => '- ' + s).join('\n') + '\n\n'
+    : '') +
+
+  'YOUR TASK HAS TWO INTERNAL STEPS:\n\n' +
+
+  'STEP 1 — CHOOSE THE RIGHT FACT\n' +
+  'Before writing each question, identify the MAIN POINT of the article in one sentence.\n' +
+  'Ask yourself: if a reader described this story to a friend in one sentence, what fact would they mention?\n' +
+  'That fact must become the question anchor.\n\n' +
+
+  'A good question anchor is:\n' +
+  '- the main public-facing development\n' +
+  '- a visible or civic change\n' +
+  '- a notable event or milestone\n' +
+  '- a recognizable person’s action or announcement\n' +
+  '- something residents would likely remember\n\n' +
+
+  'Do NOT use these as the main anchor of a question:\n' +
+  '- a date or reopening date\n' +
+  '- a dollar amount, grant amount, or budget figure\n' +
+  '- a lease expiration, permit timing, or administrative deadline\n' +
+  '- a minor personal name\n' +
+  '- a street address or block number\n' +
+  '- a technical, procedural, or logistical detail\n' +
+  '- a vehicle, equipment type, traffic timing, or similar operational detail\n\n' +
+
+  'If your first question idea relies on one of those weak anchors, choose a better angle from the SAME story instead of discarding the story.\n\n' +
+
+  'STEP 2 — WRITE THE QUESTION\n' +
+  'Write exactly one question per assigned article.\n' +
+  'Use ONLY the assigned article for that question.\n' +
+  'Each article is used for exactly one question.\n' +
+  'Use the exact ARTICLE_URL as sourceUrl.\n' +
+  'Do NOT use outside knowledge.\n\n' +
+
+  'QUESTIONS MUST BE FACTUAL, NOT ANALYTICAL.\n' +
+  'Never write questions such as:\n' +
+  '- What does this suggest about...\n' +
+  '- What does this reveal about...\n' +
+  '- What does this demonstrate about...\n' +
+  '- What perspective does this deal suggest about...\n' +
+  '- What does this indicate about policy priorities...\n' +
+  '- What does this mean for...\n\n' +
+
+  'The question must be answerable directly from the story’s facts, not by interpretation or inference.\n\n' +
+
+  'QUESTION QUALITY RULES:\n' +
+  '- Questions should be answerable by someone who read the headline or short summary\n' +
+  '- Prefer questions about what opened, closed, changed, was approved, was saved, was announced, or will happen\n' +
+  '- Prefer recognizable local people, institutions, places, and developments\n' +
+  '- Avoid routine crime incidents unless they are clearly a major citywide story\n' +
+  '- Avoid exact dates, exact dollar amounts, and business/admin logistics unless that detail is the whole reason the story matters\n' +
+  '- Avoid asking who wrote or authored an article\n' +
+  '- Avoid asking about article framing, opinion framing, or commentary implications\n' +
+  '- If two articles cover the same event, generate only one question about that event\n\n' +
+
+  'DISTRACTOR RULES:\n' +
+  '- Write four answer choices\n' +
+  '- Only one choice is correct\n' +
+  '- Wrong answers must be plausible and in the same category as the correct answer\n' +
+  '- Do not make the correct answer noticeably longer or more detailed than the others\n\n' +
+
+  'DIFFICULTY:\n' +
+  'Q1–2 easy\n' +
+  'Q3–4 medium\n' +
+  'Q5 hard\n' +
+  'Q6 bonus\n' +
+  'Hard questions must still use meaningful facts, not obscure details.\n' +
+  'The bonus question should come from the most surprising or memorable story, not from a quirky secondary detail.\n\n' +
+
+  'FINAL SELF-CHECK:\n' +
+  'Before returning the quiz, reject and rewrite any question that depends mainly on:\n' +
+  '- guessing a number\n' +
+  '- guessing a date\n' +
+  '- guessing an obscure name\n' +
+  '- interpreting meaning or implications\n' +
+  '- a weak administrative or logistical detail\n\n' +
+
+  'HERE ARE YOUR 6 ASSIGNED ARTICLES:\n\n' +
+  (assignedArticles || rssContent) + '\n\n' +
+
+  'OUTPUT: Return ONLY valid JSON. No markdown. No preamble. Start with { and end with }.\n' +
+  'Return exactly 6 questions and include a coreFacts array for debugging.\n' +
+  'Use this format:\n' +
+  '{\n' +
+  '  "questions":[\n' +
+  '    {\n' +
+  '      "question":"",\n' +
+  '      "options":["","","",""],\n' +
+  '      "correctIndex":0,\n' +
+  '      "difficulty":"easy",\n' +
+  '      "points":10,\n' +
+  '      "explanation":"",\n' +
+  '      "sourceUrl":"",\n' +
+  '      "pubDate":""\n' +
+  '    }\n' +
+  '  ],\n' +
+  '  "coreFacts":[]\n' +
+  '}\n\n' +
+  'correctIndex must match the correct option described in the explanation.\n' +
+  'pubDate must copy the article DATE exactly.\n' +
+  'sourceUrl must copy ARTICLE_URL exactly.\n' +
+  'Generate exactly 6 questions, one per assigned article.';
 }
-
-
 
 // ═══════════════════════════════════════════════════════
 //  QUESTION QUALITY FILTER
