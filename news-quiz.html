@@ -3927,14 +3927,15 @@ function parseQuestions(text) {
   const questions = parsed.questions || [];
   const finalQuestions = enforceQuizRules(questions);
 
-  // THE REJECTION RULE:
+// THE AUDIT (No longer throws an error)
   // Check quality of the final processed questions
   const weak = auditQuestions(finalQuestions);
-  if (weak.length > 0) {
-    const reasons = weak.map(w => `Q${w.index + 1}: ${w.flags.join(', ')}`).join(' | ');
-    // This stops the execution and alerts the UI
-    throw new Error(`QUALITY REJECTION: ${reasons}`);
-  }
+  
+  // Attach the report to the array so the generator can see it
+  finalQuestions.auditReport = weak;
+
+  return finalQuestions;
+}
 
   return finalQuestions;}
 
