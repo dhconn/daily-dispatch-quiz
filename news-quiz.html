@@ -3887,6 +3887,11 @@ function scoreQuestionQuality(q) {
   const combined = text + ' ' + expl;
   const flags = [];
 
+  // Flag questions whose correct answer looks like a small business name
+  const correctAnswer = (q.options && q.options[q.correctIndex]) || '';
+  if (/grill|cafe|restaurant|bakery|patisserie|bar|market|tavern|deli/i.test(correctAnswer)) {
+  flags.push('obscure business name');
+  }
   const bannedOpenings = [
     'what does this reveal', 'what does this demonstrate', 'what does this suggest',
     'what does this show', 'what does this mean', 'what does this say about',
