@@ -3925,8 +3925,18 @@ function parseQuestions(text) {
   }
 
   const questions = parsed.questions || [];
-  return enforceQuizRules(questions);
-}
+  const finalQuestions = enforceQuizRules(questions);
+
+  // THE REJECTION RULE:
+  // Check quality of the final processed questions
+  const weak = auditQuestions(finalQuestions);
+  if (weak.length > 0) {
+    const reasons = weak.map(w => `Q${w.index + 1}: ${w.flags.join(', ')}`).join(' | ');
+    // This stops the execution and alerts the UI
+    throw new Error(`QUALITY REJECTION: ${reasons}`);
+  }
+
+  return finalQuestions;}
 
 function enforceQuizRules(questions) {
   // 1. Deduplicate — reject questions that are clearly about the same topic
