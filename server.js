@@ -699,11 +699,13 @@ function buildTeaserHtml(teasers) {
 
 function buildEmailHtml(siteUrl, date, subscriberName, teaserHtml, unsubUrl) {
   return `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1008;">
+    <a href="${siteUrl}" style="display:block;text-decoration:none;color:inherit;">
     <div style="background:#1a1008;color:#f5f0e8;text-align:center;padding:24px;">
       <div style="font-family:monospace;font-size:11px;letter-spacing:3px;color:#f0c040;margin-bottom:6px;">BALTIMORE · DAILY DISPATCH</div>
       <div style="font-size:28px;font-weight:bold;">The Daily Dispatch Quiz</div>
       <div style="font-family:monospace;font-size:10px;letter-spacing:2px;color:#aaa;margin-top:6px;">${date}</div>
     </div>
+    </a>
     <div style="padding:32px 24px;background:#f5f0e8;text-align:center;">
       <p style="font-size:18px;margin:0 0 8px;">Hi${subscriberName ? ' ' + subscriberName : ''},</p>
       <p style="font-size:16px;color:#444;margin:0 0 8px;">6 questions. 90 seconds.</p>
