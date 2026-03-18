@@ -2871,11 +2871,6 @@ async function loadRSSStatus() {
   } catch(e) {}
 }
 
-// ─── Admin inbox & moderation ────────────────────────────────────────────
-
-
-
-
 
 // ─── Admin inbox & moderation ────────────────────────────────────────────
 
@@ -2946,8 +2941,6 @@ async function getWeeklyCommentCount() {
   } catch(e) { return 0; }
 }
 
-
-
 // Character counter for message board
 document.addEventListener('DOMContentLoaded', () => {
   const ta = document.getElementById('board-text');
@@ -2958,15 +2951,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-
-
-// ─── Community board ─────────────────────────────────────────────────────
-
-
-
-
-
-// ─── Community board ─────────────────────────────────────────────────────
 
 function showCommunity() {
   showScreen('screen-community');
@@ -3191,6 +3175,23 @@ function setStatus(msg, type) {
   const el = document.getElementById('gen-status');
   el.textContent = msg;
   el.className = 'status-msg show ' + type;
+}
+
+function getLockedQuestions() {
+  return new Set(JSON.parse(localStorage.getItem('dnq_locked_qs') || '[]'));
+}
+function setLockedQuestions(set) {
+  localStorage.setItem('dnq_locked_qs', JSON.stringify([...set]));
+}
+function toggleLock(idx) {
+  const locked = getLockedQuestions();
+  if (locked.has(idx)) locked.delete(idx);
+  else locked.add(idx);
+  setLockedQuestions(locked);
+  showDraftPreview(getDraftQuiz().questions);
+}
+function clearAllLocks() {
+  localStorage.removeItem('dnq_locked_qs');
 }
 
 async function generateQuestions() {
@@ -3607,6 +3608,16 @@ const screenController = new AbortController();
     }
 
     if (questions.length > 0) {
+      // Re-inject any locked questions from previous draft
+      const locked = getLockedQuestions();
+      if (locked.size > 0) {
+        const prevDraft = getDraftQuiz();
+        if (prevDraft && prevDraft.questions) {
+          locked.forEach(idx => {
+            if (prevDraft.questions[idx]) questions[idx] = prevDraft.questions[idx];
+          });
+        }
+      }
       saveDraftQuiz({ questions, generatedAt: new Date().toISOString(), urls: urlList });
       showDraftPreview(questions);
     } else {
@@ -4114,6 +4125,7 @@ function showDraftPreview(questions) {
           '<label style="font-size:10px;color:var(--muted)">Move to position:</label>' +
           '<input type="number" min="1" max="11" style="width:44px;font-size:12px;padding:2px 4px;border:1px solid var(--border);border-radius:3px;" ' +
             'placeholder="' + (i+1) + '" onchange="reorderQuestion(' + i + ', parseInt(this.value)-1, this)">' +
+          '<button onclick="toggleLock(' + i + ')" title="Lock this question so Generate skips it" style="background:none;border:1px solid ' + (getLockedQuestions().has(i) ? 'var(--green);color:var(--green)' : '#888;color:#888') + ';border-radius:3px;padding:2px 8px;font-size:11px;cursor:pointer;font-family:inherit;">' + (getLockedQuestions().has(i) ? '🔒 Locked' : '🔓 Lock') + '</button>' +
           '<button onclick="blockQuestionTopic(' + i + ')" title="Block this topic from being regenerated" style="background:none;border:1px solid #888;color:#888;border-radius:3px;padding:2px 8px;font-size:11px;cursor:pointer;font-family:inherit;">🚫 Block</button>' +
           '<button onclick="replaceQuestion(' + i + ')" title="Replace with a new question" style="background:none;border:1px solid var(--gold);color:var(--gold,#b8860b);border-radius:3px;padding:2px 8px;font-size:11px;cursor:pointer;font-family:inherit;">↺ Replace</button>' +
           '<button onclick="deleteQuestion(' + i + ')" title="Delete this question" style="background:none;border:1px solid var(--red);color:var(--red);border-radius:3px;padding:2px 8px;font-size:11px;cursor:pointer;font-family:inherit;">✕ Delete</button>' +
@@ -4411,7 +4423,8 @@ async function publishQuestions() {
     if (!saveData.ok) throw new Error('Server returned not-ok');
     // Only clear draft AFTER server confirms success
     clearDraftQuiz();
-    setStatus('✓ Quiz published for ' + todayStr() + ' and saved to server! Players can now play.', 'success');
+    clearAllLocks();
+    setStatus('✓ Quiz published for ' + todayStr() + ' and saved to server! Players can now play.', 'success');    
   } catch(e) {
     setStatus('⚠ Quiz saved locally but FAILED to save to server (' + e.message + '). Draft preserved — try publishing again.', 'error');
     console.error('Server save failed:', e);
