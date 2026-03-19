@@ -397,19 +397,43 @@ app.get('/api/sites', async (req, res) => {
 });
 
 // ── Answer distribution aggregation ──────────────────────────
-// POST /api/answers  { date, answers: [{qIdx, correct}] }
+// POST /api/answers  { date, answers: [{qIdx, correct}], playerName? }
 app.post('/api/answers', async (req, res) => {
-  const { date, answers } = req.body;
+  const { date, answers, playerName } = req.body;
   if (!date || !Array.isArray(answers)) return res.status(400).json({ error: 'bad request' });
   const data = await readData();
   if (!data.dist) data.dist = {};
   if (!data.dist[date]) data.dist[date] = {};
+
+  // Aggregate correct/wrong counts per question (existing behaviour)
   answers.forEach(({ qIdx, correct }) => {
     const k = 'q' + qIdx;
     if (!data.dist[date][k]) data.dist[date][k] = { correct: 0, wrong: 0 };
     if (correct) data.dist[date][k].correct++;
     else data.dist[date][k].wrong++;
   });
+
+  // Per-player breakdown — merge one question at a time so partial plays are captured
+  if (playerName && playerName.trim()) {
+    const key = playerName.trim().toLowerCase();
+    if (!data.dist[date].players) data.dist[date].players = {};
+    if (!data.dist[date].players[key]) {
+      data.dist[date].players[key] = { displayName: playerName.trim(), answers: {} };
+    }
+    answers.forEach(({ qIdx, correct }) => {
+      if (qIdx !== 'completion') {
+        data.dist[date].players[key].answers['q' + qIdx] = correct;
+      }
+    });
+  }
+
+  // Prune dist entries older than 2 days to keep Postgres lean
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 2);
+  Object.keys(data.dist).forEach(d => {
+    if (new Date(d) < cutoff) delete data.dist[d];
+  });
+
   await writeData(data);
   res.json({ ok: true });
 });
