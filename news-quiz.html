@@ -1705,7 +1705,7 @@ function postAnswerDist(date, qIdx, correct) {
   fetch('/api/answers', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ date, answers: [{ qIdx, correct }] })
+    body: JSON.stringify({ date, answers: [{ qIdx, correct }], playerName: state.playerName || '' })
   }).catch(() => {});
 }
 
@@ -4966,6 +4966,46 @@ async function loadAdminStats() {
       qRows += `<tr><td style="padding:2px 8px 2px 0;">${label}</td><td style="padding:2px 8px 2px 0;">${total} players</td><td style="padding:2px 0;">${pct}% correct${bar}</td></tr>`;
     }
 
+    // Per-player question grid (today + yesterday)
+    let playerGridHtml = '';
+    const gridDates = [today];
+    const yd = new Date(); yd.setDate(yd.getDate() - 1);
+    const yesterday = `${yd.getFullYear()}-${String(yd.getMonth()+1).padStart(2,'0')}-${String(yd.getDate()).padStart(2,'0')}`;
+    // Fetch yesterday's dist too
+    let yesterdayDist = {};
+    try {
+      const ydRes = await fetch('/api/answers?date=' + yesterday);
+      if (ydRes.ok) yesterdayDist = await ydRes.json();
+    } catch(e) {}
+    const gridData = { [today]: dist, [yesterday]: yesterdayDist };
+    for (const [gDate, gDist] of Object.entries(gridData)) {
+      const gPlayers = gDist.players || {};
+      const playerKeys = Object.keys(gPlayers);
+      if (!playerKeys.length) continue;
+      const cols = ['q0','q1','q2','q3','q4','q5'];
+      const colLabels = ['Q1','Q2','Q3','Q4','Q5','Bonus'];
+      const headerCells = colLabels.map(l => `<th style="padding:3px 6px;font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);font-weight:400;">${l}</th>`).join('');
+      const rows = playerKeys.map(pk => {
+        const p = gPlayers[pk];
+        const cells = cols.map(col => {
+          const val = p.answers[col];
+          if (val === undefined) return `<td style="padding:3px 6px;text-align:center;color:var(--muted);">—</td>`;
+          return val
+            ? `<td style="padding:3px 6px;text-align:center;color:var(--green);">✓</td>`
+            : `<td style="padding:3px 6px;text-align:center;color:var(--red,#c0392b);">✗</td>`;
+        }).join('');
+        return `<tr><td style="padding:3px 8px 3px 0;font-family:monospace;font-size:12px;white-space:nowrap;">${escHtml(p.displayName)}</td>${cells}</tr>`;
+      }).join('');
+      playerGridHtml += `
+        <div style="margin-top:16px;">
+          <div style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:6px;">PLAYER BREAKDOWN · ${gDate}</div>
+          <table style="border-collapse:collapse;font-size:12px;">
+            <thead><tr><th style="padding:3px 8px 3px 0;"></th>${headerCells}</tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>`;
+    }
+
     el.innerHTML = `
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:16px;">
         <div style="background:white;border:1px solid var(--rule);padding:12px;text-align:center;">
@@ -4994,6 +5034,7 @@ async function loadAdminStats() {
         </div>
       </div>
       <table style="width:100%;border-collapse:collapse;font-size:12px;">${qRows}</table>
+      ${playerGridHtml}
     `;
   } catch(e) {
     el.innerHTML = '<p style="color:var(--muted);">Could not load stats.</p>';
