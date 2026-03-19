@@ -2479,6 +2479,7 @@ function selectBonus(idx) {
 
   state.sessionScore += pts;
   state.answers.push({ qIdx: 5, chosen: idx, correct, pts });
+  postAnswerDist(state.todayKey, 5, correct);
 
   // Style
   for (let i = 0; i < q.options.length; i++) {
