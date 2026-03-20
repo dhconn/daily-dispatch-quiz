@@ -646,6 +646,14 @@ app.post('/api/scores', async (req, res) => {
     data.scores[key].dailyScores[date] = score;
     data.scores[key].allTime = Object.values(data.scores[key].dailyScores).reduce((a,b) => a+b, 0);
   }
+  // Link player name to subscriber record for streak nudges
+  if (data.subscribers) {
+    const subKey = Object.keys(data.subscribers).find(k =>
+      data.subscribers[k].name &&
+      data.subscribers[k].name.toLowerCase().trim() === playerName.toLowerCase().trim()
+    );
+    if (subKey) data.subscribers[subKey].playerKey = key;
+  }
   await writeData(data);
   res.json({ ok: true });
 });
@@ -1117,6 +1125,132 @@ app.post('/api/admin/message/bulk', async (req, res) => {
   res.json({ ok: true, message: `Message sent to ${label}` });
 });
 
+
+// ── Streak calculation ────────────────────────────────────────
+// Returns consecutive days played ending yesterday (not counting today)
+function calcStreak(dailyScores) {
+  let streak = 0;
+  const check = new Date();
+  // Start from yesterday in Eastern time
+  check.setDate(check.getDate() - 1);
+  while (true) {
+    const d = check.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+    if (dailyScores[d] !== undefined) {
+      streak++;
+      check.setDate(check.getDate() - 1);
+    } else {
+      break;
+    }
+  }
+  return streak;
+}
+
+// ── Streak nudge emails ───────────────────────────────────────
+// Sends at 7pm Eastern to subscribers with 3+ day streaks who haven't played today
+async function sendStreakNudges() {
+  const today = easternToday();
+  const data = await readData();
+
+  // Only send if a quiz has been published today
+  if (!data.quizzes || !data.quizzes[today]) {
+    console.log('[StreakNudge] No quiz published today — skipping.');
+    return;
+  }
+
+  if (data.emailPaused) {
+    console.log('[StreakNudge] Emails paused globally — skipping.');
+    return;
+  }
+
+  const subscribers = data.subscribers || {};
+  const scores = data.scores || {};
+  const siteUrl = process.env.SITE_URL || 'https://dailydispatchquiz.com';
+  const nudgeTargets = [];
+
+  for (const sub of Object.values(subscribers)) {
+    if (!sub.active || !sub.email) continue;
+
+    // Find score record via stored playerKey link, or fall back to name match
+    const playerKey = sub.playerKey ||
+      Object.keys(scores).find(k =>
+        sub.name && k === sub.name.toLowerCase().trim()
+      );
+    if (!playerKey || !scores[playerKey]) continue;
+
+    const { dailyScores, displayName } = scores[playerKey];
+
+    // Skip if they've already played today
+    if (dailyScores[today] !== undefined) continue;
+
+    // Calculate streak from yesterday backwards
+    const streak = calcStreak(dailyScores);
+    if (streak < 3) continue;
+
+    nudgeTargets.push({ email: sub.email, name: sub.name || displayName, streak });
+  }
+
+  if (nudgeTargets.length === 0) {
+    console.log('[StreakNudge] No eligible players to nudge today.');
+    return;
+  }
+
+  console.log(`[StreakNudge] Sending nudges to ${nudgeTargets.length} player(s)…`);
+
+  const emails = nudgeTargets.map(({ email, name, streak }) => {
+    const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(email)}`;
+    const subject = `Your ${streak}-day streak is on the line`;
+    const html = `
+      <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1008;">
+        <a href="${siteUrl}" style="display:block;text-decoration:none;color:inherit;">
+          <div style="background:#1a1008;color:#f5f0e8;text-align:center;padding:24px;">
+            <div style="font-family:monospace;font-size:11px;letter-spacing:3px;color:#f0c040;margin-bottom:6px;">BALTIMORE · DAILY DISPATCH</div>
+            <div style="font-size:28px;font-weight:bold;">The Daily Dispatch Quiz</div>
+          </div>
+        </a>
+        <div style="padding:32px 24px;background:#f5f0e8;text-align:center;">
+          <div style="font-size:52px;margin-bottom:12px;">🔥</div>
+          <p style="font-size:22px;font-weight:bold;margin:0 0 10px;font-family:Georgia,serif;">
+            ${streak} days in a row${name ? ', ' + name : ''}.
+          </p>
+          <p style="font-size:15px;color:#6b5f4e;margin:0 0 28px;line-height:1.7;">
+            You've answered Baltimore news questions ${streak} days straight.<br>
+            Today's quiz is waiting — don't break the streak now.
+          </p>
+          <a href="${siteUrl}" style="display:inline-block;background:#1a1008;color:#f5f0e8;padding:16px 36px;font-family:monospace;font-size:13px;letter-spacing:2px;text-decoration:none;text-transform:uppercase;">Play Today's Quiz ▸</a>
+        </div>
+        <div style="padding:16px 24px;text-align:center;font-size:11px;color:#999;font-family:monospace;border-top:1px solid #e0d8cc;">
+          You're receiving this because you're on a streak. <a href="${unsubUrl}" style="color:#999;">Unsubscribe</a>
+        </div>
+      </div>`;
+    return {
+      from: 'Editor @ Daily Dispatch Quiz <editor@dailydispatchquiz.com>',
+      to: [email],
+      subject,
+      html
+    };
+  });
+
+  await sendEmailBatch(emails);
+  console.log(`[StreakNudge] Done — nudged ${emails.length} player(s).`);
+}
+
+// ── Schedule streak nudges at 7pm Eastern daily ───────────────
+// 7pm EST = midnight UTC (UTC+0); 7pm EDT = 23:00 UTC (UTC-4)
+// Using midnight UTC works for EST (winter); adjust to 23:00 for EDT (summer)
+// Simple approach: always schedule for midnight UTC which is close enough year-round
+function scheduleStreakNudge() {
+  const now = new Date();
+  const next = new Date();
+  next.setUTCHours(0, 0, 0, 0); // midnight UTC ≈ 7pm Eastern (EST)
+  if (next <= now) next.setUTCDate(next.getUTCDate() + 1);
+  const msUntil = next - now;
+  console.log(`[StreakNudge] Next nudge scheduled in ${Math.round(msUntil / 60000)} minutes.`);
+  setTimeout(() => {
+    sendStreakNudges();
+    scheduleStreakNudge();
+  }, msUntil);
+}
+
 // ── Start ─────────────────────────────────────────────────────
 initDb().then(() => {
   app.listen(PORT, () => {
@@ -1129,6 +1263,7 @@ initDb().then(() => {
   });
   setTimeout(fetchAndCacheRSS, 5000);
   scheduleNextRefresh();
+  scheduleStreakNudge();
 }).catch(err => {
   console.error('DB init failed:', err.message);
   process.exit(1);
