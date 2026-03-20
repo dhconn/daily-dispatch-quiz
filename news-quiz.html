@@ -1654,7 +1654,6 @@
       <h3>Message Players</h3>
       <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Send a custom message to selected players or all active subscribers. Emails are sent via Resend from <strong>editor@dailydispatchquiz.com</strong>.</p>
 
-      <!-- Tab buttons -->
       <div style="display:flex;gap:0;margin-bottom:16px;border:1px solid var(--rule);">
         <button id="msg-tab-select" onclick="switchMsgTab('select')"
           style="flex:1;font-family:monospace;font-size:11px;letter-spacing:1px;padding:9px 0;cursor:pointer;background:var(--ink);border:none;color:var(--paper);">SELECT PLAYERS</button>
@@ -1708,7 +1707,7 @@
       <div id="msg-status" style="display:none;margin-top:12px;font-family:monospace;font-size:12px;padding:8px 12px;"></div>
     </div>
 
-        <div style="margin-top:20px;">
+    <div style="margin-top:20px;">
       <button class="btn-secondary" onclick="showScreen('screen-register')">◂ Exit Admin</button>
     </div>
   </div>
@@ -1728,7 +1727,7 @@
   </div>
 </div>
 
-<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+<script>
 // ═══════════════════════════════════════════════════════
 //  CONFIGURATION
 // ═══════════════════════════════════════════════════════
@@ -5176,28 +5175,25 @@ async function loadMsgSubscribers() {
     msgSubscriberList = [];
   }
 
-  // Build checkbox list
   const listEl = document.getElementById('msg-checkbox-list');
   if (listEl) {
     if (msgSubscriberList.length) {
       const sorted = [...msgSubscriberList].sort((a,b) => (a.name||a.email).localeCompare(b.name||b.email));
-      listEl.innerHTML = sorted.map(s => `
-        <label style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid #f0ebe0;cursor:pointer;">
-          <input type="checkbox" class="msg-cb" value="${s.email}" data-name="${s.name||''}"
-            onchange="updateMsgSelectedCount()"
-            style="cursor:pointer;accent-color:var(--ink);">
-          <span style="flex:1;">${s.name ? '<strong>' + s.name + '</strong> — ' + s.email : s.email}</span>
-        </label>`).join('');
+      listEl.innerHTML = sorted.map(s =>
+        '<label style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid #f0ebe0;cursor:pointer;">' +
+          '<input type="checkbox" class="msg-cb" value="' + s.email + '" data-name="' + (s.name||'') + '" onchange="updateMsgSelectedCount()" style="cursor:pointer;accent-color:var(--ink);">' +
+          '<span style="flex:1;">' + (s.name ? '<strong>' + s.name + '</strong> — ' + s.email : s.email) + '</span>' +
+        '</label>'
+      ).join('');
     } else {
       listEl.innerHTML = '<p style="color:var(--muted);">No active subscribers found.</p>';
     }
   }
 
-  // Update bulk count
   const countEl = document.getElementById('msg-bulk-count');
   if (countEl) {
     countEl.textContent = msgSubscriberList.length
-      ? `${msgSubscriberList.length} active subscriber${msgSubscriberList.length !== 1 ? 's' : ''} will receive this message`
+      ? msgSubscriberList.length + ' active subscriber' + (msgSubscriberList.length !== 1 ? 's' : '') + ' will receive this message'
       : 'No active subscribers found';
   }
 
@@ -5207,18 +5203,11 @@ async function loadMsgSubscribers() {
 function updateMsgSelectedCount() {
   const checked = document.querySelectorAll('.msg-cb:checked').length;
   const el = document.getElementById('msg-selected-count');
-  if (el) el.textContent = checked ? `${checked} selected` : '';
+  if (el) el.textContent = checked ? checked + ' selected' : '';
 }
 
-function msgSelectAll() {
-  document.querySelectorAll('.msg-cb').forEach(cb => cb.checked = true);
-  updateMsgSelectedCount();
-}
-
-function msgSelectNone() {
-  document.querySelectorAll('.msg-cb').forEach(cb => cb.checked = false);
-  updateMsgSelectedCount();
-}
+function msgSelectAll()  { document.querySelectorAll('.msg-cb').forEach(cb => cb.checked = true);  updateMsgSelectedCount(); }
+function msgSelectNone() { document.querySelectorAll('.msg-cb').forEach(cb => cb.checked = false); updateMsgSelectedCount(); }
 
 function switchMsgTab(tab) {
   const selectPanel = document.getElementById('msg-panel-select');
@@ -5226,14 +5215,12 @@ function switchMsgTab(tab) {
   const tabSelect   = document.getElementById('msg-tab-select');
   const tabBulk     = document.getElementById('msg-tab-bulk');
   if (tab === 'select') {
-    selectPanel.style.display = 'block';
-    bulkPanel.style.display   = 'none';
+    selectPanel.style.display = 'block'; bulkPanel.style.display = 'none';
     tabSelect.style.background = 'var(--ink)'; tabSelect.style.color = 'var(--paper)';
-    tabBulk.style.background   = 'var(--paper)'; tabBulk.style.color = 'var(--muted)';
+    tabBulk.style.background = 'var(--paper)'; tabBulk.style.color = 'var(--muted)';
   } else {
-    selectPanel.style.display = 'none';
-    bulkPanel.style.display   = 'block';
-    tabBulk.style.background   = 'var(--ink)'; tabBulk.style.color = 'var(--paper)';
+    selectPanel.style.display = 'none'; bulkPanel.style.display = 'block';
+    tabBulk.style.background = 'var(--ink)'; tabBulk.style.color = 'var(--paper)';
     tabSelect.style.background = 'var(--paper)'; tabSelect.style.color = 'var(--muted)';
   }
   document.getElementById('msg-status').style.display = 'none';
@@ -5249,21 +5236,15 @@ function showMsgStatus(msg, ok) {
 }
 
 async function sendSelectedMessage() {
-  const checked = [...document.querySelectorAll('.msg-cb:checked')];
+  const checked = Array.from(document.querySelectorAll('.msg-cb:checked'));
   const subject = document.getElementById('msg-subject-select').value.trim();
   const body    = document.getElementById('msg-body-select').value.trim();
-
   if (!checked.length) { showMsgStatus('Please select at least one recipient.', false); return; }
   if (!subject)        { showMsgStatus('Please enter a subject line.', false); return; }
   if (!body)           { showMsgStatus('Please write a message.', false); return; }
-
   const recipients = checked.map(cb => ({ email: cb.value, name: cb.getAttribute('data-name') || '' }));
-  const confirmed = recipients.length > 1
-    ? confirm(`Send this message to ${recipients.length} selected players?`)
-    : true;
-  if (!confirmed) return;
-
-  showMsgStatus(`Sending to ${recipients.length} recipient${recipients.length !== 1 ? 's' : ''}…`, true);
+  if (recipients.length > 1 && !confirm('Send this message to ' + recipients.length + ' selected players?')) return;
+  showMsgStatus('Sending to ' + recipients.length + ' recipient' + (recipients.length !== 1 ? 's' : '') + '…', true);
   try {
     const res = await fetch('/api/admin/message/bulk', {
       method: 'POST',
@@ -5274,28 +5255,22 @@ async function sendSelectedMessage() {
     if (json.ok) {
       showMsgStatus('✓ ' + json.message, true);
       document.getElementById('msg-subject-select').value = '';
-      document.getElementById('msg-body-select').value    = '';
+      document.getElementById('msg-body-select').value = '';
       msgSelectNone();
     } else {
       showMsgStatus('✗ ' + (json.error || 'Send failed'), false);
     }
-  } catch(e) {
-    showMsgStatus('✗ Error: ' + e.message, false);
-  }
+  } catch(e) { showMsgStatus('✗ Error: ' + e.message, false); }
 }
 
 async function sendBulkMessage() {
   const subject = document.getElementById('msg-subject-bulk').value.trim();
   const body    = document.getElementById('msg-body-bulk').value.trim();
-
   if (!subject) { showMsgStatus('Please enter a subject line.', false); return; }
   if (!body)    { showMsgStatus('Please write a message.', false); return; }
   if (!msgSubscriberList.length) { showMsgStatus('No active subscribers to message.', false); return; }
-
-  const confirmed = confirm(`Send this message to all ${msgSubscriberList.length} active subscribers?`);
-  if (!confirmed) return;
-
-  showMsgStatus(`Sending to ${msgSubscriberList.length} subscribers…`, true);
+  if (!confirm('Send this message to all ' + msgSubscriberList.length + ' active subscribers?')) return;
+  showMsgStatus('Sending to ' + msgSubscriberList.length + ' subscribers…', true);
   try {
     const res = await fetch('/api/admin/message/bulk', {
       method: 'POST',
@@ -5306,13 +5281,13 @@ async function sendBulkMessage() {
     if (json.ok) {
       showMsgStatus('✓ ' + json.message, true);
       document.getElementById('msg-subject-bulk').value = '';
-      document.getElementById('msg-body-bulk').value    = '';
+      document.getElementById('msg-body-bulk').value = '';
     } else {
       showMsgStatus('✗ ' + (json.error || 'Send failed'), false);
     }
-  } catch(e) {
-    showMsgStatus('✗ Error: ' + e.message, false);
-  }
+  } catch(e) { showMsgStatus('✗ Error: ' + e.message, false); }
 }
+</script>
 
-e
+</body>
+</html>
