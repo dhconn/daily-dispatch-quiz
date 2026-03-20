@@ -1652,39 +1652,45 @@
 
     <div class="admin-section" style="margin-top:20px;">
       <h3>Message Players</h3>
-      <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Send a custom message to a single player or to all active subscribers. Emails are sent via Resend from <strong>editor@dailydispatchquiz.com</strong>.</p>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Send a custom message to selected players or all active subscribers. Emails are sent via Resend from <strong>editor@dailydispatchquiz.com</strong>.</p>
 
+      <!-- Tab buttons -->
       <div style="display:flex;gap:0;margin-bottom:16px;border:1px solid var(--rule);">
-        <button id="msg-tab-single" onclick="switchMsgTab('single')"
-          style="flex:1;font-family:monospace;font-size:11px;letter-spacing:1px;padding:9px 0;cursor:pointer;background:var(--paper);border:none;border-right:1px solid var(--rule);color:var(--muted);">SINGLE PLAYER</button>
+        <button id="msg-tab-select" onclick="switchMsgTab('select')"
+          style="flex:1;font-family:monospace;font-size:11px;letter-spacing:1px;padding:9px 0;cursor:pointer;background:var(--ink);border:none;color:var(--paper);">SELECT PLAYERS</button>
         <button id="msg-tab-bulk" onclick="switchMsgTab('bulk')"
-          style="flex:1;font-family:monospace;font-size:11px;letter-spacing:1px;padding:9px 0;cursor:pointer;background:var(--ink);border:none;color:var(--paper);">ALL SUBSCRIBERS</button>
+          style="flex:1;font-family:monospace;font-size:11px;letter-spacing:1px;padding:9px 0;cursor:pointer;background:var(--paper);border:none;border-left:1px solid var(--rule);color:var(--muted);">ALL SUBSCRIBERS</button>
       </div>
 
-      <!-- Single player panel -->
-      <div id="msg-panel-single" style="display:none;">
-        <div style="margin-bottom:12px;">
-          <div style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:6px;">RECIPIENT</div>
-          <select id="msg-recipient"
-            style="width:100%;font-family:monospace;font-size:12px;padding:8px 10px;border:1px solid var(--rule);background:var(--paper);color:var(--ink);outline:none;">
-            <option value="">— Loading subscribers… —</option>
-          </select>
+      <!-- Select players panel -->
+      <div id="msg-panel-select">
+        <div style="margin-bottom:10px;">
+          <div style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:6px;">RECIPIENTS — check one or more</div>
+          <div style="display:flex;gap:8px;margin-bottom:8px;">
+            <button onclick="msgSelectAll()" style="font-family:monospace;font-size:10px;letter-spacing:1px;padding:3px 10px;background:none;border:1px solid var(--muted);color:var(--muted);cursor:pointer;">SELECT ALL</button>
+            <button onclick="msgSelectNone()" style="font-family:monospace;font-size:10px;letter-spacing:1px;padding:3px 10px;background:none;border:1px solid var(--muted);color:var(--muted);cursor:pointer;">CLEAR</button>
+            <span id="msg-selected-count" style="font-family:monospace;font-size:11px;color:var(--muted);line-height:2;margin-left:4px;"></span>
+          </div>
+          <div id="msg-checkbox-list"
+            style="max-height:200px;overflow-y:auto;border:1px solid var(--rule);padding:6px 10px;background:var(--paper);font-family:monospace;font-size:12px;">
+            <p style="color:var(--muted);">Loading subscribers…</p>
+          </div>
         </div>
         <div style="margin-bottom:12px;">
           <div style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:6px;">SUBJECT</div>
-          <input type="text" id="msg-subject-single" placeholder="e.g. A note from the editor"
+          <input type="text" id="msg-subject-select" placeholder="e.g. A note from the editor"
             style="width:100%;font-family:monospace;font-size:13px;padding:8px 10px;border:1px solid var(--rule);background:var(--paper);color:var(--ink);outline:none;box-sizing:border-box;" />
         </div>
         <div style="margin-bottom:12px;">
           <div style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:6px;">MESSAGE</div>
-          <textarea id="msg-body-single" placeholder="Write your message here…"
+          <textarea id="msg-body-select" placeholder="Write your message here…"
             style="width:100%;font-family:monospace;font-size:13px;padding:8px 10px;border:1px solid var(--rule);background:var(--paper);color:var(--ink);outline:none;min-height:120px;resize:vertical;box-sizing:border-box;"></textarea>
         </div>
-        <button class="btn-secondary" onclick="sendSingleMessage()" style="font-size:11px;letter-spacing:1px;">SEND MESSAGE ▸</button>
+        <button class="btn-secondary" onclick="sendSelectedMessage()" style="font-size:11px;letter-spacing:1px;">SEND TO SELECTED ▸</button>
       </div>
 
-      <!-- Bulk panel -->
-      <div id="msg-panel-bulk">
+      <!-- All subscribers panel -->
+      <div id="msg-panel-bulk" style="display:none;">
         <div id="msg-bulk-count" style="font-family:monospace;font-size:11px;color:var(--muted);margin-bottom:12px;letter-spacing:1px;">Loading subscriber count…</div>
         <div style="margin-bottom:12px;">
           <div style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:6px;">SUBJECT</div>
@@ -1722,7 +1728,7 @@
   </div>
 </div>
 
-<script>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 // ═══════════════════════════════════════════════════════
 //  CONFIGURATION
 // ═══════════════════════════════════════════════════════
@@ -5170,16 +5176,21 @@ async function loadMsgSubscribers() {
     msgSubscriberList = [];
   }
 
-  // Populate dropdown
-  const sel = document.getElementById('msg-recipient');
-  if (sel) {
-    sel.innerHTML = msgSubscriberList.length
-      ? '<option value="">— Select a player —</option>' +
-        [...msgSubscriberList]
-          .sort((a,b) => (a.name||a.email).localeCompare(b.name||b.email))
-          .map(s => `<option value="${s.email}" data-name="${s.name||''}">${s.name ? s.name + ' <' + s.email + '>' : s.email}</option>`)
-          .join('')
-      : '<option value="">No active subscribers found</option>';
+  // Build checkbox list
+  const listEl = document.getElementById('msg-checkbox-list');
+  if (listEl) {
+    if (msgSubscriberList.length) {
+      const sorted = [...msgSubscriberList].sort((a,b) => (a.name||a.email).localeCompare(b.name||b.email));
+      listEl.innerHTML = sorted.map(s => `
+        <label style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid #f0ebe0;cursor:pointer;">
+          <input type="checkbox" class="msg-cb" value="${s.email}" data-name="${s.name||''}"
+            onchange="updateMsgSelectedCount()"
+            style="cursor:pointer;accent-color:var(--ink);">
+          <span style="flex:1;">${s.name ? '<strong>' + s.name + '</strong> — ' + s.email : s.email}</span>
+        </label>`).join('');
+    } else {
+      listEl.innerHTML = '<p style="color:var(--muted);">No active subscribers found.</p>';
+    }
   }
 
   // Update bulk count
@@ -5189,24 +5200,43 @@ async function loadMsgSubscribers() {
       ? `${msgSubscriberList.length} active subscriber${msgSubscriberList.length !== 1 ? 's' : ''} will receive this message`
       : 'No active subscribers found';
   }
+
+  updateMsgSelectedCount();
+}
+
+function updateMsgSelectedCount() {
+  const checked = document.querySelectorAll('.msg-cb:checked').length;
+  const el = document.getElementById('msg-selected-count');
+  if (el) el.textContent = checked ? `${checked} selected` : '';
+}
+
+function msgSelectAll() {
+  document.querySelectorAll('.msg-cb').forEach(cb => cb.checked = true);
+  updateMsgSelectedCount();
+}
+
+function msgSelectNone() {
+  document.querySelectorAll('.msg-cb').forEach(cb => cb.checked = false);
+  updateMsgSelectedCount();
 }
 
 function switchMsgTab(tab) {
-  const single = document.getElementById('msg-panel-single');
-  const bulk   = document.getElementById('msg-panel-bulk');
-  const tabSingle = document.getElementById('msg-tab-single');
-  const tabBulk   = document.getElementById('msg-tab-bulk');
-  if (tab === 'single') {
-    single.style.display = 'block';
-    bulk.style.display   = 'none';
-    tabSingle.style.background = 'var(--ink)'; tabSingle.style.color = 'var(--paper)';
+  const selectPanel = document.getElementById('msg-panel-select');
+  const bulkPanel   = document.getElementById('msg-panel-bulk');
+  const tabSelect   = document.getElementById('msg-tab-select');
+  const tabBulk     = document.getElementById('msg-tab-bulk');
+  if (tab === 'select') {
+    selectPanel.style.display = 'block';
+    bulkPanel.style.display   = 'none';
+    tabSelect.style.background = 'var(--ink)'; tabSelect.style.color = 'var(--paper)';
     tabBulk.style.background   = 'var(--paper)'; tabBulk.style.color = 'var(--muted)';
   } else {
-    single.style.display = 'none';
-    bulk.style.display   = 'block';
+    selectPanel.style.display = 'none';
+    bulkPanel.style.display   = 'block';
     tabBulk.style.background   = 'var(--ink)'; tabBulk.style.color = 'var(--paper)';
-    tabSingle.style.background = 'var(--paper)'; tabSingle.style.color = 'var(--muted)';
+    tabSelect.style.background = 'var(--paper)'; tabSelect.style.color = 'var(--muted)';
   }
+  document.getElementById('msg-status').style.display = 'none';
 }
 
 function showMsgStatus(msg, ok) {
@@ -5218,29 +5248,34 @@ function showMsgStatus(msg, ok) {
   el.style.borderLeft = ok ? '3px solid var(--green)' : '3px solid var(--red)';
 }
 
-async function sendSingleMessage() {
-  const sel     = document.getElementById('msg-recipient');
-  const to      = sel.value;
-  const name    = sel.options[sel.selectedIndex]?.getAttribute('data-name') || '';
-  const subject = document.getElementById('msg-subject-single').value.trim();
-  const body    = document.getElementById('msg-body-single').value.trim();
+async function sendSelectedMessage() {
+  const checked = [...document.querySelectorAll('.msg-cb:checked')];
+  const subject = document.getElementById('msg-subject-select').value.trim();
+  const body    = document.getElementById('msg-body-select').value.trim();
 
-  if (!to)      { showMsgStatus('Please select a recipient.', false); return; }
-  if (!subject) { showMsgStatus('Please enter a subject line.', false); return; }
-  if (!body)    { showMsgStatus('Please write a message.', false); return; }
+  if (!checked.length) { showMsgStatus('Please select at least one recipient.', false); return; }
+  if (!subject)        { showMsgStatus('Please enter a subject line.', false); return; }
+  if (!body)           { showMsgStatus('Please write a message.', false); return; }
 
-  showMsgStatus('Sending…', true);
+  const recipients = checked.map(cb => ({ email: cb.value, name: cb.getAttribute('data-name') || '' }));
+  const confirmed = recipients.length > 1
+    ? confirm(`Send this message to ${recipients.length} selected players?`)
+    : true;
+  if (!confirmed) return;
+
+  showMsgStatus(`Sending to ${recipients.length} recipient${recipients.length !== 1 ? 's' : ''}…`, true);
   try {
-    const res = await fetch('/api/admin/message/single', {
+    const res = await fetch('/api/admin/message/bulk', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-admin-token': ADMIN_PASSWORD },
-      body: JSON.stringify({ to, name, subject, body })
+      body: JSON.stringify({ subject, body, recipients })
     });
     const json = await res.json();
     if (json.ok) {
       showMsgStatus('✓ ' + json.message, true);
-      document.getElementById('msg-subject-single').value = '';
-      document.getElementById('msg-body-single').value    = '';
+      document.getElementById('msg-subject-select').value = '';
+      document.getElementById('msg-body-select').value    = '';
+      msgSelectNone();
     } else {
       showMsgStatus('✗ ' + (json.error || 'Send failed'), false);
     }
@@ -5280,7 +5315,4 @@ async function sendBulkMessage() {
   }
 }
 
-</script>
-
-</body>
-</html>
+e
