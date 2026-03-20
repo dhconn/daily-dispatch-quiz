@@ -1079,21 +1079,30 @@ app.post('/api/admin/message/single', async (req, res) => {
   }
 });
 
-// POST /api/admin/message/bulk — send a custom message to all active subscribers
+// POST /api/admin/message/bulk — send a custom message to selected or all active subscribers
+// If `recipients` array is provided: [ { email, name }, ... ] — sends only to those.
+// If omitted: sends to all active subscribers.
 app.post('/api/admin/message/bulk', async (req, res) => {
   const adminToken = process.env.ADMIN_TOKEN || 'admin';
   if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
 
-  const { subject, body } = req.body;
+  const { subject, body, recipients } = req.body;
   if (!subject || !body) return res.status(400).json({ error: 'subject and body are required' });
 
-  const data = await readData();
-  const active = Object.values(data.subscribers || {}).filter(s => s.active);
-  if (active.length === 0) return res.status(400).json({ error: 'No active subscribers' });
-
   const siteUrl = process.env.SITE_URL || 'https://dailydispatchquiz.com';
+  let targets;
 
-  const emails = active.map(sub => ({
+  if (Array.isArray(recipients) && recipients.length > 0) {
+    // Targeted send — use the provided list directly
+    targets = recipients;
+  } else {
+    // Bulk send — fetch all active subscribers from DB
+    const data = await readData();
+    targets = Object.values(data.subscribers || {}).filter(s => s.active);
+    if (targets.length === 0) return res.status(400).json({ error: 'No active subscribers' });
+  }
+
+  const emails = targets.map(sub => ({
     from: 'Editor @ Daily Dispatch Quiz <editor@dailydispatchquiz.com>',
     to: [sub.email],
     subject,
@@ -1101,8 +1110,11 @@ app.post('/api/admin/message/bulk', async (req, res) => {
   }));
 
   await sendEmailBatch(emails);
-  console.log(`[Admin] Bulk message sent to ${active.length} subscribers — "${subject}"`);
-  res.json({ ok: true, message: `Message sent to ${active.length} active subscribers` });
+  const label = Array.isArray(recipients) && recipients.length > 0
+    ? `${targets.length} selected player${targets.length !== 1 ? 's' : ''}`
+    : `${targets.length} active subscriber${targets.length !== 1 ? 's' : ''}`;
+  console.log(`[Admin] Message sent to ${label} — "${subject}"`);
+  res.json({ ok: true, message: `Message sent to ${label}` });
 });
 
 // ── Start ─────────────────────────────────────────────────────
