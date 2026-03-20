@@ -5248,7 +5248,7 @@ async function sendSelectedMessage() {
   try {
     const res = await fetch('/api/admin/message/bulk', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-admin-token': ADMIN_PASSWORD },
+      headers: { 'Content-Type': 'application/json', 'x-admin-token': lsGet('dnq_admin_token') || 'admin' },
       body: JSON.stringify({ subject, body, recipients })
     });
     const json = await res.json();
@@ -5274,7 +5274,7 @@ async function sendBulkMessage() {
   try {
     const res = await fetch('/api/admin/message/bulk', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-admin-token': ADMIN_PASSWORD },
+      headers: { 'Content-Type': 'application/json', 'x-admin-token': lsGet('dnq_admin_token') || 'admin' },
       body: JSON.stringify({ subject, body })
     });
     const json = await res.json();
