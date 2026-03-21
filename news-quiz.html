@@ -828,6 +828,28 @@
 
   /* ─── ADMIN PANEL ─── */
   #screen-admin { padding: 20px 0; }
+  #admin-jump-nav {
+    position: sticky;
+    top: 0;
+    background: var(--cream);
+    border-bottom: 1px solid var(--rule);
+    padding: 8px 0;
+    z-index: 20;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+    margin-bottom: 16px;
+  }
+  #admin-jump-nav a {
+    font-family: 'Courier Prime', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: var(--muted);
+    text-decoration: none;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  #admin-jump-nav a:hover { color: var(--ink); }
   #screen-admin h2 {
     font-family: 'Playfair Display', serif;
     font-size: 28px;
@@ -1460,7 +1482,21 @@
   <div id="screen-admin" class="screen">
     <h2>Editor's Desk</h2>
 
-    <div class="admin-section">
+    <nav id="admin-jump-nav">
+      <a href="#anc-generate">Generate</a>
+      <a href="#anc-preview">Preview</a>
+      <a href="#anc-q-archive">Q Archive</a>
+      <a href="#anc-published">Published</a>
+      <a href="#anc-community">Community</a>
+      <a href="#anc-blocked">Blocked</a>
+      <a href="#anc-subscribers">Subscribers</a>
+      <a href="#anc-quiz-archive">Quiz Archive</a>
+      <a href="#anc-engagement">Engagement</a>
+      <a href="#anc-leaderboard">Leaderboard</a>
+      <a href="#anc-players">Players</a>
+    </nav>
+
+    <div class="admin-section" id="anc-generate">
       <h3>Step 1 — Paste News Article URLs</h3>
       <div id="freshness-notice" style="background:#fff8e0;border:1px solid var(--gold);padding:10px 14px;margin-bottom:12px;font-family:monospace,monospace;font-size:12px;color:#7a5f00;line-height:1.6;">
         <strong>⏱ Freshness scoring is active.</strong> Articles are ranked by recency — stories from the past 24 hours score highest. Older articles may still appear if they score well on local relevance. Stories older than 36 hours will be labeled <strong>ICYMI</strong> in the quiz. Paste links to recent articles for best results.
@@ -1509,7 +1545,7 @@
       </div>
     </div>
 
-    <div class="admin-section" id="preview-section" style="display:none;">
+    <div class="admin-section" id="preview-section" style="display:none;" data-anchor="anc-preview">
       <h3>Step 2 — Review Questions</h3>
       <div id="q-preview-list"></div>
 
@@ -1576,7 +1612,7 @@
       </div>>
     </div>
 
-    <div class="admin-section">
+    <div class="admin-section" id="anc-q-archive">
       <h3>Question Archive</h3>
       <p style="font-size:13px;color:var(--muted);margin-bottom:10px;">Questions in the archive will not be regenerated. <strong id="archive-count">0</strong> questions archived.</p>
       <div id="archive-preview"></div>
@@ -1586,21 +1622,21 @@
       </div>
     </div>
 
-    <div class="admin-section">
+    <div class="admin-section" id="anc-published">
       <h3>Today's Published Quiz</h3>
       <div id="published-preview">
         <p style="font-size:13px;color:var(--muted);font-style:italic;">No quiz published today.</p>
       </div>
     </div>
 
-    <div class="admin-section" style="margin-top:20px;">
+    <div class="admin-section" id="anc-community" style="margin-top:20px;">
       <h3>Community Posts <span id="admin-posts-badge" style="display:none;background:var(--red,#c0392b);color:white;font-size:11px;padding:2px 7px;border-radius:10px;font-family:monospace;margin-left:6px;"></span></h3>
       <div id="admin-posts-list">
         <p style="font-family:monospace;font-size:12px;color:var(--muted);">Loading posts…</p>
       </div>
     </div>
 
-    <div class="admin-section" style="margin-top:20px;">
+    <div class="admin-section" id="anc-blocked" style="margin-top:20px;">
       <h3>Blocked Topics <span id="blocklist-count" style="font-family:monospace;font-size:12px;color:var(--muted);font-weight:400;"></span></h3>
       <p style="font-size:12px;color:var(--muted);font-family:monospace;margin-bottom:10px;">Topics blocked from appearing during question generation. Use the 🚫 Block button on any draft question to add one.</p>
       <div id="blocklist-items" style="margin-bottom:10px;">
@@ -1609,7 +1645,7 @@
       <button onclick="clearBlocklist()" style="font-family:monospace;font-size:11px;padding:3px 10px;background:none;border:1px solid var(--muted);color:var(--muted);cursor:pointer;border-radius:2px;">Clear All</button>
     </div>
 
-    <div class="admin-section" style="margin-top:20px;">
+    <div class="admin-section" id="anc-subscribers" style="margin-top:20px;">
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
         <h3 style="margin:0;">Email Subscribers <span id="sub-count" style="font-family:monospace;font-size:12px;color:var(--muted);font-weight:400;"></span></h3>
         <div style="display:flex;align-items:center;gap:10px;">
@@ -1622,7 +1658,7 @@
       </div>
     </div>
 
-    <div class="admin-section" style="margin-top:20px;">
+    <div class="admin-section" id="anc-quiz-archive" style="margin-top:20px;">
       <h3>Published Quiz Archive <span id="archive-quiz-count" style="font-family:monospace;font-size:12px;color:var(--muted);font-weight:400;"></span></h3>
       <p style="font-size:12px;color:var(--muted);font-family:monospace;margin-bottom:10px;">Full text of all published quizzes. Click a date to expand.</p>
       <div id="admin-archive-list" style="margin-top:8px;">
@@ -1630,20 +1666,20 @@
       </div>
     </div>
 
-    <div class="admin-section" style="margin-top:20px;">
+    <div class="admin-section" id="anc-engagement" style="margin-top:20px;">
       <h3>Today's Engagement <span id="stats-date-label" style="font-family:monospace;font-size:12px;color:var(--muted);font-weight:400;"></span></h3>
       <div id="admin-stats" style="font-family:monospace;font-size:13px;color:var(--muted);">
         <p>Loading…</p>
       </div>
     </div>
 
-    <div class="admin-section" style="margin-top:20px;">
+    <div class="admin-section" id="anc-leaderboard" style="margin-top:20px;">
       <h3>Leaderboard</h3>
       <p style="font-family:monospace;font-size:12px;color:var(--muted);margin-bottom:8px;">View without affecting scores.</p>
       <button class="btn-secondary" onclick="previousScreen='screen-admin';showScreen('screen-leaderboard');showLbTab('alltime',document.querySelector('.lb-tab'));" style="font-size:12px;padding:6px 16px;">View Leaderboard ▸</button>
     </div>
 
-    <div style="margin-top:24px;border-top:1px solid var(--rule);padding-top:20px;">
+    <div style="margin-top:24px;border-top:1px solid var(--rule);padding-top:20px;" id="anc-players">
       <h3 style="margin-bottom:12px;">Player Management</h3>
       <div id="player-list" style="font-family:monospace;font-size:13px;color:var(--muted);margin-bottom:12px;">
         <p>Loading players…</p>
