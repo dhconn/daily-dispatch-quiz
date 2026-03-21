@@ -905,6 +905,7 @@ app.post('/api/quiz', async (req, res) => {
         const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(sub.email)}`;
         return {
           from: 'Editor @ Daily Dispatch Quiz <editor@dailydispatchquiz.com>',
+          reply_to: 'dhconn@gmail.com',
           to: [sub.email],
           subject,
           html: buildEmailHtml(siteUrl, date, sub.name, teaserHtml, unsubUrl)
@@ -999,6 +1000,7 @@ async function sendEmail(to, subject, html) {
   if (!apiKey) { console.log('Email skipped: RESEND_API_KEY not set.'); return false; }
   const body = JSON.stringify({
     from: 'Editor @ Daily Dispatch Quiz <editor@dailydispatchquiz.com>',
+    reply_to: 'dhconn@gmail.com',
     to: [to], subject, html
   });
   return new Promise((resolve) => {
@@ -1084,6 +1086,7 @@ app.post('/api/admin/message/bulk', async (req, res) => {
     const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(t.email)}`;
     return {
       from: 'Editor @ Daily Dispatch Quiz <editor@dailydispatchquiz.com>',
+      reply_to: 'dhconn@gmail.com',
       to: [t.email],
       subject,
       html: `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1008;">
