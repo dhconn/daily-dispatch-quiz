@@ -1194,69 +1194,6 @@
   }
   .site-nav button:hover { background: #5c4f37; }
 
-
-  /* ── Collapsible admin sections ── */
-  .admin-collapsible { margin-bottom: 20px; }
-  .admin-collapsible > details {
-    background: var(--cream);
-    border: 1px solid var(--rule);
-  }
-  .admin-collapsible > details > summary {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 14px 20px;
-    cursor: pointer;
-    list-style: none;
-    user-select: none;
-  }
-  .admin-collapsible > details > summary::-webkit-details-marker { display: none; }
-  .admin-collapsible > details > summary .summary-left {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-family: 'Courier Prime', monospace;
-    font-size: 13px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    color: var(--muted);
-  }
-  .admin-collapsible > details > summary .summary-arrow {
-    font-size: 10px;
-    color: var(--muted);
-    transition: transform .2s;
-  }
-  .admin-collapsible > details[open] > summary .summary-arrow { transform: rotate(90deg); }
-  .admin-collapsible > details > .collapsible-body { padding: 0 20px 20px; }
-
-  /* ── Sticky jump nav ── */
-  #admin-jump-nav {
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    background: var(--ink);
-    border-bottom: 2px solid var(--gold);
-    padding: 8px 16px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px 12px;
-    margin: 0 0 20px;
-  }
-  #admin-jump-nav a {
-    font-family: 'Courier Prime', monospace;
-    font-size: 10px;
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
-    color: var(--gold-light);
-    text-decoration: none;
-    padding: 3px 0;
-    white-space: nowrap;
-    opacity: 0.8;
-    transition: opacity .15s;
-  }
-  #admin-jump-nav a:hover { opacity: 1; }
-  .admin-anchor { scroll-margin-top: 48px; }
-
 </style>
 </head>
 <body>
@@ -1523,21 +1460,7 @@
   <div id="screen-admin" class="screen">
     <h2>Editor's Desk</h2>
 
-    <nav id="admin-jump-nav">
-      <a href="#anc-generate">Generate</a>
-      <a href="#anc-archive">Archive</a>
-      <a href="#anc-published">Published</a>
-      <a href="#anc-community">Community</a>
-      <a href="#anc-blocked">Blocked</a>
-      <a href="#anc-subscribers">Subscribers</a>
-      <a href="#anc-quiz-archive">Quiz Archive</a>
-      <a href="#anc-engagement">Engagement</a>
-      <a href="#anc-leaderboard">Leaderboard</a>
-      <a href="#anc-players">Players</a>
-      <a href="#anc-message">Message</a>
-    </nav>
-
-    <div class="admin-section" id="anc-generate">
+    <div class="admin-section">
       <h3>Step 1 — Paste News Article URLs</h3>
       <div id="freshness-notice" style="background:#fff8e0;border:1px solid var(--gold);padding:10px 14px;margin-bottom:12px;font-family:monospace,monospace;font-size:12px;color:#7a5f00;line-height:1.6;">
         <strong>⏱ Freshness scoring is active.</strong> Articles are ranked by recency — stories from the past 24 hours score highest. Older articles may still appear if they score well on local relevance. Stories older than 36 hours will be labeled <strong>ICYMI</strong> in the quiz. Paste links to recent articles for best results.
@@ -1653,7 +1576,7 @@
       </div>>
     </div>
 
-    <div class="admin-section" id="anc-archive">
+    <div class="admin-section">
       <h3>Question Archive</h3>
       <p style="font-size:13px;color:var(--muted);margin-bottom:10px;">Questions in the archive will not be regenerated. <strong id="archive-count">0</strong> questions archived.</p>
       <div id="archive-preview"></div>
@@ -1663,44 +1586,30 @@
       </div>
     </div>
 
-    <div class="admin-section" id="anc-published">
+    <div class="admin-section">
       <h3>Today's Published Quiz</h3>
       <div id="published-preview">
         <p style="font-size:13px;color:var(--muted);font-style:italic;">No quiz published today.</p>
       </div>
     </div>
 
-    <div class="admin-collapsible" style="margin-top:20px;" id="anc-community">
-      <details>
-        <summary>
-          <span class="summary-left">Community Posts <span id="admin-posts-badge" style="display:none;background:var(--red,#c0392b);color:white;font-size:11px;padding:2px 7px;border-radius:10px;font-family:monospace;margin-left:6px;"></span></span>
-          <span class="summary-arrow">▸</span>
-        </summary>
-        <div class="collapsible-body">
-          <div id="admin-posts-list">
-            <p style="font-family:monospace;font-size:12px;color:var(--muted);">Loading posts…</p>
-          </div>
-        </div>
-      </details>
+    <div class="admin-section" style="margin-top:20px;">
+      <h3>Community Posts <span id="admin-posts-badge" style="display:none;background:var(--red,#c0392b);color:white;font-size:11px;padding:2px 7px;border-radius:10px;font-family:monospace;margin-left:6px;"></span></h3>
+      <div id="admin-posts-list">
+        <p style="font-family:monospace;font-size:12px;color:var(--muted);">Loading posts…</p>
+      </div>
     </div>
 
-    <div class="admin-collapsible" style="margin-top:20px;" id="anc-blocked">
-      <details>
-        <summary>
-          <span class="summary-left">Blocked Topics <span id="blocklist-count" style="font-family:monospace;font-size:12px;color:var(--muted);font-weight:400;letter-spacing:0;text-transform:none;"></span></span>
-          <span class="summary-arrow">▸</span>
-        </summary>
-        <div class="collapsible-body">
-          <p style="font-size:12px;color:var(--muted);font-family:monospace;margin-bottom:10px;">Topics blocked from appearing during question generation. Use the 🚫 Block button on any draft question to add one.</p>
-          <div id="blocklist-items" style="margin-bottom:10px;">
-            <p style="color:var(--muted);font-family:monospace;font-size:12px;margin:0;">No topics blocked.</p>
-          </div>
-          <button onclick="clearBlocklist()" style="font-family:monospace;font-size:11px;padding:3px 10px;background:none;border:1px solid var(--muted);color:var(--muted);cursor:pointer;border-radius:2px;">Clear All</button>
-        </div>
-      </details>
+    <div class="admin-section" style="margin-top:20px;">
+      <h3>Blocked Topics <span id="blocklist-count" style="font-family:monospace;font-size:12px;color:var(--muted);font-weight:400;"></span></h3>
+      <p style="font-size:12px;color:var(--muted);font-family:monospace;margin-bottom:10px;">Topics blocked from appearing during question generation. Use the 🚫 Block button on any draft question to add one.</p>
+      <div id="blocklist-items" style="margin-bottom:10px;">
+        <p style="color:var(--muted);font-family:monospace;font-size:12px;margin:0;">No topics blocked.</p>
+      </div>
+      <button onclick="clearBlocklist()" style="font-family:monospace;font-size:11px;padding:3px 10px;background:none;border:1px solid var(--muted);color:var(--muted);cursor:pointer;border-radius:2px;">Clear All</button>
     </div>
 
-    <div class="admin-section" style="margin-top:20px;" id="anc-subscribers">
+    <div class="admin-section" style="margin-top:20px;">
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
         <h3 style="margin:0;">Email Subscribers <span id="sub-count" style="font-family:monospace;font-size:12px;color:var(--muted);font-weight:400;"></span></h3>
         <div style="display:flex;align-items:center;gap:10px;">
@@ -1713,107 +1622,32 @@
       </div>
     </div>
 
-    <div class="admin-collapsible" style="margin-top:20px;" id="anc-quiz-archive">
-      <details>
-        <summary>
-          <span class="summary-left">Published Quiz Archive <span id="archive-quiz-count" style="font-family:monospace;font-size:12px;color:var(--muted);font-weight:400;letter-spacing:0;text-transform:none;"></span></span>
-          <span class="summary-arrow">▸</span>
-        </summary>
-        <div class="collapsible-body">
-          <p style="font-size:12px;color:var(--muted);font-family:monospace;margin-bottom:10px;">Full text of all published quizzes. Click a date to expand.</p>
-          <div id="admin-archive-list" style="margin-top:8px;">
-            <p style="color:var(--muted);font-family:monospace;font-size:12px;">Loading…</p>
-          </div>
-        </div>
-      </details>
+    <div class="admin-section" style="margin-top:20px;">
+      <h3>Published Quiz Archive <span id="archive-quiz-count" style="font-family:monospace;font-size:12px;color:var(--muted);font-weight:400;"></span></h3>
+      <p style="font-size:12px;color:var(--muted);font-family:monospace;margin-bottom:10px;">Full text of all published quizzes. Click a date to expand.</p>
+      <div id="admin-archive-list" style="margin-top:8px;">
+        <p style="color:var(--muted);font-family:monospace;font-size:12px;">Loading…</p>
+      </div>
     </div>
 
-    <div class="admin-section" style="margin-top:20px;" id="anc-engagement">
+    <div class="admin-section" style="margin-top:20px;">
       <h3>Today's Engagement <span id="stats-date-label" style="font-family:monospace;font-size:12px;color:var(--muted);font-weight:400;"></span></h3>
       <div id="admin-stats" style="font-family:monospace;font-size:13px;color:var(--muted);">
         <p>Loading…</p>
       </div>
     </div>
 
-    <div class="admin-section" style="margin-top:20px;" id="anc-leaderboard">
+    <div class="admin-section" style="margin-top:20px;">
       <h3>Leaderboard</h3>
       <p style="font-family:monospace;font-size:12px;color:var(--muted);margin-bottom:8px;">View without affecting scores.</p>
       <button class="btn-secondary" onclick="previousScreen='screen-admin';showScreen('screen-leaderboard');showLbTab('alltime',document.querySelector('.lb-tab'));" style="font-size:12px;padding:6px 16px;">View Leaderboard ▸</button>
     </div>
 
-    <div class="admin-collapsible" style="margin-top:20px;" id="anc-players">
-      <details>
-        <summary>
-          <span class="summary-left">Player Management</span>
-          <span class="summary-arrow">▸</span>
-        </summary>
-        <div class="collapsible-body">
-          <div id="player-list" style="font-family:monospace;font-size:13px;color:var(--muted);margin-bottom:12px;">
-            <p>Loading players…</p>
-          </div>
-        </div>
-      </details>
-    </div>
-
-    <div class="admin-collapsible" style="margin-top:20px;" id="anc-message">
-      <details open>
-        <summary>
-          <span class="summary-left">Message Players</span>
-          <span class="summary-arrow">▸</span>
-        </summary>
-        <div class="collapsible-body">
-          <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Send a custom message to selected players or all active subscribers. Emails are sent via Resend from <strong>editor@dailydispatchquiz.com</strong>.</p>
-
-          <div style="display:flex;gap:0;margin-bottom:16px;border:1px solid var(--rule);">
-            <button id="msg-tab-select" onclick="switchMsgTab('select')"
-              style="flex:1;font-family:monospace;font-size:11px;letter-spacing:1px;padding:9px 0;cursor:pointer;background:var(--ink);border:none;color:var(--paper);">SELECT PLAYERS</button>
-            <button id="msg-tab-bulk" onclick="switchMsgTab('bulk')"
-              style="flex:1;font-family:monospace;font-size:11px;letter-spacing:1px;padding:9px 0;cursor:pointer;background:var(--paper);border:none;border-left:1px solid var(--rule);color:var(--muted);">ALL SUBSCRIBERS</button>
-          </div>
-
-          <div id="msg-panel-select">
-            <div style="margin-bottom:10px;">
-              <div style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:6px;">RECIPIENTS — check one or more</div>
-              <div style="display:flex;gap:8px;margin-bottom:8px;">
-                <button onclick="msgSelectAll()" style="font-family:monospace;font-size:10px;letter-spacing:1px;padding:3px 10px;background:none;border:1px solid var(--muted);color:var(--muted);cursor:pointer;">SELECT ALL</button>
-                <button onclick="msgSelectNone()" style="font-family:monospace;font-size:10px;letter-spacing:1px;padding:3px 10px;background:none;border:1px solid var(--muted);color:var(--muted);cursor:pointer;">CLEAR</button>
-                <span id="msg-selected-count" style="font-family:monospace;font-size:11px;color:var(--muted);line-height:2;margin-left:4px;"></span>
-              </div>
-              <div id="msg-checkbox-list" style="max-height:200px;overflow-y:auto;border:1px solid var(--rule);padding:6px 10px;background:white;font-family:monospace;font-size:12px;">
-                <p style="color:var(--muted);">Loading subscribers…</p>
-              </div>
-            </div>
-            <div style="margin-bottom:12px;">
-              <div style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:6px;">SUBJECT</div>
-              <input type="text" id="msg-subject-select" placeholder="e.g. A note from the editor"
-                style="width:100%;font-family:monospace;font-size:13px;padding:8px 10px;border:1px solid var(--rule);background:white;color:var(--ink);outline:none;box-sizing:border-box;" />
-            </div>
-            <div style="margin-bottom:12px;">
-              <div style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:6px;">MESSAGE</div>
-              <textarea id="msg-body-select" placeholder="Write your message here…"
-                style="width:100%;font-family:monospace;font-size:13px;padding:8px 10px;border:1px solid var(--rule);background:white;color:var(--ink);outline:none;min-height:120px;resize:vertical;box-sizing:border-box;"></textarea>
-            </div>
-            <button class="btn-secondary" onclick="sendSelectedMessage()" style="font-size:11px;letter-spacing:1px;">SEND TO SELECTED ▸</button>
-          </div>
-
-          <div id="msg-panel-bulk" style="display:none;">
-            <div id="msg-bulk-count" style="font-family:monospace;font-size:11px;color:var(--muted);margin-bottom:12px;letter-spacing:1px;">Loading subscriber count…</div>
-            <div style="margin-bottom:12px;">
-              <div style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:6px;">SUBJECT</div>
-              <input type="text" id="msg-subject-bulk" placeholder="e.g. This week's quiz is live!"
-                style="width:100%;font-family:monospace;font-size:13px;padding:8px 10px;border:1px solid var(--rule);background:white;color:var(--ink);outline:none;box-sizing:border-box;" />
-            </div>
-            <div style="margin-bottom:12px;">
-              <div style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:6px;">MESSAGE</div>
-              <textarea id="msg-body-bulk" placeholder="Write your message here…"
-                style="width:100%;font-family:monospace;font-size:13px;padding:8px 10px;border:1px solid var(--rule);background:white;color:var(--ink);outline:none;min-height:120px;resize:vertical;box-sizing:border-box;"></textarea>
-            </div>
-            <button class="btn-secondary" onclick="sendBulkMessage()" style="font-size:11px;letter-spacing:1px;">SEND TO ALL SUBSCRIBERS ▸</button>
-          </div>
-
-          <div id="msg-status" style="display:none;margin-top:12px;font-family:monospace;font-size:12px;padding:8px 12px;"></div>
-        </div>
-      </details>
+    <div style="margin-top:24px;border-top:1px solid var(--rule);padding-top:20px;">
+      <h3 style="margin-bottom:12px;">Player Management</h3>
+      <div id="player-list" style="font-family:monospace;font-size:13px;color:var(--muted);margin-bottom:12px;">
+        <p>Loading players…</p>
+      </div>
     </div>
 
     <div style="margin-top:20px;">
@@ -1873,6 +1707,13 @@ function postAnswerDist(date, qIdx, correct) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ date, answers: [{ qIdx, correct }], playerName: state.playerName || '' })
   }).catch(() => {});
+  if (state.playerName) {
+    fetch('/api/scores', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ playerName: state.playerName, date, score: state.sessionScore })
+    }).catch(() => {});
+  }
 }
 
 // ─── Storage helpers (localStorage fallback) ───
@@ -2978,7 +2819,6 @@ async function showAdminScreen() {
   loadPlayerList();
   loadEmailPauseState();
   loadTopicBlocklist();
-  loadMsgSubscribers();
 }
 
 // ─── RSS cache helpers ───────────────────────────────────────────────────
@@ -4755,12 +4595,23 @@ function jumpToArchiveQuestion(date, qIndex) {
   const qCards = body ? body.querySelectorAll('.admin-arc-q') : [];
   const target = qCards[qIndex] || body;
   if (target) {
+    // Use a longer timeout to let mobile browsers paint the newly-opened element,
+    // then fall back to explicit offsetTop calculation if scrollIntoView doesn't land correctly
     setTimeout(() => {
-      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      try {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } catch(e) {}
+      // Fallback for mobile: manually compute position and scroll the window
+      setTimeout(() => {
+        const rect = target.getBoundingClientRect();
+        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+        const targetY = rect.top + scrollTop - (window.innerHeight / 2) + (rect.height / 2);
+        window.scrollTo({ top: targetY, behavior: 'smooth' });
+      }, 100);
       // Brief highlight flash
       target.style.background = '#fffbe6';
-      setTimeout(() => target.style.background = '', 1000);
-    }, 50);
+      setTimeout(() => target.style.background = '', 1200);
+    }, 150);
   }
 }
 
@@ -5271,125 +5122,6 @@ document.addEventListener('keydown', e => {
     registerPlayer();
   }
 });
-
-// ── Admin Messaging ──────────────────────────────────────────
-let msgSubscriberList = [];
-
-async function loadMsgSubscribers() {
-  try {
-    const res = await fetch('/api/subscribers');
-    const { subscribers } = await res.json();
-    msgSubscriberList = (subscribers || []).filter(s => s.active);
-  } catch(e) { msgSubscriberList = []; }
-
-  const listEl = document.getElementById('msg-checkbox-list');
-  if (listEl) {
-    if (msgSubscriberList.length) {
-      const sorted = [...msgSubscriberList].sort((a,b) => (a.name||a.email).localeCompare(b.name||b.email));
-      listEl.innerHTML = sorted.map(s =>
-        '<label style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid #f0ebe0;cursor:pointer;">' +
-          '<input type="checkbox" class="msg-cb" value="' + s.email + '" data-name="' + (s.name||'') + '" onchange="updateMsgSelectedCount()" style="cursor:pointer;accent-color:var(--ink);">' +
-          '<span style="flex:1;">' + (s.name ? '<strong>' + s.name + '</strong> — ' + s.email : s.email) + '</span>' +
-        '</label>'
-      ).join('');
-    } else {
-      listEl.innerHTML = '<p style="color:var(--muted);">No active subscribers found.</p>';
-    }
-  }
-  const countEl = document.getElementById('msg-bulk-count');
-  if (countEl) {
-    countEl.textContent = msgSubscriberList.length
-      ? msgSubscriberList.length + ' active subscriber' + (msgSubscriberList.length !== 1 ? 's' : '') + ' will receive this message'
-      : 'No active subscribers found';
-  }
-  updateMsgSelectedCount();
-}
-
-function updateMsgSelectedCount() {
-  const checked = document.querySelectorAll('.msg-cb:checked').length;
-  const el = document.getElementById('msg-selected-count');
-  if (el) el.textContent = checked ? checked + ' selected' : '';
-}
-
-function msgSelectAll()  { document.querySelectorAll('.msg-cb').forEach(cb => cb.checked = true);  updateMsgSelectedCount(); }
-function msgSelectNone() { document.querySelectorAll('.msg-cb').forEach(cb => cb.checked = false); updateMsgSelectedCount(); }
-
-function switchMsgTab(tab) {
-  const selectPanel = document.getElementById('msg-panel-select');
-  const bulkPanel   = document.getElementById('msg-panel-bulk');
-  const tabSelect   = document.getElementById('msg-tab-select');
-  const tabBulk     = document.getElementById('msg-tab-bulk');
-  if (tab === 'select') {
-    selectPanel.style.display = 'block'; bulkPanel.style.display = 'none';
-    tabSelect.style.background = 'var(--ink)'; tabSelect.style.color = 'var(--paper)';
-    tabBulk.style.background = 'var(--paper)'; tabBulk.style.color = 'var(--muted)';
-  } else {
-    selectPanel.style.display = 'none'; bulkPanel.style.display = 'block';
-    tabBulk.style.background = 'var(--ink)'; tabBulk.style.color = 'var(--paper)';
-    tabSelect.style.background = 'var(--paper)'; tabSelect.style.color = 'var(--muted)';
-  }
-  document.getElementById('msg-status').style.display = 'none';
-}
-
-function showMsgStatus(msg, ok) {
-  const el = document.getElementById('msg-status');
-  el.textContent = msg;
-  el.style.display = 'block';
-  el.style.background = ok ? '#e8f5ee' : '#fceaea';
-  el.style.color      = ok ? '#1b4332' : '#7b1a1a';
-  el.style.borderLeft = ok ? '3px solid var(--green)' : '3px solid var(--red)';
-}
-
-async function sendSelectedMessage() {
-  const checked = Array.from(document.querySelectorAll('.msg-cb:checked'));
-  const subject = document.getElementById('msg-subject-select').value.trim();
-  const body    = document.getElementById('msg-body-select').value.trim();
-  if (!checked.length) { showMsgStatus('Please select at least one recipient.', false); return; }
-  if (!subject)        { showMsgStatus('Please enter a subject line.', false); return; }
-  if (!body)           { showMsgStatus('Please write a message.', false); return; }
-  const recipients = checked.map(cb => ({ email: cb.value, name: cb.getAttribute('data-name') || '' }));
-  if (recipients.length > 1 && !confirm('Send this message to ' + recipients.length + ' selected players?')) return;
-  showMsgStatus('Sending to ' + recipients.length + ' recipient' + (recipients.length !== 1 ? 's' : '') + '…', true);
-  try {
-    const adminToken = lsGet('dnq_admin_token') || 'admin';
-    const res = await fetch('/api/admin/message/bulk', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
-      body: JSON.stringify({ subject, body, recipients })
-    });
-    const json = await res.json();
-    if (json.ok) {
-      showMsgStatus('✓ ' + json.message, true);
-      document.getElementById('msg-subject-select').value = '';
-      document.getElementById('msg-body-select').value = '';
-      msgSelectNone();
-    } else { showMsgStatus('✗ ' + (json.error || 'Send failed'), false); }
-  } catch(e) { showMsgStatus('✗ Error: ' + e.message, false); }
-}
-
-async function sendBulkMessage() {
-  const subject = document.getElementById('msg-subject-bulk').value.trim();
-  const body    = document.getElementById('msg-body-bulk').value.trim();
-  if (!subject) { showMsgStatus('Please enter a subject line.', false); return; }
-  if (!body)    { showMsgStatus('Please write a message.', false); return; }
-  if (!msgSubscriberList.length) { showMsgStatus('No active subscribers to message.', false); return; }
-  if (!confirm('Send this message to all ' + msgSubscriberList.length + ' active subscribers?')) return;
-  showMsgStatus('Sending to ' + msgSubscriberList.length + ' subscribers…', true);
-  try {
-    const adminToken = lsGet('dnq_admin_token') || 'admin';
-    const res = await fetch('/api/admin/message/bulk', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
-      body: JSON.stringify({ subject, body })
-    });
-    const json = await res.json();
-    if (json.ok) {
-      showMsgStatus('✓ ' + json.message, true);
-      document.getElementById('msg-subject-bulk').value = '';
-      document.getElementById('msg-body-bulk').value = '';
-    } else { showMsgStatus('✗ ' + (json.error || 'Send failed'), false); }
-  } catch(e) { showMsgStatus('✗ Error: ' + e.message, false); }
-}
 </script>
 
 </body>
