@@ -850,6 +850,25 @@
     white-space: nowrap;
   }
   #admin-jump-nav a:hover { color: var(--ink); }
+  .admin-collapsible { margin-bottom: 20px; }
+  .admin-collapsible details { border: 1px solid var(--rule); background: var(--cream); }
+  .admin-collapsible summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 20px;
+    cursor: pointer;
+    font-family: 'Courier Prime', monospace;
+    font-size: 13px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    list-style: none;
+  }
+  .admin-collapsible summary::-webkit-details-marker { display: none; }
+  .admin-collapsible summary:hover { color: var(--ink); }
+  .admin-collapsible .collapsible-body { padding: 0 20px 20px; }
+  .admin-collapsible details[open] .summary-arrow { transform: rotate(90deg); display: inline-block; }
   #screen-admin h2 {
     font-family: 'Playfair Display', serif;
     font-size: 28px;
@@ -1494,6 +1513,7 @@
       <a href="#anc-engagement">Engagement</a>
       <a href="#anc-leaderboard">Leaderboard</a>
       <a href="#anc-players">Players</a>
+      <a href="#anc-message">Message</a>
     </nav>
 
     <div class="admin-section" id="anc-generate">
@@ -1677,6 +1697,63 @@
       <h3>Leaderboard</h3>
       <p style="font-family:monospace;font-size:12px;color:var(--muted);margin-bottom:8px;">View without affecting scores.</p>
       <button class="btn-secondary" onclick="previousScreen='screen-admin';showScreen('screen-leaderboard');showLbTab('alltime',document.querySelector('.lb-tab'));" style="font-size:12px;padding:6px 16px;">View Leaderboard ▸</button>
+    </div>
+
+    <div class="admin-collapsible" style="margin-top:20px;" id="anc-message">
+      <details open>
+        <summary>
+          <span class="summary-left">Message Players</span>
+          <span class="summary-arrow">▸</span>
+        </summary>
+        <div class="collapsible-body">
+          <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Send a custom message to selected players or all active subscribers. Emails are sent via Resend from <strong>editor@dailydispatchquiz.com</strong>.</p>
+          <div style="display:flex;gap:0;margin-bottom:16px;border:1px solid var(--rule);">
+            <button id="msg-tab-select" onclick="switchMsgTab('select')"
+              style="flex:1;font-family:monospace;font-size:11px;letter-spacing:1px;padding:9px 0;cursor:pointer;background:var(--ink);border:none;color:var(--paper);">SELECT PLAYERS</button>
+            <button id="msg-tab-bulk" onclick="switchMsgTab('bulk')"
+              style="flex:1;font-family:monospace;font-size:11px;letter-spacing:1px;padding:9px 0;cursor:pointer;background:var(--paper);border:none;border-left:1px solid var(--rule);color:var(--muted);">ALL SUBSCRIBERS</button>
+          </div>
+          <div id="msg-panel-select">
+            <div style="margin-bottom:10px;">
+              <div style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:6px;">RECIPIENTS — check one or more</div>
+              <div style="display:flex;gap:8px;margin-bottom:8px;">
+                <button onclick="msgSelectAll()" style="font-family:monospace;font-size:10px;letter-spacing:1px;padding:3px 10px;background:none;border:1px solid var(--muted);color:var(--muted);cursor:pointer;">SELECT ALL</button>
+                <button onclick="msgSelectNone()" style="font-family:monospace;font-size:10px;letter-spacing:1px;padding:3px 10px;background:none;border:1px solid var(--muted);color:var(--muted);cursor:pointer;">CLEAR</button>
+                <span id="msg-selected-count" style="font-family:monospace;font-size:11px;color:var(--muted);line-height:2;margin-left:4px;"></span>
+              </div>
+              <div id="msg-checkbox-list" style="max-height:200px;overflow-y:auto;border:1px solid var(--rule);padding:6px 10px;background:white;font-family:monospace;font-size:12px;">
+                <p style="color:var(--muted);">Loading subscribers…</p>
+              </div>
+            </div>
+            <div style="margin-bottom:12px;">
+              <div style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:6px;">SUBJECT</div>
+              <input type="text" id="msg-subject-select" placeholder="e.g. A note from the editor"
+                style="width:100%;font-family:monospace;font-size:13px;padding:8px 10px;border:1px solid var(--rule);background:white;color:var(--ink);outline:none;box-sizing:border-box;" />
+            </div>
+            <div style="margin-bottom:12px;">
+              <div style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:6px;">MESSAGE</div>
+              <textarea id="msg-body-select" placeholder="Write your message here…"
+                style="width:100%;font-family:monospace;font-size:13px;padding:8px 10px;border:1px solid var(--rule);background:white;color:var(--ink);outline:none;min-height:120px;resize:vertical;box-sizing:border-box;"></textarea>
+            </div>
+            <button class="btn-secondary" onclick="sendSelectedMessage()" style="font-size:11px;letter-spacing:1px;">SEND TO SELECTED ▸</button>
+          </div>
+          <div id="msg-panel-bulk" style="display:none;">
+            <div id="msg-bulk-count" style="font-family:monospace;font-size:11px;color:var(--muted);margin-bottom:12px;letter-spacing:1px;">Loading subscriber count…</div>
+            <div style="margin-bottom:12px;">
+              <div style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:6px;">SUBJECT</div>
+              <input type="text" id="msg-subject-bulk" placeholder="e.g. This week's quiz is live!"
+                style="width:100%;font-family:monospace;font-size:13px;padding:8px 10px;border:1px solid var(--rule);background:white;color:var(--ink);outline:none;box-sizing:border-box;" />
+            </div>
+            <div style="margin-bottom:12px;">
+              <div style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:6px;">MESSAGE</div>
+              <textarea id="msg-body-bulk" placeholder="Write your message here…"
+                style="width:100%;font-family:monospace;font-size:13px;padding:8px 10px;border:1px solid var(--rule);background:white;color:var(--ink);outline:none;min-height:120px;resize:vertical;box-sizing:border-box;"></textarea>
+            </div>
+            <button class="btn-secondary" onclick="sendBulkMessage()" style="font-size:11px;letter-spacing:1px;">SEND TO ALL SUBSCRIBERS ▸</button>
+          </div>
+          <div id="msg-status" style="display:none;margin-top:12px;font-family:monospace;font-size:12px;padding:8px 12px;"></div>
+        </div>
+      </details>
     </div>
 
     <div style="margin-top:24px;border-top:1px solid var(--rule);padding-top:20px;" id="anc-players">
