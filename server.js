@@ -397,43 +397,19 @@ app.get('/api/sites', async (req, res) => {
 });
 
 // ── Answer distribution aggregation ──────────────────────────
-// POST /api/answers  { date, answers: [{qIdx, correct}], playerName? }
+// POST /api/answers  { date, answers: [{qIdx, correct}] }
 app.post('/api/answers', async (req, res) => {
-  const { date, answers, playerName } = req.body;
+  const { date, answers } = req.body;
   if (!date || !Array.isArray(answers)) return res.status(400).json({ error: 'bad request' });
   const data = await readData();
   if (!data.dist) data.dist = {};
   if (!data.dist[date]) data.dist[date] = {};
-
-  // Aggregate correct/wrong counts per question (existing behaviour)
   answers.forEach(({ qIdx, correct }) => {
     const k = 'q' + qIdx;
     if (!data.dist[date][k]) data.dist[date][k] = { correct: 0, wrong: 0 };
     if (correct) data.dist[date][k].correct++;
     else data.dist[date][k].wrong++;
   });
-
-  // Per-player breakdown — merge one question at a time so partial plays are captured
-  if (playerName && playerName.trim()) {
-    const key = playerName.trim().toLowerCase();
-    if (!data.dist[date].players) data.dist[date].players = {};
-    if (!data.dist[date].players[key]) {
-      data.dist[date].players[key] = { displayName: playerName.trim(), answers: {} };
-    }
-    answers.forEach(({ qIdx, correct }) => {
-      if (qIdx !== 'completion') {
-        data.dist[date].players[key].answers['q' + qIdx] = correct;
-      }
-    });
-  }
-
-  // Prune dist entries older than 2 days to keep Postgres lean
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - 2);
-  Object.keys(data.dist).forEach(d => {
-    if (new Date(d) < cutoff) delete data.dist[d];
-  });
-
   await writeData(data);
   res.json({ ok: true });
 });
@@ -531,9 +507,10 @@ app.post('/api/scores', async (req, res) => {
     data.scores[key] = { displayName: playerName.trim(), allTime: 0, dailyScores: {} };
   }
   // Only record the score once per day per player
-  // Always overwrite with latest score — covers partial plays and mid-quiz abandons
-  data.scores[key].dailyScores[date] = score;
-  data.scores[key].allTime = Object.values(data.scores[key].dailyScores).reduce((a,b) => a+b, 0);
+  if (!data.scores[key].dailyScores[date]) {
+    data.scores[key].dailyScores[date] = score;
+    data.scores[key].allTime = Object.values(data.scores[key].dailyScores).reduce((a,b) => a+b, 0);
+  }
   await writeData(data);
   res.json({ ok: true });
 });
@@ -1079,6 +1056,56 @@ async function sendEmailBatch(emails) {
     if (c < chunks.length - 1) await new Promise(r => setTimeout(r, CHUNK_DELAY));
   }
 }
+
+// ── POST /api/admin/message/bulk — send custom email to selected or all subscribers ──
+app.post('/api/admin/message/bulk', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  const { subject, body, recipients } = req.body;
+  if (!subject || !body) return res.status(400).json({ error: 'subject and body required' });
+
+  const siteUrl = process.env.SITE_URL || 'https://dailydispatchquiz.com';
+  const data = await readData();
+
+  // If recipients array provided, send only to those; otherwise send to all active subscribers
+  let targets;
+  if (Array.isArray(recipients) && recipients.length) {
+    targets = recipients; // [{ email, name }]
+  } else {
+    targets = Object.values(data.subscribers || {})
+      .filter(s => s.active)
+      .map(s => ({ email: s.email, name: s.name || '' }));
+  }
+
+  if (!targets.length) return res.json({ ok: false, error: 'No recipients found' });
+
+  const htmlBody = body.replace(/\n/g, '<br>');
+  const emails = targets.map(t => {
+    const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(t.email)}`;
+    return {
+      from: 'Editor @ Daily Dispatch Quiz <editor@dailydispatchquiz.com>',
+      to: [t.email],
+      subject,
+      html: `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1008;">
+        <div style="background:#1a1008;color:#f5f0e8;text-align:center;padding:24px;">
+          <div style="font-family:monospace;font-size:11px;letter-spacing:3px;color:#f0c040;margin-bottom:6px;">BALTIMORE · DAILY DISPATCH</div>
+          <div style="font-size:24px;font-weight:bold;">The Daily Dispatch Quiz</div>
+        </div>
+        <div style="padding:32px 24px;background:#f5f0e8;">
+          ${t.name ? `<p style="font-size:16px;margin:0 0 16px;">Hi ${t.name},</p>` : ''}
+          <div style="font-size:15px;line-height:1.7;">${htmlBody}</div>
+        </div>
+        <div style="padding:16px 24px;text-align:center;font-size:11px;color:#999;font-family:monospace;border-top:1px solid #e0d8cc;">
+          <a href="${unsubUrl}" style="color:#999;">Unsubscribe</a>
+        </div>
+      </div>`
+    };
+  });
+
+  await sendEmailBatch(emails);
+  console.log(`[Admin] Bulk message sent to ${emails.length} recipient(s): "${subject}"`);
+  res.json({ ok: true, message: `Sent to ${emails.length} recipient${emails.length !== 1 ? 's' : ''}` });
+});
 
 // ── Message board ─────────────────────────────────────────────
 // Posts stored as data.posts = [{ id, playerName, text, createdAt, deleted }]
