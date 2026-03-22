@@ -397,21 +397,97 @@ app.get('/api/sites', async (req, res) => {
 });
 
 // ── Answer distribution aggregation ──────────────────────────
-// POST /api/answers  { date, answers: [{qIdx, correct}] }
+// POST /api/answers  { date, answers: [{qIdx, correct}], playerName? }
 app.post('/api/answers', async (req, res) => {
-  const { date, answers } = req.body;
+  const { date, answers, playerName } = req.body;
   if (!date || !Array.isArray(answers)) return res.status(400).json({ error: 'bad request' });
-  const data = await readData();
-  if (!data.dist) data.dist = {};
-  if (!data.dist[date]) data.dist[date] = {};
-  answers.forEach(({ qIdx, correct }) => {
-    const k = 'q' + qIdx;
-    if (!data.dist[date][k]) data.dist[date][k] = { correct: 0, wrong: 0 };
-    if (correct) data.dist[date][k].correct++;
-    else data.dist[date][k].wrong++;
-  });
-  await writeData(data);
-  res.json({ ok: true });
+
+  try {
+    // Ensure dist key exists
+    await pool.query(`
+      INSERT INTO store(key, value) VALUES('dist', '{}')
+      ON CONFLICT(key) DO NOTHING
+    `);
+
+    // Ensure date object exists within dist
+    await pool.query(`
+      UPDATE store
+      SET value = jsonb_set(value, $1, COALESCE(value->$2, '{}'), true)
+      WHERE key = 'dist'
+    `, [JSON.stringify([date]), date]);
+
+    // Atomically increment correct/wrong counts per question
+    for (const { qIdx, correct } of answers) {
+      if (qIdx === 'completion') continue;
+      const k = 'q' + qIdx;
+      const field = correct ? 'correct' : 'wrong';
+      await pool.query(`
+        UPDATE store SET value = jsonb_set(
+          value, $1,
+          (COALESCE((value #>> $2)::int, 0) + 1)::text::jsonb,
+          true
+        ) WHERE key = 'dist'
+      `, [
+        JSON.stringify([date, k, field]),
+        `{${date},${k},${field}}`
+      ]);
+    }
+
+    // Atomically write per-player detail — safe from race conditions
+    if (playerName && playerName.trim()) {
+      const key = playerName.trim().toLowerCase();
+      const displayName = playerName.trim();
+
+      // Ensure players object exists for this date
+      await pool.query(`
+        UPDATE store SET value = jsonb_set(
+          value, $1, COALESCE(value->$2->'players', '{}'), true
+        ) WHERE key = 'dist'
+      `, [JSON.stringify([date, 'players']), date]);
+
+      // Ensure this player's record exists
+      await pool.query(`
+        UPDATE store SET value = jsonb_set(
+          value, $1,
+          COALESCE(
+            value->$2->'players'->$3,
+            jsonb_build_object('displayName', $4::text, 'answers', '{}'::jsonb)
+          ),
+          true
+        ) WHERE key = 'dist'
+      `, [JSON.stringify([date, 'players', key]), date, key, displayName]);
+
+      // Write each answer atomically
+      for (const { qIdx, correct } of answers) {
+        if (qIdx === 'completion') continue;
+        await pool.query(`
+          UPDATE store SET value = jsonb_set(
+            value, $1, $2::jsonb, true
+          ) WHERE key = 'dist'
+        `, [
+          JSON.stringify([date, 'players', key, 'answers', 'q' + qIdx]),
+          correct ? 'true' : 'false'
+        ]);
+      }
+    }
+
+    // Prune dist entries older than 2 days
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 2);
+    const cutoffStr = cutoff.toISOString().slice(0, 10);
+    await pool.query(`
+      UPDATE store SET value = (
+        SELECT COALESCE(jsonb_object_agg(k, v), '{}')
+        FROM jsonb_each(value) AS t(k, v)
+        WHERE k >= $1
+      ) WHERE key = 'dist'
+    `, [cutoffStr]);
+
+    res.json({ ok: true });
+  } catch(e) {
+    console.error('POST /api/answers error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // GET /api/answers?date=YYYY-MM-DD
@@ -506,11 +582,9 @@ app.post('/api/scores', async (req, res) => {
   if (!data.scores[key]) {
     data.scores[key] = { displayName: playerName.trim(), allTime: 0, dailyScores: {} };
   }
-  // Only record the score once per day per player
-  if (!data.scores[key].dailyScores[date]) {
-    data.scores[key].dailyScores[date] = score;
-    data.scores[key].allTime = Object.values(data.scores[key].dailyScores).reduce((a,b) => a+b, 0);
-  }
+  // Always overwrite with latest score — covers partial plays and mid-quiz abandons
+  data.scores[key].dailyScores[date] = score;
+  data.scores[key].allTime = Object.values(data.scores[key].dailyScores).reduce((a,b) => a+b, 0);
   await writeData(data);
   res.json({ ok: true });
 });
@@ -872,10 +946,9 @@ app.post('/api/quiz', async (req, res) => {
   // Also skipped if emails were already sent for this date (prevents double-send on re-publish)
   if (!silent) {
     const siteUrl = process.env.SITE_URL || 'https://your-app.railway.app';
-    // Re-read fresh to pick up emailPaused state set after this request started
     const freshData = await readData();
 
-    // Guard: track which dates have had emails sent — never send twice for the same date
+    // Guard: never send twice for the same date
     if (!freshData.emailSentDates) freshData.emailSentDates = [];
     if (freshData.emailSentDates.includes(date)) {
       console.log(`[Email] Already sent notifications for ${date} — skipping duplicate send.`);
@@ -887,7 +960,6 @@ app.post('/api/quiz', async (req, res) => {
     const subscribers = freshData.emailPaused ? [] : Object.values(freshData.subscribers || {}).filter(s => s.active);
     if (subscribers.length > 0) {
       console.log(`Email: Sending quiz notification to ${subscribers.length} subscribers…`);
-      // Reuse cached teasers from preview if available for this date, otherwise regenerate
       let teaserHtml;
       if (freshData.cachedTeaserHtml && freshData.cachedTeaserDate === date) {
         console.log('[Email] Reusing cached teasers from preview for', date);
@@ -921,7 +993,7 @@ app.post('/api/quiz', async (req, res) => {
       });
       await sendEmailBatch(emails);
 
-      // Mark this date as sent so re-publishes don't trigger another batch
+      // Mark date as sent so re-publishes don't trigger another batch
       freshData.emailSentDates = [...(freshData.emailSentDates || []), date].slice(-30);
       await writeData(freshData);
     }
@@ -1081,10 +1153,9 @@ app.post('/api/admin/message/bulk', async (req, res) => {
   const siteUrl = process.env.SITE_URL || 'https://dailydispatchquiz.com';
   const data = await readData();
 
-  // If recipients array provided, send only to those; otherwise send to all active subscribers
   let targets;
   if (Array.isArray(recipients) && recipients.length) {
-    targets = recipients; // [{ email, name }]
+    targets = recipients;
   } else {
     targets = Object.values(data.subscribers || {})
       .filter(s => s.active)
