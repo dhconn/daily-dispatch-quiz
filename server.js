@@ -59,7 +59,7 @@ async function setKey(key, value) {
 // All callers that used await readData()/await writeData() now use async versions below.
 async function readData() {
   const keys = ['sites','rssCache','scores','dist','quizzes','archiveUrls',
-                 'archiveQuestions','posts','messages','subscribers','emailPaused','emailPausedSnapshot','topicBlocklist','cachedTeaserHtml','cachedTeaserDate'];
+                 'archiveQuestions','posts','messages','subscribers','emailPaused','emailPausedSnapshot','topicBlocklist','cachedTeaserHtml','cachedTeaserDate','emailSentDates'];
   const data = {};
   await Promise.all(keys.map(async k => {
     const v = await getKey(k);
@@ -70,7 +70,7 @@ async function readData() {
 
 async function writeData(data) {
   const keys = ['sites','rssCache','scores','dist','quizzes','archiveUrls',
-                 'archiveQuestions','posts','messages','subscribers','emailPaused','emailPausedSnapshot','topicBlocklist','cachedTeaserHtml','cachedTeaserDate'];
+                 'archiveQuestions','posts','messages','subscribers','emailPaused','emailPausedSnapshot','topicBlocklist','cachedTeaserHtml','cachedTeaserDate','emailSentDates'];
   await Promise.all(keys.map(async k => {
     if (data[k] === null) await setKey(k, null);
     else if (data[k] !== undefined) await setKey(k, data[k]);
@@ -869,10 +869,18 @@ app.post('/api/quiz', async (req, res) => {
   await writeData(data);
 
   // Send notification emails — skipped for silent saves (emergency save, edits, fixes)
+  // Also skipped if emails were already sent for this date (prevents double-send on re-publish)
   if (!silent) {
     const siteUrl = process.env.SITE_URL || 'https://your-app.railway.app';
     // Re-read fresh to pick up emailPaused state set after this request started
     const freshData = await readData();
+
+    // Guard: track which dates have had emails sent — never send twice for the same date
+    if (!freshData.emailSentDates) freshData.emailSentDates = [];
+    if (freshData.emailSentDates.includes(date)) {
+      console.log(`[Email] Already sent notifications for ${date} — skipping duplicate send.`);
+      return res.json({ ok: true });
+    }
     if (freshData.emailPaused) {
       console.log('Email notifications are globally paused — skipping subscriber emails.');
     }
@@ -912,6 +920,10 @@ app.post('/api/quiz', async (req, res) => {
         };
       });
       await sendEmailBatch(emails);
+
+      // Mark this date as sent so re-publishes don't trigger another batch
+      freshData.emailSentDates = [...(freshData.emailSentDates || []), date].slice(-30);
+      await writeData(freshData);
     }
   } else {
     console.log('Silent save — email notifications skipped.');
