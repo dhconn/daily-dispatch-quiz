@@ -4516,6 +4516,10 @@ async function publishQuestions() {
     return;
   }
 
+  // Disable publish button immediately to prevent double-send
+  const publishBtn = document.querySelector('button[onclick="publishQuestions()"]');
+  if (publishBtn) { publishBtn.disabled = true; publishBtn.textContent = 'Publishing…'; }
+
   draft.publishDate = todayStr();
   saveTodayQuiz(draft);
   addToArchive(draft.questions);
@@ -4543,10 +4547,13 @@ async function publishQuestions() {
     // Only clear draft AFTER server confirms success
     clearDraftQuiz();
     clearAllLocks();
-    setStatus('✓ Quiz published for ' + todayStr() + ' and saved to server! Players can now play.', 'success');    
+    setStatus('✓ Quiz published for ' + todayStr() + ' and saved to server! Players can now play.', 'success');
+    if (publishBtn) { publishBtn.disabled = true; publishBtn.textContent = '✓ Published'; }
   } catch(e) {
     setStatus('⚠ Quiz saved locally but FAILED to save to server (' + e.message + '). Draft preserved — try publishing again.', 'error');
     console.error('Server save failed:', e);
+    // Re-enable button on failure so they can try again
+    if (publishBtn) { publishBtn.disabled = false; publishBtn.textContent = '✓ Publish Today\'s Quiz'; }
   }
   // Keep the preview visible so you can refer back to what was published
   refreshAdminPreviews();
@@ -5093,7 +5100,6 @@ async function loadAdminStats() {
 
     // Per-player question grid (today + yesterday)
     let playerGridHtml = '';
-    const gridDates = [today];
     const yd = new Date(); yd.setDate(yd.getDate() - 1);
     const yesterday = `${yd.getFullYear()}-${String(yd.getMonth()+1).padStart(2,'0')}-${String(yd.getDate()).padStart(2,'0')}`;
     // Fetch yesterday's dist too
@@ -5102,14 +5108,22 @@ async function loadAdminStats() {
       const ydRes = await fetch('/api/answers?date=' + yesterday);
       if (ydRes.ok) yesterdayDist = await ydRes.json();
     } catch(e) {}
-    const gridData = { [today]: dist, [yesterday]: yesterdayDist };
-    for (const [gDate, gDist] of Object.entries(gridData)) {
+    // Today first, yesterday second
+    const gridData = [[today, dist], [yesterday, yesterdayDist]];
+    for (const [gDate, gDist] of gridData) {
       const gPlayers = gDist.players || {};
       const playerKeys = Object.keys(gPlayers);
-      if (!playerKeys.length) continue;
       const cols = ['q0','q1','q2','q3','q4','q5'];
       const colLabels = ['Q1','Q2','Q3','Q4','Q5','Bonus'];
       const headerCells = colLabels.map(l => `<th style="padding:3px 6px;font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);font-weight:400;">${l}</th>`).join('');
+      const label = `<div style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:6px;">PLAYER BREAKDOWN · ${gDate}</div>`;
+      if (!playerKeys.length) {
+        // Show today even if empty, skip yesterday if empty
+        if (gDate === today) {
+          playerGridHtml += `<div style="margin-top:16px;">${label}<p style="font-family:monospace;font-size:12px;color:var(--muted);">No player data yet for today.</p></div>`;
+        }
+        continue;
+      }
       const rows = playerKeys.map(pk => {
         const p = gPlayers[pk];
         const cells = cols.map(col => {
@@ -5123,7 +5137,7 @@ async function loadAdminStats() {
       }).join('');
       playerGridHtml += `
         <div style="margin-top:16px;">
-          <div style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:6px;">PLAYER BREAKDOWN · ${gDate}</div>
+          ${label}
           <table style="border-collapse:collapse;font-size:12px;">
             <thead><tr><th style="padding:3px 8px 3px 0;"></th>${headerCells}</tr></thead>
             <tbody>${rows}</tbody>
