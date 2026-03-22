@@ -1261,7 +1261,6 @@
     <div class="edition-rule">Today's Edition</div>
     <h2>Know Your Community.</h2>
     <p>5 questions + a bonus drawn from today's local news — updated daily by your editor.</p>
-    <p><b>Points awarded just for answering a question. 10 points extra for completing.</b></p>
     <div class="points-grid">
       <div class="points-card"><div class="pts">10</div><div class="label">pts each<br>Q1–2 · Starter</div></div>
       <div class="points-card"><div class="pts">20</div><div class="label">pts each<br>Q3–4 · Feature</div></div>
@@ -1821,13 +1820,6 @@ function postAnswerDist(date, qIdx, correct) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ date, answers: [{ qIdx, correct }], playerName: state.playerName || '' })
   }).catch(() => {});
-  if (state.playerName) {
-    fetch('/api/scores', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ playerName: state.playerName, date, score: state.sessionScore })
-    }).catch(() => {});
-  }
 }
 
 // ─── Storage helpers (localStorage fallback) ───
