@@ -1820,7 +1820,9 @@ function postAnswerDist(date, qIdx, correct) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ date, answers: [{ qIdx, correct }], playerName: state.playerName || '' })
-  }).catch(() => {});
+  }).catch(err => {
+    console.error('postAnswerDist failed:', err);
+  });
 }
 
 // ─── Storage helpers (localStorage fallback) ───
