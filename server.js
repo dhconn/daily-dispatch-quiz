@@ -402,33 +402,36 @@ app.post('/api/answers', async (req, res) => {
   if (!date || !Array.isArray(answers)) return res.status(400).json({ error: 'bad request' });
   const data = await readData();
   if (!data.dist) data.dist = {};
-  if (!data.dist[date]) data.dist[date] = {};
+  const dateKey = `date_${date}`;
+  if (!data.dist[dateKey]) data.dist[dateKey] = {};
 
   answers.forEach(({ qIdx, correct }) => {
     if (qIdx === 'completion') return;
     const k = 'q' + qIdx;
-    if (!data.dist[date][k]) data.dist[date][k] = { correct: 0, wrong: 0 };
-    if (correct) data.dist[date][k].correct++;
-    else data.dist[date][k].wrong++;
+    if (!data.dist[dateKey][k]) data.dist[dateKey][k] = { correct: 0, wrong: 0 };
+    if (correct) data.dist[dateKey][k].correct++;
+    else data.dist[dateKey][k].wrong++;
   });
 
   if (playerName && playerName.trim()) {
     const key = playerName.trim().toLowerCase();
-    if (!data.dist[date].players) data.dist[date].players = {};
-    if (!data.dist[date].players[key]) {
-      data.dist[date].players[key] = { displayName: playerName.trim(), answers: {} };
+    if (!data.dist[dateKey].players) data.dist[dateKey].players = {};
+    if (!data.dist[dateKey].players[key]) {
+      data.dist[dateKey].players[key] = { displayName: playerName.trim(), answers: {} };
     }
     answers.forEach(({ qIdx, correct }) => {
       if (qIdx !== 'completion') {
-        data.dist[date].players[key].answers['q' + qIdx] = correct;
+        data.dist[dateKey].players[key].answers['q' + qIdx] = correct;
       }
     });
   }
 
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - 2);
-  Object.keys(data.dist).forEach(d => {
-    if (new Date(d) < cutoff) delete data.dist[d];
+  Object.keys(data.dist).forEach(k => {
+    // Keys are stored as "date_YYYY-MM-DD" — extract the date portion for comparison
+    const d = k.startsWith('date_') ? k.slice(5) : k;
+    if (new Date(d) < cutoff) delete data.dist[k];
   });
 
   await writeData(data);
@@ -440,7 +443,8 @@ app.get('/api/answers', async (req, res) => {
   const { date } = req.query;
   if (!date) return res.status(400).json({ error: 'date required' });
   const data = await readData();
-  res.json((data.dist && data.dist[date]) || {});
+  const dateKey = `date_${date}`;
+  res.json((data.dist && data.dist[dateKey]) || {});
 });
 
 // ── Quiz start tracking ───────────────────────────────────────
