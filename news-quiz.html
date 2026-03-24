@@ -1825,6 +1825,48 @@ function postAnswerDist(date, qIdx, correct) {
   });
 }
 
+async function saveProgressToServer() {
+  if (archiveMode) return;
+  if (!state.playerName || !state.todayKey) return;
+
+  const answersObj = {};
+  state.answers.forEach(a => {
+    if (a.qIdx === 'completion') return;
+    answersObj['q' + a.qIdx] = {
+      chosen: a.chosen,
+      correct: a.correct,
+      pts: a.pts
+    };
+  });
+
+  const progress = {
+    score: state.sessionScore,
+    currentQ: state.currentQ,
+    completed: false,
+    answers: answersObj,
+    updatedAtClient: new Date().toISOString()
+  };
+
+  try {
+    const res = await fetch('/api/progress', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        playerName: state.playerName,
+        date: state.todayKey,
+        progress
+      })
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      console.error('saveProgressToServer failed:', res.status, text);
+    }
+  } catch (e) {
+    console.error('saveProgressToServer error:', e);
+  }
+}
+
 // ─── Storage helpers (localStorage fallback) ───
 function lsGet(key) {
   try { return JSON.parse(localStorage.getItem(key)); } catch(e) { return null; }
@@ -2343,6 +2385,7 @@ function selectAnswer(idx) {
   state.sessionScore += pts;
   state.answers.push({ qIdx: state.currentQ, chosen: idx, correct, pts });
   postAnswerDist(state.todayKey, state.currentQ, correct);
+   saveProgressToServer();
   document.getElementById('live-score').textContent = state.sessionScore;
 
   // ── Visual feedback on correct answer ───────────────────────
