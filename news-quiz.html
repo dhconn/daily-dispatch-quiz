@@ -2635,7 +2635,7 @@ function selectBonus(idx) {
 
   const q = quizQuestions[5];
   const correct = idx === q.correctIndex;
-  const pts = correct ? POINTS.bonus : Math.round(50 * 0.25);
+  const pts = correct ? POINTS.bonus : Math.round(POINTS.bonus * 0.25);
 
   state.sessionScore += pts;
   state.answers.push({ qIdx: 5, chosen: idx, correct, pts });
