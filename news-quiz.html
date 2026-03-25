@@ -303,6 +303,8 @@
     color: var(--muted);
   }
 
+</div>
+
   /* Question card */
   .question-card {
     background: white;
@@ -1333,6 +1335,74 @@
     <div id="interstitial-countdown" style="font-family:'Playfair Display',serif;font-size:28px;color:var(--gold);margin-bottom:24px;">3</div>
   </div>
 
+  <!-- RESUME OVERLAY -->
+  <div id="resume-overlay" style="
+    display:none;
+    position:fixed;
+    inset:0;
+    z-index:3000;
+    background:rgba(26,16,8,0.72);
+    align-items:center;
+    justify-content:center;
+    pointer-events:auto;
+  ">
+<div style="
+  background:var(--paper);
+  color:var(--ink);
+  border-top:6px double var(--ink);
+  border-bottom:6px double var(--ink);
+  box-shadow:0 8px 24px rgba(0,0,0,0.25);
+  padding:28px 30px 24px;
+  max-width:520px;
+  width:min(90vw, 520px);
+  text-align:center;
+  position:relative;
+">
+
+  <!-- Small “edition” label -->
+  <div style="
+    font-family:'Courier Prime',monospace;
+    font-size:10px;
+    letter-spacing:2px;
+    color:var(--muted);
+    margin-bottom:10px;
+  ">
+    TODAY'S EDITION
+  </div>
+
+  <!-- Headline -->
+  <div style="
+    font-family:'Playfair Display',serif;
+    font-size:32px;
+    line-height:1.2;
+    margin-bottom:10px;
+    color:var(--ink);
+  ">
+    Welcome Back
+  </div>
+
+  <!-- Rule line -->
+  <div style="
+    width:60px;
+    height:2px;
+    background:var(--gold);
+    margin:10px auto 14px;
+  "></div>
+
+  <!-- Subhead -->
+  <div id="resume-overlay-text" style="
+    font-family:'Courier Prime',monospace;
+    font-size:12px;
+    letter-spacing:1.5px;
+    line-height:1.7;
+    color:var(--muted);
+    text-transform:uppercase;
+  ">
+    Continuing today’s quiz.
+  </div>
+
+</div>
+
   <!-- BONUS -->
   <div id="screen-bonus" class="screen">
     <div class="bonus-header">
@@ -1392,9 +1462,6 @@
       <button class="btn-secondary" onclick="showArchiveBrowser()" style="border-color:var(--muted);color:var(--muted);">📰 Browse Past Quizzes</button>
     </div>
   </div>
-
-
-
 
   <!-- ARCHIVE BANNER (shown in archive mode) -->
   <div id="archive-banner" class="archive-banner" style="display:none;">
@@ -1873,6 +1940,24 @@ async function saveProgressToServer(completedOverride = false) {
 
 let progressSaveChain = Promise.resolve();
 
+function showResumeOverlay() {
+  const overlay = document.getElementById('resume-overlay');
+  const textEl = document.getElementById('resume-overlay-text');
+  if (!overlay || !textEl) return;
+
+  textEl.textContent = `${state.sessionScore} points so far · Continuing today’s quiz `;
+  overlay.style.display = 'flex';
+  overlay.style.opacity = '1';
+  overlay.style.transition = 'opacity 0.4s ease';
+
+  setTimeout(() => {
+    overlay.style.opacity = '0';
+    setTimeout(() => {
+      overlay.style.display = 'none';
+    }, 400);
+  }, 2000);
+}
+
 function queueProgressSave(completedOverride = false) {
   progressSaveChain = progressSaveChain
     .then(() => saveProgressToServer(completedOverride))
@@ -1924,10 +2009,22 @@ function applySavedProgress(saved) {
     .filter(a => !Number.isNaN(a.qIdx));
 
   state.sessionScore = typeof saved.score === 'number' ? saved.score : 0;
-  state.currentQ = typeof saved.currentQ === 'number' ? saved.currentQ : rebuiltAnswers.length;
   state.answers = rebuiltAnswers;
   state.phase = saved.completed ? 'done' : 'regular';
 
+  // Resume at the next unanswered question, not the last answered one
+  const answeredIdxs = rebuiltAnswers.map(a => a.qIdx).filter(n => !Number.isNaN(n));
+  if (saved.completed) {
+    state.currentQ = 5;
+  } else if (answeredIdxs.length) {
+    state.currentQ = Math.max(...answeredIdxs) + 1;
+  } else {
+    state.currentQ = 0;
+  }
+
+  // Clamp to valid range
+  if (state.currentQ > 5) state.currentQ = 5;
+ 
   return true;
 }
 
@@ -2411,6 +2508,9 @@ function startQuiz(quiz, options = {}) {
   }
 
   renderQuestion();
+  if (resumed) {
+    showResumeOverlay();
+  }
 }
 
 function buildProgressTrack(qs) {
