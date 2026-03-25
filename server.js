@@ -515,6 +515,60 @@ app.post('/api/fetch-article', async (req, res) => {
   }
 });
 
+// ── Canonical per-player quiz progress ───────────────────────
+// Stored as progress = { [date]: { [playerKey]: { displayName, score, currentQ, completed, answers, startedAt, updatedAt } } }
+
+app.post('/api/progress', async (req, res) => {
+  const { playerName, date, progress } = req.body;
+
+  if (!playerName || !date || !progress || typeof progress !== 'object') {
+    return res.status(400).json({ error: 'playerName, date, and progress required' });
+  }
+
+  try {
+    const allProgress = (await getKey('progress')) || {};
+    if (!allProgress[date]) allProgress[date] = {};
+
+    const key = playerName.toLowerCase().trim();
+    const existing = allProgress[date][key] || {};
+
+    allProgress[date][key] = {
+      ...existing,
+      ...progress,
+      displayName: playerName.trim(),
+      updatedAt: new Date().toISOString()
+    };
+
+    await setKey('progress', allProgress);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[progress] POST error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /api/progress?date=YYYY-MM-DD
+// GET /api/progress?date=YYYY-MM-DD&playerName=RKE
+app.get('/api/progress', async (req, res) => {
+  const { date, playerName } = req.query;
+  if (!date) return res.status(400).json({ error: 'date required' });
+
+  try {
+    const allProgress = (await getKey('progress')) || {};
+    const progressForDate = allProgress[date] || {};
+
+    if (playerName) {
+      const key = playerName.toLowerCase().trim();
+      return res.json(progressForDate[key] || null);
+    }
+
+    res.json(progressForDate);
+  } catch (e) {
+    console.error('[progress] GET error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── Leaderboard ───────────────────────────────────────────────
 // Scores stored as data.scores = { playerKey: { displayName, allTime, dailyScores: {date: score} } }
 
