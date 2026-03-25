@@ -7,15 +7,8 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 8080;
 
-app.use(express.static(path.dirname(__filename), {
-  setHeaders: (res, filePath) => {
-    if (filePath.endsWith('.html')) {
-      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-      res.setHeader('Pragma', 'no-cache');
-      res.setHeader('Expires', '0');
-    }
-  }
-}));
+app.use(express.json({ limit: '2mb' }));
+app.use(express.static(path.dirname(__filename)));
 
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -390,7 +383,7 @@ app.get('/', async (req, res) => {
 
 // ── Save/load news sites ──────────────────────────────────────
 app.post('/api/sites', async (req, res) => {
-  const { sites } = req.body || {};
+  const { sites } = req.body;
   if (typeof sites !== 'string') return res.status(400).json({ error: 'sites must be a string' });
   const data = await readData();
   data.sites = sites;
@@ -403,43 +396,98 @@ app.get('/api/sites', async (req, res) => {
   res.json({ sites: data.sites || '' });
 });
 
-// ── Answer distribution ──────────────────────────────────────
+// ── Answer distribution aggregation ──────────────────────────
+// POST /api/answers  { date, answers: [{qIdx, correct}], playerName? }
 app.post('/api/answers', async (req, res) => {
-  const { date, answers, playerName } = req.body || {};
+  const { date, answers, playerName } = req.body;
   if (!date || !Array.isArray(answers)) return res.status(400).json({ error: 'bad request' });
-  const data = await readData();
-  if (!data.dist) data.dist = {};
-  if (!data.dist[date]) data.dist[date] = {};
 
-  answers.forEach(({ qIdx, correct }) => {
-    if (qIdx === 'completion') return;
-    const k = 'q' + qIdx;
-    if (!data.dist[date][k]) data.dist[date][k] = { correct: 0, wrong: 0 };
-    if (correct) data.dist[date][k].correct++;
-    else data.dist[date][k].wrong++;
-  });
+  try {
+    // Ensure dist key exists
+    await pool.query(`
+      INSERT INTO store(key, value) VALUES('dist', '{}')
+      ON CONFLICT(key) DO NOTHING
+    `);
 
-  if (playerName && playerName.trim()) {
-    const key = playerName.trim().toLowerCase();
-    if (!data.dist[date].players) data.dist[date].players = {};
-    if (!data.dist[date].players[key]) {
-      data.dist[date].players[key] = { displayName: playerName.trim(), answers: {} };
+    // Ensure date object exists within dist
+    await pool.query(`
+      UPDATE store
+      SET value = jsonb_set(value, $1, COALESCE(value->$2, '{}'), true)
+      WHERE key = 'dist'
+    `, [JSON.stringify([date]), date]);
+
+    // Atomically increment correct/wrong counts per question
+    for (const { qIdx, correct } of answers) {
+      if (qIdx === 'completion') continue;
+      const k = 'q' + qIdx;
+      const field = correct ? 'correct' : 'wrong';
+      await pool.query(`
+        UPDATE store SET value = jsonb_set(
+          value, $1,
+          (COALESCE((value #>> $2)::int, 0) + 1)::text::jsonb,
+          true
+        ) WHERE key = 'dist'
+      `, [
+        JSON.stringify([date, k, field]),
+        `{${date},${k},${field}}`
+      ]);
     }
-    answers.forEach(({ qIdx, correct }) => {
-      if (qIdx !== 'completion') {
-        data.dist[date].players[key].answers['q' + qIdx] = correct;
+
+    // Atomically write per-player detail — safe from race conditions
+    if (playerName && playerName.trim()) {
+      const key = playerName.trim().toLowerCase();
+      const displayName = playerName.trim();
+
+      // Ensure players object exists for this date
+      await pool.query(`
+        UPDATE store SET value = jsonb_set(
+          value, $1, COALESCE(value->$2->'players', '{}'), true
+        ) WHERE key = 'dist'
+      `, [JSON.stringify([date, 'players']), date]);
+
+      // Ensure this player's record exists
+      await pool.query(`
+        UPDATE store SET value = jsonb_set(
+          value, $1,
+          COALESCE(
+            value->$2->'players'->$3,
+            jsonb_build_object('displayName', $4::text, 'answers', '{}'::jsonb)
+          ),
+          true
+        ) WHERE key = 'dist'
+      `, [JSON.stringify([date, 'players', key]), date, key, displayName]);
+
+      // Write each answer atomically
+      for (const { qIdx, correct } of answers) {
+        if (qIdx === 'completion') continue;
+        await pool.query(`
+          UPDATE store SET value = jsonb_set(
+            value, $1, $2::jsonb, true
+          ) WHERE key = 'dist'
+        `, [
+          JSON.stringify([date, 'players', key, 'answers', 'q' + qIdx]),
+          correct ? 'true' : 'false'
+        ]);
       }
-    });
+    }
+
+    // Prune dist entries older than 2 days
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 2);
+    const cutoffStr = cutoff.toISOString().slice(0, 10);
+    await pool.query(`
+      UPDATE store SET value = (
+        SELECT COALESCE(jsonb_object_agg(k, v), '{}')
+        FROM jsonb_each(value) AS t(k, v)
+        WHERE k >= $1
+      ) WHERE key = 'dist'
+    `, [cutoffStr]);
+
+    res.json({ ok: true });
+  } catch(e) {
+    console.error('POST /api/answers error:', e.message);
+    res.status(500).json({ error: e.message });
   }
-
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - 2);
-  Object.keys(data.dist).forEach(d => {
-    if (new Date(d) < cutoff) delete data.dist[d];
-  });
-
-  await writeData(data);
-  res.json({ ok: true });
 });
 
 // GET /api/answers?date=YYYY-MM-DD
@@ -454,7 +502,7 @@ app.get('/api/answers', async (req, res) => {
 // Records when a player starts the quiz — used for completion rate.
 // POST /api/quiz-start  { date }
 app.post('/api/quiz-start', async (req, res) => {
-  const { date } = req.body || {};
+  const { date } = req.body;
   if (!date) return res.status(400).json({ error: 'date required' });
   const starts = (await getKey('quizStarts')) || {};
   starts[date] = (starts[date] || 0) + 1;
@@ -474,7 +522,7 @@ app.get('/api/quiz-starts', async (req, res) => {
 // Fetches full article text for a given URL, stripping HTML tags.
 // Used to give Claude full article content instead of just RSS snippets.
 app.post('/api/fetch-article', async (req, res) => {
-  const { url } = req.body  || {};
+  const { url } = req.body;
   if (!url) return res.status(400).json({ error: 'url required' });
 
   try {
@@ -520,122 +568,25 @@ app.post('/api/fetch-article', async (req, res) => {
   }
 });
 
-// ── Canonical per-player quiz progress ───────────────────────
-// Stored as progress = { [date]: { [playerKey]: { displayName, score, currentQ, completed, answers, startedAt, updatedAt } } }
-
-app.post('/api/progress', async (req, res) => {
-  const { playerName, date, progress } = req.body || {};
-
-  if (!playerName || !date || !progress || typeof progress !== 'object') {
-    return res.status(400).json({ error: 'playerName, date, and progress required' });
-  }
-
-  try {
-    const allProgress = (await getKey('progress')) || {};
-    if (!allProgress[date]) allProgress[date] = {};
-
-    const key = playerName.toLowerCase().trim();
-    const existing = allProgress[date][key] || {};
-
-    allProgress[date][key] = {
-      ...existing,
-      ...progress,
-      displayName: playerName.trim(),
-      updatedAt: new Date().toISOString()
-    };
-
-    await setKey('progress', allProgress);
-    res.json({ ok: true });
-  } catch (e) {
-    console.error('[progress] POST error:', e.message);
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// GET /api/progress?date=YYYY-MM-DD
-// GET /api/progress?date=YYYY-MM-DD&playerName=RKE
-app.get('/api/progress', async (req, res) => {
-  const { date, playerName } = req.query;
-  if (!date) return res.status(400).json({ error: 'date required' });
-
-  try {
-    const allProgress = (await getKey('progress')) || {};
-    const progressForDate = allProgress[date] || {};
-
-    if (playerName) {
-      const key = playerName.toLowerCase().trim();
-      return res.json(progressForDate[key] || null);
-    }
-
-    res.json(progressForDate);
-  } catch (e) {
-    console.error('[progress] GET error:', e.message);
-    res.status(500).json({ error: e.message });
-  }
-});
-
 // ── Leaderboard ───────────────────────────────────────────────
 // Scores stored as data.scores = { playerKey: { displayName, allTime, dailyScores: {date: score} } }
 
 app.post('/api/scores', async (req, res) => {
-  const { playerName, date, score } = req.body  || {};
-
-  // 🔍 Log incoming request
-  console.log('[scores] incoming', {
-    playerName,
-    date,
-    score,
-    ts: new Date().toISOString()
-  });
-
+  const { playerName, date, score } = req.body;
   if (!playerName || !date || typeof score !== 'number') {
-    console.error('[scores] bad request', req.body);
     return res.status(400).json({ error: 'playerName, date, and score required' });
   }
-
-  try {
-    const data = await readData();
-    if (!data.scores) data.scores = {};
-
-    const key = playerName.toLowerCase().trim();
-
-    if (!data.scores[key]) {
-      data.scores[key] = {
-        displayName: playerName.trim(),
-        allTime: 0,
-        dailyScores: {}
-      };
-    }
-
-    // 🔍 Log overwrite behavior
-    const prev = data.scores[key].dailyScores[date];
-
-    // Always overwrite with latest score
-    data.scores[key].dailyScores[date] = score;
-
-    // Recompute all-time
-    data.scores[key].allTime = Object.values(
-      data.scores[key].dailyScores
-    ).reduce((a, b) => a + b, 0);
-
-    await writeData(data);
-
-    // 🔍 Log success
-    console.log('[scores] saved', {
-      playerKey: key,
-      displayName: data.scores[key].displayName,
-      date,
-      previousScore: prev,
-      newScore: score,
-      allTime: data.scores[key].allTime
-    });
-
-    res.json({ ok: true });
-
-  } catch (e) {
-    console.error('[scores] error', e.message);
-    res.status(500).json({ error: e.message });
+  const data = await readData();
+  if (!data.scores) data.scores = {};
+  const key = playerName.toLowerCase().trim();
+  if (!data.scores[key]) {
+    data.scores[key] = { displayName: playerName.trim(), allTime: 0, dailyScores: {} };
   }
+  // Always overwrite with latest score — covers partial plays and mid-quiz abandons
+  data.scores[key].dailyScores[date] = score;
+  data.scores[key].allTime = Object.values(data.scores[key].dailyScores).reduce((a,b) => a+b, 0);
+  await writeData(data);
+  res.json({ ok: true });
 });
 
 // ── DELETE /api/scores/:playerKey — admin delete a player ────
