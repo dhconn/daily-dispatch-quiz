@@ -2388,6 +2388,18 @@ function selectAnswer(idx) {
 
   state.sessionScore += pts;
   state.answers.push({ qIdx: state.currentQ, chosen: idx, correct, pts });
+
+ // Save running score to server after every answer
+  fetch('/api/scores', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      playerName: state.playerName,
+      date: state.todayKey,
+      score: state.sessionScore
+    })
+  }).catch(() => {});
+
   postAnswerDist(state.todayKey, state.currentQ, correct);
    saveProgressToServer();
   document.getElementById('live-score').textContent = state.sessionScore;
