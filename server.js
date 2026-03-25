@@ -390,7 +390,7 @@ app.get('/', async (req, res) => {
 
 // ── Save/load news sites ──────────────────────────────────────
 app.post('/api/sites', async (req, res) => {
-  const { sites } = req.body;
+  const { sites } = req.body || {};
   if (typeof sites !== 'string') return res.status(400).json({ error: 'sites must be a string' });
   const data = await readData();
   data.sites = sites;
@@ -405,7 +405,7 @@ app.get('/api/sites', async (req, res) => {
 
 // ── Answer distribution ──────────────────────────────────────
 app.post('/api/answers', async (req, res) => {
-  const { date, answers, playerName } = req.body;
+  const { date, answers, playerName } = req.body || {};
   if (!date || !Array.isArray(answers)) return res.status(400).json({ error: 'bad request' });
   const data = await readData();
   if (!data.dist) data.dist = {};
@@ -454,7 +454,7 @@ app.get('/api/answers', async (req, res) => {
 // Records when a player starts the quiz — used for completion rate.
 // POST /api/quiz-start  { date }
 app.post('/api/quiz-start', async (req, res) => {
-  const { date } = req.body;
+  const { date } = req.body || {};
   if (!date) return res.status(400).json({ error: 'date required' });
   const starts = (await getKey('quizStarts')) || {};
   starts[date] = (starts[date] || 0) + 1;
@@ -474,7 +474,7 @@ app.get('/api/quiz-starts', async (req, res) => {
 // Fetches full article text for a given URL, stripping HTML tags.
 // Used to give Claude full article content instead of just RSS snippets.
 app.post('/api/fetch-article', async (req, res) => {
-  const { url } = req.body;
+  const { url } = req.body  || {};
   if (!url) return res.status(400).json({ error: 'url required' });
 
   try {
@@ -524,7 +524,7 @@ app.post('/api/fetch-article', async (req, res) => {
 // Stored as progress = { [date]: { [playerKey]: { displayName, score, currentQ, completed, answers, startedAt, updatedAt } } }
 
 app.post('/api/progress', async (req, res) => {
-  const { playerName, date, progress } = req.body;
+  const { playerName, date, progress } = req.body || {};
 
   if (!playerName || !date || !progress || typeof progress !== 'object') {
     return res.status(400).json({ error: 'playerName, date, and progress required' });
@@ -578,7 +578,7 @@ app.get('/api/progress', async (req, res) => {
 // Scores stored as data.scores = { playerKey: { displayName, allTime, dailyScores: {date: score} } }
 
 app.post('/api/scores', async (req, res) => {
-  const { playerName, date, score } = req.body;
+  const { playerName, date, score } = req.body  || {};
 
   // 🔍 Log incoming request
   console.log('[scores] incoming', {
