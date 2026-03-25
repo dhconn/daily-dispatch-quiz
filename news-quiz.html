@@ -5092,107 +5092,160 @@ async function loadAdminStats() {
   const today = todayStr();
   if (labelEl) labelEl.textContent = today;
   try {
-    // Fetch starts and answers in parallel
-    const [startsRes, answersRes, scoresRes] = await Promise.all([
-      fetch('/api/quiz-starts?date=' + today),
-      fetch('/api/answers?date=' + today),
-      fetch('/api/scores')
-    ]);
-    const { starts = 0 } = startsRes.ok ? await startsRes.json() : {};
-    const dist = answersRes.ok ? await answersRes.json() : {};
-    const { scores = {} } = scoresRes.ok ? await scoresRes.json() : {};
+    // Canonical truth: unique player/day progress records
+    const progressRes = await fetch('/api/progress?date=' + today);
+    const progress = progressRes.ok ? await progressRes.json() : {};
 
-    // Completions = players who submitted answers for q0 through q4 (all 5 regular Qs)
-    const q0 = dist['q0'] ? dist['q0'].correct + dist['q0'].wrong : 0;
-    const q4 = dist['q4'] ? dist['q4'].correct + dist['q4'].wrong : 0;
-    const q5 = dist['q5'] ? dist['q5'].correct + dist['q5'].wrong : 0;
-    const completions = q4; // reached final regular question
-    const bonusAttempts = q5;
+    const players = Object.values(progress || {});
+    const starts = players.length;
+    const completions = players.filter(p => p.completed === true).length;
+    const bonusAttempts = players.filter(p => p.answers && p.answers.q5 !== undefined).length;
 
-    // Average question reached: estimate from drop-off between questions.
-    // Players who reached Q(i) but not Q(i+1) = n[i] - n[i+1].
-    // Weighted avg = sum(players_who_stopped_at_i * i) / total_starters
-    let totalReached = 0, totalPlayers = 0;
-    const qCounts = [];
-    for (let i = 0; i <= 5; i++) {
-      const k = 'q' + i;
-      qCounts[i] = dist[k] ? dist[k].correct + dist[k].wrong : 0;
-    }
-    totalPlayers = qCounts[0];
-    if (totalPlayers > 0) {
-      for (let i = 0; i <= 5; i++) {
-        const stoppedHere = qCounts[i] - (qCounts[i + 1] || 0);
-        totalReached += Math.max(0, stoppedHere) * (i + 1);
-      }
-    }
-    const avgQReached = totalPlayers > 0 ? (totalReached / totalPlayers).toFixed(1) : '—';
+    // Average question reached:
+    // completed players count as 6, otherwise use highest answered q index + 1
+    const reachedVals = players.map(p => {
+      if (p.completed) return 6;
+      const keys = Object.keys(p.answers || {})
+        .filter(k => /^q\d+$/.test(k))
+        .map(k => parseInt(k.slice(1), 10))
+        .filter(n => !isNaN(n));
+      return keys.length ? (Math.max(...keys) + 1) : 0;
+    });
 
-    // Completion rate
-    const compRate = starts > 0 ? Math.round(completions / starts * 100) : (q0 > 0 ? Math.round(completions / q0 * 100) : '—');
-
-    // Today's scores
-    const todayPlayers = Object.values(scores).filter(p => p.dailyScores && p.dailyScores[today] !== undefined);
-    const todayScoreVals = todayPlayers.map(p => p.dailyScores[today]);
-    const avgScore = todayScoreVals.length > 0
-      ? Math.round(todayScoreVals.reduce((a,b) => a+b, 0) / todayScoreVals.length)
+    const avgQReached = reachedVals.length
+      ? (reachedVals.reduce((a, b) => a + b, 0) / reachedVals.length).toFixed(1)
       : '—';
 
-    // Per-question correct %
+    const compRate = starts > 0
+      ? Math.round(completions / starts * 100)
+      : '—';
+
+    const scoreVals = players
+      .map(p => typeof p.score === 'number' ? p.score : null)
+      .filter(v => v !== null);
+
+    const avgScore = scoreVals.length
+      ? Math.round(scoreVals.reduce((a, b) => a + b, 0) / scoreVals.length)
+      : '—';
+
+    // Per-question correct % from canonical progress
     let qRows = '';
     for (let i = 0; i <= 5; i++) {
-      const k = 'q' + i;
-      const d = dist[k] || { correct: 0, wrong: 0 };
-      const total = d.correct + d.wrong;
-      const pct = total > 0 ? Math.round(d.correct / total * 100) : '—';
+      const key = 'q' + i;
+      let total = 0;
+      let correctCount = 0;
+
+      players.forEach(p => {
+        const a = p.answers && p.answers[key];
+        if (a !== undefined) {
+          total++;
+          if (a.correct) correctCount++;
+        }
+      });
+
+      const pct = total > 0 ? Math.round(correctCount / total * 100) : '—';
       const label = i === 5 ? 'Bonus' : ('Q' + (i + 1));
-      const bar = total > 0 ? `<span style="display:inline-block;width:${typeof pct==='number'?pct:0}px;height:8px;background:var(--green);vertical-align:middle;margin-left:6px;opacity:0.7;"></span>` : '';
-      qRows += `<tr><td style="padding:2px 8px 2px 0;">${label}</td><td style="padding:2px 8px 2px 0;">${total} players</td><td style="padding:2px 0;">${pct}% correct${bar}</td></tr>`;
+      const bar = total > 0
+        ? `<span style="display:inline-block;width:${typeof pct === 'number' ? pct : 0}px;height:8px;background:var(--green);vertical-align:middle;margin-left:6px;opacity:0.7;"></span>`
+        : '';
+
+      qRows += `<tr>
+        <td style="padding:2px 8px 2px 0;">${label}</td>
+        <td style="padding:2px 8px 2px 0;">${total} players</td>
+        <td style="padding:2px 0;">${pct}% correct${bar}</td>
+      </tr>`;
     }
 
-    // Per-player question grid (today + yesterday)
+    // Per-player question grid (today + yesterday) from canonical progress
     let playerGridHtml = '';
-    const gridDates = [today];
-    const yd = new Date(); yd.setDate(yd.getDate() - 1);
-    const yesterday = `${yd.getFullYear()}-${String(yd.getMonth()+1).padStart(2,'0')}-${String(yd.getDate()).padStart(2,'0')}`;
-    // Fetch yesterday's dist too
-    let yesterdayDist = {};
+    const yd = new Date();
+    yd.setDate(yd.getDate() - 1);
+    const yesterday = `${yd.getFullYear()}-${String(yd.getMonth() + 1).padStart(2, '0')}-${String(yd.getDate()).padStart(2, '0')}`;
+
+    let yesterdayProgress = {};
     try {
-      const ydRes = await fetch('/api/answers?date=' + yesterday);
-      if (ydRes.ok) yesterdayDist = await ydRes.json();
-    } catch(e) {}
-    const gridData = { [today]: dist, [yesterday]: yesterdayDist };
-    for (const [gDate, gDist] of Object.entries(gridData)) {
-      const gPlayers = gDist.players || {};
-      const playerKeys = Object.keys(gPlayers);
-      if (!playerKeys.length) continue;
-      const cols = ['q0','q1','q2','q3','q4','q5'];
-      const colLabels = ['Q1','Q2','Q3','Q4','Q5','Bonus'];
-      const headerCells = colLabels.map(l => `<th style="padding:3px 6px;font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);font-weight:400;">${l}</th>`).join('');
-      const rows = playerKeys.map(pk => {
-        const p = gPlayers[pk];
-        const cells = cols.map(col => {
-          const val = p.answers[col];
-          if (val === undefined) return `<td style="padding:3px 6px;text-align:center;color:var(--muted);">—</td>`;
-          return val
-            ? `<td style="padding:3px 6px;text-align:center;color:var(--green);">✓</td>`
-            : `<td style="padding:3px 6px;text-align:center;color:var(--red,#c0392b);">✗</td>`;
-        }).join('');
-        return `<tr><td style="padding:3px 8px 3px 0;font-family:monospace;font-size:12px;white-space:nowrap;">${escHtml(p.displayName)}</td>${cells}</tr>`;
-      }).join('');
+      const ydRes = await fetch('/api/progress?date=' + yesterday);
+      if (ydRes.ok) yesterdayProgress = await ydRes.json();
+    } catch (e) {}
+
+    const gridData = [
+      [today, progress || {}],
+      [yesterday, yesterdayProgress || {}]
+    ];
+
+    gridData.forEach(([dateLabel, progObj]) => {
+      const entries = Object.entries(progObj || {});
+      if (!entries.length) return;
+
+      let rowsHtml = '';
+      entries
+        .sort((a, b) => {
+          const aName = (a[1].displayName || a[0] || '').toLowerCase();
+          const bName = (b[1].displayName || b[0] || '').toLowerCase();
+          return aName.localeCompare(bName);
+        })
+        .forEach(([playerKey, p]) => {
+          const displayName = p.displayName || playerKey;
+
+          let qCells = '';
+          for (let i = 0; i <= 5; i++) {
+            const a = p.answers && p.answers['q' + i];
+            let cell = '—';
+            let color = 'var(--muted)';
+
+            if (a !== undefined) {
+              cell = a.correct ? '✓' : '✗';
+              color = a.correct ? 'var(--green)' : 'var(--red)';
+            }
+
+            qCells += `<td style="padding:4px 8px;text-align:center;color:${color};font-family:monospace;">${cell}</td>`;
+          }
+
+          const completedCell = p.completed ? '✓' : '—';
+          const completedColor = p.completed ? 'var(--green)' : 'var(--muted)';
+          const scoreVal = typeof p.score === 'number' ? p.score : '—';
+
+          rowsHtml += `<tr>
+            <td style="padding:4px 8px 4px 0;font-weight:600;">${escHtml(displayName)}</td>
+            ${qCells}
+            <td style="padding:4px 8px;text-align:center;color:${completedColor};font-family:monospace;">${completedCell}</td>
+            <td style="padding:4px 0 4px 8px;text-align:right;font-family:monospace;">${scoreVal}</td>
+          </tr>`;
+        });
+
       playerGridHtml += `
         <div style="margin-top:16px;">
-          <div style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:6px;">PLAYER BREAKDOWN · ${gDate}</div>
-          <table style="border-collapse:collapse;font-size:12px;">
-            <thead><tr><th style="padding:3px 8px 3px 0;"></th>${headerCells}</tr></thead>
-            <tbody>${rows}</tbody>
-          </table>
-        </div>`;
-    }
+          <div style="font-family:monospace;font-size:12px;letter-spacing:1px;color:var(--muted);margin-bottom:6px;">
+            PLAYER BREAKDOWN · ${dateLabel}
+          </div>
+          <div style="overflow-x:auto;">
+            <table style="width:100%;border-collapse:collapse;font-size:13px;">
+              <thead>
+                <tr style="border-bottom:1px solid var(--rule);">
+                  <th style="text-align:left;padding:4px 8px 4px 0;">Player</th>
+                  <th style="padding:4px 8px;">Q1</th>
+                  <th style="padding:4px 8px;">Q2</th>
+                  <th style="padding:4px 8px;">Q3</th>
+                  <th style="padding:4px 8px;">Q4</th>
+                  <th style="padding:4px 8px;">Q5</th>
+                  <th style="padding:4px 8px;">B</th>
+                  <th style="padding:4px 8px;">Done</th>
+                  <th style="text-align:right;padding:4px 0 4px 8px;">Score</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rowsHtml}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    });
 
     el.innerHTML = `
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:16px;">
         <div style="background:white;border:1px solid var(--rule);padding:12px;text-align:center;">
-          <div style="font-size:22px;font-weight:bold;color:var(--ink);">${starts || q0}</div>
+          <div style="font-size:22px;font-weight:bold;color:var(--ink);">${starts}</div>
           <div style="font-size:10px;letter-spacing:1px;color:var(--muted);margin-top:2px;">STARTED</div>
         </div>
         <div style="background:white;border:1px solid var(--rule);padding:12px;text-align:center;">
