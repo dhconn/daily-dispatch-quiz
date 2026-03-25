@@ -1827,6 +1827,7 @@ function postAnswerDist(date, qIdx, correct) {
 }
 
 async function saveProgressToServer(completedOverride = false) {
+  console.log('saveProgressToServer called', state.playerName, state.todayKey, state.sessionScore, state.answers);
   if (archiveMode) return;
   if (!state.playerName || !state.todayKey) return;
 
@@ -1847,6 +1848,8 @@ async function saveProgressToServer(completedOverride = false) {
     answers: answersObj,
     updatedAtClient: new Date().toISOString()
   };
+
+  console.log('posting progress payload', progress);
 
   try {
     const res = await fetch('/api/progress', {
