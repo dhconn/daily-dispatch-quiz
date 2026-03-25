@@ -397,99 +397,46 @@ app.get('/api/sites', async (req, res) => {
 });
 
 // ── Answer distribution aggregation ──────────────────────────
+// ── Answer distribution aggregation ──────────────────────────
 // POST /api/answers  { date, answers: [{qIdx, correct}], playerName? }
 app.post('/api/answers', async (req, res) => {
   const { date, answers, playerName } = req.body;
   if (!date || !Array.isArray(answers)) return res.status(400).json({ error: 'bad request' });
+  const data = await readData();
+  if (!data.dist) data.dist = {};
+  if (!data.dist[date]) data.dist[date] = {};
 
-  try {
-    // Ensure dist key exists
-    await pool.query(`
-      INSERT INTO store(key, value) VALUES('dist', '{}')
-      ON CONFLICT(key) DO NOTHING
-    `);
+  answers.forEach(({ qIdx, correct }) => {
+    if (qIdx === 'completion') return;
+    const k = 'q' + qIdx;
+    if (!data.dist[date][k]) data.dist[date][k] = { correct: 0, wrong: 0 };
+    if (correct) data.dist[date][k].correct++;
+    else data.dist[date][k].wrong++;
+  });
 
-    // Ensure date object exists within dist
-    await pool.query(`
-      UPDATE store
-      SET value = jsonb_set(value, $1, COALESCE(value->$2, '{}'), true)
-      WHERE key = 'dist'
-    `, [JSON.stringify([date]), date]);
-
-    // Atomically increment correct/wrong counts per question
-    for (const { qIdx, correct } of answers) {
-      if (qIdx === 'completion') continue;
-      const k = 'q' + qIdx;
-      const field = correct ? 'correct' : 'wrong';
-      await pool.query(`
-        UPDATE store SET value = jsonb_set(
-          value, $1,
-          (COALESCE((value #>> $2)::int, 0) + 1)::text::jsonb,
-          true
-        ) WHERE key = 'dist'
-      `, [
-        JSON.stringify([date, k, field]),
-        `{${date},${k},${field}}`
-      ]);
+  if (playerName && playerName.trim()) {
+    const key = playerName.trim().toLowerCase();
+    if (!data.dist[date].players) data.dist[date].players = {};
+    if (!data.dist[date].players[key]) {
+      data.dist[date].players[key] = { displayName: playerName.trim(), answers: {} };
     }
-
-    // Atomically write per-player detail — safe from race conditions
-    if (playerName && playerName.trim()) {
-      const key = playerName.trim().toLowerCase();
-      const displayName = playerName.trim();
-
-      // Ensure players object exists for this date
-      await pool.query(`
-        UPDATE store SET value = jsonb_set(
-          value, $1, COALESCE(value->$2->'players', '{}'), true
-        ) WHERE key = 'dist'
-      `, [JSON.stringify([date, 'players']), date]);
-
-      // Ensure this player's record exists
-      await pool.query(`
-        UPDATE store SET value = jsonb_set(
-          value, $1,
-          COALESCE(
-            value->$2->'players'->$3,
-            jsonb_build_object('displayName', $4::text, 'answers', '{}'::jsonb)
-          ),
-          true
-        ) WHERE key = 'dist'
-      `, [JSON.stringify([date, 'players', key]), date, key, displayName]);
-
-      // Write each answer atomically
-      for (const { qIdx, correct } of answers) {
-        if (qIdx === 'completion') continue;
-        await pool.query(`
-          UPDATE store SET value = jsonb_set(
-            value, $1, $2::jsonb, true
-          ) WHERE key = 'dist'
-        `, [
-          JSON.stringify([date, 'players', key, 'answers', 'q' + qIdx]),
-          correct ? 'true' : 'false'
-        ]);
+    answers.forEach(({ qIdx, correct }) => {
+      if (qIdx !== 'completion') {
+        data.dist[date].players[key].answers['q' + qIdx] = correct;
       }
-    }
-
-    // Prune dist entries older than 2 days
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - 2);
-    const cutoffStr = cutoff.toISOString().slice(0, 10);
-    await pool.query(`
-      UPDATE store SET value = (
-        SELECT COALESCE(jsonb_object_agg(k, v), '{}')
-        FROM jsonb_each(value) AS t(k, v)
-        WHERE k >= $1
-      ) WHERE key = 'dist'
-    `, [cutoffStr]);
-
-    res.json({ ok: true });
-  } catch(e) {
-    console.error('POST /api/answers error:', e.message);
-    res.status(500).json({ error: e.message });
+    });
   }
-});
 
+  // Prune entries older than 2 days
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 2);
+  Object.keys(data.dist).forEach(d => {
+    if (new Date(d) < cutoff) delete data.dist[d];
+  });
+
+  await writeData(data);
+  res.json({ ok: true });
+});
 // GET /api/answers?date=YYYY-MM-DD
 app.get('/api/answers', async (req, res) => {
   const { date } = req.query;
