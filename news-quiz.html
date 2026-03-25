@@ -1871,6 +1871,18 @@ async function saveProgressToServer(completedOverride = false) {
   }
 }
 
+let progressSaveChain = Promise.resolve();
+
+function queueProgressSave(completedOverride = false) {
+  progressSaveChain = progressSaveChain
+    .then(() => saveProgressToServer(completedOverride))
+    .catch(err => {
+      console.error('queueProgressSave error:', err);
+    });
+
+  return progressSaveChain;
+}
+
 // ─── Storage helpers (localStorage fallback) ───
 function lsGet(key) {
   try { return JSON.parse(localStorage.getItem(key)); } catch(e) { return null; }
@@ -2401,7 +2413,7 @@ function selectAnswer(idx) {
   }).catch(() => {});
 
   postAnswerDist(state.todayKey, state.currentQ, correct);
-   saveProgressToServer();
+  queueProgressSave();
   document.getElementById('live-score').textContent = state.sessionScore;
 
   // ── Visual feedback on correct answer ───────────────────────
