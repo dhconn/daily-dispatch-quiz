@@ -1883,6 +1883,54 @@ function queueProgressSave(completedOverride = false) {
   return progressSaveChain;
 }
 
+async function fetchSavedProgress(playerName, date) {
+  if (!playerName || !date) return null;
+
+  try {
+    const res = await fetch(
+      '/api/progress?date=' + encodeURIComponent(date) +
+      '&playerName=' + encodeURIComponent(playerName)
+    );
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      console.error('fetchSavedProgress failed:', res.status, text);
+      return null;
+    }
+
+    return await res.json();
+  } catch (e) {
+    console.error('fetchSavedProgress error:', e);
+    return null;
+  }
+}
+
+function applySavedProgress(saved) {
+  if (!saved) return false;
+
+  const answersObj = saved.answers || {};
+  const rebuiltAnswers = Object.keys(answersObj)
+    .sort((a, b) => parseInt(a.slice(1), 10) - parseInt(b.slice(1), 10))
+    .map(qKey => {
+      const qIdx = parseInt(qKey.slice(1), 10);
+      const a = answersObj[qKey];
+      return {
+        qIdx,
+        chosen: a.chosen,
+        correct: a.correct,
+        pts: a.pts
+      };
+    })
+    .filter(a => !Number.isNaN(a.qIdx));
+
+  state.sessionScore = typeof saved.score === 'number' ? saved.score : 0;
+  state.currentQ = typeof saved.currentQ === 'number' ? saved.currentQ : rebuiltAnswers.length;
+  state.answers = rebuiltAnswers;
+  state.phase = saved.completed ? 'done' : 'regular';
+
+  return true;
+}
+
 // ─── Storage helpers (localStorage fallback) ───
 function lsGet(key) {
   try { return JSON.parse(localStorage.getItem(key)); } catch(e) { return null; }
@@ -2252,17 +2300,43 @@ async function registerPlayer() {
     return;
   }
 
-  // Check if already played today
   const players = getPlayers();
   const pkey = name.toLowerCase().trim();
-  if (players[pkey] && players[pkey].dailyScores && players[pkey].dailyScores[state.todayKey] !== undefined) {
-    if (!confirm(`You already completed the ${state.todayKey} quiz (${players[pkey].dailyScores[state.todayKey]} pts). Play again? Your score won't be added twice.`)) {
+  const saved = await fetchSavedProgress(name, state.todayKey);
+
+  const localCompleted = !!(
+    players[pkey] &&
+    players[pkey].dailyScores &&
+    players[pkey].dailyScores[state.todayKey] !== undefined
+  );
+
+  const serverCompleted = !!(saved && saved.completed);
+
+  if (localCompleted || serverCompleted) {
+    const priorScore =
+      (saved && typeof saved.score === 'number' ? saved.score : null) ??
+      ((players[pkey] && players[pkey].dailyScores)
+        ? players[pkey].dailyScores[state.todayKey]
+        : null);
+
+    if (!confirm(`You already completed the ${state.todayKey} quiz${priorScore !== null ? ' (' + priorScore + ' pts)' : ''}. Play again? Your score won't be added twice.`)) {
       showLeaderboard();
       return;
     }
   }
 
-  startQuiz(quiz);
+  const resumed = !!(
+    saved &&
+    !saved.completed &&
+    saved.answers &&
+    Object.keys(saved.answers).length > 0
+  );
+
+  if (resumed) {
+    applySavedProgress(saved);
+  }
+
+  startQuiz(quiz, { resumed });
 }
 
 // ═══════════════════════════════════════════════════════
@@ -2304,25 +2378,38 @@ function applyConfidenceRamp(questions) {
   return [...ordered.slice(0, 5), bonus];
 }
 
-function startQuiz(quiz) {
+function startQuiz(quiz, options = {}) {
+  const { resumed = false } = options;
+
   quizQuestions = applyConfidenceRamp(quiz.questions);
 
-  // Record quiz start for completion rate tracking
-  if (!archiveMode) fetch('/api/quiz-start', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ date: state.todayKey })
-  }).catch(() => {});
-  state.currentQ = 0;
-  state.sessionScore = 0;
-  state.streak = 0;
-  state.answers = [];
-  state.phase = 'regular';
+  // Record quiz start for completion rate tracking only on a fresh start
+  if (!archiveMode && !resumed) {
+    fetch('/api/quiz-start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date: state.todayKey })
+    }).catch(() => {});
+  }
+
+  if (!resumed) {
+    state.currentQ = 0;
+    state.sessionScore = 0;
+    state.streak = 0;
+    state.answers = [];
+    state.phase = 'regular';
+  }
 
   document.getElementById('quiz-player-name').textContent = state.playerName;
-  document.getElementById('live-score').textContent = '0';
+  document.getElementById('live-score').textContent = String(state.sessionScore);
   buildProgressTrack(quizQuestions);
   showScreen('screen-quiz');
+
+  if (state.phase === 'done') {
+    finishQuiz();
+    return;
+  }
+
   renderQuestion();
 }
 
