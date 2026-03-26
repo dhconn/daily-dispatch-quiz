@@ -836,6 +836,8 @@ function buildEmailHtml(siteUrl, date, subscriberName, teaserHtml, unsubUrl) {
       <p style="font-size:16px;color:#444;margin:0 0 24px;">How closely are you following the news?</p>
       ${teaserHtml}
       <a href="${siteUrl}" style="display:inline-block;background:#1a1008;color:#f5f0e8;padding:16px 36px;font-family:monospace;font-size:13px;letter-spacing:2px;text-decoration:none;text-transform:uppercase;">Play Today's Quiz ▸</a>
+
+<!--SUBSCRIBE_INSERT_POINT-->
     </div>
     <div style="padding:16px 24px;text-align:center;font-size:11px;color:#999;font-family:monospace;border-top:1px solid #e0d8cc;">
       <a href="${unsubUrl}" style="color:#999;">Unsubscribe</a>
@@ -1005,21 +1007,8 @@ app.post('/api/quiz', async (req, res) => {
       return res.json({ ok: true });
     }
     if (freshData.emailPaused) {
-      console.log('Email notifications are globally paused — skipping subscriber emails.');
+      console.log('Email notifications are globally paused — skipping subscriber and prospect emails.');
     }
-    const subscribers = freshData.emailPaused ? [] : Object.values(freshData.subscribers || {}).filter(s => s.active);
-    if (subscribers.length > 0) {
-      console.log(`Email: Sending quiz notification to ${subscribers.length} subscribers…`);
-      let teaserHtml;
-      if (freshData.cachedTeaserHtml && freshData.cachedTeaserDate === date) {
-        console.log('[Email] Reusing cached teasers from preview for', date);
-        teaserHtml = freshData.cachedTeaserHtml;
-      } else {
-        console.log('[Email] No cached teasers found, generating fresh');
-        const teasers = await generateTeasers(quiz.questions || []);
-        teaserHtml = buildTeaserHtml(teasers);
-        console.log('Email teasers:', teasers.length ? teasers : 'none generated');
-      }
       const dow = new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' });
       const subjects = {
         Monday:    "Start off the week by climbing the Baltimore news Leaderboard",
@@ -1031,6 +1020,24 @@ app.post('/api/quiz', async (req, res) => {
         Sunday:    "It's Sunday - relax and play the (90-second) Balt. News Quiz"
       };
       const subject = subjects[dow] || `Today's Baltimore Daily Dispatch Quiz is live — ${date}`;
+
+      let teaserHtml;
+      if (freshData.cachedTeaserHtml && freshData.cachedTeaserDate === date) {
+        console.log('[Email] Reusing cached teasers from preview for', date);
+        teaserHtml = freshData.cachedTeaserHtml;
+      } else {
+        console.log('[Email] No cached teasers found, generating fresh');
+        const teasers = await generateTeasers(quiz.questions || []);
+        teaserHtml = buildTeaserHtml(teasers);
+        console.log('Email teasers:', teasers.length ? teasers : 'none generated');
+      }
+
+    let sentAnyEmails = false;
+
+    const subscribers = freshData.emailPaused ? [] : Object.values(freshData.subscribers || {}).filter(s => s.active);
+    if (subscribers.length > 0) {
+      console.log(`Email: Sending quiz notification to ${subscribers.length} subscribers…`);
+
       const emails = subscribers.map(sub => {
         const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(sub.email)}`;
         return {
@@ -1042,27 +1049,31 @@ app.post('/api/quiz', async (req, res) => {
         };
       });
       await sendEmailBatch(emails);
-
-      // Mark date as sent so re-publishes don't trigger another batch
-      freshData.emailSentDates = [...(freshData.emailSentDates || []), date].slice(-30);
-      await writeData(freshData);
+      sentAnyEmails = true;
     }
 
     // Send to prospects — same email + one-click subscribe button
-    const activeProspects = Object.values(freshData.prospects || {}).filter(p => p.active !== false);
-    if (activeProspects.length > 0 && !freshData.emailPaused) {
+    const activeProspects = freshData.emailPaused
+      ? []
+      : Object.values(freshData.prospects || {}).filter(p => p.active !== false);
+
+    if (activeProspects.length > 0) {
       console.log(`[Prospects] Sending quiz email to ${activeProspects.length} prospect(s)…`);
+
       const prospectEmails = activeProspects.map(p => {
         const subscribeUrl = `${siteUrl}/subscribe?email=${encodeURIComponent(p.email)}&name=${encodeURIComponent(p.name || '')}`;
         const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(p.email)}`;
-        const baseHtml = buildEmailHtml(siteUrl, date, p.name, teaserHtml || '', unsubUrl);
+        const baseHtml = buildEmailHtml(siteUrl, date, p.name, teaserHtml, unsubUrl);
+
         // Inject subscribe button before the unsubscribe footer
         const subscribeBtn = `
           <div style="padding:20px 24px;text-align:center;background:#f5f0e8;border-top:1px solid #e0d8cc;">
             <p style="font-family:monospace;font-size:11px;letter-spacing:1px;color:#6b5f4e;margin-bottom:12px;">GET THIS AUTOMATICALLY EVERY MORNING</p>
             <a href="${subscribeUrl}" style="display:inline-block;background:#c0392b;color:white;padding:12px 28px;font-family:monospace;font-size:12px;letter-spacing:2px;text-decoration:none;text-transform:uppercase;">Subscribe Free &#9658;</a>
           </div>`;
-        const html = baseHtml.replace('</div>', subscribeBtn + '</div>');
+
+        const html = baseHtml.replace('<!--SUBSCRIBE_INSERT_POINT-->', subscribeBtn);
+
         return {
           from: 'Editor @ Daily Dispatch Quiz <editor@dailydispatchquiz.com>',
           reply_to: 'dhconn@gmail.com',
@@ -1072,6 +1083,11 @@ app.post('/api/quiz', async (req, res) => {
         };
       });
       await sendEmailBatch(prospectEmails);
+      sentAnyEmails = true;
+    }
+    if (sentAnyEmails) {
+      freshData.emailSentDates = [...(freshData.emailSentDates || []), date].slice(-30);
+      await writeData(freshData);
     }
   } else {
     console.log('Silent save — email notifications skipped.');
