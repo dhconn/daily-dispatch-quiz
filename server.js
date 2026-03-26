@@ -8,7 +8,15 @@ const app = express();
 const PORT = process.env.PORT || 8080;
 
 app.use(express.json({ limit: '2mb' }));
-app.use(express.static(path.dirname(__filename)));
+app.use(express.static(path.dirname(__filename), {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+  }
+}));
 
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -59,7 +67,7 @@ async function setKey(key, value) {
 // All callers that used await readData()/await writeData() now use async versions below.
 async function readData() {
   const keys = ['sites','rssCache','scores','dist','quizzes','archiveUrls',
-                 'archiveQuestions','posts','messages','subscribers','emailPaused','emailPausedSnapshot','topicBlocklist','cachedTeaserHtml','cachedTeaserDate','emailSentDates'];
+                 'archiveQuestions','posts','messages','subscribers','emailPaused','emailPausedSnapshot','topicBlocklist','cachedTeaserHtml','cachedTeaserDate','emailSentDates','prospects'];
   const data = {};
   await Promise.all(keys.map(async k => {
     const v = await getKey(k);
@@ -70,7 +78,7 @@ async function readData() {
 
 async function writeData(data) {
   const keys = ['sites','rssCache','scores','dist','quizzes','archiveUrls',
-                 'archiveQuestions','posts','messages','subscribers','emailPaused','emailPausedSnapshot','topicBlocklist','cachedTeaserHtml','cachedTeaserDate','emailSentDates'];
+                 'archiveQuestions','posts','messages','subscribers','emailPaused','emailPausedSnapshot','topicBlocklist','cachedTeaserHtml','cachedTeaserDate','emailSentDates','prospects'];
   await Promise.all(keys.map(async k => {
     if (data[k] === null) await setKey(k, null);
     else if (data[k] !== undefined) await setKey(k, data[k]);
@@ -383,7 +391,7 @@ app.get('/', async (req, res) => {
 
 // ── Save/load news sites ──────────────────────────────────────
 app.post('/api/sites', async (req, res) => {
-  const { sites } = req.body;
+  const { sites } = req.body || {};
   if (typeof sites !== 'string') return res.status(400).json({ error: 'sites must be a string' });
   const data = await readData();
   data.sites = sites;
@@ -396,10 +404,9 @@ app.get('/api/sites', async (req, res) => {
   res.json({ sites: data.sites || '' });
 });
 
-// ── Answer distribution aggregation ──────────────────────────
-// POST /api/answers  { date, answers: [{qIdx, correct}], playerName? }
+// ── Answer distribution ──────────────────────────────────────
 app.post('/api/answers', async (req, res) => {
-  const { date, answers, playerName } = req.body;
+  const { date, answers, playerName } = req.body || {};
   if (!date || !Array.isArray(answers)) return res.status(400).json({ error: 'bad request' });
   const data = await readData();
   if (!data.dist) data.dist = {};
@@ -426,7 +433,6 @@ app.post('/api/answers', async (req, res) => {
     });
   }
 
-  // Prune entries older than 2 days
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - 2);
   Object.keys(data.dist).forEach(d => {
@@ -436,6 +442,7 @@ app.post('/api/answers', async (req, res) => {
   await writeData(data);
   res.json({ ok: true });
 });
+
 // GET /api/answers?date=YYYY-MM-DD
 app.get('/api/answers', async (req, res) => {
   const { date } = req.query;
@@ -448,7 +455,7 @@ app.get('/api/answers', async (req, res) => {
 // Records when a player starts the quiz — used for completion rate.
 // POST /api/quiz-start  { date }
 app.post('/api/quiz-start', async (req, res) => {
-  const { date } = req.body;
+  const { date } = req.body || {};
   if (!date) return res.status(400).json({ error: 'date required' });
   const starts = (await getKey('quizStarts')) || {};
   starts[date] = (starts[date] || 0) + 1;
@@ -468,7 +475,7 @@ app.get('/api/quiz-starts', async (req, res) => {
 // Fetches full article text for a given URL, stripping HTML tags.
 // Used to give Claude full article content instead of just RSS snippets.
 app.post('/api/fetch-article', async (req, res) => {
-  const { url } = req.body;
+  const { url } = req.body  || {};
   if (!url) return res.status(400).json({ error: 'url required' });
 
   try {
@@ -518,7 +525,7 @@ app.post('/api/fetch-article', async (req, res) => {
 // Stored as progress = { [date]: { [playerKey]: { displayName, score, currentQ, completed, answers, startedAt, updatedAt } } }
 
 app.post('/api/progress', async (req, res) => {
-  const { playerName, date, progress } = req.body;
+  const { playerName, date, progress } = req.body || {};
 
   if (!playerName || !date || !progress || typeof progress !== 'object') {
     return res.status(400).json({ error: 'playerName, date, and progress required' });
@@ -572,21 +579,64 @@ app.get('/api/progress', async (req, res) => {
 // Scores stored as data.scores = { playerKey: { displayName, allTime, dailyScores: {date: score} } }
 
 app.post('/api/scores', async (req, res) => {
-  const { playerName, date, score } = req.body;
+  const { playerName, date, score } = req.body  || {};
+
+  // 🔍 Log incoming request
+  console.log('[scores] incoming', {
+    playerName,
+    date,
+    score,
+    ts: new Date().toISOString()
+  });
+
   if (!playerName || !date || typeof score !== 'number') {
+    console.error('[scores] bad request', req.body);
     return res.status(400).json({ error: 'playerName, date, and score required' });
   }
-  const data = await readData();
-  if (!data.scores) data.scores = {};
-  const key = playerName.toLowerCase().trim();
-  if (!data.scores[key]) {
-    data.scores[key] = { displayName: playerName.trim(), allTime: 0, dailyScores: {} };
+
+  try {
+    const data = await readData();
+    if (!data.scores) data.scores = {};
+
+    const key = playerName.toLowerCase().trim();
+
+    if (!data.scores[key]) {
+      data.scores[key] = {
+        displayName: playerName.trim(),
+        allTime: 0,
+        dailyScores: {}
+      };
+    }
+
+    // 🔍 Log overwrite behavior
+    const prev = data.scores[key].dailyScores[date];
+
+    // Always overwrite with latest score
+    data.scores[key].dailyScores[date] = score;
+
+    // Recompute all-time
+    data.scores[key].allTime = Object.values(
+      data.scores[key].dailyScores
+    ).reduce((a, b) => a + b, 0);
+
+    await writeData(data);
+
+    // 🔍 Log success
+    console.log('[scores] saved', {
+      playerKey: key,
+      displayName: data.scores[key].displayName,
+      date,
+      previousScore: prev,
+      newScore: score,
+      allTime: data.scores[key].allTime
+    });
+
+    res.json({ ok: true });
+
+  } catch (e) {
+    console.error('[scores] error', e.message);
+    res.status(500).json({ error: e.message });
   }
-  // Always overwrite with latest score — covers partial plays and mid-quiz abandons
-  data.scores[key].dailyScores[date] = score;
-  data.scores[key].allTime = Object.values(data.scores[key].dailyScores).reduce((a,b) => a+b, 0);
-  await writeData(data);
-  res.json({ ok: true });
 });
 
 // ── DELETE /api/scores/:playerKey — admin delete a player ────
@@ -997,6 +1047,32 @@ app.post('/api/quiz', async (req, res) => {
       freshData.emailSentDates = [...(freshData.emailSentDates || []), date].slice(-30);
       await writeData(freshData);
     }
+
+    // Send to prospects — same email + one-click subscribe button
+    const activeProspects = Object.values(freshData.prospects || {}).filter(p => p.active !== false);
+    if (activeProspects.length > 0 && !freshData.emailPaused) {
+      console.log(`[Prospects] Sending quiz email to ${activeProspects.length} prospect(s)…`);
+      const prospectEmails = activeProspects.map(p => {
+        const subscribeUrl = `${siteUrl}/subscribe?email=${encodeURIComponent(p.email)}&name=${encodeURIComponent(p.name || '')}`;
+        const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(p.email)}`;
+        const baseHtml = buildEmailHtml(siteUrl, date, p.name, teaserHtml || '', unsubUrl);
+        // Inject subscribe button before the unsubscribe footer
+        const subscribeBtn = `
+          <div style="padding:20px 24px;text-align:center;background:#f5f0e8;border-top:1px solid #e0d8cc;">
+            <p style="font-family:monospace;font-size:11px;letter-spacing:1px;color:#6b5f4e;margin-bottom:12px;">GET THIS AUTOMATICALLY EVERY MORNING</p>
+            <a href="${subscribeUrl}" style="display:inline-block;background:#c0392b;color:white;padding:12px 28px;font-family:monospace;font-size:12px;letter-spacing:2px;text-decoration:none;text-transform:uppercase;">Subscribe Free &#9658;</a>
+          </div>`;
+        const html = baseHtml.replace('</div>', subscribeBtn + '</div>');
+        return {
+          from: 'Editor @ Daily Dispatch Quiz <editor@dailydispatchquiz.com>',
+          reply_to: 'dhconn@gmail.com',
+          to: [p.email],
+          subject,
+          html
+        };
+      });
+      await sendEmailBatch(prospectEmails);
+    }
   } else {
     console.log('Silent save — email notifications skipped.');
   }
@@ -1059,122 +1135,6 @@ app.post('/api/claude', async (req, res) => {
   proxyReq.end();
 });
 
-// ── Streak calculation ────────────────────────────────────────
-// Returns how many consecutive days ending yesterday a player has played
-function calcStreak(dailyScores) {
-  const today = easternToday();
-  let streak = 0;
-  let check = new Date(today + 'T12:00:00');
-  check.setDate(check.getDate() - 1); // start from yesterday
-  while (true) {
-    const d = check.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
-    if (dailyScores[d] !== undefined) {
-      streak++;
-      check.setDate(check.getDate() - 1);
-    } else {
-      break;
-    }
-  }
-  return streak;
-}
-
-// ── Streak nudge emails ───────────────────────────────────────
-async function sendStreakNudges() {
-  const today = easternToday();
-  const data = await readData();
-
-  // Only send if a quiz has been published today
-  if (!data.quizzes || !data.quizzes[today]) {
-    console.log('[StreakNudge] No quiz published today — skipping.');
-    return;
-  }
-
-  const subscribers = data.subscribers || {};
-  const scores = data.scores || {};
-  const siteUrl = process.env.SITE_URL || 'https://dailydispatchquiz.com';
-
-  const nudgeTargets = [];
-
-  for (const sub of Object.values(subscribers)) {
-    if (!sub.active || !sub.email) continue;
-
-    // Find this subscriber's score record via playerKey link or name match
-    const playerKey = sub.playerKey ||
-      Object.keys(scores).find(k =>
-        sub.name && k === sub.name.toLowerCase().trim()
-      );
-    if (!playerKey || !scores[playerKey]) continue;
-
-    const { dailyScores, displayName } = scores[playerKey];
-
-    // Skip if they've already played today
-    if (dailyScores[today] !== undefined) continue;
-
-    // Calculate streak (consecutive days up to yesterday)
-    const streak = calcStreak(dailyScores);
-    if (streak < 3) continue;
-
-    nudgeTargets.push({ email: sub.email, name: sub.name || displayName, streak });
-  }
-
-  if (nudgeTargets.length === 0) {
-    console.log('[StreakNudge] No eligible players to nudge today.');
-    return;
-  }
-
-  console.log(`[StreakNudge] Sending nudges to ${nudgeTargets.length} players…`);
-
-  const emails = nudgeTargets.map(({ email, name, streak }) => {
-    const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(email)}`;
-    const subject = `Your ${streak}-day streak is on the line`;
-    const html = `
-      <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1008;">
-        <div style="background:#1a1008;color:#f5f0e8;text-align:center;padding:24px;">
-          <div style="font-family:monospace;font-size:11px;letter-spacing:3px;color:#f0c040;margin-bottom:6px;">BALTIMORE · DAILY DISPATCH</div>
-          <div style="font-size:28px;font-weight:bold;">The Daily Dispatch Quiz</div>
-        </div>
-        <div style="padding:32px 24px;background:#f5f0e8;text-align:center;">
-          <div style="font-size:48px;margin-bottom:8px;">🔥</div>
-          <p style="font-size:20px;font-weight:bold;margin:0 0 8px;">
-            ${streak} days in a row${name ? ', ' + name : ''}.
-          </p>
-          <p style="font-size:15px;color:#6b5f4e;margin:0 0 24px;line-height:1.6;">
-            You've answered Baltimore news questions ${streak} days straight.<br>
-            Today's quiz is waiting — don't break the streak now.
-          </p>
-          <a href="${siteUrl}" style="display:inline-block;background:#1a1008;color:#f5f0e8;padding:16px 36px;font-family:monospace;font-size:13px;letter-spacing:2px;text-decoration:none;text-transform:uppercase;">Play Today's Quiz ▸</a>
-        </div>
-        <div style="padding:16px 24px;text-align:center;font-size:11px;color:#999;font-family:monospace;border-top:1px solid #e0d8cc;">
-          <a href="${unsubUrl}" style="color:#999;">Unsubscribe</a>
-        </div>
-      </div>`;
-    return {
-      from: 'Editor @ Daily Dispatch Quiz <editor@dailydispatchquiz.com>',
-      to: [email], subject, html
-    };
-  });
-
-  await sendEmailBatch(emails);
-  console.log(`[StreakNudge] Done — nudged ${emails.length} players.`);
-}
-
-// ── Schedule streak nudges at 7pm Eastern daily ───────────────
-function scheduleStreakNudge() {
-  const now = new Date();
-  const next = new Date();
-  // 7pm Eastern = midnight UTC (EST) or 11pm UTC (EDT)
-  const utcHour = 0; // midnight UTC = 7pm EST
-  next.setUTCHours(utcHour, 0, 0, 0);
-  if (next <= now) next.setUTCDate(next.getUTCDate() + 1);
-  const msUntil = next - now;
-  console.log(`[StreakNudge] Next nudge run in ${Math.round(msUntil/60000)} minutes (7pm Eastern).`);
-  setTimeout(() => {
-    sendStreakNudges();
-    scheduleStreakNudge();
-  }, msUntil);
-}
-scheduleStreakNudge();
-
 // ── Start ─────────────────────────────────────────────────────
 initDb().then(() => {
   app.listen(PORT, () => {
@@ -1188,6 +1148,7 @@ initDb().then(() => {
   // Fetch RSS after DB is ready
   setTimeout(fetchAndCacheRSS, 5000);
   scheduleNextRefresh();
+  scheduleStreakNudge();
 }).catch(err => {
   console.error('DB init failed:', err.message);
   process.exit(1);
@@ -1308,6 +1269,229 @@ app.post('/api/admin/message/bulk', async (req, res) => {
   console.log(`[Admin] Bulk message sent to ${emails.length} recipient(s): "${subject}"`);
   res.json({ ok: true, message: `Sent to ${emails.length} recipient${emails.length !== 1 ? 's' : ''}` });
 });
+
+
+// ── GET /subscribe — one-click subscribe from email link ─────
+// Usage: /subscribe?email=jane@example.com&name=Jane
+app.get('/subscribe', async (req, res) => {
+  const email = (req.query.email || '').toLowerCase().trim();
+  const name  = (req.query.name  || '').trim().slice(0, 40);
+  const siteUrl = process.env.SITE_URL || 'https://dailydispatchquiz.com';
+
+  if (!email || !email.includes('@')) return res.status(400).send('Invalid email address.');
+
+  try {
+    const data = await readData();
+    if (!data.subscribers) data.subscribers = {};
+    const wasAlready = data.subscribers[email]?.active === true;
+    data.subscribers[email] = {
+      name,
+      email,
+      subscribedAt: data.subscribers[email]?.subscribedAt || new Date().toISOString(),
+      active: true
+    };
+    // Remove from prospects if present
+    if (data.prospects) {
+      const pk = email.toLowerCase().trim();
+      if (data.prospects[pk]) data.prospects[pk].active = false;
+    }
+    await writeData(data);
+    console.log(`[Subscribe] ${name} <${email}> subscribed via one-click link`);
+
+    const headline = wasAlready ? `You're already subscribed${name ? ', ' + name : ''}!` : `You're subscribed${name ? ', ' + name : ''}!`;
+    const subline  = wasAlready ? `You'll continue to receive The Daily Dispatch Quiz every morning.` : `You'll receive The Daily Dispatch Quiz in your inbox every morning, starting tomorrow.`;
+
+    res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Subscribed — The Daily Dispatch Quiz</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Source+Serif+4:wght@300;400;600&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Source Serif 4',serif;background:#f5f0e8;color:#1a1008;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px}
+    .card{background:white;border:1px solid #2c1f0e;max-width:480px;width:100%;text-align:center}
+    .card-header{background:#1a1008;color:#f5f0e8;padding:24px}
+    .eyebrow{font-family:'Courier Prime',monospace;font-size:11px;letter-spacing:3px;color:#f0c040;margin-bottom:6px}
+    .card-header h1{font-family:'Playfair Display',serif;font-size:26px;font-weight:900}
+    .card-body{padding:36px 32px}
+    .checkmark{font-size:52px;margin-bottom:16px}
+    .card-body h2{font-family:'Playfair Display',serif;font-size:24px;font-weight:700;margin-bottom:12px}
+    .card-body p{font-size:15px;color:#6b5f4e;line-height:1.7;margin-bottom:28px}
+    .play-btn{display:inline-block;background:#1a1008;color:#f5f0e8;padding:14px 32px;font-family:'Courier Prime',monospace;font-size:12px;letter-spacing:2px;text-transform:uppercase;text-decoration:none}
+    .card-footer{padding:16px;border-top:1px solid #ede8da;font-family:'Courier Prime',monospace;font-size:11px;color:#aaa}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="card-header">
+      <div class="eyebrow">BALTIMORE &middot; DAILY DISPATCH</div>
+      <h1>The Daily Dispatch Quiz</h1>
+    </div>
+    <div class="card-body">
+      <div class="checkmark">&#10003;</div>
+      <h2>${headline}</h2>
+      <p>${subline}</p>
+      <a href="${siteUrl}" class="play-btn">Play Today&#39;s Quiz &#9658;</a>
+    </div>
+    <div class="card-footer">dailydispatchquiz.com</div>
+  </div>
+</body>
+</html>`);
+  } catch(e) {
+    console.error('[Subscribe] Error:', e.message);
+    res.status(500).send('Something went wrong. Please try again.');
+  }
+});
+
+// ── Prospects ─────────────────────────────────────────────────
+// Stored as data.prospects = { email: { name, email, addedAt, active } }
+
+app.get('/api/prospects', async (req, res) => {
+  const data = await readData();
+  const prospects = Object.values(data.prospects || {})
+    .filter(p => p.active !== false)
+    .sort((a, b) => new Date(b.addedAt) - new Date(a.addedAt));
+  res.json({ prospects });
+});
+
+app.post('/api/prospects', async (req, res) => {
+  const { prospects } = req.body;
+  if (!Array.isArray(prospects)) return res.status(400).json({ error: 'prospects array required' });
+  const data = await readData();
+  if (!data.prospects) data.prospects = {};
+  if (!data.subscribers) data.subscribers = {};
+  let added = 0, existing = 0;
+  for (const { name, email } of prospects) {
+    if (!email || !email.includes('@')) continue;
+    const key = email.toLowerCase().trim();
+    // Skip if already an active subscriber
+    if (data.subscribers[key]?.active) { existing++; continue; }
+    if (data.prospects[key] && data.prospects[key].active !== false) { existing++; continue; }
+    data.prospects[key] = {
+      name: (name || '').trim().slice(0, 40),
+      email: key,
+      addedAt: new Date().toISOString(),
+      active: true
+    };
+    added++;
+  }
+  await writeData(data);
+  console.log(`[Prospects] Imported ${added} new, ${existing} existing`);
+  res.json({ ok: true, added, existing });
+});
+
+app.delete('/api/prospects/:email', async (req, res) => {
+  const email = decodeURIComponent(req.params.email).toLowerCase().trim();
+  const data = await readData();
+  if (data.prospects && data.prospects[email]) {
+    data.prospects[email].active = false;
+    await writeData(data);
+  }
+  res.json({ ok: true });
+});
+
+app.delete('/api/prospects', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  const data = await readData();
+  data.prospects = {};
+  await writeData(data);
+  res.json({ ok: true });
+});
+
+// ── Streak calculation ────────────────────────────────────────
+function calcStreak(dailyScores) {
+  let streak = 0;
+  const check = new Date();
+  check.setDate(check.getDate() - 1);
+  while (true) {
+    const d = check.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+    if (dailyScores[d] !== undefined) { streak++; check.setDate(check.getDate() - 1); }
+    else break;
+  }
+  return streak;
+}
+
+// ── Streak nudge emails — 7pm Eastern daily ───────────────────
+async function sendStreakNudges() {
+  const today = easternToday();
+  const data = await readData();
+  if (!data.quizzes || !data.quizzes[today]) { console.log('[StreakNudge] No quiz today — skipping.'); return; }
+  if (data.emailPaused) { console.log('[StreakNudge] Emails paused — skipping.'); return; }
+  const subscribers = data.subscribers || {};
+  const scores = data.scores || {};
+  const siteUrl = process.env.SITE_URL || 'https://dailydispatchquiz.com';
+  const nudgeTargets = [];
+  for (const sub of Object.values(subscribers)) {
+    if (!sub.active || !sub.email) continue;
+    const playerKey = sub.playerKey || Object.keys(scores).find(k => sub.name && k === sub.name.toLowerCase().trim());
+    if (!playerKey || !scores[playerKey]) continue;
+    const { dailyScores, displayName } = scores[playerKey];
+    if (dailyScores[today] !== undefined) continue;
+    const streak = calcStreak(dailyScores);
+    if (streak < 3) continue;
+    nudgeTargets.push({ email: sub.email, name: sub.name || displayName, streak });
+  }
+  if (!nudgeTargets.length) { console.log('[StreakNudge] No eligible players.'); return; }
+  console.log(`[StreakNudge] Sending nudges to ${nudgeTargets.length} player(s)...`);
+  const emails = nudgeTargets.map(({ email, name, streak }) => {
+    const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(email)}`;
+    return {
+      from: 'Editor @ Daily Dispatch Quiz <editor@dailydispatchquiz.com>',
+      reply_to: 'dhconn@gmail.com',
+      to: [email],
+      subject: `Your ${streak}-day streak is on the line`,
+      html: `
+      <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1008;">
+        <a href="${siteUrl}" style="display:block;text-decoration:none;color:inherit;">
+          <div style="background:#1a1008;color:#f5f0e8;text-align:center;padding:24px;">
+            <div style="font-family:monospace;font-size:11px;letter-spacing:3px;color:#f0c040;margin-bottom:6px;">BALTIMORE · DAILY DISPATCH</div>
+            <div style="font-size:28px;font-weight:bold;">The Daily Dispatch Quiz</div>
+          </div>
+        </a>
+        <div style="padding:32px 24px;background:#f5f0e8;text-align:center;">
+          <div style="font-size:52px;margin-bottom:12px;">🔥</div>
+          <p style="font-size:22px;font-weight:bold;margin:0 0 10px;font-family:Georgia,serif;">
+            ${streak} days in a row${name ? ', ' + name : ''}.
+          </p>
+          <p style="font-size:15px;color:#6b5f4e;margin:0 0 28px;line-height:1.7;">
+            You've answered Baltimore news questions ${streak} days straight.<br>
+            Today's quiz is waiting — don't break the streak now.
+          </p>
+          <a href="${siteUrl}" style="display:inline-block;background:#1a1008;color:#f5f0e8;padding:16px 36px;font-family:monospace;font-size:13px;letter-spacing:2px;text-decoration:none;text-transform:uppercase;">Play Today's Quiz ▸</a>
+        </div>
+        <div style="padding:16px 24px;text-align:center;font-size:11px;color:#999;font-family:monospace;border-top:1px solid #e0d8cc;">
+          You're receiving this because you're on a streak. <a href="${unsubUrl}" style="color:#999;">Unsubscribe</a>
+        </div>
+      </div>`
+    };
+  });
+  await sendEmailBatch(emails);
+  console.log(`[StreakNudge] Done — nudged ${emails.length} player(s).`);
+}
+
+function scheduleStreakNudge() {
+  const now = new Date();
+  const next = new Date();
+  // Calculate next 7pm Eastern — accounts for EST/EDT automatically
+  const eastern = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+  next.setTime(now.getTime());
+  // Find the UTC time that corresponds to 7pm Eastern today
+  const easternOffset = (now.getTime() - eastern.getTime()); // ms offset
+  const target = new Date(now);
+  target.setHours(0, 0, 0, 0);
+  target.setTime(target.getTime() + easternOffset + (19 * 60 * 60 * 1000)); // 19:00 Eastern
+  if (target <= now) target.setDate(target.getDate() + 1);
+  const msUntil = target - now;
+  console.log(`[StreakNudge] Next nudge run in ${Math.round(msUntil / 60000)} minutes (7pm Eastern).`);
+  setTimeout(() => {
+    sendStreakNudges();
+    scheduleStreakNudge();
+  }, msUntil);
+}
 
 // ── Message board ─────────────────────────────────────────────
 // Posts stored as data.posts = [{ id, playerName, text, createdAt, deleted }]
