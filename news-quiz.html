@@ -5310,7 +5310,25 @@ async function loadAdminStats() {
     const progressRes = await fetch('/api/progress?date=' + today);
     const progress = progressRes.ok ? await progressRes.json() : {};
 
-    const players = Object.values(progress || {});
+    const adminToken = lsGet('dnq_admin_token') || 'admin';
+
+    let excludedMap = {};
+    try {
+      const exclRes = await fetch('/api/admin/stats-exclusions?date=' + today, {
+        headers: { 'x-admin-token': adminToken }
+      });
+      if (exclRes.ok) {
+        const exclData = await exclRes.json();
+        excludedMap = exclData.excluded || {};
+      }
+} catch (e) {}
+
+const filteredProgress = Object.fromEntries(
+  Object.entries(progress || {}).filter(([playerKey]) => !excludedMap[playerKey])
+);
+
+const players = Object.values(filteredProgress);
+
     const starts = players.length;
     const completions = players.filter(p => p.completed === true).length;
     const bonusAttempts = players.filter(p => p.answers && p.answers.q5 !== undefined).length;
@@ -5383,7 +5401,7 @@ async function loadAdminStats() {
     } catch (e) {}
 
     const gridData = [
-      [today, progress || {}],
+      [today, filteredProgress || {}],
       [yesterday, yesterdayProgress || {}]
     ];
 
@@ -5419,12 +5437,36 @@ async function loadAdminStats() {
           const completedColor = p.completed ? 'var(--green)' : 'var(--muted)';
           const scoreVal = typeof p.score === 'number' ? p.score : '—';
 
-          rowsHtml += `<tr>
-            <td style="padding:4px 8px 4px 0;font-weight:600;">${escHtml(displayName)}</td>
-            ${qCells}
-            <td style="padding:4px 8px;text-align:center;color:${completedColor};font-family:monospace;">${completedCell}</td>
-            <td style="padding:4px 0 4px 8px;text-align:right;font-family:monospace;">${scoreVal}</td>
-          </tr>`;
+    const isTodayStats = dateLabel === today;
+    const isExcluded = !!excludedMap[playerKey];
+
+    const adminCell = isTodayStats
+      ? `<td style="padding:4px 0 4px 8px;text-align:right;">
+        <button
+          onclick='toggleStatsExclusion(${JSON.stringify(playerKey)}, ${isExcluded ? "false" : "true"})'
+            style="
+            font-family:monospace;
+            font-size:11px;
+            padding:2px 8px;
+            background:none;
+            border:1px solid ${isExcluded ? 'var(--green)' : 'var(--red)'};
+            color:${isExcluded ? 'var(--green)' : 'var(--red)'};
+            cursor:pointer;
+            border-radius:2px;
+          "
+        >
+            ${isExcluded ? 'Restore' : 'Hide'}
+        </button>
+      </td>`
+    : '';
+
+    rowsHtml += `<tr>
+      <td style="padding:4px 8px 4px 0;font-weight:600;">${escHtml(displayName)}</td>
+      ${qCells}
+      <td style="padding:4px 8px;text-align:center;color:${completedColor};font-family:monospace;">${completedCell}</td>
+      <td style="padding:4px 0 4px 8px;text-align:right;font-family:monospace;">${scoreVal}</td>
+      ${adminCell}
+    </tr>`;
         });
 
       playerGridHtml += `
@@ -5445,6 +5487,7 @@ async function loadAdminStats() {
                   <th style="padding:4px 8px;">B</th>
                   <th style="padding:4px 8px;">Done</th>
                   <th style="text-align:right;padding:4px 0 4px 8px;">Score</th>
+                  ${dateLabel === today ? '<th style="text-align:right;padding:4px 0 4px 8px;">Admin</th>' : ''}
                 </tr>
               </thead>
               <tbody>
@@ -5502,6 +5545,38 @@ async function toggleSubscriber(email, active) {
     loadSubscribers(); // Refresh the list
   } catch(e) {
     alert('Could not update subscriber: ' + e.message);
+  }
+}
+
+async function toggleStatsExclusion(playerKey, excluded) {
+  const actionWord = excluded ? 'hide' : 'restore';
+  if (!confirm(`Are you sure you want to ${actionWord} "${playerKey}" ${excluded ? 'from' : 'in'} today’s stats?`)) {
+    return;
+  }
+
+  try {
+    const adminToken = lsGet('dnq_admin_token') || 'admin';
+    const res = await fetch('/api/admin/stats-exclusions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-token': adminToken
+      },
+      body: JSON.stringify({
+        date: todayStr(),
+        playerKey,
+        excluded
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok || !data.ok) {
+      throw new Error(data.error || 'Update failed');
+    }
+
+    await loadAdminStats();
+  } catch (e) {
+    alert('Stats exclusion update failed: ' + e.message);
   }
 }
 
