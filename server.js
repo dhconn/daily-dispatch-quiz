@@ -702,6 +702,9 @@ app.post('/api/subscribe', async (req, res) => {
     subscribedAt: data.subscribers[key]?.subscribedAt || new Date().toISOString(),
     active: true
   };
+  if (data.prospects && data.prospects[key]) {
+  data.prospects[key].active = false;
+  }
   await writeData(data);
   res.json({ ok: true });
 });
@@ -1059,6 +1062,7 @@ app.post('/api/quiz', async (req, res) => {
 
     if (activeProspects.length > 0) {
       console.log(`[Prospects] Sending quiz email to ${activeProspects.length} prospect(s)…`);
+      console.log('[Prospects DEBUG] activeProspects:', activeProspects.length);
 
       const prospectEmails = activeProspects.map(p => {
         const subscribeUrl = `${siteUrl}/subscribe?email=${encodeURIComponent(p.email)}&name=${encodeURIComponent(p.name || '')}`;
