@@ -5320,6 +5320,9 @@ async function loadAdminStats() {
       if (exclRes.ok) {
         const exclData = await exclRes.json();
         excludedMap = exclData.excluded || {};
+
+            // Build a list of hidden players for today
+       const hiddenPlayers = Object.keys(excludedMap || {});
       }
 } catch (e) {}
 
@@ -5497,7 +5500,68 @@ const players = Object.values(filteredProgress);
           </div>
         </div>
       `;
-    });
+
+    if (dateLabel === today && hiddenPlayers.length) {
+      playerGridHtml += `
+        <div style="
+          margin-top:12px;
+          padding:12px 14px;
+          border:1px solid var(--rule);
+          background:rgba(0,0,0,0.03);
+          border-radius:8px;
+          box-shadow:0 1px 2px rgba(0,0,0,0.04);
+      ">
+        <div style="
+           font-family:monospace;
+                 font-size:12px;
+                 letter-spacing:1px;
+                 color:var(--muted);
+                 margin-bottom:8px;
+      ">
+        HIDDEN FROM TODAY'S STATS
+              </div>
+              <div style="
+                font-size:12px;
+                color:var(--muted);
+                margin-bottom:8px;
+                line-height:1.4;
+      ">
+        These players are excluded from today’s engagement and breakdown stats.
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        ${hiddenPlayers.map((pk, idx) => `
+        <div style="
+         display:flex;
+         justify-content:space-between;
+          align-items:center;
+          gap:12px;
+         padding:6px 0;
+          ${idx > 0 ? 'border-top:1px solid rgba(0,0,0,0.06);' : ''}
+    ">
+    <span style="font-family:monospace;font-size:12px;">${escHtml(pk)}</span>
+    <button
+        onclick='toggleStatsExclusion(${JSON.stringify(pk)}, false)'
+         style="
+        font-family:monospace;
+        font-size:11px;
+        padding:3px 9px;
+        background:none;
+        border:1px solid var(--green);
+        color:var(--green);
+        cursor:pointer;
+        border-radius:999px;
+        white-space:nowrap;
+      "
+        >
+          Restore
+        </button>
+      </div>
+  `).join('')}      </div>
+  </div>
+   `;
+  }
+});
 
     el.innerHTML = `
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:16px;">
