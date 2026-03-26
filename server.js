@@ -67,7 +67,7 @@ async function setKey(key, value) {
 // All callers that used await readData()/await writeData() now use async versions below.
 async function readData() {
   const keys = ['sites','rssCache','scores','dist','quizzes','archiveUrls',
-                 'archiveQuestions','posts','messages','subscribers','emailPaused','emailPausedSnapshot','topicBlocklist','cachedTeaserHtml','cachedTeaserDate','emailSentDates','prospects'];
+                 'archiveQuestions','archiveSlugs','posts','messages','subscribers','emailPaused','emailPausedSnapshot','topicBlocklist','cachedTeaserHtml','cachedTeaserDate','emailSentDates','prospects','statsExclusions'];
   const data = {};
   await Promise.all(keys.map(async k => {
     const v = await getKey(k);
@@ -78,7 +78,7 @@ async function readData() {
 
 async function writeData(data) {
   const keys = ['sites','rssCache','scores','dist','quizzes','archiveUrls',
-                 'archiveQuestions','posts','messages','subscribers','emailPaused','emailPausedSnapshot','topicBlocklist','cachedTeaserHtml','cachedTeaserDate','emailSentDates','prospects'];
+                 'archiveQuestions','archiveSlugs','posts','messages','subscribers','emailPaused','emailPausedSnapshot','topicBlocklist','cachedTeaserHtml','cachedTeaserDate','emailSentDates','prospects','statsExclusions'];
   await Promise.all(keys.map(async k => {
     if (data[k] === null) await setKey(k, null);
     else if (data[k] !== undefined) await setKey(k, data[k]);
@@ -447,8 +447,36 @@ app.post('/api/answers', async (req, res) => {
 app.get('/api/answers', async (req, res) => {
   const { date } = req.query;
   if (!date) return res.status(400).json({ error: 'date required' });
+
   const data = await readData();
-  res.json((data.dist && data.dist[date]) || {});
+  const distForDate = (data.dist && data.dist[date]) || {};
+  const excludedMap = (data.statsExclusions && data.statsExclusions[date]) || {};
+  const players = distForDate.players || {};
+
+  // If there are no per-player answers stored, fall back to the raw distribution
+  if (!Object.keys(players).length) {
+    return res.json(distForDate);
+  }
+
+  const rebuilt = {};
+
+  for (const [playerKey, playerData] of Object.entries(players)) {
+    if (excludedMap[playerKey]) continue;
+
+    const answers = (playerData && playerData.answers) || {};
+    for (const [qKey, wasCorrect] of Object.entries(answers)) {
+      if (!rebuilt[qKey]) rebuilt[qKey] = { correct: 0, wrong: 0 };
+      if (wasCorrect) rebuilt[qKey].correct++;
+      else rebuilt[qKey].wrong++;
+    }
+  }
+
+  // Keep filtered players in the payload too, since admin screens may still inspect them
+  rebuilt.players = Object.fromEntries(
+    Object.entries(players).filter(([playerKey]) => !excludedMap[playerKey])
+  );
+
+  res.json(rebuilt);
 });
 
 // ── Quiz start tracking ───────────────────────────────────────
@@ -658,6 +686,60 @@ app.get('/api/scores', async (req, res) => {
   res.json({ scores: data.scores || {} });
 });
 
+// ── Admin stats exclusions ────────────────────────────────────
+
+app.get('/api/admin/stats-exclusions', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  const { date } = req.query;
+  if (!date) return res.status(400).json({ error: 'date required' });
+
+  try {
+    const data = await readData();
+    const all = data.statsExclusions || {};
+    res.json({ date, excluded: all[date] || {} });
+  } catch (e) {
+    console.error('[stats-exclusions] GET error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/admin/stats-exclusions', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  const { date, playerKey, excluded } = req.body || {};
+  if (!date || !playerKey || typeof excluded !== 'boolean') {
+    return res.status(400).json({ error: 'date, playerKey, and excluded required' });
+  }
+
+  try {
+    const key = playerKey.toLowerCase().trim();
+    const data = await readData();
+
+    if (!data.statsExclusions) data.statsExclusions = {};
+    if (!data.statsExclusions[date]) data.statsExclusions[date] = {};
+
+    if (excluded) data.statsExclusions[date][key] = true;
+    else delete data.statsExclusions[date][key];
+
+    if (Object.keys(data.statsExclusions[date]).length === 0) {
+      delete data.statsExclusions[date];
+    }
+
+    await writeData(data);
+    res.json({ ok: true, date, playerKey: key, excluded });
+  } catch (e) {
+    console.error('[stats-exclusions] POST error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── Archive (used article URLs + question text) ───────────────
 app.get('/api/archive', async (req, res) => {
   const data = await readData();
@@ -702,9 +784,6 @@ app.post('/api/subscribe', async (req, res) => {
     subscribedAt: data.subscribers[key]?.subscribedAt || new Date().toISOString(),
     active: true
   };
-  if (data.prospects && data.prospects[key]) {
-  data.prospects[key].active = false;
-  }
   await writeData(data);
   res.json({ ok: true });
 });
@@ -1062,7 +1141,6 @@ app.post('/api/quiz', async (req, res) => {
 
     if (activeProspects.length > 0) {
       console.log(`[Prospects] Sending quiz email to ${activeProspects.length} prospect(s)…`);
-      console.log('[Prospects DEBUG] activeProspects:', activeProspects.length);
 
       const prospectEmails = activeProspects.map(p => {
         const subscribeUrl = `${siteUrl}/subscribe?email=${encodeURIComponent(p.email)}&name=${encodeURIComponent(p.name || '')}`;
