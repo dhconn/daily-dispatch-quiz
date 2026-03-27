@@ -682,8 +682,21 @@ app.delete('/api/scores/:playerKey', async (req, res) => {
 });
 
 app.get('/api/scores', async (req, res) => {
-  const data = await readData();
-  res.json({ scores: data.scores || {} });
+  try {
+    const data = await readData();
+    const scores = data.scores || {};
+    const today = easternToday();
+    const excludedMap = (data.statsExclusions && data.statsExclusions[today]) || {};
+
+    const filteredScores = Object.fromEntries(
+      Object.entries(scores).filter(([playerKey]) => !excludedMap[playerKey])
+    );
+
+    res.json({ scores: filteredScores });
+  } catch (e) {
+    console.error('[scores] GET error', e.message);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // ── Admin stats exclusions ────────────────────────────────────
