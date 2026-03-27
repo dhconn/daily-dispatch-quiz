@@ -2222,9 +2222,15 @@ function updatePlayerScore(name, todayScore) {
   const players = getPlayers();
   const key = name.toLowerCase().trim();
   if (!players[key]) return;
-  players[key].allTime = (players[key].allTime || 0) + todayScore;
   if (!players[key].dailyScores) players[key].dailyScores = {};
-  players[key].dailyScores[state.todayKey] = (players[key].dailyScores[state.todayKey] || 0) + todayScore;
+  
+  // Overwrite today's score, don't accumulate
+  players[key].dailyScores[state.todayKey] = todayScore;
+  
+  // Recompute all-time from scratch
+  players[key].allTime = Object.values(players[key].dailyScores)
+    .reduce((a, b) => a + b, 0);
+  
   savePlayers(players);
 }
 
