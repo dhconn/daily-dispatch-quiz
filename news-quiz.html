@@ -2589,32 +2589,15 @@ function shuffleArray(arr) {
 }
 
 function applyConfidenceRamp(questions) {
-  // Structure: easy, medium, easy, medium, hard, bonus
-  // Within each tier, shuffle so different players see different question order
+  // Return questions in original order — difficulty progression is intentional
   if (!questions || questions.length < 6) return questions;
-  const bonus = questions[5];
-  const regular = questions.slice(0, 5);
-  const easy   = shuffleArray(regular.filter(q => q.difficulty === 'easy'));
-  const medium = shuffleArray(regular.filter(q => q.difficulty === 'medium'));
-  const hard   = regular.filter(q => q.difficulty === 'hard');
-  const other  = regular.filter(q => !['easy','medium','hard'].includes(q.difficulty));
-  const pool   = [...easy, ...medium, ...hard, ...other];
-  const ordered = [
-    pool.find(q => q.difficulty === 'easy'),
-    pool.find(q => q.difficulty === 'medium'),
-    pool.filter(q => q.difficulty === 'easy')[1] || pool[2],
-    pool.filter(q => q.difficulty === 'medium')[1] || pool[3],
-    pool.find(q => q.difficulty === 'hard') || pool[4],
-  ].filter(Boolean);
-  const used = new Set(ordered);
-  for (const q of pool) { if (ordered.length >= 5) break; if (!used.has(q)) ordered.push(q); }
-  return [...ordered.slice(0, 5), bonus];
+  return questions;
 }
 
 function startQuiz(quiz, options = {}) {
   const { resumed = false } = options;
 
-  quizQuestions = applyConfidenceRamp(quiz.questions);
+  quizQuestions = quiz.questions;
 
   // Record quiz start for completion rate tracking only on a fresh start
   if (!archiveMode && !resumed) {
