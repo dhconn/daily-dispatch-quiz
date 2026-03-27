@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+interstitial<!DOCTYPE html>
 <html lang="en">
 <head>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+CiAgPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiBmaWxsPSIjMWExYTFhIi8+CiAgPHJlY3QgeD0iNCIgeT0iNiIgd2lkdGg9IjI0IiBoZWlnaHQ9IjIiIGZpbGw9IndoaXRlIi8+CiAgPHJlY3QgeD0iNCIgeT0iMTAiIHdpZHRoPSIyNCIgaGVpZ2h0PSIxIiBmaWxsPSJ3aGl0ZSIgb3BhY2l0eT0iMC41Ii8+CiAgPHRleHQgeD0iMTYiIHk9IjI2IiBmb250LWZhbWlseT0iR2VvcmdpYSxzZXJpZiIgZm9udC1zaXplPSIxOCIgZm9udC13ZWlnaHQ9ImJvbGQiIAogICAgICAgIGZpbGw9IndoaXRlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5EPC90ZXh0Pgo8L3N2Zz4=">
@@ -1295,19 +1295,21 @@
     <div id="question-area"></div>
   </div>
 
-  <!-- SUBSCRIBE INTERSTITIAL (after Q3 for non-subscribers) -->
+<!-- SUBSCRIBE INTERSTITIAL (after Q4 for non-subscribers) -->
   <div id="screen-subscribe-interstitial" class="screen">
-    <h2>Halfway There:<br>Don't miss your completion bonus!</h2>
+    <h2>Almost Done:<br>Don't miss your completion bonus!</h2>
     <div class="interstitial-rule"></div>
-    <p style="font-size:16px;margin:0 0 6px;">Get tomorrow's quiz automatically.</p>
+    <div style="font-family:'Playfair Display',serif;font-size:36px;color:var(--gold);text-align:center;margin:8px 0 4px;" id="sub-int-score">0</div>
+    <div style="font-family:monospace;font-size:11px;letter-spacing:2px;color:var(--muted);text-align:center;margin-bottom:16px;">POINTS SO FAR</div>
+    <button onclick="continueAfterSubInterstitial()" style="font-family:'Courier Prime',monospace;font-size:14px;font-weight:700;letter-spacing:2px;padding:14px 36px;background:var(--gold);color:var(--ink);border:none;cursor:pointer;width:100%;margin-bottom:24px;">Continue to Q5 ▸</button>
+    <div class="interstitial-rule"></div>
+    <p style="font-size:16px;margin:12px 0 6px;">Get tomorrow's quiz automatically.</p>
     <p style="font-family:monospace;font-size:12px;color:var(--muted);margin:0 0 20px;letter-spacing:1px;">DAILY · FREE · UNSUBSCRIBE ANYTIME</p>
     <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:12px;">
       <input id="sub-int-email" type="email" placeholder="your@email.com" style="flex:1;min-width:160px;max-width:240px;font-family:serif;font-size:14px;padding:10px 12px;border:1px solid #ccc;box-sizing:border-box;background:#fff;color:#1a1008;">
-      <button onclick="submitSubInterstitial()" style="font-family:'Courier Prime',monospace;font-size:12px;letter-spacing:1px;padding:10px 18px;background:var(--gold);color:var(--ink);border:none;cursor:pointer;white-space:nowrap;">Subscribe ▸</button>
+      <button onclick="submitSubInterstitial()" style="font-family:'Courier Prime',monospace;font-size:12px;letter-spacing:1px;padding:10px 18px;background:none;border:1px solid var(--gold);color:var(--gold);cursor:pointer;white-space:nowrap;">Subscribe ▸</button>
     </div>
     <div id="sub-int-status" style="font-family:monospace;font-size:12px;min-height:18px;margin-bottom:16px;"></div>
-    <div class="interstitial-rule"></div>
-    <button onclick="continueAfterSubInterstitial()" style="font-family:'Courier Prime',monospace;font-size:12px;letter-spacing:2px;padding:12px 28px;background:none;border:1px solid var(--gold);color:var(--gold);cursor:pointer;margin-top:8px;">Continue to Q4 ▸</button>
   </div>
 
   <!-- INTERSTITIAL -->
@@ -2853,7 +2855,7 @@ function advanceQuestion() {
   state.currentQ++;
   window.scrollTo(0, 0);
   const regularCount = Math.min(quizQuestions.length - 1, 5);
-  if (state.currentQ === 3 && !lsGet('dnq_subscribed') && !archiveMode) {
+  if (state.currentQ === 4 && !lsGet('dnq_subscribed') && !archiveMode) {
     // Show subscribe prompt after Q3 for non-subscribers
     showSubscribeInterstitial();
   } else if (state.currentQ < regularCount) {
@@ -2871,6 +2873,8 @@ function advanceQuestion() {
 // ═══════════════════════════════════════════════════════
 function showSubscribeInterstitial() {
   showScreen('screen-subscribe-interstitial');
+  const scoreEl = document.getElementById('sub-int-score');
+    if (scoreEl) scoreEl.textContent = state.sessionScore;
   // Pre-fill email if player entered one on register screen
   const emailEl = document.getElementById('sub-int-email');
   const regEmail = document.getElementById('email-input');
