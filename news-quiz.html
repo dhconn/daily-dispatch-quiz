@@ -3486,6 +3486,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
+
 function showCommunity() {
   showScreen('screen-community');
   loadPosts();
@@ -5559,34 +5560,23 @@ async function loadAdminStats() {
         .forEach(([playerKey, p]) => {
           const displayName = p.displayName || playerKey;
 
-      const bonusIdx = Object.entries(p.answers || {}).find(([k, a]) =>
-        a.pts === 50 || a.pts === 13
-      )?.[0];
-
-          const nonBonusAnswers = Object.entries(p.answers || {})
-            .filter(([k]) => k !== bonusIdx)
-            .sort(([a],[b]) => parseInt(a.slice(1)) - parseInt(b.slice(1)));
-
-          const displaySlots = [];
-          for (let i = 0; i < 5; i++) {
-            displaySlots.push(nonBonusAnswers[i] ? nonBonusAnswers[i][1] : undefined);
-          }
-          displaySlots.push(bonusIdx ? p.answers[bonusIdx] : undefined);
-
           let qCells = '';
           for (let i = 0; i <= 5; i++) {
-            const a = displaySlots[i];
+            const a = p.answers && p.answers['q' + i];
             let cell = '—';
             let color = 'var(--muted)';
+
             if (a !== undefined) {
               cell = a.correct ? '✓' : '✗';
               color = a.correct ? 'var(--green)' : 'var(--red)';
             }
+
             qCells += `<td style="padding:4px 8px;text-align:center;color:${color};font-family:monospace;">${cell}</td>`;
           }
-    const completedCell = p.completed ? '✓' : '—';
-    const completedColor = p.completed ? 'var(--green)' : 'var(--muted)';
-    const scoreVal = typeof p.score === 'number' ? p.score : '—';
+
+          const completedCell = p.completed ? '✓' : '—';
+          const completedColor = p.completed ? 'var(--green)' : 'var(--muted)';
+          const scoreVal = typeof p.score === 'number' ? p.score : '—';
 
     const isTodayStats = dateLabel === today;
     const isExcluded = !!excludedMap[playerKey];
