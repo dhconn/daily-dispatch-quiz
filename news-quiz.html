@@ -1791,7 +1791,7 @@
           <span class="summary-arrow">▸</span>
         </summary>
         <div class="collapsible-body">
-          <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Send a custom message to selected players or all active subscribers. Emails sent via Resend from <strong><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="4f2a2b263b203d0f2b2e2623362b263c3f2e3b2c273e3a2635612c2022">[email&#160;protected]</a></strong>.</p>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Send a custom message to selected players or all active subscribers. Emails sent via Resend from <strong><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="a3c6c7cad7ccd1e3c7c2cacfdac7cad0d3c2d7c0cbd2d6cad98dc0ccce">[email&#160;protected]</a></strong>.</p>
           <div style="display:flex;gap:0;margin-bottom:16px;border:1px solid var(--rule);">
             <button id="msg-tab-select" onclick="switchMsgTab('select')" style="flex:1;font-family:monospace;font-size:11px;letter-spacing:1px;padding:9px 0;cursor:pointer;background:var(--ink);border:none;color:var(--paper);">SELECT PLAYERS</button>
             <button id="msg-tab-bulk" onclick="switchMsgTab('bulk')" style="flex:1;font-family:monospace;font-size:11px;letter-spacing:1px;padding:9px 0;cursor:pointer;background:var(--paper);border:none;border-left:1px solid var(--rule);color:var(--muted);">ALL SUBSCRIBERS</button>
@@ -1883,113 +1883,7 @@
   </div>
 </div>
 
-<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js">
-// ── Prospects ─────────────────────────────────────────────────
-async function loadProspects() {
-  try {
-    const res = await fetch('/api/prospects');
-    const { prospects } = await res.json();
-    const active = (prospects || []).filter(p => p.active !== false);
-
-    const countEl = document.getElementById('prospects-count');
-    if (countEl) countEl.textContent = '(' + active.length + ' active)';
-
-    const listEl = document.getElementById('prospects-list');
-    if (!listEl) return;
-    if (!active.length) {
-      listEl.innerHTML = '<p style="color:var(--muted);">No prospects yet. Import a CSV above.</p>';
-      return;
-    }
-    listEl.innerHTML = `
-      <table style="width:100%;border-collapse:collapse;">
-        <tr style="border-bottom:1px solid var(--rule);color:var(--muted);">
-          <th style="text-align:left;padding:4px 8px;font-weight:600;">Name</th>
-          <th style="text-align:left;padding:4px 8px;font-weight:600;">Email</th>
-          <th style="text-align:left;padding:4px 8px;font-weight:600;">Added</th>
-          <th style="padding:4px 8px;"></th>
-        </tr>
-        ${active.map(p => `
-          <tr style="border-bottom:1px solid #f0ebe0;">
-            <td style="padding:4px 8px;">${escHtml(p.name || '—')}</td>
-            <td style="padding:4px 8px;">${escHtml(p.email)}</td>
-            <td style="padding:4px 8px;">${p.addedAt ? p.addedAt.slice(0,10) : '—'}</td>
-            <td style="padding:4px 8px;">
-              <button onclick="removeProspect('${escHtml(p.email)}')"
-                style="font-family:monospace;font-size:10px;padding:2px 8px;cursor:pointer;background:none;border:1px solid var(--muted);color:var(--muted);">
-                REMOVE
-              </button>
-            </td>
-          </tr>`).join('')}
-      </table>`;
-  } catch(e) {
-    const listEl = document.getElementById('prospects-list');
-    if (listEl) listEl.innerHTML = '<p style="color:var(--muted);">Could not load prospects.</p>';
-  }
-}
-
-async function importProspects() {
-  const raw = document.getElementById('prospects-csv-input').value.trim();
-  const statusEl = document.getElementById('prospects-import-status');
-  if (!raw) { statusEl.textContent = 'Paste some CSV rows first.'; return; }
-
-  const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
-  const entries = [];
-  const skipped = [];
-
-  for (const line of lines) {
-    const parts = line.split(',').map(p => p.trim());
-    let name = '', email = '';
-    for (const part of parts) {
-      if (part.includes('@')) email = part.toLowerCase();
-      else if (!name) name = part;
-    }
-    if (email) entries.push({ name, email });
-    else skipped.push(line);
-  }
-
-  if (!entries.length) { statusEl.textContent = 'No valid email addresses found.'; return; }
-
-  statusEl.textContent = 'Importing…';
-  try {
-    const res = await fetch('/api/prospects', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prospects: entries })
-    });
-    const json = await res.json();
-    if (json.ok) {
-      const msg = '✓ Imported ' + json.added + ' new' +
-        (json.existing ? ', ' + json.existing + ' already listed' : '') +
-        (skipped.length ? ', ' + skipped.length + ' skipped (no email)' : '') + '.';
-      statusEl.textContent = msg;
-      document.getElementById('prospects-csv-input').value = '';
-      loadProspects();
-    } else {
-      statusEl.textContent = '✗ ' + (json.error || 'Import failed');
-    }
-  } catch(e) { statusEl.textContent = '✗ Error: ' + e.message; }
-}
-
-async function removeProspect(email) {
-  if (!confirm('Remove ' + email + ' from prospects?')) return;
-  try {
-    await fetch('/api/prospects/' + encodeURIComponent(email), { method: 'DELETE' });
-    loadProspects();
-  } catch(e) { alert('Remove failed: ' + e.message); }
-}
-
-async function clearAllProspects() {
-  if (!confirm('Remove all prospects? This cannot be undone.')) return;
-  try {
-    const adminToken = lsGet('dnq_admin_token') || 'admin';
-    await fetch('/api/prospects', {
-      method: 'DELETE',
-      headers: { 'x-admin-token': adminToken }
-    });
-    loadProspects();
-  } catch(e) { alert('Clear failed: ' + e.message); }
-}
-</script><script>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 // ═══════════════════════════════════════════════════════
 //  CONFIGURATION
 // ═══════════════════════════════════════════════════════
@@ -5941,4 +5835,106 @@ async function sendBulkMessage() {
       body: JSON.stringify({ subject, body })
     });
     const json = await res.json();
-    if (json.ok) { showMsgStatus('✓ ' + json.message, true); document.getElementById('msg-subject-b
+    if (json.ok) { showMsgStatus('✓ ' + json.message, true); document.getElementById('msg-subject-b    const json = await res.json();
+    if (json.ok) { showMsgStatus('✓ ' + json.message, true); document.getElementById('msg-subject-bulk').value = ''; document.getElementById('msg-body-bulk').value = ''; }
+    else showMsgStatus('✗ ' + (json.error || 'Send failed'), false);
+  } catch(e) { showMsgStatus('✗ Error: ' + e.message, false); }
+}
+
+
+// ── Prospects ─────────────────────────────────────────────────
+async function loadProspects() {
+  try {
+    const res = await fetch('/api/prospects');
+    const { prospects } = await res.json();
+    const active = (prospects || []).filter(p => p.active !== false);
+    const countEl = document.getElementById('prospects-count');
+    if (countEl) countEl.textContent = '(' + active.length + ' active)';
+    const listEl = document.getElementById('prospects-list');
+    if (!listEl) return;
+    if (!active.length) {
+      listEl.innerHTML = '<p style="color:var(--muted);">No prospects yet. Import a CSV above.</p>';
+      return;
+    }
+    listEl.innerHTML = `
+      <table style="width:100%;border-collapse:collapse;">
+        <tr style="border-bottom:1px solid var(--rule);color:var(--muted);">
+          <th style="text-align:left;padding:4px 8px;font-weight:600;">Name</th>
+          <th style="text-align:left;padding:4px 8px;font-weight:600;">Email</th>
+          <th style="text-align:left;padding:4px 8px;font-weight:600;">Added</th>
+          <th style="padding:4px 8px;"></th>
+        </tr>
+        ${active.map(p => `
+          <tr style="border-bottom:1px solid #f0ebe0;">
+            <td style="padding:4px 8px;">${escHtml(p.name || '—')}</td>
+            <td style="padding:4px 8px;">${escHtml(p.email)}</td>
+            <td style="padding:4px 8px;">${p.addedAt ? p.addedAt.slice(0,10) : '—'}</td>
+            <td style="padding:4px 8px;">
+              <button onclick="removeProspect('${escHtml(p.email)}')"
+                style="font-family:monospace;font-size:10px;padding:2px 8px;cursor:pointer;background:none;border:1px solid var(--muted);color:var(--muted);">
+                REMOVE
+              </button>
+            </td>
+          </tr>`).join('')}
+      </table>`;
+  } catch(e) {
+    const listEl = document.getElementById('prospects-list');
+    if (listEl) listEl.innerHTML = '<p style="color:var(--muted);">Could not load prospects.</p>';
+  }
+}
+
+async function importProspects() {
+  const raw = document.getElementById('prospects-csv-input').value.trim();
+  const statusEl = document.getElementById('prospects-import-status');
+  if (!raw) { statusEl.textContent = 'Paste some CSV rows first.'; return; }
+  const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+  const entries = [], skipped = [];
+  for (const line of lines) {
+    const parts = line.split(',').map(p => p.trim());
+    let name = '', email = '';
+    for (const part of parts) {
+      if (part.includes('@')) email = part.toLowerCase();
+      else if (!name) name = part;
+    }
+    if (email) entries.push({ name, email });
+    else skipped.push(line);
+  }
+  if (!entries.length) { statusEl.textContent = 'No valid email addresses found.'; return; }
+  statusEl.textContent = 'Importing…';
+  try {
+    const res = await fetch('/api/prospects', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prospects: entries })
+    });
+    const json = await res.json();
+    if (json.ok) {
+      statusEl.textContent = '✓ Imported ' + json.added + ' new' +
+        (json.existing ? ', ' + json.existing + ' already listed' : '') +
+        (skipped.length ? ', ' + skipped.length + ' skipped' : '') + '.';
+      document.getElementById('prospects-csv-input').value = '';
+      loadProspects();
+    } else { statusEl.textContent = '✗ ' + (json.error || 'Import failed'); }
+  } catch(e) { statusEl.textContent = '✗ Error: ' + e.message; }
+}
+
+async function removeProspect(email) {
+  if (!confirm('Remove ' + email + ' from prospects?')) return;
+  try {
+    await fetch('/api/prospects/' + encodeURIComponent(email), { method: 'DELETE' });
+    loadProspects();
+  } catch(e) { alert('Remove failed: ' + e.message); }
+}
+
+async function clearAllProspects() {
+  if (!confirm('Remove all prospects? This cannot be undone.')) return;
+  try {
+    const adminToken = lsGet('dnq_admin_token') || 'admin';
+    await fetch('/api/prospects', { method: 'DELETE', headers: { 'x-admin-token': adminToken } });
+    loadProspects();
+  } catch(e) { alert('Clear failed: ' + e.message); }
+}
+</script>
+
+</body>
+</html>
