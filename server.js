@@ -636,9 +636,6 @@ app.post('/api/scores', async (req, res) => {
       };
     }
 
-    // 🔍 Log overwrite behavior
-    const prev = data.scores[key].dailyScores[date];
-
     // Always overwrite with latest score
     const prev = data.scores[key].dailyScores[date] || 0;
     data.scores[key].dailyScores[date] = Math.max(prev, score);
