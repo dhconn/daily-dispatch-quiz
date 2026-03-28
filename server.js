@@ -640,7 +640,8 @@ app.post('/api/scores', async (req, res) => {
     const prev = data.scores[key].dailyScores[date];
 
     // Always overwrite with latest score
-    data.scores[key].dailyScores[date] = score;
+    const prev = data.scores[key].dailyScores[date] || 0;
+    data.scores[key].dailyScores[date] = Math.max(prev, score);
 
     // Recompute all-time
     data.scores[key].allTime = Object.values(
