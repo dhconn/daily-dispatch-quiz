@@ -4578,19 +4578,6 @@ function enforceQuizRules(questions) {
     // Range check
     if (fixed.correctIndex < 0 || fixed.correctIndex > 3) fixed.correctIndex = 0;
 
-    // Shuffle options while keeping correctIndex in sync
-    if (fixed.options && fixed.options.length === 4) {
-      const correctAnswer = fixed.options[fixed.correctIndex];
-      // Fisher-Yates shuffle
-      const opts = [...fixed.options];
-      for (let i = opts.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [opts[i], opts[j]] = [opts[j], opts[i]];
-      }
-      fixed.options = opts;
-      fixed.correctIndex = opts.indexOf(correctAnswer);
-    }
-
     // Mismatch detection: check explanation matches marked correct option
     if (fixed.explanation && fixed.options && fixed.options.length === 4) {
       const markedOption = fixed.options[fixed.correctIndex] || '';
