@@ -5618,7 +5618,16 @@ async function loadAdminStats() {
 
           const completedCell = p.completed ? '✓' : '—';
           const completedColor = p.completed ? 'var(--green)' : 'var(--muted)';
-          const scoreVal = typeof p.score === 'number' ? p.score : '—';
+          const DIFF_PTS = { easy: 10, medium: 20, hard: 30, bonus: 50 };
+          let scoreVal = 0;
+          for (let i = 0; i <= 5; i++) {
+            const a = p.answers && p.answers['q' + i];
+            if (!a) continue;
+            // Use the stored pts if available, otherwise infer from difficulty
+            scoreVal += typeof a.pts === 'number' ? a.pts : 0;
+          }
+          if (p.completed) scoreVal += 10;
+          scoreVal = scoreVal || '—';
 
     const isTodayStats = dateLabel === today;
     const isExcluded = !!excludedMap[playerKey];
