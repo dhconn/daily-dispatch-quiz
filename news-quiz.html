@@ -2720,18 +2720,22 @@ function selectAnswer(idx) {
   state.answers.push({ qIdx: state.currentQ, chosen: idx, correct, pts });
 
  // Save running score to server after every answer
-  fetch('/api/scores', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      playerName: state.playerName,
-      date: state.todayKey,
-      score: state.sessionScore
-    })
-  }).catch(() => {});
+  if (!state.isReplay) {
+    fetch('/api/scores', {
+       method: 'POST',
+       headers: { 'Content-Type': 'application/json' },
+       body: JSON.stringify({
+          playerName: state.playerName,
+          date: state.todayKey,
+          score: state.sessionScore
+      })
+    }).catch(() => {});
+  }
 
-  postAnswerDist(state.todayKey, state.currentQ, correct);
-  queueProgressSave();
+    if (!state.isReplay) {
+       postAnswerDist(state.todayKey, state.currentQ, correct);
+       queueProgressSave();
+    }
   document.getElementById('live-score').textContent = state.sessionScore;
 
   // ── Visual feedback on correct answer ───────────────────────
@@ -3017,16 +3021,16 @@ function renderBonus() {
 }
 
 function selectBonus(idx) {
-  if (bonusAnswered) return;
-  bonusAnswered = true;
-
-  const q = quizQuestions[5];
-  const correct = idx === q.correctIndex;
-  const pts = correct ? POINTS.bonus : Math.round(POINTS.bonus * 0.25);
-
-  state.sessionScore += pts;
-  state.answers.push({ qIdx: 5, chosen: idx, correct, pts });
-  postAnswerDist(state.todayKey, 5, correct);
+     if (bonusAnswered) return;
+      bonusAnswered = true;
+      const q = quizQuestions[5];
+      const correct = idx === q.correctIndex;
+      const pts = correct ? POINTS.bonus : Math.round(POINTS.bonus * 0.25);
+      state.sessionScore += pts;
+      state.answers.push({ qIdx: 5, chosen: idx, correct, pts });
+      if (!state.isReplay) {
+          postAnswerDist(state.todayKey, 5, correct);
+      }
 
   // Style
   for (let i = 0; i < q.options.length; i++) {
