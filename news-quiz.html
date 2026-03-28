@@ -3108,6 +3108,7 @@ function selectBonus(idx) {
 //  RESULTS
 // ═══════════════════════════════════════════════════════
 async function finishQuiz() {
+  if (state.phase === 'done') return; // prevent double-execution
   // Completion bonus — awarded for answering all 6 questions
   const allAnswered = state.answers.length >= 6;
   if (allAnswered && !archiveMode) {
