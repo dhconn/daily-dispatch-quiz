@@ -938,6 +938,45 @@ function buildEmailHtml(siteUrl, date, subscriberName, teaserHtml, unsubUrl) {
   </div>`;
 }
 
+function buildResultsHtml(playerProgress, yesterdayQuiz) {
+  if (!playerProgress || !playerProgress.completed) return '';
+  const questions = (yesterdayQuiz && yesterdayQuiz.questions) || [];
+  const answers = playerProgress.answers || {};
+  const score = playerProgress.score || 0;
+
+  const rows = Object.entries(answers)
+    .filter(([k]) => /^q\d+$/.test(k))
+    .sort(([a],[b]) => parseInt(a.slice(1)) - parseInt(b.slice(1)))
+    .map(([k, a]) => {
+      const idx = parseInt(k.slice(1));
+      const q = questions[idx];
+      if (!q) return '';
+      const isBonus = q.difficulty === 'bonus';
+      const label = isBonus ? 'Bonus' : `Q${idx + 1}`;
+      const icon = a.correct ? '✓' : '✗';
+      const color = a.correct ? '#1a6b3c' : '#c0392b';
+      const correctAnswer = q.options && q.options[q.correctIndex] ? q.options[q.correctIndex] : '';
+      return `
+        <tr>
+          <td style="padding:6px 8px;font-family:monospace;font-size:12px;color:#6b5f4e;">${label}</td>
+          <td style="padding:6px 8px;font-family:monospace;font-size:14px;color:${color};font-weight:700;">${icon}</td>
+          <td style="padding:6px 8px;font-size:13px;color:#1a1008;">+${a.pts} pts</td>
+          <td style="padding:6px 8px;font-size:12px;color:#6b5f4e;font-style:italic;">${correctAnswer}</td>
+        </tr>`;
+    }).join('');
+
+  if (!rows) return '';
+
+  return `
+    <div style="margin:0 0 28px;padding:20px;background:#fff;border:1px solid #e0d8cc;text-align:left;">
+      <div style="font-family:monospace;font-size:10px;letter-spacing:2px;color:#999;margin-bottom:4px;">YESTERDAY'S RESULTS</div>
+      <div style="font-family:Georgia,serif;font-size:22px;font-weight:bold;color:#b8860b;margin-bottom:14px;">${score} pts</div>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:8px;">
+        ${rows}
+      </table>
+    </div>`;
+}
+
 // ── GET /api/blocklist — fetch topic blocklist ───────────────
 app.get('/api/blocklist', async (req, res) => {
   const data = await readData();
@@ -1131,14 +1170,31 @@ app.post('/api/quiz', async (req, res) => {
     if (subscribers.length > 0) {
       console.log(`Email: Sending quiz notification to ${subscribers.length} subscribers…`);
 
+// Fetch yesterday's progress and quiz for results recap
+      const yd = new Date(date + 'T12:00:00');
+      yd.setDate(yd.getDate() - 1);
+      const yesterday = yd.toISOString().slice(0, 10);
+      const yesterdayProgress = (await getKey('progress') || {})[yesterday] || {};
+      const yesterdayQuiz = (freshData.quizzes || {})[yesterday] || null;
+
       const emails = subscribers.map(sub => {
         const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(sub.email)}`;
+        const playerKey = (sub.name || '').toLowerCase().trim();
+        const playerProgress = yesterdayProgress[playerKey] || null;
+        const resultsHtml = buildResultsHtml(playerProgress, yesterdayQuiz);
+        const baseHtml = buildEmailHtml(siteUrl, date, sub.name, teaserHtml, unsubUrl);
+        const html = resultsHtml
+          ? baseHtml.replace(
+              '<p style="font-size:18px;margin:0 0 8px;">Hi',
+              resultsHtml + '<p style="font-size:18px;margin:0 0 8px;">Hi'
+            )
+          : baseHtml;
         return {
           from: 'Editor @ Daily Dispatch Quiz <editor@dailydispatchquiz.com>',
           reply_to: 'dhconn@gmail.com',
           to: [sub.email],
           subject,
-          html: buildEmailHtml(siteUrl, date, sub.name, teaserHtml, unsubUrl)
+          html
         };
       });
       await sendEmailBatch(emails);
