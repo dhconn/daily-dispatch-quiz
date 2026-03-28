@@ -1404,6 +1404,54 @@
  </div>
 </div>
 
+<!-- FIRST-TIME PLAYER OVERLAY -->
+<div id="first-time-overlay" style="
+  display:none;
+  position:fixed;
+  inset:0;
+  z-index:3000;
+  background:rgba(26,16,8,0.85);
+  align-items:center;
+  justify-content:center;
+  pointer-events:auto;
+">
+  <div style="
+    background:var(--ink);
+    color:var(--paper);
+    border-top:4px double var(--gold);
+    border-bottom:4px double var(--gold);
+    box-shadow:0 8px 24px rgba(0,0,0,0.4);
+    padding:32px 36px 28px;
+    max-width:480px;
+    width:min(90vw, 480px);
+    text-align:center;
+  ">
+    <div style="font-family:'Courier Prime',monospace;font-size:11px;letter-spacing:3px;color:var(--gold-light);margin-bottom:10px;">DAILY DISPATCH QUIZ</div>
+    <div style="font-family:'Playfair Display',serif;font-size:28px;font-weight:900;margin-bottom:6px;">Welcome to<br>the Dispatch!</div>
+    <div style="width:40px;height:2px;background:var(--gold);margin:12px auto 20px;"></div>
+    <div style="font-family:'Courier Prime',monospace;font-size:11px;letter-spacing:2px;color:var(--gold-light);margin-bottom:14px;">HOW TO PLAY</div>
+    <div style="text-align:left;font-size:14px;line-height:2;color:#c8b89a;margin-bottom:24px;">
+      <div>✦ &nbsp;5 questions + a bonus, drawn from today's news</div>
+      <div>✦ &nbsp;Questions get harder as you go</div>
+      <div>✦ &nbsp;Partial points for every answer, even wrong ones</div>
+      <div>✦ &nbsp;Finish all 6 for a completion bonus</div>
+      <div>✦ &nbsp;Start your streak — best your friends</div>
+    </div>
+    <button onclick="dismissFirstTimeOverlay()" style="
+      font-family:'Courier Prime',monospace;
+      font-size:13px;
+      letter-spacing:2px;
+      padding:14px 32px;
+      background:var(--gold);
+      color:var(--ink);
+      border:none;
+      cursor:pointer;
+      font-weight:700;
+      width:100%;
+    ">Got it — let's play ▸</button>
+  </div>
+ </div>
+
   <!-- BONUS -->
   <div id="screen-bonus" class="screen">
     <div class="bonus-header">
@@ -2098,6 +2146,14 @@ function showResumeOverlay() {
   }, 2000);
 }
 
+function dismissFirstTimeOverlay() {
+  document.getElementById('first-time-overlay').style.display = 'none';
+  lsSet('dnq_seen_intro', '1');
+  startQuiz(window._pendingQuiz, window._pendingQuizOptions);
+  window._pendingQuiz = null;
+  window._pendingQuizOptions = null;
+}
+
 function queueProgressSave(completedOverride = false) {
   progressSaveChain = progressSaveChain
     .then(() => saveProgressToServer(completedOverride))
@@ -2580,7 +2636,14 @@ async function registerPlayer() {
     applySavedProgress(saved);
   }
 
-  startQuiz(quiz, { resumed });
+if (!lsGet('dnq_seen_intro') && !resumed) {
+    window._pendingQuiz = quiz;
+    window._pendingQuizOptions = { resumed };
+    const overlay = document.getElementById('first-time-overlay');
+    overlay.style.display = 'flex';
+  } else {
+    startQuiz(quiz, { resumed });
+  }
 }
 
 // ═══════════════════════════════════════════════════════
