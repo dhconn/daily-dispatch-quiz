@@ -2018,6 +2018,7 @@ let state = {
   streak: 0,
   answers: [],
   phase: 'regular', // regular | bonus | done
+  isReplay: false,   // ← add this
   todayKey: todayStr()
 };
 
@@ -2561,10 +2562,11 @@ async function registerPlayer() {
         ? players[pkey].dailyScores[state.todayKey]
         : null);
 
-    if (!confirm(`You already completed the ${state.todayKey} quiz${priorScore !== null ? ' (' + priorScore + ' pts)' : ''}. Play again? Your score won't be added twice.`)) {
+    if (!confirm(`You already completed the ${state.todayKey} quiz${priorScore !== null ? ' (' + priorScore + ' pts)' : ''}. Play again? Your new score won't count.`)) {
       showLeaderboard();
       return;
     }
+    state.isReplay = true;
   }
 
   const resumed = !!(
@@ -2623,6 +2625,7 @@ function startQuiz(quiz, options = {}) {
     state.streak = 0;
     state.answers = [];
     state.phase = 'regular';
+    state.isReplay = false;  // ← add this
   }
 
   document.getElementById('quiz-player-name').textContent = state.playerName;
@@ -3117,10 +3120,10 @@ async function finishQuiz() {
   }
 
   state.phase = 'done';
-  await saveProgressToServer(true);
-
-  // Save scores locally
-  updatePlayerScore(state.playerName, state.sessionScore);
+  if (!state.isReplay) {
+    await saveProgressToServer(true);
+    updatePlayerScore(state.playerName, state.sessionScore);
+}
 
   // Calculate day-over-day streak (after score is saved so today counts)
   const players = getPlayers();
@@ -3128,7 +3131,7 @@ async function finishQuiz() {
   const dayStreak = getDayStreak(players[playerKey]);
 
   // Submit score to server for shared leaderboard (not in archive mode)
-  if (!archiveMode) {
+  if (!archiveMode && !state.isReplay) {
     try {
       await fetch('/api/scores', {
         method: 'POST',
