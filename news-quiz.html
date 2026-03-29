@@ -1656,7 +1656,13 @@
 
       <div class="admin-actions" style="flex-wrap:wrap;gap:10px;">
         <button class="btn-secondary" id="refresh-btn" onclick="refreshRSS()" style="font-size:12px;padding:8px 16px;">↻ Refresh Articles</button>
-        <button class="btn-generate" id="gen-btn" onclick="generateQuestions()">⚙ Generate Questions</button>
+        <button class="btn-generate" id="gen-btn" onclick="generateQuestions('production')">
+          ⚙ Generate Questions
+        </button>
+
+        <button class="btn-generate" id="gen-btn-sandbox" onclick="generateQuestions('sandbox')">
+          🧪 Sandbox Draft
+        </button>
       </div>
       <div id="rss-status" style="font-family:monospace,monospace;font-size:11px;color:var(--muted);margin-top:8px;"></div>
       <div class="status-msg" id="gen-status" style="white-space:pre-wrap;"></div>
@@ -3836,7 +3842,114 @@ function clearAllLocks() {
   localStorage.removeItem('dnq_locked_qs');
 }
 
-async function generateQuestions() {
+function buildPromptSandbox(ctx) {
+  const {
+    storyPacketsText,
+    archiveQuestionList,
+    archiveSlugList,
+    todayKey
+  } = ctx;
+
+  return `
+You are writing a Baltimore local news quiz for ${todayKey}.
+
+Your job is to produce exactly 6 multiple-choice questions:
+- Q1-Q3 = easy
+- Q4-Q5 = medium
+- Q6 = hard
+
+You must use the supplied local stories only.
+
+CORE RULE:
+Each question must be based on the MAIN TAKEAWAY of the story, not a stray detail.
+Ask about:
+- what changed
+- what decision was made
+- what happened
+- what goal was pursued
+- what outcome occurred
+- who did the notable action
+
+Do NOT ask about:
+- what the story "means," "suggests," or "implies"
+- the author's interpretation
+- minor procedural details
+- throwaway quotes
+- a detail a normal reader would not remember
+
+NUMBERS RULE:
+Dollar amounts, percentages, attendance counts, and dates may appear in the story,
+but should usually NOT be the thing being asked about unless that number is truly the central news.
+
+GOOD EXAMPLE:
+Story: County executive found $9.3 million for schools to avoid larger class sizes.
+Good question: What goal did the county executive pursue in finding extra school funding?
+Bad question: How much money was added?
+
+ARCHIVE RULE:
+Do not repeat or closely paraphrase any blocked, archived, or recently used question.
+If a story topic overlaps with an archived topic, choose a different story.
+
+ONE EVENT RULE:
+Only one question per distinct news event.
+
+DISTRACTOR RULE:
+All four answers must be plausible and in the same category as the correct answer.
+Do not use joke answers.
+Do not make the correct answer noticeably longer or more specific than the others.
+
+STYLE RULE:
+Questions must be concrete and factual.
+Prefer:
+- What did X announce?
+- What change was approved?
+- What goal did X pursue?
+- What happened at Y?
+- Which organization did X?
+- What will happen next?
+
+Avoid vague phrasing like:
+- What does this say about...
+- What is the meaning of...
+- What does this imply...
+- What does this suggest...
+
+OUTPUT:
+Return valid JSON only in this format:
+
+{
+  "coreFacts": [
+    "one sentence main takeaway for Q1 source",
+    "one sentence main takeaway for Q2 source",
+    "one sentence main takeaway for Q3 source",
+    "one sentence main takeaway for Q4 source",
+    "one sentence main takeaway for Q5 source",
+    "one sentence main takeaway for Q6 source"
+  ],
+  "questions": [
+    {
+      "question": "text",
+      "options": ["A", "B", "C", "D"],
+      "correctIndex": 0,
+      "explanation": "brief explanation",
+      "sourceUrl": "https://...",
+      "difficulty": "easy"
+    }
+  ]
+}
+
+RECENT QUESTION ARCHIVE:
+${archiveQuestionList || '(none)'}
+
+RECENT TOPIC SLUGS:
+${archiveSlugList || '(none)'}
+
+STORIES:
+${storyPacketsText}
+`.trim();
+}
+
+async function generateQuestions(mode = 'production') {
   const urls = document.getElementById('urls-input').value.trim();
   const articleUrls = document.getElementById('article-urls-input').value.trim();
   const manualText = document.getElementById('manual-text-input').value.trim();
@@ -3846,11 +3959,19 @@ async function generateQuestions() {
     return;
   }
 
-  document.getElementById('gen-btn').disabled = true;
+  const genBtn = document.getElementById('gen-btn');
+  const sandboxBtn = document.getElementById('gen-btn-sandbox');
+
+  if (genBtn) genBtn.disabled = true;
+  if (sandboxBtn) sandboxBtn.disabled = true;
+
   document.getElementById('gen-overlay').classList.add('show');
   document.getElementById('preview-section').style.display = 'none';
   document.getElementById('raw-debug').style.display = 'none';
   setStatus('', '');
+
+  const modeLabel = mode === 'sandbox' ? 'sandbox draft' : 'draft';
+  setStatus(`Generating ${modeLabel}...`, 'success');
 
   // Article URLs = hand-picked specific articles (one-time, not saved)
   // Feed URLs = RSS/site URLs saved in the feeds box
@@ -4131,7 +4252,14 @@ const screenController = new AbortController();
 
   let prompt;
   try {
-    prompt = buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote, rssContent, isFeedMode, allArchiveUrls, allArchiveSlugs);
+    prompt = (mode === 'sandbox')
+      ? buildPromptSandbox({
+          storyPacketsText,
+          archiveQuestionList: allArchiveQuestions.join('\n'),
+          archiveSlugList: allArchiveSlugs.join('\n'),
+          todayKey: todayStr()
+        })
+      : buildPromptProduction(urlList, articleUrlList, manualText, archiveNote, rssContent, isFeedMode, allArchiveUrls, allArchiveSlugs);
   } catch(err) {
     console.error('[Prompt build failed]', err);
     setStatus('Quiz generation failed while building prompt: ' + err.message, 'error');
@@ -4246,7 +4374,7 @@ const screenController = new AbortController();
     } else if (!document.getElementById('gen-status').classList.contains('error')) {
       const weakCount = weakQuestions.length;
       const retryNote = weakCount >= 2 ? ` (${weakCount} questions auto-refined)` : weakCount === 1 ? ` (1 question flagged — review Q${weakQuestions[0].index+1})` : '';
-      setStatus(`✓ ${questions.length} questions generated${retryNote}. Review below, then publish.`, 'success');
+      setStatus(`✓ ${questions.length} questions generated for ${modeLabel}${retryNote}. Review below, then publish.`, 'success');
     }
 
     if (questions.length > 0) {
@@ -4260,7 +4388,13 @@ const screenController = new AbortController();
           });
         }
       }
-      saveDraftQuiz({ questions, generatedAt: new Date().toISOString(), urls: urlList });
+             saveDraftQuiz({
+                questions,
+                generatedAt: new Date().toISOString(),
+                urls: urlList,
+                promptMode: mode
+              });
+
       showDraftPreview(questions);
     } else {
       // Even with 0 questions, show the preview section so admin can add manually
@@ -4273,7 +4407,8 @@ const screenController = new AbortController();
     if (rawResponse) showRawDebug(rawResponse);
     console.error(err);
   } finally {
-    document.getElementById('gen-btn').disabled = false;
+    if (genBtn) genBtn.disabled = false;
+    if (sandboxBtn) sandboxBtn.disabled = false;
     document.getElementById('gen-overlay').classList.remove('show');
   }
 }
@@ -4298,7 +4433,7 @@ function showRawDebug(text) {
   } catch(e) {}
 }
 
-function buildGenerationPrompt(urlList, articleUrlList, manualText, archiveNote, rssContent, isFeedMode, allArchiveUrls, allArchiveSlugs) {
+function buildPromptProduction(urlList, articleUrlList, manualText, archiveNote, rssContent, isFeedMode, allArchiveUrls, allArchiveSlugs) {
   allArchiveUrls = allArchiveUrls || [];
   allArchiveSlugs = allArchiveSlugs || [];
   const manualBlock = manualText
