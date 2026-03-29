@@ -4161,9 +4161,10 @@ async function generateQuestions(mode = 'production') {
         '- Obituary or memorial piece\n' +
         '- Real estate listing or Hot House feature\n' +
         '- Things to do events calendar\n' +
-        '- Individual incident story: house fire, car crash, single shooting, single assault — unless mass casualty, arson pattern, or major public safety policy angle\n\n' +
-        'ACCEPT everything else — policy, crime patterns, local economy, gas prices, housing costs, immigration, development, health, environment, or anything a Baltimorean would discuss with a friend.\n' +
-        'When in doubt, ACCEPT. It is better to pass a borderline article than to leave Claude without enough material.\n\n' +
+        '- Individual incident story: house fire, car crash, single shooting, mall altercation, or isolated crime — unless it has broader public safety, policy, or multi-incident significance\n\n' +
+        'ACCEPT stories that involve meaningful local impact, decisions, policy, development, public institutions, or issues affecting many residents.\n' +
+        'REJECT borderline stories that are routine, low-stakes, or unlikely to be remembered by a typical reader.\n' +
+'When in doubt, prefer REJECT over ACCEPT — the goal is to include only the most quiz-worthy stories.\n\n' +
         'EXTRA HINT: If an article URL contains \'headlines\' or \'roundup\' or \'digest\' in the path, it is almost certainly a multi-story summary — REJECT it.\n\n' +
         'ARTICLES:\n' + headlines + '\n\n' +
         'DUPLICATE DETECTION: After deciding accept/reject, also identify pairs of accepted articles that cover the same news event from different angles or outlets. Two articles are duplicates if a reader would say they are "about the same thing" — same incident, same decision, same person\'s action. Different takes on a developing story still count as duplicates.\n\n' +
@@ -4171,7 +4172,6 @@ async function generateQuestions(mode = 'production') {
         '{"accepted": [0,2,4,7,9], "duplicates": [[2,7],[4,9]]}\n' +
         'If no duplicates found, return {"accepted": [0,2,4,7,9], "duplicates": []}\n' +
         'The duplicates array contains pairs of indices from the accepted list that cover the same event. Only include each pair once.';
-
       
 const screenController = new AbortController();
       const screenTimer = setTimeout(() => screenController.abort(), 30000);
