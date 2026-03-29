@@ -4049,6 +4049,7 @@ async function generateQuestions(mode = 'production') {
   const isFeedMode = articleUrlList.length === 0;
 
   let rssContent = '';
+  let sandboxAcceptedBlocks = [];
   try {
     const rssRes = await fetch('/api/rss');
     if (rssRes.ok) {
@@ -4225,6 +4226,7 @@ const screenController = new AbortController();
         const acceptedBlocks = acceptedIndices
           .filter(i => i >= 0 && i < blocks.length && !suppressedByDupe.has(i))
           .map(i => blocks[i]);
+        sandboxAcceptedBlocks = acceptedBlocks.slice();
         rssContent = acceptedBlocks.join('\n\n---\n\n');
         console.log(`[PreScreen] RSS content filtered to ${acceptedBlocks.length} articles after dupe removal`);
 
@@ -4324,8 +4326,30 @@ const screenController = new AbortController();
   let prompt;
   try {
     prompt = (mode === 'sandbox')
-      ? buildPromptSandbox({
-          storyPacketsText: rssContent,
+      ? (() => {
+          const checked = Array.from(document.querySelectorAll('.sandbox-story-checkbox:checked'))
+            .map(cb => parseInt(cb.value, 10))
+            .filter(i => !isNaN(i));
+
+          let selectedText;
+
+          if (checked.length > 0) {
+            const selectedBlocks = checked
+              .filter(i => i >= 0 && i < sandboxAcceptedBlocks.length)
+              .map(i => sandboxAcceptedBlocks[i]);
+
+            selectedText = selectedBlocks.join('\n\n---\n\n');
+          } else {
+            selectedText = rssContent;
+      }
+
+          return buildPromptSandbox({
+            storyPacketsText: selectedText,
+            archiveQuestionList: allArchiveQuestions.join('\n'),
+            archiveSlugList: allArchiveSlugs.join('\n'),
+            todayKey: todayStr()
+          });
+        })()
           archiveQuestionList: allArchiveQuestions.join('\n'),
           archiveSlugList: allArchiveSlugs.join('\n'),
           todayKey: todayStr()
