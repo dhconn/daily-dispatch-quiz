@@ -3853,24 +3853,51 @@ function buildPromptSandbox(ctx) {
   return `
 You are writing a Baltimore local news quiz for ${todayKey}.
 
-Your job is to produce exactly 6 multiple-choice questions:
+Write exactly 6 multiple-choice questions:
 - Q1-Q3 = easy
 - Q4-Q5 = medium
 - Q6 = hard
 
-You must use the supplied local stories only.
+Use only the supplied local stories.
+
+EDITORIAL PRIORITY:
+Choose stories that feel worth talking about with a friend after reading the news.
+Prefer:
+- major local decisions
+- policy changes
+- public impacts
+- development or redevelopment
+- education, transit, housing, business, courts, government, culture, labor, health, or community change
+- notable actions by important local people or institutions
+- conflicts, reversals, approvals, openings, shutdowns, settlements, appointments, or public controversies
+
+AVOID BORING STORY CHOICES:
+Do not use a story if it is mainly:
+- a routine crash, fire, or isolated incident with no broader significance
+- a routine game result or ordinary sports recap
+- a routine staffing change or resignation unless it has unusual statewide or major local importance
+- a generic event listing or low-stakes feature
+- a story whose only memorable fact is where something happened
 
 CORE RULE:
 Each question must be based on the MAIN TAKEAWAY of the story, not a stray detail.
-Ask about:
+
+Good anchors:
 - what changed
 - what decision was made
-- what happened
 - what goal was pursued
 - what outcome occurred
-- who did the notable action
+- what conflict or problem drove the story
+- what notable action a person or institution took
 
-Do NOT ask about:
+Bad anchors:
+- a minor location detail
+- a colorful quote
+- an exact number that is not the real point
+- a procedural step
+- a fact a normal reader would not remember later
+
+DO NOT ASK ABOUT:
 - what the story "means," "suggests," or "implies"
 - the author's interpretation
 - minor procedural details
@@ -3878,8 +3905,7 @@ Do NOT ask about:
 - a detail a normal reader would not remember
 
 NUMBERS RULE:
-Dollar amounts, percentages, attendance counts, and dates may appear in the story,
-but should usually NOT be the thing being asked about unless that number is truly the central news.
+Dollar amounts, percentages, attendance counts, and dates may appear in the story, but should usually NOT be the thing being asked about unless that number is truly the central news.
 
 GOOD EXAMPLE:
 Story: County executive found $9.3 million for schools to avoid larger class sizes.
@@ -3904,15 +3930,24 @@ Prefer:
 - What did X announce?
 - What change was approved?
 - What goal did X pursue?
-- What happened at Y?
-- Which organization did X?
+- What problem triggered X?
+- What did officials decide?
 - What will happen next?
+- What is changing for residents?
+- Which project or proposal did X support?
 
 Avoid vague phrasing like:
 - What does this say about...
 - What is the meaning of...
 - What does this imply...
 - What does this suggest...
+
+QUALITY CHECK BEFORE FINALIZING:
+For each candidate question, ask:
+1. Is this about the most interesting or meaningful part of the story?
+2. Would a normal local news reader remember this fact an hour later?
+3. Is this story more quiz-worthy than a routine accident, routine sports result, or ordinary personnel move?
+If any answer is no, choose a better story or rewrite the question.
 
 OUTPUT:
 Return valid JSON only in this format:
