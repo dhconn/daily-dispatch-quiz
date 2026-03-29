@@ -4324,38 +4324,34 @@ const screenController = new AbortController();
   }
 
   let prompt;
-  try {
-    prompt = (mode === 'sandbox')
-      ? (() => {
-          const checked = Array.from(document.querySelectorAll('.sandbox-story-checkbox:checked'))
-            .map(cb => parseInt(cb.value, 10))
-            .filter(i => !isNaN(i));
+    try {
+      prompt = (mode === 'sandbox')
+        ? (() => {
+            const checked = Array.from(document.querySelectorAll('.sandbox-story-checkbox:checked'))
+              .map(cb => parseInt(cb.value, 10))
+              .filter(i => !isNaN(i));
 
-          let selectedText;
+            let selectedText;
 
-          if (checked.length > 0) {
-            const selectedBlocks = checked
-              .filter(i => i >= 0 && i < sandboxAcceptedBlocks.length)
-              .map(i => sandboxAcceptedBlocks[i]);
+            if (checked.length > 0) {
+              const selectedBlocks = checked
+                .filter(i => i >= 0 && i < sandboxAcceptedBlocks.length)
+                .map(i => sandboxAcceptedBlocks[i]);
 
-            selectedText = selectedBlocks.join('\n\n---\n\n');
-          } else {
-            selectedText = rssContent;
-      }
+              selectedText = selectedBlocks.join('\n\n---\n\n');
+            } else {
+              selectedText = rssContent;
+            }
 
-          return buildPromptSandbox({
-            storyPacketsText: selectedText,
-            archiveQuestionList: allArchiveQuestions.join('\n'),
-            archiveSlugList: allArchiveSlugs.join('\n'),
-            todayKey: todayStr()
-          });
-        })()
-          archiveQuestionList: allArchiveQuestions.join('\n'),
-          archiveSlugList: allArchiveSlugs.join('\n'),
-          todayKey: todayStr()
-        })
-      : buildPromptProduction(urlList, articleUrlList, manualText, archiveNote, rssContent, isFeedMode, allArchiveUrls, allArchiveSlugs);
-  } catch(err) {
+            return buildPromptSandbox({
+              storyPacketsText: selectedText,
+              archiveQuestionList: allArchiveQuestions.join('\n'),
+              archiveSlugList: allArchiveSlugs.join('\n'),
+              todayKey: todayStr()
+            });
+          })()
+        : buildPromptProduction(urlList, articleUrlList, manualText, archiveNote, rssContent, isFeedMode, allArchiveUrls, allArchiveSlugs);
+    } catch(err) {
     console.error('[Prompt build failed]', err);
     setStatus('Quiz generation failed while building prompt: ' + err.message, 'error');
     return;
