@@ -4254,7 +4254,7 @@ const screenController = new AbortController();
   try {
     prompt = (mode === 'sandbox')
       ? buildPromptSandbox({
-          storyPacketsText,
+          storyPacketsText: rssContent,
           archiveQuestionList: allArchiveQuestions.join('\n'),
           archiveSlugList: allArchiveSlugs.join('\n'),
           todayKey: todayStr()
