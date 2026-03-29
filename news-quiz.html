@@ -5165,26 +5165,31 @@ async function publishQuestions() {
   saveTodayQuiz(draft);
   addToArchive(draft.questions);
 
-  // Save archive to server (fire and forget)
-  fetch('/api/archive', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      urls: draft.questions.map(q => q.sourceUrl).filter(Boolean),
-      questions: draft.questions.map(q => q.question),
-      slugs: draft.questions.map(q => extractTopicSlug(q.question)).filter(Boolean)
-    })
-  }).catch(() => {});
-
   // Save to server — wait for confirmation before clearing draft
   try {
+    const archiveRes = await fetch('/api/archive', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          urls: draft.questions.map(q => q.sourceUrl).filter(Boolean),
+          questions: draft.questions.map(q => q.question),
+          slugs: draft.questions.map(q => extractTopicSlug(q.question)).filter(Boolean)
+      })
+  });
+
+    const archiveData = await archiveRes.json();
+    if (!archiveRes.ok || !archiveData.ok) {
+        throw new Error('Archive save failed');
+    }
     const saveRes = await fetch('/api/quiz', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ date: todayStr(), quiz: draft })
     });
+
     const saveData = await saveRes.json();
     if (!saveData.ok) throw new Error('Server returned not-ok');
+
     // Only clear draft AFTER server confirms success
     clearDraftQuiz();
     clearAllLocks();
