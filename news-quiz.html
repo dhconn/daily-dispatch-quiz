@@ -6245,6 +6245,55 @@ function showMsgStatus(msg, ok) {
   el.style.borderLeft = ok ? '3px solid var(--green)' : '3px solid var(--red)';
 }
 
+async function sendSelectedMessage() {
+  const subject = document.getElementById('msg-subject-select').value.trim();
+  const body    = document.getElementById('msg-body-select').value.trim();
+
+  const recipients = Array.from(document.querySelectorAll('.msg-cb:checked'))
+    .map(cb => ({
+      email: cb.value,
+      name: cb.getAttribute('data-name') || ''
+    }))
+    .filter(r => r.email);
+
+  if (!subject) { showMsgStatus('Please enter a subject line.', false); return; }
+  if (!body)    { showMsgStatus('Please write a message.', false); return; }
+  if (!recipients.length) { showMsgStatus('Please select at least one player.', false); return; }
+
+  if (!confirm('Send this message to ' + recipients.length + ' selected player' + (recipients.length !== 1 ? 's' : '') + '?')) return;
+
+  showMsgStatus('Sending to ' + recipients.length + ' selected player' + (recipients.length !== 1 ? 's' : '') + '…', true);
+
+  try {
+    const adminToken = lsGet('dnq_admin_token') || 'admin';
+    const res = await fetch('/api/admin/message/bulk', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-token': adminToken
+      },
+      body: JSON.stringify({
+        subject,
+        body,
+        recipients
+      })
+    });
+
+    const json = await res.json();
+
+    if (json.ok) {
+      showMsgStatus('✓ ' + (json.message || ('Sent to ' + recipients.length + ' selected player' + (recipients.length !== 1 ? 's' : '') + '.')), true);
+      document.getElementById('msg-subject-select').value = '';
+      document.getElementById('msg-body-select').value = '';
+      msgSelectNone();
+    } else {
+      showMsgStatus('✗ ' + (json.error || 'Send failed'), false);
+    }
+  } catch (e) {
+    showMsgStatus('✗ Error: ' + e.message, false);
+  }
+}
+
 async function sendBulkMessage() {
   const subject = document.getElementById('msg-subject-bulk').value.trim();
   const body    = document.getElementById('msg-body-bulk').value.trim();
@@ -6272,6 +6321,7 @@ async function sendBulkMessage() {
     showMsgStatus('✗ Error: ' + e.message, false);
   }
 }
+
 </script>
 </body>
 </html>
