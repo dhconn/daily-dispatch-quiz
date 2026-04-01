@@ -1903,6 +1903,59 @@
       </details>
     </div>
 
+    <div class="admin-collapsible" style="margin-top:20px;" id="anc-prospect-message">
+      <details>
+        <summary>Message Prospects</summary>
+        <div style="margin-top:16px;">
+
+          <!-- SEND TO ALL -->
+          <div style="margin-bottom:16px;">
+            <div style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:6px;">
+              SEND TO ALL PROSPECTS
+            </div>
+
+            <input id="msg-subject-prospect-bulk" type="text" placeholder="Subject line"
+              style="width:100%;padding:10px;border:1px solid var(--rule);margin-bottom:8px;font-family:inherit;font-size:14px;">
+
+            <textarea id="msg-body-prospect-bulk" placeholder="Write your message..."
+              style="width:100%;min-height:120px;padding:10px;border:1px solid var(--rule);font-family:inherit;font-size:14px;"></textarea>
+
+            <div style="margin-top:8px;">
+              <button class="btn-primary" onclick="sendBulkProspectMessage()">Send to All Prospects</button>
+            </div>
+          </div>
+
+          <!-- SEND TO SELECTED -->
+          <div style="margin-top:20px;border-top:1px solid var(--rule);padding-top:16px;">
+            <div style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:6px;">
+              SEND TO SELECTED PROSPECTS
+            </div>
+
+            <input id="msg-subject-prospect-select" type="text" placeholder="Subject line"
+              style="width:100%;padding:10px;border:1px solid var(--rule);margin-bottom:8px;font-family:inherit;font-size:14px;">
+
+            <textarea id="msg-body-prospect-select" placeholder="Write your message..."
+              style="width:100%;min-height:120px;padding:10px;border:1px solid var(--rule);font-family:inherit;font-size:14px;"></textarea>
+
+            <div id="prospect-msg-list"
+              style="margin-top:12px;max-height:220px;overflow-y:auto;border:1px solid var(--rule);padding:8px;background:white;">
+              <p style="color:var(--muted);">Loading…</p>
+            </div>
+
+            <div style="margin-top:10px;display:flex;gap:10px;">
+              <button class="btn-secondary" onclick="toggleAllProspectMsg(true)">Select All</button>
+              <button class="btn-secondary" onclick="toggleAllProspectMsg(false)">Clear</button>
+              <button class="btn-primary" onclick="sendSelectedProspectMessage()">Send to Selected</button>
+            </div>
+          </div>
+
+          <div id="msg-status-prospect"
+            style="margin-top:12px;font-family:monospace;font-size:12px;color:var(--muted);"></div>
+
+        </div>
+      </details>
+    </div>
+
     <div class="admin-collapsible" style="margin-top:20px;" id="anc-prospects">
       <details open>
         <summary>
@@ -3505,7 +3558,9 @@ async function showAdminScreen() {
   loadEmailPauseState();
   loadTopicBlocklist();
   loadMsgSubscribers();
+  loadMsgProspects();
   loadProspects();
+}
 }
 
 // ─── RSS cache helpers ───────────────────────────────────────────────────
@@ -6227,6 +6282,7 @@ document.addEventListener('keydown', e => {
 
 // ── Admin Messaging ──────────────────────────────────────────
 let msgSubscriberList = [];
+let msgProspectList = [];
 
 async function loadMsgSubscribers() {
   try {
@@ -6336,6 +6392,116 @@ async function sendSelectedMessage() {
   }
 }
 
+async function loadMsgProspects() {
+    const wrap = document.getElementById('prospect-msg-list');
+      if (wrap) {
+        wrap.innerHTML = '<div style="color:var(--muted);font-family:monospace;font-size:12px;">Loading prospects…</div>';
+      }
+
+      try {
+        const adminToken = lsGet('dnq_admin_token') || 'admin';
+        const res = await fetch('/api/prospects', {
+          headers: { 'x-admin-token': adminToken }
+        });
+        const data = await res.json();
+
+        msgProspectList = Array.isArray(data.prospects) ? data.prospects : [];
+        renderProspectMsgList();
+      } catch (e) {
+        msgProspectList = [];
+        if (wrap) {
+          wrap.innerHTML = '<div style="color:var(--red);font-family:monospace;font-size:12px;">Could not load prospects.</div>';
+        }
+      }
+    }
+
+function renderProspectMsgList() {
+    const wrap = document.getElementById('prospect-msg-list');
+    if (!wrap) return;
+
+    const active = msgProspectList.filter(p => p && p.email && p.active !== false);
+
+    if (!active.length) {
+    wrap.innerHTML = '<div style="color:var(--muted);font-style:italic;">No active prospects found.</div>';
+    return;
+    }
+
+    wrap.innerHTML = active.map(p => {
+      const name = escHtml(p.name || '');
+      const email = escHtml(p.email || '');
+      const label = name ? `${name} <span style="color:var(--muted)">(${email})</span>` : email;
+
+      return `
+        <label style="display:flex;align-items:flex-start;gap:10px;padding:6px 4px;border-bottom:1px solid #eee;cursor:pointer;">
+            <input type="checkbox"
+                class="msg-prospect-cb"
+                       value="${email}"
+                             data-name="${name}"
+                       style="margin-top:3px;">
+             <span style="font-size:13px;line-height:1.4;">${label}</span>
+        </label>
+                `;
+            }).join('');
+        }
+
+function toggleAllProspectMsg(on) {
+        document.querySelectorAll('.msg-prospect-cb').forEach(cb => {
+        cb.checked = !!on;
+     });
+}
+
+async function sendBulkProspectMessage() {
+  const subject = document.getElementById('msg-subject-prospect-bulk').value.trim();
+  const body = document.getElementById('msg-body-prospect-bulk').value.trim();
+
+  const active = msgProspectList.filter(p => p && p.email && p.active !== false);
+
+  if (!subject) {
+    document.getElementById('msg-status-prospect').textContent = 'Please enter a subject line.';
+    return;
+  }
+  if (!body) {
+    document.getElementById('msg-status-prospect').textContent = 'Please write a message.';
+    return;
+  }
+  if (!active.length) {
+    document.getElementById('msg-status-prospect').textContent = 'No active prospects to message.';
+    return;
+  }
+
+  if (!confirm(`Send this message to all ${active.length} prospects?`)) return;
+
+  document.getElementById('msg-status-prospect').textContent = `Sending to ${active.length} prospects…`;
+
+  try {
+    const adminToken = lsGet('dnq_admin_token') || 'admin';
+    const res = await fetch('/api/admin/message/bulk', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-token': adminToken
+      },
+      body: JSON.stringify({
+        subject,
+        body,
+        audience: 'prospects'
+      })
+    });
+
+    const json = await res.json();
+
+    if (!res.ok) {
+      document.getElementById('msg-status-prospect').textContent = json.error || 'Send failed.';
+      return;
+    }
+
+    document.getElementById('msg-status-prospect').textContent =
+      `Sent ${json.sent || 0} prospect emails${json.failed ? ` (${json.failed} failed)` : ''}.`;
+  } catch (e) {
+    document.getElementById('msg-status-prospect').textContent = 'Send failed.';
+  }
+}
+
 async function sendBulkMessage() {
   const subject = document.getElementById('msg-subject-bulk').value.trim();
   const body    = document.getElementById('msg-body-bulk').value.trim();
@@ -6361,6 +6527,65 @@ async function sendBulkMessage() {
     }
   } catch(e) {
     showMsgStatus('✗ Error: ' + e.message, false);
+  }
+}
+
+async function sendSelectedProspectMessage() {
+  const subject = document.getElementById('msg-subject-prospect-select').value.trim();
+  const body = document.getElementById('msg-body-prospect-select').value.trim();
+
+  const recipients = Array.from(document.querySelectorAll('.msg-prospect-cb:checked'))
+    .map(cb => ({
+      email: cb.value,
+      name: cb.getAttribute('data-name') || ''
+    }))
+    .filter(r => r.email);
+
+  if (!subject) {
+    document.getElementById('msg-status-prospect').textContent = 'Please enter a subject line.';
+    return;
+  }
+  if (!body) {
+    document.getElementById('msg-status-prospect').textContent = 'Please write a message.';
+    return;
+  }
+  if (!recipients.length) {
+    document.getElementById('msg-status-prospect').textContent = 'Please select at least one prospect.';
+    return;
+  }
+
+  if (!confirm(`Send this message to ${recipients.length} selected prospect${recipients.length === 1 ? '' : 's'}?`)) return;
+
+  document.getElementById('msg-status-prospect').textContent =
+    `Sending to ${recipients.length} selected prospects…`;
+
+  try {
+    const adminToken = lsGet('dnq_admin_token') || 'admin';
+    const res = await fetch('/api/admin/message/bulk', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-token': adminToken
+      },
+      body: JSON.stringify({
+        subject,
+        body,
+        audience: 'prospects',
+        recipients
+      })
+    });
+
+    const json = await res.json();
+
+    if (!res.ok) {
+      document.getElementById('msg-status-prospect').textContent = json.error || 'Send failed.';
+      return;
+    }
+
+    document.getElementById('msg-status-prospect').textContent =
+      `Sent ${json.sent || 0} prospect emails${json.failed ? ` (${json.failed} failed)` : ''}.`;
+  } catch (e) {
+    document.getElementById('msg-status-prospect').textContent = 'Send failed.';
   }
 }
 
