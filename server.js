@@ -1389,7 +1389,7 @@ async function sendEmailBatch(emails) {
 app.post('/api/admin/message/bulk', async (req, res) => {
   const adminToken = process.env.ADMIN_TOKEN || 'admin';
   if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
-  const { subject, body, recipients } = req.body;
+  const { subject, body, recipients, audience } = req.body;
   if (!subject || !body) return res.status(400).json({ error: 'subject and body required' });
 
   const siteUrl = process.env.SITE_URL || 'https://dailydispatchquiz.com';
@@ -1397,7 +1397,29 @@ app.post('/api/admin/message/bulk', async (req, res) => {
 
   let targets;
   if (Array.isArray(recipients) && recipients.length) {
-    targets = recipients;
+    targets = recipients
+      .map(r => ({
+        email: String(r?.email || '').trim(),
+        name: String(r?.name || '').trim()
+      }))
+      .filter(r => r.email);
+
+  } else if (audience === 'prospects') {
+    const prospects = Object.values(data.prospects || {});
+    const subscribers = data.subscribers || {};
+
+    targets = prospects
+      .filter(p =>
+        p &&
+        p.email &&
+        p.active !== false &&
+        !subscribers[String(p.email).toLowerCase().trim()]?.active
+      )
+      .map(p => ({
+        email: String(p.email || '').trim(),
+        name: String(p.name || '').trim()
+      }));
+
   } else {
     targets = Object.values(data.subscribers || {})
       .filter(s => s.active)
@@ -1515,26 +1537,45 @@ app.get('/subscribe', async (req, res) => {
 // Stored as data.prospects = { email: { name, email, addedAt, active } }
 
 app.get('/api/prospects', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
   const data = await readData();
   const prospects = Object.values(data.prospects || {})
     .filter(p => p.active !== false)
     .sort((a, b) => new Date(b.addedAt) - new Date(a.addedAt));
+
   res.json({ prospects });
 });
 
 app.post('/api/prospects', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
   const { prospects } = req.body;
-  if (!Array.isArray(prospects)) return res.status(400).json({ error: 'prospects array required' });
+  if (!Array.isArray(prospects)) {
+    return res.status(400).json({ error: 'prospects array required' });
+  }
+
   const data = await readData();
   if (!data.prospects) data.prospects = {};
   if (!data.subscribers) data.subscribers = {};
+
   let added = 0, existing = 0;
+
   for (const { name, email } of prospects) {
     if (!email || !email.includes('@')) continue;
+
     const key = email.toLowerCase().trim();
+
     // Skip if already an active subscriber
     if (data.subscribers[key]?.active) { existing++; continue; }
     if (data.prospects[key] && data.prospects[key].active !== false) { existing++; continue; }
+
     data.prospects[key] = {
       name: (name || '').trim().slice(0, 40),
       email: key,
@@ -1543,24 +1584,35 @@ app.post('/api/prospects', async (req, res) => {
     };
     added++;
   }
+
   await writeData(data);
   console.log(`[Prospects] Imported ${added} new, ${existing} existing`);
   res.json({ ok: true, added, existing });
 });
 
 app.delete('/api/prospects/:email', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
   const email = decodeURIComponent(req.params.email).toLowerCase().trim();
   const data = await readData();
+
   if (data.prospects && data.prospects[email]) {
     data.prospects[email].active = false;
     await writeData(data);
   }
+
   res.json({ ok: true });
 });
 
 app.delete('/api/prospects', async (req, res) => {
   const adminToken = process.env.ADMIN_TOKEN || 'admin';
-  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  if (req.headers['x-admin-token'] !== adminToken) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
   const data = await readData();
   data.prospects = {};
   await writeData(data);
