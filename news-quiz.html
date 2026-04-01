@@ -1545,11 +1545,17 @@
   <!-- LEADERBOARD -->
   <div id="screen-leaderboard" class="screen">
     <div class="edition-rule">Standings</div>
-    <div class="lb-tabs">
-      <div class="lb-tab active" onclick="showLbTab('alltime',this)">All-Time</div>
-      <div class="lb-tab" onclick="showLbTab('today',this)">Today</div>
-    </div>
-    <div id="lb-content"></div>
+  <div class="lb-tabs">
+    <div class="lb-tab active" onclick="showLbTab('today',this)">Today</div>
+    <div class="lb-tab" onclick="showLbTab('monthly',this)">This Month</div>
+  </div>
+  <div style="text-align:right; margin-top:-8px; margin-bottom:12px;">
+    <a href="#" onclick="showLbTab('alltime', null); return false;"
+       style="font-family:'Courier Prime',monospace; font-size:11px; letter-spacing:1px;
+          color:var(--muted); text-decoration:underline;">
+    View All-Time ▸
+  </a>
+</div>    <div id="lb-content"></div>
     <div class="lb-back">
       <button class="btn-secondary" onclick="showScreen(previousScreen)">◂ Back</button>
     </div>
@@ -3375,16 +3381,16 @@ let currentLbTab = 'alltime';
 let previousScreen = 'screen-register';
 
 function showLeaderboard() {
-  currentLbTab = 'alltime';
+  currentLbTab = 'today';
   document.querySelectorAll('.lb-tab').forEach((t,i) => t.classList.toggle('active', i===0));
-  renderLeaderboard('alltime');
+  renderLeaderboard('today');
   showScreen('screen-leaderboard');
 }
 
 function showLbTab(tab, el) {
   currentLbTab = tab;
   document.querySelectorAll('.lb-tab').forEach(t => t.classList.remove('active'));
-  el.classList.add('active');
+  if (el) el.classList.add('active');
   renderLeaderboard(tab);
 }
 
@@ -3392,7 +3398,6 @@ async function renderLeaderboard(tab) {
   const el = document.getElementById('lb-content');
   if (el) el.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px;font-family:monospace;font-size:12px;">Loading…</div>';
 
-  // Server is the sole source of truth — all players see the same leaderboard
   let players = {};
   try {
     const res = await fetch('/api/scores');
@@ -3401,22 +3406,48 @@ async function renderLeaderboard(tab) {
   } catch(e) {}
 
   const today = todayStr();
-  let rows = Object.entries(players).map(([key, p]) => ({
-    name: p.displayName || key,
-    score: tab === 'alltime' ? (p.allTime || 0) : ((p.dailyScores || {})[today] || 0),
-    isMe: key === state.playerName.toLowerCase().trim()
-  }));
-  rows.sort((a,b) => b.score - a.score);
-  if (tab === 'today') rows = rows.filter(r => r.score > 0);
+  const monthPrefix = today.slice(0, 7); // "2026-04"
 
-  let html = `<table class="lb-table"><thead><tr>
-    <th style="width:40px">Rank</th>
-    <th>Name</th>
-    <th style="text-align:right">Score</th>
-  </tr></thead><tbody>`;
+  let rows = Object.entries(players).map(([key, p]) => {
+    let score = 0;
+    if (tab === 'today') {
+      score = (p.dailyScores || {})[today] || 0;
+    } else if (tab === 'monthly') {
+      score = Object.entries(p.dailyScores || {})
+        .filter(([date]) => date.startsWith(monthPrefix))
+        .reduce((sum, [, val]) => sum + val, 0);
+    } else {
+      score = p.allTime || 0;
+    }
+    return {
+      name: p.displayName || key,
+      score,
+      isMe: key === state.playerName.toLowerCase().trim()
+    };
+  });
+
+  rows.sort((a, b) => b.score - a.score);
+  if (tab !== 'alltime') rows = rows.filter(r => r.score > 0);
+
+  // Tab header label
+  const monthLabel = new Date(monthPrefix + '-15').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const tabLabel = tab === 'today' ? today
+    : tab === 'monthly' ? monthLabel
+    : 'All-Time';
+
+  let html = `
+    <div style="font-family:'Courier Prime',monospace;font-size:11px;letter-spacing:2px;
+                color:var(--muted);text-transform:uppercase;margin-bottom:12px;">
+      ${tab === 'alltime' ? 'All-Time Standings' : tab === 'monthly' ? monthLabel + ' Standings' : 'Today · ' + today}
+    </div>
+    <table class="lb-table"><thead><tr>
+      <th style="width:40px">Rank</th>
+      <th>Name</th>
+      <th style="text-align:right">Score</th>
+    </tr></thead><tbody>`;
 
   if (!rows.length) {
-    html += `<tr><td colspan="3" style="text-align:center;color:var(--muted);font-style:italic;padding:30px;">No scores yet today.</td></tr>`;
+    html += `<tr><td colspan="3" style="text-align:center;color:var(--muted);font-style:italic;padding:30px;">No scores yet.</td></tr>`;
   }
   rows.forEach((r, i) => {
     const rankCls = i===0 ? 'gold' : i===1 ? 'silver' : i===2 ? 'bronze' : '';
