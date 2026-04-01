@@ -1958,7 +1958,10 @@
 // ── Prospects ─────────────────────────────────────────────────
 async function loadProspects() {
   try {
-    const res = await fetch('/api/prospects');
+    const adminToken = lsGet('dnq_admin_token') || 'admin';
+    const res = await fetch('/api/prospects', {
+      headers: { 'x-admin-token': adminToken }
+    });
     const { prospects } = await res.json();
     const active = (prospects || []).filter(p => p.active !== false);
 
@@ -2022,11 +2025,15 @@ async function importProspects() {
 
   statusEl.textContent = 'Importing…';
   try {
-    const res = await fetch('/api/prospects', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prospects: entries })
-    });
+  const adminToken = lsGet('dnq_admin_token') || 'admin';
+  const res = await fetch('/api/prospects', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-admin-token': adminToken
+    },
+    body: JSON.stringify({ prospects: entries })
+  });
     const json = await res.json();
     if (json.ok) {
       const msg = '✓ Imported ' + json.added + ' new' +
@@ -2044,7 +2051,11 @@ async function importProspects() {
 async function removeProspect(email) {
   if (!confirm('Remove ' + email + ' from prospects?')) return;
   try {
-    await fetch('/api/prospects/' + encodeURIComponent(email), { method: 'DELETE' });
+    const adminToken = lsGet('dnq_admin_token') || 'admin';
+    await fetch('/api/prospects/' + encodeURIComponent(email), {
+      method: 'DELETE',
+      headers: { 'x-admin-token': adminToken }
+    });
     loadProspects();
   } catch(e) { alert('Remove failed: ' + e.message); }
 }
