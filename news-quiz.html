@@ -2757,6 +2757,17 @@ function startQuiz(quiz, options = {}) {
   const { resumed = false } = options;
 
   quizQuestions = quiz.questions;
+  console.log('[quiz-start]', {
+    player: state.playerName,
+    todayKey: state.todayKey,
+    resumed,
+    questions: quizQuestions.map((q, i) => ({
+      idx: i,
+      question: q.question,
+      correctIndex: q.correctIndex,
+      options: q.options
+    }))
+  });
 
   // Record quiz start for completion rate tracking only on a fresh start
   if (!archiveMode && !resumed) {
@@ -4962,28 +4973,6 @@ function enforceQuizRules(questions) {
 
     // Range check
     if (fixed.correctIndex < 0 || fixed.correctIndex > 3) fixed.correctIndex = 0;
-
-    // Mismatch detection: check explanation matches marked correct option
-    if (fixed.explanation && fixed.options && fixed.options.length === 4) {
-      const markedOption = fixed.options[fixed.correctIndex] || '';
-      const expl = fixed.explanation.toLowerCase();
-      const words = markedOption.toLowerCase().split(/\s+/).filter(w => w.length > 3);
-      const markedScore = words.filter(w => expl.includes(w)).length;
-      if (markedScore < 2) {
-        let bestIdx = fixed.correctIndex;
-        let bestScore = markedScore;
-        fixed.options.forEach((opt, i) => {
-          if (i === fixed.correctIndex) return;
-          const optWords = opt.toLowerCase().split(/\s+/).filter(w => w.length > 3);
-          const score = optWords.filter(w => expl.includes(w)).length;
-          if (score > bestScore) { bestScore = score; bestIdx = i; }
-        });
-        if (bestIdx !== fixed.correctIndex) {
-          console.warn('[CorrectIndex] Mismatch on Q, correcting ' + fixed.correctIndex + ' -> ' + bestIdx);
-          fixed.correctIndex = bestIdx;
-        }
-      }
-    }
 
     // Strip feed URLs
     if (fixed.sourceUrl && feedPatterns.some(p => fixed.sourceUrl.includes(p))) {
