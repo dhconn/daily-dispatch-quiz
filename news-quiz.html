@@ -2663,12 +2663,10 @@ async function registerPlayer() {
     dl.textContent = dateLabel;
     if (isStale) {
       dl.style.color = 'var(--muted)';
-      dl.insertAdjacentHTML('afterend', '<div style="font-family:monospace;font-size:11px;color:var(--red);letter-spacing:1px;margin-top:4px;">LAST UPDATED ' + quizDate + ' — NEW QUIZ COMING SOON</div>');
+      dl.insertAdjacentHTML('afterend', '<div style="font-family:monospace;font-size:11px;color:var(--red);letter-spacing:1px;margin-top:4px;">PLAYING ' + quizDate + 'EDITION — TODAY\' QUIZ COMING SOON</div>');
     }
   }
 
-  // Use today's date as the key for score recording — never an old publish date
-  state.todayKey = todayStr();
   if (!quiz || !quiz.questions || quiz.questions.length < 6) {
     // Show no-quiz state
     showScreen('screen-quiz');
@@ -2683,6 +2681,10 @@ async function registerPlayer() {
     buildProgressTrack([]);
     return;
   }
+
+  // Use the quiz's actual publish date so early-morning players
+  // who are still on yesterday's quiz score to yesterday's leaderboard
+  state.todayKey = quizDate;
 
   const players = getPlayers();
   const pkey = name.toLowerCase().trim();
