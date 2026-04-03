@@ -1504,6 +1504,7 @@
       <div id="share-copy-confirm" style="font-family:monospace;font-size:11px;color:var(--green);margin-top:6px;min-height:14px;"></div>
     </div>
 
+    <div id="community-teaser" style="display:none;margin:20px 0;padding:16px;background:white;border:1px solid var(--rule);"></div>
     <div class="result-actions">
       <button class="btn-primary" onclick="showLeaderboard()">View Leaderboard ▸</button>
       <button class="btn-secondary" onclick="showScreen('screen-register')">Play Again</button>
@@ -3393,6 +3394,29 @@ async function finishQuiz() {
     }
   }
   showScreen('screen-results');
+
+    // Pinned community post teaser
+    fetch('/api/posts')
+      .then(r => r.json())
+      .then(data => {
+        const posts = data.posts || [];
+        if (!posts.length) return;
+        const latest = posts[0];
+        const preview = latest.text.length > 80 
+          ? latest.text.slice(0, 80) + '…' 
+          : latest.text;
+        const teaser = document.getElementById('community-teaser');
+        if (!teaser) return;
+        teaser.innerHTML = `
+          <div style="font-family:'Courier Prime',monospace;font-size:10px;letter-spacing:2px;color:var(--muted);margin-bottom:8px;">FROM THE COMMUNITY BOARD</div>
+          <div style="font-size:14px;line-height:1.5;margin-bottom:10px;">
+            <strong>${escHtml(latest.playerName)}</strong>: "${escHtml(preview)}"
+          </div>
+          <a href="#" onclick="showCommunity();return false;" style="font-family:'Courier Prime',monospace;font-size:12px;font-weight:700;letter-spacing:1px;color:var(--ink);border-bottom:2px solid var(--gold);text-decoration:none;">Join the conversation →</a>
+        `;
+        teaser.style.display = 'block';
+      })
+      .catch(() => {});
 
   // Hide subscribe CTA if player already subscribed this session or previously
   const alreadySubscribed = lsGet('dnq_subscribed');
