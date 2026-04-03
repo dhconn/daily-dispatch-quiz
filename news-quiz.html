@@ -3025,7 +3025,7 @@ function selectAnswer(idx) {
     if (i === idx && correct) { btn.classList.remove('reveal-correct'); btn.classList.add('correct'); }
   }
 
-  // Feedback
+// Feedback
   const fb = document.getElementById('feedback-area');
   if (fb) {
     const sourceLink = q.sourceUrl
@@ -3038,11 +3038,22 @@ function selectAnswer(idx) {
         <div class="pts-earned" style="${correct ? '' : 'color:var(--muted);font-size:12px;'}">+${pts} pts${correct ? '' : ' (participation)'}</div>
         ${sourceLink}
       </div>
+      <div id="comment-badge" style="margin-bottom:8px;text-align:center;"></div>
       <button class="next-btn" onclick="advanceQuestion()">
         ${state.currentQ < 4 ? 'Next Question ▸' : 'See Results Tally ▸'}
       </button>
-      <div id="comment-badge" style="margin-top:8px;text-align:center;font-family:monospace;font-size:11px;color:var(--muted);"></div>
     `;
+
+    // Async: populate comment count badge
+    getWeeklyCommentCount().then(count => {
+      const badge = document.getElementById('comment-badge');
+      if (!badge) return;
+      const label = count > 0
+        ? `💬 ${count} player${count === 1 ? '' : 's'} talking — join in`
+        : `💬 Talk Back — Join the Debate!`;
+      badge.innerHTML = `<a href="#" onclick="showCommunity();return false;" style="color:var(--ink);font-family:'Courier Prime',monospace;font-size:13px;font-weight:700;letter-spacing:1px;text-decoration:none;border-bottom:2px solid var(--gold);">${label}</a>`;
+    });
+
     // Completion bonus nudge — shown after Q2 to encourage finishing
     if (state.currentQ === 1) {
       const nudge = document.createElement('div');
@@ -3050,17 +3061,6 @@ function selectAnswer(idx) {
       nudge.textContent = '\u2605 Finish all 6 questions to earn a +10 completion bonus';
       fb.appendChild(nudge);
     }
-
-    // Async: populate comment count badge
-    getWeeklyCommentCount().then(count => {
-      const badge = document.getElementById('comment-badge');
-      if (!badge) return;
-      if (count > 0) {
-        badge.innerHTML = `<a href="#" onclick="showCommunity();return false;" style="color:var(--muted);text-decoration:underline;">💬 ${count} comment${count === 1 ? '' : 's'} this week</a>`;
-      } else {
-        badge.innerHTML = `<a href="#" onclick="showCommunity();return false;" style="color:var(--muted);text-decoration:underline;">💬 Be the first to comment</a>`;
-      }
-    });
   }
 }
 
