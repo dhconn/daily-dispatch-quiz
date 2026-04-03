@@ -1720,18 +1720,19 @@ app.get('/api/posts', async (req, res) => {
 });
 
 app.post('/api/posts', async (req, res) => {
-  const { playerName, text } = req.body;
+  const { playerName, text, isEditorReply, replyTo } = req.body;
   if (!playerName || !playerName.trim()) return res.status(400).json({ error: 'Player name required.' });
   if (!text || !text.trim()) return res.status(400).json({ error: 'Message text required.' });
   if (text.length > 500) return res.status(400).json({ error: 'Message too long (500 char max).' });
-
   const data = await readData();
   if (!data.posts) data.posts = [];
   const post = {
     id: Date.now().toString(),
     playerName: playerName.trim().slice(0, 40),
     text: text.trim(),
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    ...(isEditorReply && { isEditorReply: true }),
+    ...(replyTo && { replyTo })
   };
   data.posts.unshift(post); // newest first
   if (data.posts.length > 200) data.posts = data.posts.slice(0, 200); // cap at 200
