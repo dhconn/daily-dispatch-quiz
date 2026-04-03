@@ -3696,17 +3696,72 @@ async function loadAdminPosts() {
     const res = await fetch('/api/posts');
     const data = await res.json();
     const posts = data.posts || [];
-    if (posts.length === 0) { el.innerHTML = '<p style="font-family:courier,monospace;font-size:12px;color:var(--muted);">No posts yet.</p>'; return; }
+    if (posts.length === 0) { 
+      el.innerHTML = '<p style="font-family:courier,monospace;font-size:12px;color:var(--muted);">No posts yet.</p>'; 
+      return; 
+    }
     el.innerHTML = posts.map(p => `
-      <div style="background:white;border:1px solid var(--rule);padding:12px;margin-bottom:8px;display:flex;gap:12px;align-items:flex-start;">
-        <div style="flex:1;">
-          <strong style="font-family:monospace;font-size:12px;">${escHtml(p.playerName)}</strong>
-          <span style="font-family:monospace;font-size:10px;color:var(--muted);margin-left:8px;">${new Date(p.createdAt).toLocaleString()}</span>
-          <p style="font-size:13px;margin:4px 0 0;">${escHtml(p.text)}</p>
+      <div style="background:white;border:1px solid var(--rule);padding:12px;margin-bottom:8px;">
+        <div style="display:flex;gap:12px;align-items:flex-start;">
+          <div style="flex:1;">
+            <strong style="font-family:monospace;font-size:12px;">${escHtml(p.playerName)}</strong>
+            <span style="font-family:monospace;font-size:10px;color:var(--muted);margin-left:8px;">${new Date(p.createdAt).toLocaleString()}</span>
+            ${p.isEditorReply ? '<span style="font-family:monospace;font-size:10px;letter-spacing:1px;color:var(--gold);margin-left:8px;">✦ EDITOR REPLY</span>' : ''}
+            <p style="font-size:13px;margin:4px 0 8px;">${escHtml(p.text)}</p>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            ${!p.isEditorReply ? `<button onclick="toggleEditorReply('${p.id}')" style="font-family:monospace;font-size:11px;padding:4px 10px;background:none;border:1px solid var(--gold);color:var(--gold);cursor:pointer;white-space:nowrap;">✦ Reply</button>` : ''}
+            <button onclick="deletePost('${p.id}')" style="font-family:monospace;font-size:11px;padding:4px 10px;background:var(--red);color:white;border:none;cursor:pointer;white-space:nowrap;">Delete</button>
+          </div>
         </div>
-        <button onclick="deletePost('${p.id}')" style="font-family:monospace;font-size:11px;padding:4px 10px;background:var(--red);color:white;border:none;cursor:pointer;white-space:nowrap;">Delete</button>
+        ${!p.isEditorReply ? `
+          <div id="reply-form-${p.id}" style="display:none;margin-top:10px;border-top:1px solid var(--rule);padding-top:10px;">
+            <textarea id="reply-text-${p.id}" placeholder="Write your reply as The Editor…" style="width:100%;font-family:serif;font-size:13px;padding:8px;border:1px solid #ccc;min-height:60px;resize:vertical;box-sizing:border-box;"></textarea>
+            <div style="display:flex;gap:8px;margin-top:6px;">
+              <button onclick="submitEditorReply('${p.id}')" style="font-family:monospace;font-size:11px;padding:5px 14px;background:var(--ink);color:var(--paper);border:none;cursor:pointer;">Send Reply ▸</button>
+              <button onclick="toggleEditorReply('${p.id}')" style="font-family:monospace;font-size:11px;padding:5px 14px;background:none;border:1px solid var(--muted);color:var(--muted);cursor:pointer;">Cancel</button>
+            </div>
+            <div id="reply-status-${p.id}" style="font-family:monospace;font-size:11px;margin-top:6px;color:var(--muted);"></div>
+          </div>
+        ` : ''}
       </div>`).join('');
-  } catch(e) { el.innerHTML = '<p style="color:var(--red);font-size:12px;">Could not load posts.</p>'; }
+  } catch(e) { 
+    el.innerHTML = '<p style="color:var(--red);font-size:12px;">Could not load posts.</p>'; 
+  }
+}
+
+function toggleEditorReply(postId) {
+  const form = document.getElementById('reply-form-' + postId);
+  if (!form) return;
+  form.style.display = form.style.display === 'none' ? 'block' : 'none';
+  if (form.style.display === 'block') {
+    document.getElementById('reply-text-' + postId).focus();
+  }
+}
+
+async function submitEditorReply(postId) {
+  const text = document.getElementById('reply-text-' + postId).value.trim();
+  const statusEl = document.getElementById('reply-status-' + postId);
+  if (!text) { statusEl.textContent = 'Please write a reply.'; return; }
+  statusEl.textContent = 'Sending…';
+  try {
+    const res = await fetch('/api/posts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        playerName: 'The Editor', 
+        text,
+        isEditorReply: true,
+        replyTo: postId
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) { statusEl.textContent = data.error || 'Reply failed.'; return; }
+    loadAdminPosts();
+  } catch(e) { 
+    statusEl.textContent = 'Reply failed. Try again.'; 
+  }
 }
 
 async function deletePost(id) {
@@ -3767,14 +3822,32 @@ async function loadPosts() {
       list.innerHTML = '<p style="font-family:courier,monospace;font-size:13px;color:var(--muted);text-align:center;padding:20px;">No posts yet — be the first!</p>';
       return;
     }
-    list.innerHTML = data.posts.map(p => `
-      <div style="background:white;border:1px solid var(--rule);padding:14px;margin-bottom:10px;">
-        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">
-          <strong style="font-family:\'Courier Prime\',monospace;font-size:13px;">${escHtml(p.playerName)}</strong>
-          <span style="font-family:\'Courier Prime\',monospace;font-size:10px;color:var(--muted);">${new Date(p.createdAt).toLocaleString()}</span>
-        </div>
-        <p style="font-size:14px;line-height:1.5;margin:0;">${escHtml(p.text)}</p>
-      </div>`).join('');
+
+    // Separate top-level posts from editor replies
+    const topLevel = data.posts.filter(p => !p.replyTo);
+    const replies = data.posts.filter(p => p.replyTo);
+
+    list.innerHTML = topLevel.map(p => {
+      // Find any editor reply to this post
+      const reply = replies.find(r => r.replyTo === p.id);
+      return `
+        <div style="background:white;border:1px solid var(--rule);padding:14px;margin-bottom:10px;">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">
+            <strong style="font-family:'Courier Prime',monospace;font-size:13px;">${escHtml(p.playerName)}</strong>
+            <span style="font-family:'Courier Prime',monospace;font-size:10px;color:var(--muted);">${new Date(p.createdAt).toLocaleString()}</span>
+          </div>
+          <p style="font-size:14px;line-height:1.5;margin:0;">${escHtml(p.text)}</p>
+          ${reply ? `
+            <div style="margin-top:12px;margin-left:16px;padding:12px 14px;background:var(--cream);border-left:3px solid var(--gold);">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                <span style="font-family:'Courier Prime',monospace;font-size:11px;font-weight:700;letter-spacing:1px;color:var(--gold);">✦ THE EDITOR</span>
+                <span style="font-family:'Courier Prime',monospace;font-size:10px;color:var(--muted);">${new Date(reply.createdAt).toLocaleString()}</span>
+              </div>
+              <p style="font-size:14px;line-height:1.5;margin:0;font-style:italic;">${escHtml(reply.text)}</p>
+            </div>
+          ` : ''}
+        </div>`;
+    }).join('');
   } catch(e) {
     list.innerHTML = '<p style="color:var(--red);">Could not load posts.</p>';
   }
