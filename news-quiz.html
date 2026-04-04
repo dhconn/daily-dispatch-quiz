@@ -3116,20 +3116,20 @@ async function finishQuiz() {
 // ═══════════════════════════════════════════════════════
 //  LEADERBOARD
 // ═══════════════════════════════════════════════════════
-let currentLbTab = 'alltime';
+let currentLbTab = 'today';
 let previousScreen = 'screen-register';
 
 function showLeaderboard() {
-  currentLbTab = 'alltime';
-  document.querySelectorAll('.lb-tab').forEach((t,i) => t.classList.toggle('active', i===0));
-  renderLeaderboard('alltime');
+  currentLbTab = 'today';
+  document.querySelectorAll('.lb-tab').forEach((t,i) => t.classList.toggle('active', i === 0));
+  renderLeaderboard('today');
   showScreen('screen-leaderboard');
 }
 
 function showLbTab(tab, el) {
   currentLbTab = tab;
   document.querySelectorAll('.lb-tab').forEach(t => t.classList.remove('active'));
-  el.classList.add('active');
+  if (el) el.classList.add('active');
   renderLeaderboard(tab);
 }
 
@@ -3146,31 +3146,73 @@ async function renderLeaderboard(tab) {
   } catch(e) {}
 
   const today = todayStr();
-  let rows = Object.entries(players).map(([key, p]) => ({
-    name: p.displayName || key,
-    score: tab === 'alltime' ? (p.allTime || 0) : ((p.dailyScores || {})[today] || 0),
-    isMe: key === state.playerName.toLowerCase().trim()
-  }));
-  rows.sort((a,b) => b.score - a.score);
-  if (tab === 'today') rows = rows.filter(r => r.score > 0);
+  const monthPrefix = today.slice(0, 7); // YYYY-MM
 
-  let html = `<table class="lb-table"><thead><tr>
-    <th style="width:40px">Rank</th>
-    <th>Name</th>
-    <th style="text-align:right">Score</th>
-  </tr></thead><tbody>`;
+  let rows = Object.entries(players).map(([key, p]) => {
+    let score = 0;
+
+    if (tab === 'today') {
+      score = (p.dailyScores || {})[today] || 0;
+    } else if (tab === 'monthly') {
+      score = Object.entries(p.dailyScores || {})
+        .filter(([date]) => date.startsWith(monthPrefix))
+        .reduce((sum, [, val]) => sum + val, 0);
+    } else {
+      score = p.allTime || 0;
+    }
+
+    return {
+      name: p.displayName || key,
+      score,
+      isMe: key === state.playerName.toLowerCase().trim()
+    };
+  });
+
+  rows.sort((a, b) => b.score - a.score);
+
+  if (tab !== 'alltime') {
+    rows = rows.filter(r => r.score > 0);
+  }
+
+  const monthLabel = new Date(monthPrefix + '-15').toLocaleDateString('en-US', {
+    month: 'long',
+    year: 'numeric'
+  });
+
+  let heading = 'All-Time Standings';
+  let emptyMsg = 'No scores yet.';
+
+  if (tab === 'today') {
+    heading = 'Today · ' + today;
+    emptyMsg = 'No scores yet today.';
+  } else if (tab === 'monthly') {
+    heading = monthLabel + ' Standings';
+    emptyMsg = 'No scores yet this month.';
+  }
+
+  let html = `
+    <div style="font-family:'Courier Prime',monospace;font-size:11px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:12px;">
+      ${heading}
+    </div>
+    <table class="lb-table"><thead><tr>
+      <th style="width:40px">Rank</th>
+      <th>Name</th>
+      <th style="text-align:right">Score</th>
+    </tr></thead><tbody>`;
 
   if (!rows.length) {
-    html += `<tr><td colspan="3" style="text-align:center;color:var(--muted);font-style:italic;padding:30px;">No scores yet today.</td></tr>`;
+    html += `<tr><td colspan="3" style="text-align:center;color:var(--muted);font-style:italic;padding:30px;">${emptyMsg}</td></tr>`;
   }
+
   rows.forEach((r, i) => {
-    const rankCls = i===0 ? 'gold' : i===1 ? 'silver' : i===2 ? 'bronze' : '';
+    const rankCls = i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : '';
     html += `<tr class="${r.isMe ? 'me' : ''}">
-      <td><div class="rank ${rankCls}">${i+1}</div></td>
-      <td style="font-weight:${r.isMe?'700':'400'}">${escHtml(r.name)}${r.isMe ? ' <span style="color:var(--red);font-family:\'Courier Prime\',monospace;font-size:11px;">◀ YOU</span>' : ''}</td>
+      <td><div class="rank ${rankCls}">${i + 1}</div></td>
+      <td style="font-weight:${r.isMe ? '700' : '400'}">${escHtml(r.name)}${r.isMe ? ' <span style="color:var(--red);font-family:\\'Courier Prime\\',monospace;font-size:11px;">◀ YOU</span>' : ''}</td>
       <td style="text-align:right"><span class="score-val">${r.score}</span></td>
     </tr>`;
   });
+
   html += '</tbody></table>';
   document.getElementById('lb-content').innerHTML = html;
 }
