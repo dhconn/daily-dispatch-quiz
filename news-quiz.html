@@ -5530,6 +5530,11 @@ function escHtml(str) {
 }
 
 function jumpToArchiveQuestion(date, qIndex) {
+  const archiveWrap = document.getElementById('anc-quiz-archive');
+  if (archiveWrap) {
+    const details = archiveWrap.querySelector('details');
+    if (details && !details.open) details.open = true;
+  }
   // Ensure the archive section for this date is expanded
   const id = 'arc-' + date;
   const body = document.getElementById(id);
