@@ -4011,6 +4011,7 @@ async function refreshAdminPreviews() {
   } catch(e) {
     today = getTodayQuiz(); // fallback to localStorage
   }
+  let publishedDate = todayStr();
   if (today && today.questions) {
     document.getElementById('published-preview').innerHTML =
       `<p style="color:var(--green);font-family:monospace;font-size:12px;margin-bottom:8px;">✓ ${today.questions.length} questions published for ${todayStr()}</p>` +
@@ -4022,7 +4023,7 @@ async function refreshAdminPreviews() {
         const pts = POINTS[diff] || '';
         const diffLabel = diff ? diff.charAt(0).toUpperCase() + diff.slice(1) : '';
         const diffBadge = diffLabel ? `<span style="font-family:monospace;font-size:10px;letter-spacing:1px;padding:1px 6px;border:1px solid var(--muted);border-radius:2px;color:var(--muted);margin-left:6px;">${diffLabel.toUpperCase()}${pts ? ' · ' + pts + ' pts' : ''}</span>` : '';
-        return `<div class="q-review-card" style="cursor:pointer;" onclick="jumpToArchiveQuestion('${todayStr()}', ${i})" title="View full question & answers in archive"><div class="q-meta"><span>Q${i+1}${diffBadge}</span></div><div class="q-preview">${escHtml(q.question)}${srcLink}</div></div>`;
+        return `<div class="q-review-card" style="cursor:pointer;" onclick="jumpToArchiveQuestion('${publishedDate}', ${i})" title="View full question & answers in archive"><div class="q-meta"><span>Q${i+1}${diffBadge}</span></div><div class="q-preview">${escHtml(q.question)}${srcLink}</div></div>`;
       }).join('');
   } else {
     document.getElementById('published-preview').innerHTML = `<p style="font-size:13px;color:var(--muted);font-style:italic;">No quiz published today.</p>`;
