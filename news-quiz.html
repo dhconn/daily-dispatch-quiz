@@ -5541,15 +5541,18 @@ function jumpToArchiveQuestion(date, qIndex) {
   // Scroll to the specific question within the expanded archive
   const qCards = body ? body.querySelectorAll('.admin-arc-q') : [];
   const target = qCards[qIndex] || body;
-  if (target) {
+ if (target) {
     setTimeout(() => {
       target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      // Brief highlight flash
-      target.style.background = '#fffbe6';
-      setTimeout(() => target.style.background = '', 1000);
+      target.style.outline = '4px solid red';
+      target.style.background = '#fff200';
+      console.log('jump target:', target);
+      setTimeout(() => {
+        target.style.outline = '';
+        target.style.background = '';
+      }, 1500);
     }, 50);
   }
-}
 
 // ── Admin archive review ──────────────────────────────────────
 async function loadAdminArchive() {
