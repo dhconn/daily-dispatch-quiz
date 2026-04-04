@@ -303,6 +303,8 @@
     color: var(--muted);
   }
 
+</div>
+
   /* Question card */
   .question-card {
     background: white;
@@ -3307,15 +3309,68 @@ async function loadAdminPosts() {
     const posts = data.posts || [];
     if (posts.length === 0) { el.innerHTML = '<p style="font-family:courier,monospace;font-size:12px;color:var(--muted);">No posts yet.</p>'; return; }
     el.innerHTML = posts.map(p => `
-      <div style="background:white;border:1px solid var(--rule);padding:12px;margin-bottom:8px;display:flex;gap:12px;align-items:flex-start;">
-        <div style="flex:1;">
-          <strong style="font-family:monospace;font-size:12px;">${escHtml(p.playerName)}</strong>
-          <span style="font-family:monospace;font-size:10px;color:var(--muted);margin-left:8px;">${new Date(p.createdAt).toLocaleString()}</span>
-          <p style="font-size:13px;margin:4px 0 0;">${escHtml(p.text)}</p>
+      <div style="background:white;border:1px solid var(--rule);padding:12px;margin-bottom:8px;">
+        <div style="display:flex;gap:12px;align-items:flex-start;">
+          <div style="flex:1;">
+            <strong style="font-family:monospace;font-size:12px;">${escHtml(p.playerName)}</strong>
+            <span style="font-family:monospace;font-size:10px;color:var(--muted);margin-left:8px;">${new Date(p.createdAt).toLocaleString()}</span>
+            ${p.editedAt ? `<span style="font-family:monospace;font-size:10px;color:var(--muted);margin-left:6px;">(edited)</span>` : ''}
+            <p style="font-size:13px;margin:4px 0 0;" id="post-text-${p.id}">${escHtml(p.text)}</p>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <button onclick="startEditPost('${p.id}')" id="edit-btn-${p.id}" style="font-family:monospace;font-size:11px;padding:4px 10px;background:none;border:1px solid var(--muted);color:var(--muted);cursor:pointer;white-space:nowrap;">✎ Edit</button>
+            <button onclick="deletePost('${p.id}')" style="font-family:monospace;font-size:11px;padding:4px 10px;background:var(--red);color:white;border:none;cursor:pointer;white-space:nowrap;">Delete</button>
+          </div>
         </div>
-        <button onclick="deletePost('${p.id}')" style="font-family:monospace;font-size:11px;padding:4px 10px;background:var(--red);color:white;border:none;cursor:pointer;white-space:nowrap;">Delete</button>
+        <div id="edit-form-${p.id}" style="display:none;margin-top:10px;border-top:1px solid var(--cream);padding-top:10px;">
+          <textarea id="edit-textarea-${p.id}" style="width:100%;font-family:serif;font-size:13px;padding:8px;border:1px solid var(--rule);min-height:60px;resize:vertical;box-sizing:border-box;">${escHtml(p.text)}</textarea>
+          <div style="display:flex;gap:8px;margin-top:6px;">
+            <button onclick="saveEditPost('${p.id}')" style="font-family:monospace;font-size:11px;padding:4px 12px;background:var(--ink);color:var(--paper);border:none;cursor:pointer;">✓ Save</button>
+            <button onclick="cancelEditPost('${p.id}')" style="font-family:monospace;font-size:11px;padding:4px 12px;background:none;border:1px solid var(--muted);color:var(--muted);cursor:pointer;">Cancel</button>
+            <span id="edit-status-${p.id}" style="font-family:monospace;font-size:11px;color:var(--muted);line-height:2;"></span>
+          </div>
+        </div>
       </div>`).join('');
   } catch(e) { el.innerHTML = '<p style="color:var(--red);font-size:12px;">Could not load posts.</p>'; }
+}
+
+function startEditPost(id) {
+  document.getElementById('edit-form-' + id).style.display = 'block';
+  document.getElementById('edit-btn-' + id).style.display = 'none';
+  const ta = document.getElementById('edit-textarea-' + id);
+  if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+}
+
+function cancelEditPost(id) {
+  document.getElementById('edit-form-' + id).style.display = 'none';
+  document.getElementById('edit-btn-' + id).style.display = '';
+  document.getElementById('edit-status-' + id).textContent = '';
+}
+
+async function saveEditPost(id) {
+  const ta = document.getElementById('edit-textarea-' + id);
+  const statusEl = document.getElementById('edit-status-' + id);
+  const text = ta ? ta.value.trim() : '';
+  if (!text) { if (statusEl) statusEl.textContent = 'Cannot be empty.'; return; }
+  if (statusEl) statusEl.textContent = 'Saving…';
+  try {
+    const res = await fetch('/api/posts/' + id, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      // Update displayed text inline without full reload
+      const textEl = document.getElementById('post-text-' + id);
+      if (textEl) textEl.textContent = text;
+      cancelEditPost(id);
+    } else {
+      if (statusEl) statusEl.textContent = data.error || 'Save failed.';
+    }
+  } catch(e) {
+    if (statusEl) statusEl.textContent = 'Error: ' + e.message;
+  }
 }
 
 async function deletePost(id) {
@@ -5807,23 +5862,205 @@ async function sendBulkMessage() {
   showMsgStatus('Sending to ' + msgSubscriberList.length + ' subscribers…', true);
   try {
     const adminToken = lsGet('dnq_admin_token') || 'admin';
-       const res = await fetch('/api/admin/message/bulk', {
-         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
-         body: JSON.stringify({ subject, body })
+    const res = await fetch('/api/admin/message/bulk', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+      body: JSON.stringify({ subject, body })
+    });
+    const json = await res.json();
+    if (json.ok) { showMsgStatus('✓ ' + json.message, true); document.getElementById('msg-subject-b    const json = await res.json();
+    if (json.ok) { showMsgStatus('✓ ' + json.message, true); document.getElementById('msg-subject-bulk').value = ''; document.getElementById('msg-body-bulk').value = ''; }
+    else showMsgStatus('✗ ' + (json.error || 'Send failed'), false);
+  } catch(e) { showMsgStatus('✗ Error: ' + e.message, false); }
+}
+
+
+async function loadMsgProspects() {
+  const wrap = document.getElementById('prospect-msg-list');
+  if (wrap) {
+    wrap.innerHTML = '<div style="color:var(--muted);font-family:monospace;font-size:12px;">Loading prospects…</div>';
+  }
+  try {
+    const adminToken = lsGet('dnq_admin_token') || 'admin';
+    const res = await fetch('/api/prospects', {
+      headers: { 'x-admin-token': adminToken }
+    });
+    const data = await res.json();
+    msgProspectList = Array.isArray(data.prospects) ? data.prospects : [];
+    renderProspectMsgList();
+  } catch (e) {
+    msgProspectList = [];
+    const wrap = document.getElementById('prospect-msg-list');
+    if (wrap) {
+      wrap.innerHTML = '<div style="color:var(--red);font-family:monospace;font-size:12px;">Could not load prospects.</div>';
+    }
+  }
+}
+
+function renderProspectMsgList() {
+  const wrap = document.getElementById('prospect-msg-list');
+  if (!wrap) return;
+  const active = msgProspectList.filter(p => p && p.email && p.active !== false);
+  if (!active.length) {
+    wrap.innerHTML = '<div style="color:var(--muted);font-style:italic;">No active prospects found.</div>';
+    return;
+  }
+  wrap.innerHTML = active.map(p => {
+    const name = escHtml(p.name || '');
+    const email = escHtml(p.email || '');
+    const label = name ? `${name} <span style="color:var(--muted)">(${email})</span>` : email;
+    return `
+      <label style="display:flex;align-items:flex-start;gap:10px;padding:6px 4px;border-bottom:1px solid #eee;cursor:pointer;">
+        <input type="checkbox" class="msg-prospect-cb" value="${email}" data-name="${name}" style="margin-top:3px;">
+        <span style="font-size:13px;line-height:1.4;">${label}</span>
+      </label>`;
+  }).join('');
+}
+
+function toggleAllProspectMsg(on) {
+  document.querySelectorAll('.msg-prospect-cb').forEach(cb => { cb.checked = !!on; });
+}
+
+
+async function sendBulkProspectMessage() {
+  const subject = document.getElementById('msg-subject-prospect-bulk').value.trim();
+  const body = document.getElementById('msg-body-prospect-bulk').value.trim();
+
+  const active = msgProspectList.filter(p => p && p.email && p.active !== false);
+
+  if (!subject) {
+    document.getElementById('msg-status-prospect').textContent = 'Please enter a subject line.';
+    return;
+  }
+  if (!body) {
+    document.getElementById('msg-status-prospect').textContent = 'Please write a message.';
+    return;
+  }
+  if (!active.length) {
+    document.getElementById('msg-status-prospect').textContent = 'No active prospects to message.';
+    return;
+  }
+
+  if (!confirm(`Send this message to all ${active.length} prospects?`)) return;
+
+  document.getElementById('msg-status-prospect').textContent = `Sending to ${active.length} prospects…`;
+
+  try {
+    const adminToken = lsGet('dnq_admin_token') || 'admin';
+    const res = await fetch('/api/admin/message/bulk', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-token': adminToken
+      },
+      body: JSON.stringify({
+        subject,
+        body,
+        audience: 'prospects'
+      })
+    });
+
+    const json = await res.json();
+
+    if (!res.ok) {
+      document.getElementById('msg-status-prospect').textContent = json.error || 'Send failed.';
+      return;
+    }
+
+    document.getElementById('msg-status-prospect').textContent =
+      `Sent ${json.sent || 0} prospect emails${json.failed ? ` (${json.failed} failed)` : ''}.`;
+  } catch (e) {
+    document.getElementById('msg-status-prospect').textContent = 'Send failed.';
+  }
+}
+
+async function sendBulkMessage() {
+  const subject = document.getElementById('msg-subject-bulk').value.trim();
+  const body    = document.getElementById('msg-body-bulk').value.trim();
+  if (!subject) { showMsgStatus('Please enter a subject line.', false); return; }
+  if (!body)    { showMsgStatus('Please write a message.', false); return; }
+  if (!msgSubscriberList.length) { showMsgStatus('No active subscribers to message.', false); return; }
+  if (!confirm('Send this message to all ' + msgSubscriberList.length + ' active subscribers?')) return;
+  showMsgStatus('Sending to ' + msgSubscriberList.length + ' subscribers…', true);
+  try {
+    const adminToken = lsGet('dnq_admin_token') || 'admin';
+    const res = await fetch('/api/admin/message/bulk', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+      body: JSON.stringify({ subject, body })
     });
     const json = await res.json();
     if (json.ok) {
-        showMsgStatus('✓ ' + json.message, true);
-        document.getElementById('msg-subject-bulk').value = '';
-        document.getElementById('msg-body-bulk').value = '';
+      showMsgStatus('\u2713 ' + json.message, true);
+      document.getElementById('msg-subject-bulk').value = '';
+      document.getElementById('msg-body-bulk').value = '';
     } else {
-        showMsgStatus('✗ ' + (json.error || 'Send failed'), false);
+      showMsgStatus('\u2717 ' + (json.error || 'Send failed'), false);
     }
   } catch(e) {
-    showMsgStatus('✗ Error: ' + e.message, false);
+    showMsgStatus('\u2717 Error: ' + e.message, false);
   }
 }
+
+async function sendSelectedProspectMessage() {
+  const subject = document.getElementById('msg-subject-prospect-select').value.trim();
+  const body = document.getElementById('msg-body-prospect-select').value.trim();
+
+  const recipients = Array.from(document.querySelectorAll('.msg-prospect-cb:checked'))
+    .map(cb => ({
+      email: cb.value,
+      name: cb.getAttribute('data-name') || ''
+    }))
+    .filter(r => r.email);
+
+  if (!subject) {
+    document.getElementById('msg-status-prospect').textContent = 'Please enter a subject line.';
+    return;
+  }
+  if (!body) {
+    document.getElementById('msg-status-prospect').textContent = 'Please write a message.';
+    return;
+  }
+  if (!recipients.length) {
+    document.getElementById('msg-status-prospect').textContent = 'Please select at least one prospect.';
+    return;
+  }
+
+  if (!confirm(`Send this message to ${recipients.length} selected prospect${recipients.length === 1 ? '' : 's'}?`)) return;
+
+  document.getElementById('msg-status-prospect').textContent =
+    `Sending to ${recipients.length} selected prospects…`;
+
+  try {
+    const adminToken = lsGet('dnq_admin_token') || 'admin';
+    const res = await fetch('/api/admin/message/bulk', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-token': adminToken
+      },
+      body: JSON.stringify({
+        subject,
+        body,
+        audience: 'prospects',
+        recipients
+      })
+    });
+
+    const json = await res.json();
+
+    if (!res.ok) {
+      document.getElementById('msg-status-prospect').textContent = json.error || 'Send failed.';
+      return;
+    }
+
+    document.getElementById('msg-status-prospect').textContent =
+      `Sent ${json.sent || 0} prospect emails${json.failed ? ` (${json.failed} failed)` : ''}.`;
+  } catch (e) {
+    document.getElementById('msg-status-prospect').textContent = 'Send failed.';
+  }
+}
+
 
 </script>
 </body>
