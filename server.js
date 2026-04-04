@@ -1,7 +1,7 @@
 const express = require('express');
 const https = require('https');
 const http = require('http');
-const { Pool } = require('pg');
+const { Pool } = require('pg')
 const path = require('path');
 
 const app = express();
@@ -636,11 +636,9 @@ app.post('/api/scores', async (req, res) => {
       };
     }
 
-    // 🔍 Log overwrite behavior
-    const prev = data.scores[key].dailyScores[date];
-
     // Always overwrite with latest score
-    data.scores[key].dailyScores[date] = score;
+    const prev = data.scores[key].dailyScores[date] || 0;
+    data.scores[key].dailyScores[date] = Math.max(prev, score);
 
     // Recompute all-time
     data.scores[key].allTime = Object.values(
@@ -682,8 +680,21 @@ app.delete('/api/scores/:playerKey', async (req, res) => {
 });
 
 app.get('/api/scores', async (req, res) => {
-  const data = await readData();
-  res.json({ scores: data.scores || {} });
+  try {
+    const data = await readData();
+    const scores = data.scores || {};
+    const today = easternToday();
+    const excludedMap = (data.statsExclusions && data.statsExclusions[today]) || {};
+
+    const filteredScores = Object.fromEntries(
+      Object.entries(scores).filter(([playerKey]) => !excludedMap[playerKey])
+    );
+
+    res.json({ scores: filteredScores });
+  } catch (e) {
+    console.error('[scores] GET error', e.message);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // ── Admin stats exclusions ────────────────────────────────────
@@ -927,6 +938,45 @@ function buildEmailHtml(siteUrl, date, subscriberName, teaserHtml, unsubUrl) {
   </div>`;
 }
 
+function buildResultsHtml(playerProgress, yesterdayQuiz) {
+  if (!playerProgress || !playerProgress.completed) return '';
+  const questions = (yesterdayQuiz && yesterdayQuiz.questions) || [];
+  const answers = playerProgress.answers || {};
+  const score = playerProgress.score || 0;
+
+  const rows = Object.entries(answers)
+    .filter(([k]) => /^q\d+$/.test(k))
+    .sort(([a],[b]) => parseInt(a.slice(1)) - parseInt(b.slice(1)))
+    .map(([k, a]) => {
+      const idx = parseInt(k.slice(1));
+      const q = questions[idx];
+      if (!q) return '';
+      const isBonus = q.difficulty === 'bonus';
+      const label = isBonus ? 'Bonus' : `Q${idx + 1}`;
+      const icon = a.correct ? '✓' : '✗';
+      const color = a.correct ? '#1a6b3c' : '#c0392b';
+      const correctAnswer = q.options && q.options[q.correctIndex] ? q.options[q.correctIndex] : '';
+      return `
+        <tr>
+          <td style="padding:6px 8px;font-family:monospace;font-size:12px;color:#6b5f4e;">${label}</td>
+          <td style="padding:6px 8px;font-family:monospace;font-size:14px;color:${color};font-weight:700;">${icon}</td>
+          <td style="padding:6px 8px;font-size:13px;color:#1a1008;">+${a.pts} pts</td>
+          <td style="padding:6px 8px;font-size:12px;color:#6b5f4e;font-style:italic;">${correctAnswer}</td>
+        </tr>`;
+    }).join('');
+
+  if (!rows) return '';
+
+  return `
+    <div style="margin:0 0 28px;padding:20px;background:#fff;border:1px solid #e0d8cc;text-align:left;">
+      <div style="font-family:monospace;font-size:10px;letter-spacing:2px;color:#999;margin-bottom:4px;">YESTERDAY'S RESULTS</div>
+      <div style="font-family:Georgia,serif;font-size:22px;font-weight:bold;color:#b8860b;margin-bottom:14px;">${score} pts</div>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:8px;">
+        ${rows}
+      </table>
+    </div>`;
+}
+
 // ── GET /api/blocklist — fetch topic blocklist ───────────────
 app.get('/api/blocklist', async (req, res) => {
   const data = await readData();
@@ -1120,14 +1170,31 @@ app.post('/api/quiz', async (req, res) => {
     if (subscribers.length > 0) {
       console.log(`Email: Sending quiz notification to ${subscribers.length} subscribers…`);
 
+// Fetch yesterday's progress and quiz for results recap
+      const yd = new Date(date + 'T12:00:00');
+      yd.setDate(yd.getDate() - 1);
+      const yesterday = yd.toISOString().slice(0, 10);
+      const yesterdayProgress = (await getKey('progress') || {})[yesterday] || {};
+      const yesterdayQuiz = (freshData.quizzes || {})[yesterday] || null;
+
       const emails = subscribers.map(sub => {
         const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(sub.email)}`;
+        const playerKey = (sub.name || '').toLowerCase().trim();
+        const playerProgress = yesterdayProgress[playerKey] || null;
+        const resultsHtml = buildResultsHtml(playerProgress, yesterdayQuiz);
+        const baseHtml = buildEmailHtml(siteUrl, date, sub.name, teaserHtml, unsubUrl);
+        const html = resultsHtml
+          ? baseHtml.replace(
+              '<p style="font-size:18px;margin:0 0 8px;">Hi',
+              resultsHtml + '<p style="font-size:18px;margin:0 0 8px;">Hi'
+            )
+          : baseHtml;
         return {
           from: 'Editor @ Daily Dispatch Quiz <editor@dailydispatchquiz.com>',
           reply_to: 'dhconn@gmail.com',
           to: [sub.email],
           subject,
-          html: buildEmailHtml(siteUrl, date, sub.name, teaserHtml, unsubUrl)
+          html
         };
       });
       await sendEmailBatch(emails);
@@ -1322,7 +1389,7 @@ async function sendEmailBatch(emails) {
 app.post('/api/admin/message/bulk', async (req, res) => {
   const adminToken = process.env.ADMIN_TOKEN || 'admin';
   if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
-  const { subject, body, recipients } = req.body;
+  const { subject, body, recipients, audience } = req.body;
   if (!subject || !body) return res.status(400).json({ error: 'subject and body required' });
 
   const siteUrl = process.env.SITE_URL || 'https://dailydispatchquiz.com';
@@ -1330,7 +1397,29 @@ app.post('/api/admin/message/bulk', async (req, res) => {
 
   let targets;
   if (Array.isArray(recipients) && recipients.length) {
-    targets = recipients;
+    targets = recipients
+      .map(r => ({
+        email: String(r?.email || '').trim(),
+        name: String(r?.name || '').trim()
+      }))
+      .filter(r => r.email);
+
+  } else if (audience === 'prospects') {
+    const prospects = Object.values(data.prospects || {});
+    const subscribers = data.subscribers || {};
+
+    targets = prospects
+      .filter(p =>
+        p &&
+        p.email &&
+        p.active !== false &&
+        !subscribers[String(p.email).toLowerCase().trim()]?.active
+      )
+      .map(p => ({
+        email: String(p.email || '').trim(),
+        name: String(p.name || '').trim()
+      }));
+
   } else {
     targets = Object.values(data.subscribers || {})
       .filter(s => s.active)
@@ -1448,26 +1537,45 @@ app.get('/subscribe', async (req, res) => {
 // Stored as data.prospects = { email: { name, email, addedAt, active } }
 
 app.get('/api/prospects', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
   const data = await readData();
   const prospects = Object.values(data.prospects || {})
     .filter(p => p.active !== false)
     .sort((a, b) => new Date(b.addedAt) - new Date(a.addedAt));
+
   res.json({ prospects });
 });
 
 app.post('/api/prospects', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
   const { prospects } = req.body;
-  if (!Array.isArray(prospects)) return res.status(400).json({ error: 'prospects array required' });
+  if (!Array.isArray(prospects)) {
+    return res.status(400).json({ error: 'prospects array required' });
+  }
+
   const data = await readData();
   if (!data.prospects) data.prospects = {};
   if (!data.subscribers) data.subscribers = {};
+
   let added = 0, existing = 0;
+
   for (const { name, email } of prospects) {
     if (!email || !email.includes('@')) continue;
+
     const key = email.toLowerCase().trim();
+
     // Skip if already an active subscriber
     if (data.subscribers[key]?.active) { existing++; continue; }
     if (data.prospects[key] && data.prospects[key].active !== false) { existing++; continue; }
+
     data.prospects[key] = {
       name: (name || '').trim().slice(0, 40),
       email: key,
@@ -1476,24 +1584,35 @@ app.post('/api/prospects', async (req, res) => {
     };
     added++;
   }
+
   await writeData(data);
   console.log(`[Prospects] Imported ${added} new, ${existing} existing`);
   res.json({ ok: true, added, existing });
 });
 
 app.delete('/api/prospects/:email', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
   const email = decodeURIComponent(req.params.email).toLowerCase().trim();
   const data = await readData();
+
   if (data.prospects && data.prospects[email]) {
     data.prospects[email].active = false;
     await writeData(data);
   }
+
   res.json({ ok: true });
 });
 
 app.delete('/api/prospects', async (req, res) => {
   const adminToken = process.env.ADMIN_TOKEN || 'admin';
-  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  if (req.headers['x-admin-token'] !== adminToken) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
   const data = await readData();
   data.prospects = {};
   await writeData(data);
@@ -1601,35 +1720,49 @@ app.get('/api/posts', async (req, res) => {
 });
 
 app.post('/api/posts', async (req, res) => {
-  const { playerName, text } = req.body;
+  const { playerName, text, isEditorReply, replyTo } = req.body;
   if (!playerName || !playerName.trim()) return res.status(400).json({ error: 'Player name required.' });
   if (!text || !text.trim()) return res.status(400).json({ error: 'Message text required.' });
   if (text.length > 500) return res.status(400).json({ error: 'Message too long (500 char max).' });
-
   const data = await readData();
   if (!data.posts) data.posts = [];
   const post = {
     id: Date.now().toString(),
     playerName: playerName.trim().slice(0, 40),
     text: text.trim(),
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    ...(isEditorReply && { isEditorReply: true }),
+    ...(replyTo && { replyTo })
   };
   data.posts.unshift(post); // newest first
   if (data.posts.length > 200) data.posts = data.posts.slice(0, 200); // cap at 200
   await writeData(data);
-  res.json({ ok: true, post });
-});
+  // ── Notify admin of new community post ──
+  try {
+    const adminEmail = process.env.EDITOR_EMAIL || 'your@email.com';
 
-app.patch('/api/posts/:id', async (req, res) => {
-  const { text } = req.body;
-  if (!text || !text.trim()) return res.status(400).json({ error: 'Text required.' });
-  if (text.length > 500) return res.status(400).json({ error: 'Message too long (500 char max).' });
-  const data = await readData();
-  const post = (data.posts || []).find(p => p.id === req.params.id);
-  if (!post) return res.status(404).json({ error: 'Post not found.' });
-  post.text = text.trim();
-  post.editedAt = new Date().toISOString();
-  await writeData(data);
+    const subject = isEditorReply
+      ? `Editor reply posted`
+      : `New community post from ${post.playerName}`;
+
+    const html = `
+      <div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.5;">
+        <p><strong>${isEditorReply ? 'Editor reply' : 'New post submitted'}</strong></p>
+        <p><strong>Player:</strong> ${post.playerName}</p>
+        ${replyTo ? `<p><strong>Replying to:</strong> ${replyTo}</p>` : ''}
+        <p><strong>Message:</strong></p>
+        <div style="padding:10px;border:1px solid #ddd;background:#f9f9f9;">
+          ${post.text}
+        </div>
+        <p style="margin-top:12px;color:#666;font-size:12px;">
+          ${new Date(post.createdAt).toLocaleString()}
+        </p>
+      </div>
+    `;
+
+    await sendEmail(adminEmail, subject, html);  } catch (e) {
+    console.error('[Posts] Email notify failed:', e.message);
+  }
   res.json({ ok: true, post });
 });
 
