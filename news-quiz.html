@@ -5534,6 +5534,8 @@ function jumpToArchiveQuestion(date, qIndex) {
   const id = 'arc-' + date;
   const body = document.getElementById(id);
   const chevron = document.getElementById(id + '-chevron');
+  console.log('jumpToArchiveQuestion', { date, qIndex, id, bodyFound: !!body, chevronFound: !!chevron });
+  console.log('qCards found:', body ? body.querySelectorAll('.admin-arc-q').length : 0);
   if (body && !body.classList.contains('open')) {
     body.classList.add('open');
     if (chevron) chevron.textContent = '▾';
