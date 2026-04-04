@@ -1739,7 +1739,7 @@ app.post('/api/posts', async (req, res) => {
   await writeData(data);
   // ── Notify admin of new community post ──
   try {
-    const adminEmail = process.env.ADMIN_EMAIL || 'your@email.com';
+    const adminEmail = process.env.EDITOR_EMAIL || 'your@email.com';
 
     const subject = isEditorReply
       ? `Editor reply posted`
