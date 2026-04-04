@@ -5807,16 +5807,22 @@ async function sendBulkMessage() {
   showMsgStatus('Sending to ' + msgSubscriberList.length + ' subscribers…', true);
   try {
     const adminToken = lsGet('dnq_admin_token') || 'admin';
-    const res = await fetch('/api/admin/message/bulk', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
-      body: JSON.stringify({ subject, body })
+       const res = await fetch('/api/admin/message/bulk', {
+         method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+         body: JSON.stringify({ subject, body })
     });
     const json = await res.json();
-    if (json.ok) { showMsgStatus('✓ ' + json.message, true); document.getElementById('msg-subject-b    const json = await res.json();
-    if (json.ok) { showMsgStatus('✓ ' + json.message, true); document.getElementById('msg-subject-bulk').value = ''; document.getElementById('msg-body-bulk').value = ''; }
-    else showMsgStatus('✗ ' + (json.error || 'Send failed'), false);
-  } catch(e) { showMsgStatus('✗ Error: ' + e.message, false); }
+    if (json.ok) {
+        showMsgStatus('✓ ' + json.message, true);
+        document.getElementById('msg-subject-bulk').value = '';
+        document.getElementById('msg-body-bulk').value = '';
+    } else {
+        showMsgStatus('✗ ' + (json.error || 'Send failed'), false);
+    }
+  } catch(e) {
+    showMsgStatus('✗ Error: ' + e.message, false);
+  }
 }
 
 </script>
