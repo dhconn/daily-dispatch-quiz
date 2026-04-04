@@ -4002,6 +4002,7 @@ async function refreshAdminPreviews() {
     if (!today) {
       const d = new Date(); d.setDate(d.getDate() - 1);
       const yest = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+       publishedDate = yest;
       const yestRes = await fetch('/api/quiz?date=' + yest);
       if (yestRes.ok) {
         const yestData = await yestRes.json();
@@ -4014,7 +4015,7 @@ async function refreshAdminPreviews() {
   let publishedDate = todayStr();
   if (today && today.questions) {
     document.getElementById('published-preview').innerHTML =
-      `<p style="color:var(--green);font-family:monospace;font-size:12px;margin-bottom:8px;">✓ ${today.questions.length} questions published for ${todayStr()}</p>` +
+      `<p style="color:var(--green);font-family:monospace;font-size:12px;margin-bottom:8px;">✓ ${today.questions.length} questions published for ${publishedDate}</p>` +
       today.questions.map((q,i) => {
         const srcLink = q.sourceUrl
           ? `<div style="font-size:11px;font-family:monospace;margin-top:5px;"><a href="${q.sourceUrl}" target="_blank" style="color:var(--muted);" onclick="event.stopPropagation()">↗ ${q.sourceUrl.replace(/^https?:\/\//,'').slice(0,70)}${q.sourceUrl.length > 73 ? '…' : ''}</a></div>`
