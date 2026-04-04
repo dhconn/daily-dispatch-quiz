@@ -1,7 +1,7 @@
 const express = require('express');
 const https = require('https');
 const http = require('http');
-const { Pool } = require('pg');
+const { Pool } = require('pg')
 const path = require('path');
 
 const app = express();
@@ -1737,6 +1737,32 @@ app.post('/api/posts', async (req, res) => {
   data.posts.unshift(post); // newest first
   if (data.posts.length > 200) data.posts = data.posts.slice(0, 200); // cap at 200
   await writeData(data);
+  // ── Notify admin of new community post ──
+  try {
+    const adminEmail = process.env.ADMIN_EMAIL || 'your@email.com';
+
+    const subject = isEditorReply
+      ? `Editor reply posted`
+      : `New community post from ${post.playerName}`;
+
+    const html = `
+      <div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.5;">
+        <p><strong>${isEditorReply ? 'Editor reply' : 'New post submitted'}</strong></p>
+        <p><strong>Player:</strong> ${post.playerName}</p>
+        ${replyTo ? `<p><strong>Replying to:</strong> ${replyTo}</p>` : ''}
+        <p><strong>Message:</strong></p>
+        <div style="padding:10px;border:1px solid #ddd;background:#f9f9f9;">
+          ${post.text}
+        </div>
+        <p style="margin-top:12px;color:#666;font-size:12px;">
+          ${new Date(post.createdAt).toLocaleString()}
+        </p>
+      </div>
+    `;
+
+    await sendEmail(adminEmail, subject, html);  } catch (e) {
+    console.error('[Posts] Email notify failed:', e.message);
+  }
   res.json({ ok: true, post });
 });
 
