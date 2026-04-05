@@ -408,31 +408,42 @@ app.get('/api/sites', async (req, res) => {
 app.post('/api/answers', async (req, res) => {
   const { date, answers, playerName } = req.body || {};
   if (!date || !Array.isArray(answers)) return res.status(400).json({ error: 'bad request' });
+  
   const data = await readData();
+  const quiz = data.quizzes && data.quizzes[date];
+  if (!quiz) return res.status(404).json({ error: 'Quiz not found for this date' });
+
   if (!data.dist) data.dist = {};
   if (!data.dist[date]) data.dist[date] = {};
 
-  answers.forEach(({ qIdx, correct }) => {
+  // Server-side validation loop
+  answers.forEach(({ qIdx, chosenIndex }) => {
     if (qIdx === 'completion') return;
+    
+    const question = quiz.questions[qIdx];
+    if (!question) return;
+
+    // Validate: Is the chosen index actually the correct one?
+    const isActuallyCorrect = (chosenIndex === question.correctIndex);
+    
     const k = 'q' + qIdx;
     if (!data.dist[date][k]) data.dist[date][k] = { correct: 0, wrong: 0 };
-    if (correct) data.dist[date][k].correct++;
+    
+    if (isActuallyCorrect) data.dist[date][k].correct++;
     else data.dist[date][k].wrong++;
+
+    // Update per-player tracking if applicable
+    if (playerName && playerName.trim()) {
+      const key = playerName.trim().toLowerCase();
+      if (!data.dist[date].players) data.dist[date].players = {};
+      if (!data.dist[date].players[key]) {
+        data.dist[date].players[key] = { displayName: playerName.trim(), answers: {} };
+      }
+      data.dist[date].players[key].answers[k] = isActuallyCorrect;
+    }
   });
 
-  if (playerName && playerName.trim()) {
-    const key = playerName.trim().toLowerCase();
-    if (!data.dist[date].players) data.dist[date].players = {};
-    if (!data.dist[date].players[key]) {
-      data.dist[date].players[key] = { displayName: playerName.trim(), answers: {} };
-    }
-    answers.forEach(({ qIdx, correct }) => {
-      if (qIdx !== 'completion') {
-        data.dist[date].players[key].answers['q' + qIdx] = correct;
-      }
-    });
-  }
-
+  // Keep existing cleanup logic for old distribution data
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - 2);
   Object.keys(data.dist).forEach(d => {
@@ -560,6 +571,22 @@ app.post('/api/progress', async (req, res) => {
   }
 
   try {
+    const data = await readData();
+    const quiz = data.quizzes && data.quizzes[date];
+    if (!quiz) return res.status(404).json({ error: 'Quiz not found' });
+
+    // Recalculate score server-side based on the answers array in progress
+    let validatedScore = 0;
+    if (progress.answers) {
+      Object.entries(progress.answers).forEach(([key, chosenIndex]) => {
+        const qIdx = parseInt(key.replace('q', ''));
+        const question = quiz.questions[qIdx];
+        if (question && chosenIndex === question.correctIndex) {
+          validatedScore += 1;
+        }
+      });
+    }
+
     const allProgress = (await getKey('progress')) || {};
     if (!allProgress[date]) allProgress[date] = {};
 
@@ -569,36 +596,15 @@ app.post('/api/progress', async (req, res) => {
     allProgress[date][key] = {
       ...existing,
       ...progress,
+      score: validatedScore, // Overwrite client score with validated score
       displayName: playerName.trim(),
       updatedAt: new Date().toISOString()
     };
 
     await setKey('progress', allProgress);
-    res.json({ ok: true });
+    res.json({ ok: true, validatedScore });
   } catch (e) {
     console.error('[progress] POST error:', e.message);
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// GET /api/progress?date=YYYY-MM-DD
-// GET /api/progress?date=YYYY-MM-DD&playerName=RKE
-app.get('/api/progress', async (req, res) => {
-  const { date, playerName } = req.query;
-  if (!date) return res.status(400).json({ error: 'date required' });
-
-  try {
-    const allProgress = (await getKey('progress')) || {};
-    const progressForDate = allProgress[date] || {};
-
-    if (playerName) {
-      const key = playerName.toLowerCase().trim();
-      return res.json(progressForDate[key] || null);
-    }
-
-    res.json(progressForDate);
-  } catch (e) {
-    console.error('[progress] GET error:', e.message);
     res.status(500).json({ error: e.message });
   }
 });
