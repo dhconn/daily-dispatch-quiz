@@ -587,6 +587,29 @@ app.post('/api/progress', async (req, res) => {
       });
     }
 
+app.get('/api/progress', async (req, res) => {
+  const { date, playerName } = req.query;
+  if (!date) return res.status(400).json({ error: 'date required' });
+
+  try {
+    // This looks into your Postgres 'store' table for the 'progress' key
+    const allProgress = await getKey('progress') || {}; 
+    const dayData = allProgress[date] || {};
+
+    // If you're looking for one person: ?date=...&playerName=...
+    if (playerName) {
+      const key = playerName.toLowerCase().trim();
+      return res.json(dayData[key] || { score: 0, completed: false });
+    }
+
+    // If you're looking at the whole leaderboard: ?date=...
+    res.json(dayData);
+  } catch (e) {
+    console.error('Error in GET /api/progress:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
     const allProgress = (await getKey('progress')) || {};
     if (!allProgress[date]) allProgress[date] = {};
 
