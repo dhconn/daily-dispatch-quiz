@@ -2155,16 +2155,20 @@ let state = {
   todayKey: todayStr()
 };
 
-function postAnswerDist(date, qIdx, correct) {
-  if (archiveMode) return;
-  fetch('/api/answers', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ date, answers: [{ qIdx, correct }], playerName: state.playerName || '' })
-  }).catch(err => {
-    console.error('postAnswerDist failed:', err);
-  });
-}
+function postAnswerDist(date, qIdx, idx) { // Changed 'correct' to 'idx'
+    if (archiveMode) return;
+    fetch('/api/answers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        date, 
+        answers: [{ qIdx, chosenIndex: idx }], // Changed 'correct' to 'chosenIndex'
+        playerName: state.playerName || '' 
+      })
+    }).catch(err => {
+      console.error('postAnswerDist failed:', err);
+    });
+  }
 
 async function saveProgressToServer(completedOverride = false) {
   console.log('saveProgressToServer called', state.playerName, state.todayKey, state.sessionScore, state.answers);
@@ -2192,15 +2196,24 @@ async function saveProgressToServer(completedOverride = false) {
   console.log('posting progress payload', progress);
 
   try {
+      // Create a simple map of question IDs to the index the user chose
+      const progressAnswers = {};
+      state.answers.forEach(a => {
+        progressAnswers['q' + a.qIdx] = a.chosen;
+      });
+
     const res = await fetch('/api/progress', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        playerName: state.playerName,
-        date: state.todayKey,
-        progress
-      })
-    });
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          playerName: state.playerName,
+          date: state.todayKey,
+          progress: {
+            ...progress,
+            answers: progressAnswers // Overwrite the answers with just the indices
+          }
+        })
+      });
 
     if (!res.ok) {
       const text = await res.text();
@@ -2890,7 +2903,7 @@ function selectAnswer(idx) {
   }
 
     if (!state.isReplay) {
-       postAnswerDist(state.todayKey, state.currentQ, correct);
+       postAnswerDist(state.todayKey, state.currentQ, idx);
        queueProgressSave();
     }
   document.getElementById('live-score').textContent = state.sessionScore;
@@ -3186,7 +3199,7 @@ function selectBonus(idx) {
       state.sessionScore += pts;
       state.answers.push({ qIdx: 5, chosen: idx, correct, pts });
       if (!state.isReplay) {
-          postAnswerDist(state.todayKey, 5, correct);
+          postAnswerDist(state.todayKey, 5, idx);
       }
 
   // Style
