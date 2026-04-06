@@ -563,7 +563,6 @@ app.post('/api/fetch-article', async (req, res) => {
 // ── Canonical per-player quiz progress ───────────────────────
 // Stored as progress = { [date]: { [playerKey]: { displayName, score, currentQ, completed, answers, startedAt, updatedAt } } }
 
-// 1. THE POST ENDPOINT (For saving scores)
 app.post('/api/progress', async (req, res) => {
   const { playerName, date, progress } = req.body || {};
 
@@ -576,22 +575,50 @@ app.post('/api/progress', async (req, res) => {
     const quiz = data.quizzes && data.quizzes[date];
     if (!quiz) return res.status(404).json({ error: 'Quiz not found' });
 
-    let validatedScore = 0;
-    if (progress.answers) {
-      Object.entries(progress.answers).forEach(([key, choice]) => {
-        const qIdx = parseInt(key.replace('q', ''));
-        const question = quiz.questions[qIdx];
-        const chosenIndex = (typeof choice === 'object') ? choice.chosen : choice;
+    // Recalculate score server-side based on the answers array in progress
+  let validatedScore = 0;
+      if (progress.answers) {
+        Object.entries(progress.answers).forEach(([key, choice]) => {
+          const qIdx = parseInt(key.replace('q', ''));
+          const question = quiz.questions[qIdx];
+        
+          // Handle if choice is an object {chosen: X} or just the number X
+          const chosenIndex = (typeof choice === 'object') ? choice.chosen : choice;
 
-        if (question && chosenIndex === question.correctIndex) {
-          validatedScore += (question.points || 10);
-        }
-      });
-    }
+          if (question && chosenIndex === question.correctIndex) {
+            // Use the points from the quiz (e.g., 10, 20, 50)
+            validatedScore += (question.points || 10);
+          }
+        });
+      }
 
+    // Add the 10-point bonus for completing all 6 questions
     if (progress.completed) {
       validatedScore += 10;
     }
+
+app.get('/api/progress', async (req, res) => {
+  const { date, playerName } = req.query;
+  if (!date) return res.status(400).json({ error: 'date required' });
+
+  try {
+    // This looks into your Postgres 'store' table for the 'progress' key
+    const allProgress = await getKey('progress') || {}; 
+    const dayData = allProgress[date] || {};
+
+    // If you're looking for one person: ?date=...&playerName=...
+    if (playerName) {
+      const key = playerName.toLowerCase().trim();
+      return res.json(dayData[key] || { score: 0, completed: false });
+    }
+
+    // If you're looking at the whole leaderboard: ?date=...
+    res.json(dayData);
+  } catch (e) {
+    console.error('Error in GET /api/progress:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
 
     const allProgress = (await getKey('progress')) || {};
     if (!allProgress[date]) allProgress[date] = {};
@@ -604,33 +631,20 @@ app.post('/api/progress', async (req, res) => {
       ...progress,
       displayName: playerName.trim(),
       updatedAt: new Date().toISOString(),
-      score: validatedScore 
+      score: validatedScore
     };
+
+    // Keep only last 2 days of progress
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - 2);
+    Object.keys(allProgress).forEach(d => {
+      if (new Date(d + 'T12:00:00') < cutoffDate) delete allProgress[d];
+    });
 
     await setKey('progress', allProgress);
     res.json({ ok: true, validatedScore });
   } catch (e) {
     console.error('[progress] POST error:', e.message);
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// 2. THE GET ENDPOINT (For viewing scores/API site)
-app.get('/api/progress', async (req, res) => {
-  const { date, playerName } = req.query;
-  if (!date) return res.status(400).json({ error: 'date required' });
-
-  try {
-    const allProgress = await getKey('progress') || {}; 
-    const dayData = allProgress[date] || {};
-
-    if (playerName) {
-      const key = playerName.toLowerCase().trim();
-      return res.json(dayData[key] || { score: 0, completed: false });
-    }
-    res.json(dayData);
-  } catch (e) {
-    console.error('Error in GET /api/progress:', e);
     res.status(500).json({ error: e.message });
   }
 });
