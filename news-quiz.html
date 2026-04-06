@@ -3577,6 +3577,7 @@ async function showAdminScreen() {
   loadAdminPosts();
   loadArticleUrls();
   loadSubscribers();
+  loadAdminArchive();
   loadAdminStats();
   loadTodayQuestions();
   loadPlayerList();
@@ -3585,8 +3586,6 @@ async function showAdminScreen() {
   loadMsgSubscribers();
   loadMsgProspects();
   loadProspects();
-  // Only lazy-load the truly heavy collapsibles
-  setupLazyLoad('anc-quiz-archive', loadAdminArchive);
 }
 
 // ─── RSS cache helpers ───────────────────────────────────────────────────
