@@ -1855,7 +1855,7 @@
     </div>
 
     <div class="admin-collapsible" style="margin-top:20px;" id="anc-message">
-      <details open>
+      <details>
         <summary>
           <span class="summary-left">Message Players</span>
           <span class="summary-arrow">▸</span>
@@ -1957,7 +1957,7 @@
     </div>
 
     <div class="admin-collapsible" style="margin-top:20px;" id="anc-prospects">
-      <details open>
+      <details>
         <summary>
           <span class="summary-left">Prospects <span id="prospects-count" style="font-family:monospace;font-size:12px;color:var(--muted);font-weight:400;letter-spacing:0;text-transform:none;"></span></span>
           <span class="summary-arrow">&#9658;</span>
@@ -6012,7 +6012,7 @@ async function loadAdminStats() {
 
                           if (todayQuiz && todayQuiz.questions && todayQuiz.questions[i]) {
                             const q = todayQuiz.questions[i];
-                            const trunc = t => (t || '').split(' ').slice(0, 3).join(' ');
+                            const trunc = t => (t || '').split(' ').slice(0, 2).join(' ');
                             const chosenText = q.options[chosenIdx] || '';
                             const correctText = q.options[q.correctIndex] || '';
                             if (correct) {
