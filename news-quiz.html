@@ -3574,17 +3574,19 @@ function setupLazyLoad(sectionId, loadFn) {
 async function showAdminScreen() {
   showScreen('screen-admin');
   await refreshAdminPreviews();
+  loadAdminPosts();
+  loadArticleUrls();
+  loadSubscribers();
   loadAdminStats();
   loadTodayQuestions();
+  loadPlayerList();
   loadEmailPauseState();
   loadTopicBlocklist();
-  // Heavy sections now load lazily when opened
-  setupLazyLoad('anc-community', loadAdminPosts);
+  loadMsgSubscribers();
+  loadMsgProspects();
+  loadProspects();
+  // Only lazy-load the truly heavy collapsibles
   setupLazyLoad('anc-quiz-archive', loadAdminArchive);
-  setupLazyLoad('anc-players', loadPlayerList);
-  setupLazyLoad('anc-message', () => { loadMsgSubscribers(); loadMsgProspects(); });
-  setupLazyLoad('anc-prospects', () => { loadProspects(); });
-  setupLazyLoad('anc-subscribers', loadSubscribers);
 }
 
 // ─── RSS cache helpers ───────────────────────────────────────────────────
