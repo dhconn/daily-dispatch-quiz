@@ -3557,20 +3557,34 @@ function checkAdminPw() {
   }
 }
 
+function setupLazyLoad(sectionId, loadFn) {
+  const section = document.getElementById(sectionId);
+  if (!section) return;
+  const details = section.querySelector('details');
+  if (!details) return;
+  let loaded = false;
+  details.addEventListener('toggle', () => {
+    if (details.open && !loaded) {
+      loaded = true;
+      loadFn();
+    }
+  });
+}
+
 async function showAdminScreen() {
   showScreen('screen-admin');
   await refreshAdminPreviews();
-  loadAdminPosts();
-  loadArticleUrls();
-  loadSubscribers();
-  loadAdminArchive();
   loadAdminStats();
-  loadPlayerList();
+  loadTodayQuestions();
   loadEmailPauseState();
   loadTopicBlocklist();
-  loadMsgSubscribers();
-  loadMsgProspects();
-  loadProspects();
+  // Heavy sections now load lazily when opened
+  setupLazyLoad('anc-community', loadAdminPosts);
+  setupLazyLoad('anc-quiz-archive', loadAdminArchive);
+  setupLazyLoad('anc-players', loadPlayerList);
+  setupLazyLoad('anc-message', () => { loadMsgSubscribers(); loadMsgProspects(); });
+  setupLazyLoad('anc-prospects', () => { loadProspects(); });
+  setupLazyLoad('anc-subscribers', loadSubscribers);
 }
 
 // ─── RSS cache helpers ───────────────────────────────────────────────────
