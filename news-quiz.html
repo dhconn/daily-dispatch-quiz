@@ -5970,6 +5970,14 @@ async function loadAdminStats() {
       if (ydRes.ok) yesterdayProgress = await ydRes.json();
     } catch (e) {}
 
+    // Fetch today's quiz for answer text lookup
+    let todayQuiz = null;
+    try {
+      const quizRes = await fetch('/api/quiz?date=' + today);
+      const quizData = await quizRes.json();
+      todayQuiz = quizData.quiz || null;
+    } catch(e) {}
+
     const gridData = [
       [today, filteredProgress || {}],
       [yesterday, yesterdayProgress || {}]
@@ -5989,18 +5997,33 @@ async function loadAdminStats() {
         .forEach(([playerKey, p]) => {
           const displayName = p.displayName || playerKey;
 
-          let qCells = '';
-          for (let i = 0; i <= 5; i++) {
-            const a = p.answers && p.answers['q' + i];
-            let cell = '—';
-            let color = 'var(--muted)';
+    let qCells = '';
+    for (let i = 0; i <= 5; i++) {
+          const a = p.answers && p.answers['q' + i];
+          let cell = '—';
+          let color = 'var(--muted)';
+          let tooltip = '';
 
-            if (a !== undefined) {
-              cell = a.correct ? '✓' : '✗';
-              color = a.correct ? 'var(--green)' : 'var(--red)';
-            }
+               if (a !== undefined) {
+                      const correct = typeof a === 'object' ? a.correct : null;
+                      const chosenIdx = typeof a === 'object' ? a.chosen : a;
+                      cell = correct ? '✓' : '✗';
+                      color = correct ? 'var(--green)' : 'var(--red)';
 
-            qCells += `<td style="padding:4px 8px;text-align:center;color:${color};font-family:monospace;">${cell}</td>`;
+                          if (todayQuiz && todayQuiz.questions && todayQuiz.questions[i]) {
+                            const q = todayQuiz.questions[i];
+                            const trunc = t => (t || '').split(' ').slice(0, 3).join(' ');
+                            const chosenText = q.options[chosenIdx] || '';
+                            const correctText = q.options[q.correctIndex] || '';
+                            if (correct) {
+                              tooltip = `<div style="font-size:10px;color:${color};font-family:monospace;line-height:1.3;">[${chosenIdx}] ${trunc(chosenText)}</div>`;
+                            } else {
+                              tooltip = `<div style="font-size:10px;color:${color};font-family:monospace;line-height:1.3;">[${chosenIdx}] ${trunc(chosenText)}</div><div style="font-size:10px;color:var(--muted);font-family:monospace;line-height:1.3;">✓[${q.correctIndex}] ${trunc(correctText)}</div>`;
+                            }
+                        }
+                    }
+
+            qCells += `<td style="padding:4px 8px;text-align:left;color:${color};font-family:monospace;">${cell}${tooltip}</td>`;
           }
 
           const completedCell = p.completed ? '✓' : '—';
