@@ -3557,20 +3557,6 @@ function checkAdminPw() {
   }
 }
 
-function setupLazyLoad(sectionId, loadFn) {
-  const section = document.getElementById(sectionId);
-  if (!section) return;
-  const details = section.querySelector('details');
-  if (!details) return;
-  let loaded = false;
-  details.addEventListener('toggle', () => {
-    if (details.open && !loaded) {
-      loaded = true;
-      loadFn();
-    }
-  });
-}
-
 async function showAdminScreen() {
   showScreen('screen-admin');
   await refreshAdminPreviews();
