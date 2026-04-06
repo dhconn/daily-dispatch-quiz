@@ -1836,20 +1836,6 @@
       </div>
     </div>
 
-    <div class="admin-collapsible" style="margin-top:20px;">
-      <details>
-        <summary>
-          <span class="summary-left">Today's Questions & Answers</span>
-          <span class="summary-arrow">▸</span>
-        </summary>
-        <div class="collapsible-body">
-          <div id="admin-today-questions">
-            <p style="font-family:monospace;font-size:12px;color:var(--muted);">Loading…</p>
-          </div>
-        </div>
-      </details>
-    </div>
-    
     <div class="admin-section" style="margin-top:20px;" id="anc-leaderboard">
       <h3>Leaderboard</h3>
       <p style="font-family:monospace;font-size:12px;color:var(--muted);margin-bottom:8px;">View without affecting scores.</p>
@@ -2210,25 +2196,15 @@ async function saveProgressToServer(completedOverride = false) {
   console.log('posting progress payload', progress);
 
   try {
-      // Create a simple map of question IDs to the index the user chose
-      const progressAnswers = {};
-      state.answers.forEach(a => {
-        progressAnswers['q' + a.qIdx] = a.chosen;
-      });
-
     const res = await fetch('/api/progress', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          playerName: state.playerName,
-          date: state.todayKey,
-          progress: {
-            ...progress,
-            answers: progressAnswers // Overwrite the answers with just the indices
-          }
-        })
-      });
-
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        playerName: state.playerName,
+        date: state.todayKey,
+        progress
+      })
+    });
     if (!res.ok) {
       const text = await res.text();
       console.error('saveProgressToServer failed:', res.status, text);
@@ -2237,10 +2213,7 @@ async function saveProgressToServer(completedOverride = false) {
     console.error('saveProgressToServer error:', e);
   }
 }
-
-let progressSaveChain = Promise.resolve();
-
-function showResumeOverlay() {
+let progressSaveChain = Promise.resolve();function showResumeOverlay() {
   const overlay = document.getElementById('resume-overlay');
   const textEl = document.getElementById('resume-overlay-text');
   if (!overlay || !textEl) return;
@@ -3592,7 +3565,6 @@ async function showAdminScreen() {
   loadSubscribers();
   loadAdminArchive();
   loadAdminStats();
-  loadTodayQuestions();  // ← add this line
   loadPlayerList();
   loadEmailPauseState();
   loadTopicBlocklist();
@@ -6201,31 +6173,6 @@ async function loadAdminStats() {
     el.innerHTML = '<p style="color:var(--muted);">Could not load stats.</p>';
   }
 }
-
-async function loadTodayQuestions() {
-    const el = document.getElementById('admin-today-questions');
-    if (!el) return;
-    try {
-      const res = await fetch('/api/quiz?date=' + todayStr());
-      const data = await res.json();
-      const questions = data.quiz && data.quiz.questions ? data.quiz.questions : [];
-      if (!questions.length) { el.innerHTML = '<p style="font-family:monospace;font-size:12px;color:var(--muted);">No quiz published yet today.</p>'; return; }
-      const letters = ['A','B','C','D'];
-      el.innerHTML = questions.map((q, i) => `
-        <div style="margin-bottom:16px;padding:12px;background:white;border:1px solid var(--rule);">
-          <div style="font-family:monospace;font-size:11px;color:var(--muted);margin-bottom:6px;">${i === 5 ? 'BONUS' : 'Q' + (i+1)} · ${(q.difficulty||'').toUpperCase()}</div>
-          <div style="font-size:14px;font-weight:600;margin-bottom:10px;">${escHtml(q.question)}</div>
-          ${q.options.map((opt, oi) => `
-            <div style="padding:4px 8px;margin-bottom:4px;font-size:13px;
-              ${oi === q.correctIndex ? 'background:#d4edda;border-left:3px solid var(--green);font-weight:600;' : 'color:var(--muted);'}">
-              ${letters[oi]}. ${escHtml(opt)}
-            </div>`).join('')}
-          ${q.explanation ? `<div style="font-size:12px;font-style:italic;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--rule);">💡 ${escHtml(q.explanation)}</div>` : ''}
-        </div>`).join('');
-    } catch(e) {
-      el.innerHTML = '<p style="color:var(--red);font-size:12px;">Could not load questions.</p>';
-    }
-  }
 
 async function toggleSubscriber(email, active) {
   try {
