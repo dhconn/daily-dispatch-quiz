@@ -6163,6 +6163,12 @@ async function loadAdminStats() {
   }
 });
 
+
+    } catch(e) {
+      el.innerHTML = '<p style="color:var(--muted);">Could not load stats.</p>';
+    }
+ }
+
 async function loadTodayQuestions() {
   const el = document.getElementById('admin-today-questions');
   if (!el) return;
