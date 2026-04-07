@@ -2260,8 +2260,11 @@ let progressSaveChain = Promise.resolve();function showResumeOverlay() {
 
 function dismissFirstTimeOverlay() {
   document.getElementById('first-time-overlay').style.display = 'none';
+
   const pkey = (state.playerName || '').toLowerCase().trim();
-  if (pkey) lsSet('dnq_seen_intro_' + pkey, '1');  startQuiz(window._pendingQuiz, window._pendingQuizOptions);
+  if (pkey) lsSet('dnq_seen_intro_' + pkey, '1');
+
+  startQuiz(window._pendingQuiz, window._pendingQuizOptions || {});
   window._pendingQuiz = null;
   window._pendingQuizOptions = null;
 }
@@ -2749,8 +2752,10 @@ async function registerPlayer() {
   }
 
 const introKey = 'dnq_seen_intro_' + pkey;
-if (!lsGet(introKey) && !resumed) {    window._pendingQuiz = quiz;
+if (!lsGet(introKey) && !resumed) {
+    window._pendingQuiz = quiz;
     window._pendingQuizOptions = { resumed };
+
     const overlay = document.getElementById('first-time-overlay');
     overlay.style.display = 'flex';
   } else {
