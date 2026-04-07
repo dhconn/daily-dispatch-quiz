@@ -2178,7 +2178,7 @@ function computeProgressScore(answers, completed) {
 }
 
 async function saveProgressToServer(completedOverride = false) {
-console.log('saveProgressToServer called', {
+console.log('DDQ saveProgressToServer called', {
   player: state.playerName,
   date: state.todayKey,
   sessionScore: state.sessionScore,
@@ -2206,7 +2206,7 @@ console.log('computed score', computeProgressScore(answersObj, completedOverride
 const completed = completedOverride || !!state.completed;
 const computedScore = computeProgressScore(answersObj, completed);
 
-console.log('computed vs session', {
+console.log('DDQ computed vs session', {
   computedScore,
   sessionScore: state.sessionScore,
   completed,
@@ -2220,7 +2220,7 @@ const progress = {
   updatedAtClient: new Date().toISOString()
 };
 
-  console.log('posting progress payload', progress);
+  console.log('DDQ posting progress payload', progress);
 
   try {
     const res = await fetch('/api/progress', {
