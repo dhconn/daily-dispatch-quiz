@@ -2170,6 +2170,13 @@ function postAnswerDist(date, qIdx, idx) { // Changed 'correct' to 'idx'
     });
   }
 
+function computeProgressScore(answers, completed) {
+  const base = Object.values(answers || {}).reduce((sum, a) => {
+    return sum + (Number(a?.pts) || 0);
+  }, 0);
+  return base + (completed ? 10 : 0);
+}
+
 async function saveProgressToServer(completedOverride = false) {
   console.log('saveProgressToServer called', state.playerName, state.todayKey, state.sessionScore, state.answers);
   if (archiveMode) return;
@@ -2185,8 +2192,10 @@ async function saveProgressToServer(completedOverride = false) {
     };
   });
 
+ console.log('computed score', computeProgressScore(answersObj, completedOverride));
+
   const progress = {
-    score: state.sessionScore,
+    score: computeProgressScore(answersObj, completedOverride),
     currentQ: state.currentQ,
     completed: completedOverride,
     answers: answersObj,
