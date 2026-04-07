@@ -2178,7 +2178,16 @@ function computeProgressScore(answers, completed) {
 }
 
 async function saveProgressToServer(completedOverride = false) {
-  console.log('saveProgressToServer called', state.playerName, state.todayKey, state.sessionScore, state.answers);
+console.log('saveProgressToServer called', {
+  player: state.playerName,
+  date: state.todayKey,
+  sessionScore: state.sessionScore,
+  currentQ: state.currentQ,
+  completedOverride,
+  stateCompleted: state.completed,
+  answers: state.answers
+});
+
   if (archiveMode) return;
   if (!state.playerName || !state.todayKey) return;
 
@@ -2192,15 +2201,24 @@ async function saveProgressToServer(completedOverride = false) {
     };
   });
 
- console.log('computed score', computeProgressScore(answersObj, completedOverride));
+console.log('computed score', computeProgressScore(answersObj, completedOverride));
 
-  const progress = {
-    score: computeProgressScore(answersObj, completedOverride),
-    currentQ: state.currentQ,
-    completed: completedOverride,
-    answers: answersObj,
-    updatedAtClient: new Date().toISOString()
-  };
+const completed = completedOverride || !!state.completed;
+const computedScore = computeProgressScore(answersObj, completed);
+
+console.log('computed vs session', {
+  computedScore,
+  sessionScore: state.sessionScore,
+  completed,
+  answersObj
+});
+
+const progress = {
+  score: computedScore,  currentQ: state.currentQ,
+  completed,
+  answers: answersObj,
+  updatedAtClient: new Date().toISOString()
+};
 
   console.log('posting progress payload', progress);
 
