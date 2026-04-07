@@ -1,6667 +1,1865 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+CiAgPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiBmaWxsPSIjMWExYTFhIi8+CiAgPHJlY3QgeD0iNCIgeT0iNiIgd2lkdGg9IjI0IiBoZWlnaHQ9IjIiIGZpbGw9IndoaXRlIi8+CiAgPHJlY3QgeD0iNCIgeT0iMTAiIHdpZHRoPSIyNCIgaGVpZ2h0PSIxIiBmaWxsPSJ3aGl0ZSIgb3BhY2l0eT0iMC41Ii8+CiAgPHRleHQgeD0iMTYiIHk9IjI2IiBmb250LWZhbWlseT0iR2VvcmdpYSxzZXJpZiIgZm9udC1zaXplPSIxOCIgZm9udC13ZWlnaHQ9ImJvbGQiIAogICAgICAgIGZpbGw9IndoaXRlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5EPC90ZXh0Pgo8L3N2Zz4=">
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>The Daily Dispatch Quiz</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Source+Serif+4:ital,wght@0,300;0,400;0,600;1,400&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
-<style>
-  :root {
-    --ink: #1a1008;
-    --paper: #f5f0e8;
-    --cream: #ede8da;
-    --red: #c0392b;
-    --gold: #b8860b;
-    --gold-light: #f0c040;
-    --rule: #2c1f0e;
-    --muted: #6b5f4e;
-    --green: #1a6b3c;
-    --blue: #1a3a6b;
-    --bonus-bg: #0a0a1a;
-    --bonus-gold: #ffd700;
-    --bonus-glow: #ff8c00;
-  }
-
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-
-  body {
-    font-family: 'Source Serif 4', serif;
-    background: var(--paper);
-    color: var(--ink);
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
-
-  /* ─── MASTHEAD ─── */
-  #masthead {
-    background: var(--ink);
-    color: var(--paper);
-    text-align: center;
-    padding: 10px 20px 14px;
-    border-bottom: 4px double var(--gold);
-    position: relative;
-  }
-  #masthead .dateline {
-    font-family: 'Courier Prime', monospace;
-    font-size: 11px;
-    letter-spacing: 2px;
-    color: var(--gold-light);
-    text-transform: uppercase;
-    margin-bottom: 4px;
-  }
-  #masthead h1 {
-    font-family: 'Playfair Display', serif;
-    font-size: clamp(28px, 6vw, 52px);
-    font-weight: 900;
-    letter-spacing: -1px;
-    line-height: 1;
-    color: var(--paper);
-  }
-  #masthead h1 span { color: var(--gold-light); }
-  #masthead .city-label {
-    font-family: 'Courier Prime', monospace;
-    font-size: 11px;
-    letter-spacing: 6px;
-    text-transform: uppercase;
-    color: var(--gold-light);
-    opacity: 0.75;
-    margin-bottom: 2px;
-  }
-  #masthead .tagline {
-    font-family: 'Courier Prime', monospace;
-    font-size: 10px;
-    letter-spacing: 3px;
-    color: rgba(255,255,255,0.65);
-    margin-top: 4px;
-    text-transform: uppercase;
-  }
-  #admin-btn {
-    position: absolute;
-    right: 16px;
-    top: 50%;
-    transform: translateY(-50%);
-    font-family: 'Courier Prime', monospace;
-    font-size: 11px;
-    background: none;
-    border: 1px solid var(--muted);
-    color: var(--muted);
-    padding: 4px 10px;
-    cursor: pointer;
-    letter-spacing: 1px;
-    transition: all .2s;
-  }
-  #admin-btn:hover { border-color: var(--gold-light); color: var(--gold-light); }
-
-  /* ─── MAIN CONTAINER ─── */
-  #app {
-    max-width: 780px;
-    margin: 0 auto;
-    padding: 20px 16px 60px;
-  }
-
-  /* ─── SCREENS ─── */
-  .screen { display: none; }
-  .screen.active { display: block; }
-
-  /* ─── REGISTER SCREEN ─── */
-  #screen-register {
-    text-align: center;
-    padding: 40px 20px;
-  }
-  .edition-rule {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin: 20px 0;
-    color: var(--muted);
-    font-family: 'Courier Prime', monospace;
-    font-size: 11px;
-    letter-spacing: 2px;
-  }
-  .edition-rule::before, .edition-rule::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: var(--rule);
-  }
-  #screen-register h2 {
-    font-family: 'Playfair Display', serif;
-    font-size: 32px;
-    color: var(--ink);
-    margin-bottom: 8px;
-  }
-  #screen-register p {
-    color: var(--muted);
-    font-style: italic;
-    margin-bottom: 30px;
-    font-size: 15px;
-  }
-  .points-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 10px;
-    margin: 24px 0;
-    max-width: 500px;
-    margin-left: auto;
-    margin-right: auto;
-  }
-  .points-card {
-    background: var(--cream);
-    border: 1px solid var(--rule);
-    padding: 12px 8px;
-    text-align: center;
-  }
-  .points-card .pts {
-    font-family: 'Playfair Display', serif;
-    font-size: 28px;
-    font-weight: 700;
-    color: var(--red);
-  }
-  .points-card .pts.bonus-pts { color: var(--gold); }
-  .points-card .label {
-    font-family: 'Courier Prime', monospace;
-    font-size: 10px;
-    letter-spacing: 1px;
-    color: var(--muted);
-    margin-top: 2px;
-  }
-  .input-group {
-    display: flex;
-    gap: 0;
-    max-width: 420px;
-    margin: 0 auto 16px;
-    border: 2px solid var(--ink);
-  }
-  .input-group input {
-    flex: 1;
-    padding: 14px 16px;
-    font-family: 'Source Serif 4', serif;
-    font-size: 16px;
-    background: white;
-    border: none;
-    outline: none;
-    color: var(--ink);
-  }
-  .input-group input::placeholder { color: #aaa; font-style: italic; }
-  .btn-primary {
-    background: var(--ink);
-    color: var(--paper);
-    border: none;
-    padding: 14px 24px;
-    font-family: 'Courier Prime', monospace;
-    font-size: 13px;
-    letter-spacing: 2px;
-    cursor: pointer;
-    text-transform: uppercase;
-    transition: background .2s;
-  }
-  .btn-primary:hover { background: var(--red); }
-  .btn-secondary {
-    background: none;
-    border: 2px solid var(--ink);
-    color: var(--ink);
-    padding: 10px 20px;
-    font-family: 'Courier Prime', monospace;
-    font-size: 12px;
-    letter-spacing: 2px;
-    cursor: pointer;
-    text-transform: uppercase;
-    transition: all .2s;
-  }
-  .btn-secondary:hover { background: var(--ink); color: var(--paper); }
-
-  /* ─── QUIZ SCREEN ─── */
-  #screen-quiz { padding: 10px 0; }
-  .quiz-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 0 16px;
-    border-bottom: 2px solid var(--ink);
-    margin-bottom: 24px;
-  }
-  .quiz-header .player-name {
-    font-family: 'Courier Prime', monospace;
-    font-size: 12px;
-    letter-spacing: 1px;
-    color: var(--muted);
-  }
-  .quiz-header .player-name strong {
-    color: var(--ink);
-    font-size: 14px;
-  }
-  .score-display {
-    font-family: 'Playfair Display', serif;
-    font-size: 22px;
-    font-weight: 700;
-    color: var(--red);
-  }
-  .score-display span {
-    font-family: 'Courier Prime', monospace;
-    font-size: 11px;
-    color: var(--muted);
-    vertical-align: middle;
-    margin-right: 4px;
-  }
-
-  /* Progress tracker */
-  .progress-track {
-    display: flex;
-    gap: 4px;
-    margin-bottom: 24px;
-    align-items: center;
-  }
-  .progress-dot {
-    width: 28px;
-    height: 28px;
-    border: 2px solid var(--rule);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: 'Courier Prime', monospace;
-    font-size: 10px;
-    color: var(--muted);
-    transition: all .3s;
-    flex-shrink: 0;
-  }
-  .progress-dot.current { border-color: var(--ink); color: var(--ink); background: var(--cream); font-weight: 700; }
-  .progress-dot.correct { background: var(--green); border-color: var(--green); color: white; }
-  .progress-dot.wrong { background: var(--red); border-color: var(--red); color: white; }
-  .progress-dot.bonus { border-color: var(--gold); color: var(--gold); }
-  .progress-separator {
-    font-family: 'Courier Prime', monospace;
-    font-size: 10px;
-    color: var(--muted);
-    margin: 0 4px;
-  }
-
-  /* Difficulty band */
-  .difficulty-band {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 16px;
-    align-items: center;
-  }
-  .diff-label {
-    font-family: 'Courier Prime', monospace;
-    font-size: 10px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    padding: 3px 8px;
-    border: 1px solid;
-  }
-  .diff-label.easy { color: var(--green); border-color: var(--green); }
-  .diff-label.medium { color: var(--gold); border-color: var(--gold); }
-  .diff-label.hard { color: var(--red); border-color: var(--red); }
-  .diff-label.bonus { color: var(--gold); border-color: var(--gold); background: #fff8e0; }
-  .pts-label {
-    font-family: 'Courier Prime', monospace;
-    font-size: 10px;
-    color: var(--muted);
-  }
-
-  /* Question card */
-  .question-card {
-    background: white;
-    border: 2px solid var(--ink);
-    padding: 28px 30px 24px;
-    margin-bottom: 20px;
-    position: relative;
-    box-shadow: 4px 4px 0 var(--ink);
-    animation: slideIn .3s ease;
-  }
-  @keyframes slideIn {
-    from { opacity: 0; transform: translateY(12px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-  .q-number {
-    font-family: 'Courier Prime', monospace;
-    font-size: 11px;
-    letter-spacing: 2px;
-    color: var(--muted);
-    text-transform: uppercase;
-    margin-bottom: 10px;
-  }
-  .q-text {
-    font-size: 19px;
-    line-height: 1.5;
-    color: var(--ink);
-    font-weight: 400;
-  }
-
-  /* Answer options */
-  .options-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    margin-top: 20px;
-  }
-  .option-btn {
-    background: var(--cream);
-    border: 2px solid var(--rule);
-    padding: 14px 16px;
-    text-align: left;
-    cursor: pointer;
-    font-family: 'Source Serif 4', serif;
-    font-size: 15px;
-    color: var(--ink);
-    transition: all .15s;
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    line-height: 1.4;
-  }
-  .option-btn:hover:not(:disabled) { border-color: var(--ink); background: white; transform: translateY(-1px); }
-  .option-btn .opt-letter {
-    font-family: 'Courier Prime', monospace;
-    font-weight: 700;
-    font-size: 13px;
-    color: var(--muted);
-    flex-shrink: 0;
-    margin-top: 1px;
-  }
-  .option-btn:disabled { cursor: default; transform: none; }
-  .option-btn.correct { background: #d4edda; border-color: var(--green); }
-  .option-btn.correct .opt-letter { color: var(--green); }
-  .option-btn.wrong { background: #f8d7da; border-color: var(--red); }
-  .option-btn.wrong .opt-letter { color: var(--red); }
-  .option-btn.reveal-correct { background: #d4edda; border-color: var(--green); }
-
-  /* Feedback */
-  .feedback-box {
-    margin-top: 16px;
-    padding: 14px 18px;
-    border-left: 4px solid;
-    background: var(--cream);
-    animation: slideIn .3s ease;
-  }
-  .feedback-box.correct { border-color: var(--green); }
-  .feedback-box.wrong { border-color: var(--red); }
-  .feedback-box .fb-headline {
-    font-family: 'Courier Prime', monospace;
-    font-weight: 700;
-    font-size: 13px;
-    letter-spacing: 1px;
-    margin-bottom: 6px;
-  }
-  .feedback-box.correct .fb-headline { color: var(--green); }
-  .feedback-box.wrong .fb-headline { color: var(--red); }
-  .feedback-box .fb-text { font-size: 14px; color: var(--ink); line-height: 1.5; font-style: italic; }
-  /* Floating points popup on correct answer */
-  .pts-popup {
-    position: fixed;
-    font-family: 'Playfair Display', serif;
-    font-size: 28px;
-    font-weight: 700;
-    color: var(--green);
-    pointer-events: none;
-    z-index: 9999;
-    animation: pts-float 1.2s ease-out forwards;
-    text-shadow: 0 2px 8px rgba(0,0,0,0.18);
-  }
-  .pts-popup.bonus { color: var(--gold-light, #f0c040); font-size: 36px; }
-  .pts-popup.consolation { color: var(--muted); font-size: 18px; font-weight: 400; }
-  @keyframes pts-float {
-    0%   { opacity: 1; transform: translateY(0) scale(1); }
-    60%  { opacity: 1; transform: translateY(-48px) scale(1.15); }
-    100% { opacity: 0; transform: translateY(-80px) scale(0.9); }
-  }
-
-  .feedback-box .pts-earned {
-    font-family: 'Playfair Display', serif;
-    font-size: 20px;
-    font-weight: 700;
-    margin-top: 6px;
-  }
-  .feedback-box.correct .pts-earned { color: var(--green); }
-
-  .next-btn {
-    display: block;
-    width: 100%;
-    margin-top: 16px;
-    background: var(--ink);
-    color: var(--paper);
-    border: none;
-    padding: 16px;
-    font-family: 'Courier Prime', monospace;
-    font-size: 14px;
-    letter-spacing: 3px;
-    cursor: pointer;
-    text-transform: uppercase;
-    transition: background .2s;
-  }
-  .next-btn:hover { background: var(--red); }
-
-  /* ─── INTERSTITIAL SCREEN ─── */
-  #screen-interstitial {
-    text-align: center;
-    padding: 40px 20px;
-    background: var(--ink);
-    color: var(--paper);
-    min-height: 60vh;
-    display: none;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    margin: -20px -16px;
-    padding: 60px 40px;
-    animation: fadeIn .5s ease;
-  }
-  #screen-interstitial.active { display: flex; }
-  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-  .interstitial-rule {
-    width: 100%;
-    height: 2px;
-    background: linear-gradient(90deg, transparent, var(--gold-light), transparent);
-    margin: 20px 0;
-    max-width: 500px;
-  }
-  #screen-interstitial .phase-label {
-    font-family: 'Courier Prime', monospace;
-    font-size: 11px;
-    letter-spacing: 4px;
-    color: var(--gold-light);
-    margin-bottom: 12px;
-  }
-  #screen-interstitial h2 {
-    font-family: 'Playfair Display', serif;
-    font-size: clamp(28px, 6vw, 48px);
-    font-weight: 900;
-    line-height: 1.1;
-    margin-bottom: 20px;
-  }
-  #interstitial-score {
-    font-family: 'Playfair Display', serif;
-    font-size: 64px;
-    font-weight: 900;
-    color: var(--gold-light);
-    line-height: 1;
-  }
-  #screen-interstitial .score-subtext {
-    font-family: 'Courier Prime', monospace;
-    font-size: 12px;
-    color: var(--muted);
-    letter-spacing: 2px;
-    margin-bottom: 30px;
-  }
-  #screen-interstitial p {
-    font-style: italic;
-    color: #c8b89a;
-    max-width: 420px;
-    line-height: 1.6;
-    margin-bottom: 30px;
-  }
-  .pulse-text {
-    animation: pulse 2s ease-in-out infinite;
-  }
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
-  }
-
-  /* ─── BONUS SCREEN ─── */
-  #screen-bonus {
-    background: var(--bonus-bg);
-    color: white;
-    margin: -20px -16px;
-    padding: 40px 30px;
-    min-height: 70vh;
-    animation: fadeIn .5s ease;
-  }
-  .bonus-header {
-    text-align: center;
-    margin-bottom: 30px;
-    position: relative;
-  }
-  .bonus-badge {
-    display: inline-block;
-    font-family: 'Courier Prime', monospace;
-    font-size: 11px;
-    letter-spacing: 4px;
-    color: var(--bonus-bg);
-    background: var(--bonus-gold);
-    padding: 6px 16px;
-    text-transform: uppercase;
-    margin-bottom: 12px;
-    animation: shimmer 2s ease-in-out infinite;
-  }
-  @keyframes shimmer {
-    0%, 100% { box-shadow: 0 0 10px var(--bonus-gold); }
-    50% { box-shadow: 0 0 30px var(--bonus-glow), 0 0 60px var(--bonus-gold); }
-  }
-  .bonus-header h2 {
-    font-family: 'Playfair Display', serif;
-    font-size: clamp(32px, 7vw, 56px);
-    font-weight: 900;
-    background: linear-gradient(135deg, var(--bonus-gold), var(--bonus-glow), var(--bonus-gold));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    line-height: 1.1;
-    margin-bottom: 6px;
-  }
-  .bonus-pts-label {
-    font-family: 'Courier Prime', monospace;
-    font-size: 13px;
-    letter-spacing: 2px;
-    color: rgba(255,215,0,0.6);
-  }
-  .bonus-question-card {
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,215,0,0.3);
-    padding: 28px;
-    margin: 24px 0;
-    box-shadow: 0 0 40px rgba(255,165,0,0.1), inset 0 0 40px rgba(255,215,0,0.02);
-  }
-  .bonus-question-card .q-text {
-    color: white;
-    font-size: 20px;
-    line-height: 1.55;
-  }
-  .bonus-options .option-btn {
-    background: rgba(255,255,255,0.06);
-    border-color: rgba(255,255,255,0.2);
-    color: white;
-  }
-  .bonus-options .option-btn .opt-letter { color: rgba(255,215,0,0.7); }
-  .bonus-options .option-btn:hover:not(:disabled) {
-    background: rgba(255,215,0,0.1);
-    border-color: var(--bonus-gold);
-  }
-  .bonus-options .option-btn.correct {
-    background: rgba(26,107,60,0.4);
-    border-color: #4caf7d;
-  }
-  .bonus-options .option-btn.wrong {
-    background: rgba(192,57,43,0.4);
-    border-color: var(--red);
-  }
-  .bonus-options .option-btn.reveal-correct {
-    background: rgba(26,107,60,0.4);
-    border-color: #4caf7d;
-  }
-  .bonus-feedback {
-    margin-top: 16px;
-    padding: 16px 20px;
-    border: 1px solid rgba(255,215,0,0.4);
-    background: rgba(255,215,0,0.05);
-  }
-  .bonus-feedback .fb-headline {
-    font-family: 'Courier Prime', monospace;
-    font-size: 14px;
-    letter-spacing: 2px;
-    color: var(--bonus-gold);
-    margin-bottom: 8px;
-  }
-  .bonus-feedback .fb-text { color: rgba(255,255,255,0.8); font-style: italic; font-size: 14px; line-height: 1.5; }
-  .bonus-feedback .pts-earned { color: var(--bonus-gold); font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 700; margin-top: 8px; }
-  .bonus-next-btn {
-    display: block;
-    width: 100%;
-    margin-top: 20px;
-    background: linear-gradient(135deg, #b8860b, #ffd700, #b8860b);
-    color: var(--bonus-bg);
-    border: none;
-    padding: 18px;
-    font-family: 'Courier Prime', monospace;
-    font-size: 15px;
-    letter-spacing: 3px;
-    cursor: pointer;
-    text-transform: uppercase;
-    font-weight: 700;
-    transition: opacity .2s;
-  }
-  .read-more-link {
-    display: inline-block;
-    margin-top: 10px;
-    font-family: 'Courier Prime', monospace;
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 1px;
-    color: var(--blue);
-    text-decoration: none;
-    border-bottom: 1px solid currentColor;
-    opacity: 0.85;
-    transition: opacity .15s;
-  }
-  .read-more-link:hover { opacity: 1; }
-  .feedback-box.wrong .read-more-link { color: var(--red); }
-
-  /* ─── RESULTS SCREEN ─── */
-  #screen-results { text-align: center; padding: 30px 10px; }
-  #screen-results h2 {
-    font-family: 'Playfair Display', serif;
-    font-size: 36px;
-    margin-bottom: 8px;
-  }
-  .results-banner {
-    background: var(--ink);
-    color: var(--paper);
-    padding: 30px;
-    margin: 20px 0;
-    position: relative;
-    overflow: hidden;
-  }
-  .results-banner::before {
-    content: '★';
-    position: absolute;
-    font-size: 200px;
-    color: rgba(255,255,255,0.03);
-    top: -40px;
-    right: -20px;
-  }
-  .results-banner .today-score {
-    font-family: 'Playfair Display', serif;
-    font-size: 72px;
-    font-weight: 900;
-    color: var(--gold-light);
-    line-height: 1;
-  }
-  .results-banner .today-label {
-    font-family: 'Courier Prime', monospace;
-    font-size: 12px;
-    letter-spacing: 3px;
-    color: var(--muted);
-    text-transform: uppercase;
-    margin-top: 4px;
-  }
-  .results-banner .all-time {
-    font-family: 'Courier Prime', monospace;
-    font-size: 13px;
-    color: #c8b89a;
-    margin-top: 16px;
-  }
-  .results-banner .all-time strong { color: var(--paper); font-size: 16px; }
-  .results-stats {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-    margin: 20px 0;
-  }
-  .stat-cell {
-    background: var(--cream);
-    border: 1px solid var(--rule);
-    padding: 16px 8px;
-    text-align: center;
-  }
-  .stat-cell .val {
-    font-family: 'Playfair Display', serif;
-    font-size: 28px;
-    font-weight: 700;
-    color: var(--ink);
-  }
-  .stat-cell .lbl {
-    font-family: 'Courier Prime', monospace;
-    font-size: 10px;
-    letter-spacing: 1px;
-    color: var(--muted);
-    text-transform: uppercase;
-    margin-top: 2px;
-  }
-  .results-breakdown {
-    text-align: left;
-    margin: 20px 0;
-    border: 2px solid var(--ink);
-  }
-  .breakdown-header {
-    background: var(--ink);
-    color: var(--paper);
-    padding: 10px 16px;
-    font-family: 'Courier Prime', monospace;
-    font-size: 12px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-  }
-  .breakdown-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 16px;
-    border-bottom: 1px solid var(--cream);
-    font-size: 14px;
-  }
-  .breakdown-row:last-child { border-bottom: none; }
-  .breakdown-row .q-label { color: var(--muted); font-family: 'Courier Prime', monospace; font-size: 12px; }
-  .breakdown-row .q-short { flex: 1; padding: 0 12px; color: var(--ink); }
-  .breakdown-row .q-result { font-family: 'Courier Prime', monospace; font-size: 13px; font-weight: 700; }
-  .breakdown-row .q-result.c { color: var(--green); }
-  .breakdown-row .q-result.w { color: var(--red); }
-
-  .dist-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 16px;
-    border-bottom: 1px solid var(--border);
-  }
-  .dist-label {
-    font-family: 'Courier Prime', monospace;
-    font-size: 11px;
-    font-weight: 700;
-    width: 44px;
-    flex-shrink: 0;
-    color: var(--muted);
-  }
-  .dist-bar-wrap {
-    flex: 1;
-    background: #e8e0d5;
-    border-radius: 3px;
-    height: 14px;
-    overflow: hidden;
-  }
-  .dist-bar {
-    height: 100%;
-    background: var(--green);
-    border-radius: 3px;
-    transition: width .4s ease;
-    min-width: 2px;
-  }
-  .dist-pct {
-    font-family: 'Courier Prime', monospace;
-    font-size: 12px;
-    font-weight: 700;
-    width: 36px;
-    text-align: right;
-    color: var(--ink);
-  }
-
-  .result-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 24px; }
-
-  /* ─── LEADERBOARD ─── */
-  #screen-leaderboard { padding: 20px 0; }
-  .lb-tabs {
-    display: flex;
-    border-bottom: 2px solid var(--ink);
-    margin-bottom: 20px;
-  }
-  .lb-tab {
-    font-family: 'Courier Prime', monospace;
-    font-size: 12px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    padding: 10px 20px;
-    cursor: pointer;
-    color: var(--muted);
-    border-bottom: 3px solid transparent;
-    margin-bottom: -2px;
-    transition: all .2s;
-  }
-  .lb-tab.active { color: var(--ink); border-bottom-color: var(--red); font-weight: 700; }
-  .lb-table { width: 100%; border-collapse: collapse; }
-  .lb-table th {
-    font-family: 'Courier Prime', monospace;
-    font-size: 10px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    color: var(--muted);
-    text-align: left;
-    padding: 8px 12px;
-    border-bottom: 2px solid var(--ink);
-    background: var(--cream);
-  }
-  .lb-table td {
-    padding: 12px 12px;
-    border-bottom: 1px solid var(--cream);
-    font-size: 15px;
-  }
-  .lb-table tr.me td { background: rgba(192,57,43,0.08); }
-  .lb-table tr.me td:first-child { border-left: 3px solid var(--red); }
-  .lb-table .rank {
-    font-family: 'Playfair Display', serif;
-    font-size: 20px;
-    font-weight: 700;
-    color: var(--muted);
-    text-align: center;
-  }
-  .lb-table .rank.gold { color: #b8860b; }
-  .lb-table .rank.silver { color: #888; }
-  .lb-table .rank.bronze { color: #a0522d; }
-  .lb-table .score-val {
-    font-family: 'Playfair Display', serif;
-    font-size: 20px;
-    font-weight: 700;
-    color: var(--red);
-  }
-  .lb-back { margin-top: 20px; }
-
-  /* ─── ADMIN PANEL ─── */
-  #screen-admin { padding: 20px 0; }
-  #screen-admin h2 {
-    font-family: 'Playfair Display', serif;
-    font-size: 28px;
-    margin-bottom: 20px;
-    padding-bottom: 12px;
-    border-bottom: 2px solid var(--ink);
-  }
-  .admin-section {
-    background: var(--cream);
-    border: 1px solid var(--rule);
-    padding: 20px;
-    margin-bottom: 20px;
-  }
-  .admin-section h3 {
-    font-family: 'Courier Prime', monospace;
-    font-size: 13px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    color: var(--muted);
-    margin-bottom: 12px;
-  }
-  .url-input-area {
-    width: 100%;
-    min-height: 120px;
-    padding: 12px;
-    font-family: 'Courier Prime', monospace;
-    font-size: 13px;
-    border: 2px solid var(--rule);
-    background: white;
-    color: var(--ink);
-    resize: vertical;
-  }
-  .url-input-area:focus { outline: none; border-color: var(--ink); }
-  .admin-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
-  .btn-generate {
-    background: var(--blue);
-    color: white;
-    border: none;
-    padding: 12px 24px;
-    font-family: 'Courier Prime', monospace;
-    font-size: 12px;
-    letter-spacing: 2px;
-    cursor: pointer;
-    text-transform: uppercase;
-    transition: background .2s;
-  }
-  .btn-generate:hover { background: #0a2a5a; }
-  .btn-generate:disabled { background: var(--muted); cursor: wait; }
-  .btn-danger {
-    background: var(--red);
-    color: white;
-    border: none;
-    padding: 12px 24px;
-    font-family: 'Courier Prime', monospace;
-    font-size: 12px;
-    letter-spacing: 2px;
-    cursor: pointer;
-    text-transform: uppercase;
-  }
-
-  /* Question review */
-  .q-review-card {
-    background: white;
-    border: 1px solid var(--rule);
-    padding: 16px;
-    margin-bottom: 10px;
-  }
-  .q-review-card .q-meta {
-    font-family: 'Courier Prime', monospace;
-    font-size: 11px;
-    color: var(--muted);
-    margin-bottom: 8px;
-    display: flex;
-    gap: 12px;
-  }
-  .q-review-card .q-preview { font-size: 15px; color: var(--ink); }
-  .q-review-card .answer-preview {
-    font-family: 'Courier Prime', monospace;
-    font-size: 12px;
-    color: var(--green);
-    margin-top: 6px;
-  }
-  .q-review-card .options-preview {
-    font-family: 'Courier Prime', monospace;
-    font-size: 11px;
-    color: var(--muted);
-    margin-top: 4px;
-  }
-
-  .q-review-card input[type=text],
-  .q-review-card textarea {
-    width: 100%;
-    font-family: 'Source Serif 4', serif;
-    font-size: 14px;
-    color: var(--ink);
-    background: var(--paper);
-    border: 1px solid #ccc;
-    border-radius: 2px;
-    padding: 6px 8px;
-    margin-top: 4px;
-    box-sizing: border-box;
-  }
-  .q-review-card textarea { min-height: 56px; resize: vertical; }
-  .q-review-card input[type=text]:focus,
-  .q-review-card textarea:focus { outline: 2px solid var(--gold); border-color: var(--gold); }
-  .q-options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
-  .q-option-row { display: flex; align-items: center; gap: 6px; }
-  .q-option-row label { font-family: 'Courier Prime', monospace; font-size: 12px; color: var(--muted); white-space: nowrap; }
-  .q-option-row input[type=radio] { accent-color: var(--green); }
-  .q-edit-label { font-family: 'Courier Prime', monospace; font-size: 11px; letter-spacing: 1px; color: var(--muted); margin-top: 10px; margin-bottom: 2px; }
-
-  .q-review-card input[type=text],
-  .q-review-card textarea {
-    width: 100%;
-    font-family: 'Source Serif 4', serif;
-    font-size: 14px;
-    color: var(--ink);
-    background: var(--paper);
-    border: 1px solid #ccc;
-    border-radius: 2px;
-    padding: 6px 8px;
-    margin-top: 4px;
-    box-sizing: border-box;
-  }
-  .q-review-card textarea { min-height: 56px; resize: vertical; }
-  .q-review-card input[type=text]:focus,
-  .q-review-card textarea:focus { outline: 2px solid var(--gold); border-color: var(--gold); }
-  .q-options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
-  .q-option-row { display: flex; align-items: center; gap: 6px; }
-  .q-option-row label { font-family: 'Courier Prime', monospace; font-size: 12px; color: var(--muted); white-space: nowrap; }
-  .q-option-row input[type=radio] { accent-color: var(--green); }
-  .q-edit-label { font-family: 'Courier Prime', monospace; font-size: 11px; letter-spacing: 1px; color: var(--muted); margin-top: 10px; margin-bottom: 2px; }
-
-  .status-msg {
-    padding: 12px 16px;
-    font-family: 'Courier Prime', monospace;
-    font-size: 13px;
-    margin: 12px 0;
-    display: none;
-  }
-  .status-msg.show { display: block; }
-  .status-msg.info { background: #e8f4fd; border-left: 4px solid var(--blue); color: var(--blue); }
-  .status-msg.success { background: #d4edda; border-left: 4px solid var(--green); color: var(--green); }
-  .status-msg.error { background: #f8d7da; border-left: 4px solid var(--red); color: var(--red); }
-
-  /* Archive pill */
-  .archive-pill {
-    display: inline-block;
-    font-family: 'Courier Prime', monospace;
-    font-size: 10px;
-    letter-spacing: 1px;
-    padding: 2px 8px;
-    background: var(--cream);
-    border: 1px solid var(--rule);
-    color: var(--muted);
-    margin-right: 4px;
-    margin-bottom: 4px;
-  }
-
-  /* No quiz today */
-  .no-quiz-card {
-    text-align: center;
-    padding: 60px 20px;
-    background: var(--cream);
-    border: 2px dashed var(--rule);
-    margin: 20px 0;
-  }
-  .no-quiz-card .big-text {
-    font-family: 'Playfair Display', serif;
-    font-size: 48px;
-    font-weight: 700;
-    color: var(--rule);
-    opacity: 0.3;
-  }
-  .no-quiz-card p {
-    color: var(--muted);
-    font-style: italic;
-    margin-top: 12px;
-  }
-
-  /* Admin login */
-  #admin-login-overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.7);
-    z-index: 100;
-    align-items: center;
-    justify-content: center;
-  }
-  #admin-login-overlay.show { display: flex; }
-  .login-box {
-    background: white;
-    border: 3px solid var(--ink);
-    padding: 32px;
-    max-width: 360px;
-    width: 90%;
-    box-shadow: 6px 6px 0 var(--ink);
-  }
-  .login-box h3 {
-    font-family: 'Playfair Display', serif;
-    font-size: 24px;
-    margin-bottom: 20px;
-  }
-  .login-box input {
-    display: block;
-    width: 100%;
-    padding: 12px;
-    border: 2px solid var(--rule);
-    font-family: 'Courier Prime', monospace;
-    font-size: 14px;
-    margin-bottom: 12px;
-    outline: none;
-  }
-  .login-box input:focus { border-color: var(--ink); }
-  .login-error {
-    color: var(--red);
-    font-family: 'Courier Prime', monospace;
-    font-size: 12px;
-    margin-top: 8px;
-    display: none;
-  }
-
-  /* Responsive */
-  @media (max-width: 520px) {
-    .options-grid { grid-template-columns: 1fr; }
-    .points-grid { grid-template-columns: repeat(2, 1fr); }
-    .results-stats { grid-template-columns: repeat(2, 1fr); }
-    .progress-track { flex-wrap: wrap; }
-  }
-
-  .spin {
-    display: inline-block;
-    animation: spin 1s linear infinite;
-  }
-  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-
-  /* ─── ADMIN ARCHIVE REVIEW ─── */
-  .admin-arc-date {
-    font-family: 'Courier Prime', monospace;
-    font-size: 13px;
-    font-weight: 700;
-    cursor: pointer;
-    padding: 10px 12px;
-    background: var(--cream);
-    border: 1px solid var(--rule);
-    margin-bottom: 4px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    user-select: none;
-  }
-  .admin-arc-date:hover { background: #ede8dc; }
-  .admin-arc-body { display: none; margin-bottom: 12px; border: 1px solid var(--rule); border-top: none; }
-  .admin-arc-body.open { display: block; }
-  .admin-arc-q {
-    padding: 12px 14px;
-    border-bottom: 1px solid #f0ebe0;
-    font-size: 13px;
-  }
-  .admin-arc-q:last-child { border-bottom: none; }
-  .admin-arc-qtext { font-family: 'Source Serif 4', serif; font-weight: 600; margin-bottom: 8px; }
-  .admin-arc-opt { padding: 3px 0; font-family: monospace; font-size: 12px; color: var(--muted); }
-  .admin-arc-opt.correct { color: var(--green); font-weight: 700; }
-  .admin-arc-source { font-size: 11px; font-family: monospace; margin-top: 6px; }
-  .admin-arc-source a { color: var(--muted); }
-
-  /* ─── ARCHIVE MODE ─── */
-  body.archive-mode {
-    filter: sepia(0.45) brightness(0.97);
-  }
-  .archive-banner {
-    background: #5a4a2a;
-    color: #f5e8c0;
-    text-align: center;
-    font-family: 'Courier Prime', monospace;
-    font-size: 12px;
-    letter-spacing: 2px;
-    padding: 10px 8px;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-  }
-  .archive-card {
-    border: 1px solid var(--rule);
-    padding: 14px 18px;
-    margin-bottom: 10px;
-    cursor: pointer;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: white;
-    transition: background 0.15s;
-  }
-  .archive-card:hover { background: var(--cream); }
-  .archive-card .arc-date { font-family: 'Courier Prime', monospace; font-size: 13px; font-weight: 700; }
-  .archive-card .arc-label { font-size: 12px; color: var(--muted); font-family: monospace; }
-  .particle {
-    position: fixed;
-    pointer-events: none;
-    z-index: 9999;
-    animation: particleFly 1.1s cubic-bezier(0.15, 0.5, 0.5, 1) forwards;
-  }
-  @keyframes particleFly {
-    0%   { transform: translate(0, 0) scale(1) rotate(0deg); opacity: 1; }
-    60%  { opacity: 1; }
-    100% { transform: translate(var(--dx), var(--dy)) scale(0.2) rotate(var(--rot)); opacity: 0; }
-  }
-
-  /* ─── SCORE POP ─── */
-  #live-score {
-    display: inline-block;
-    transition: color 0.2s;
-  }
-  @keyframes scorePop {
-    0%   { transform: scale(1); }
-    35%  { transform: scale(1.7); color: var(--green); }
-    65%  { transform: scale(0.85); }
-    100% { transform: scale(1); color: inherit; }
-  }
-  .score-pop {
-    animation: scorePop 0.5s ease-out;
-  }
-
-  .generating-overlay {
-    text-align: center;
-    padding: 40px;
-    display: none;
-  }
-  .generating-overlay.show { display: block; }
-  .generating-overlay .spinner { font-size: 32px; display: block; margin-bottom: 12px; }
-  .generating-overlay p {
-    font-family: 'Courier Prime', monospace;
-    color: var(--muted);
-    font-size: 13px;
-    letter-spacing: 1px;
-  }
-
-
-  /* ─── GLOBAL SITE NAV ─── */
-  .site-nav {
-    position: sticky;
-    top: 0;
-    z-index: 2000;
-    background: #f6f3ec;
-    border-bottom: 1px solid #ddd;
-    padding: 10px 12px;
-    display: flex;
-    gap: 10px;
-    justify-content: center;
-    flex-wrap: wrap;
-  }
-  .site-nav button {
-    background: #7a6747;
-    color: white;
-    border: none;
-    padding: 8px 14px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-family: 'Courier Prime', monospace;
-    font-size: 11px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-  }
-  .site-nav button:hover { background: #5c4f37; }
-
-
-  /* ── Collapsible admin sections ── */
-  .admin-collapsible { margin-bottom: 20px; }
-  .admin-collapsible > details { background: var(--cream); border: 1px solid var(--rule); }
-  .admin-collapsible > details > summary {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 14px 20px; cursor: pointer; list-style: none; user-select: none;
-  }
-  .admin-collapsible > details > summary::-webkit-details-marker { display: none; }
-  .admin-collapsible > details > summary .summary-left {
-    display: flex; align-items: center; gap: 10px;
-    font-family: 'Courier Prime', monospace; font-size: 13px;
-    letter-spacing: 2px; text-transform: uppercase; color: var(--muted);
-  }
-  .admin-collapsible > details > summary .summary-arrow { font-size: 10px; color: var(--muted); transition: transform .2s; }
-  .admin-collapsible > details[open] > summary .summary-arrow { transform: rotate(90deg); }
-  .admin-collapsible > details > .collapsible-body { padding: 0 20px 20px; }
-
-  /* ── Sticky jump nav ── */
-  #admin-jump-nav {
-    position: sticky; top: 0; z-index: 100;
-    background: var(--ink); border-bottom: 2px solid var(--gold);
-    padding: 8px 16px; display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 0 0 20px;
-  }
-  #admin-jump-nav a {
-    font-family: 'Courier Prime', monospace; font-size: 10px; letter-spacing: 1.5px;
-    text-transform: uppercase; color: var(--gold-light); text-decoration: none;
-    padding: 3px 0; white-space: nowrap; opacity: 0.8; transition: opacity .15s;
-  }
-  #admin-jump-nav a:hover { opacity: 1; }
-  .admin-anchor { scroll-margin-top: 48px; }
-
-</style>
-</head>
-<body>
-
-<!-- MASTHEAD -->
-<div id="masthead">
-  <div class="dateline" id="today-dateline"></div>
-  <div class="city-label">Baltimore</div>
-  <h1>The Daily <span>Dispatch</span> Quiz</h1>
-  <div class="tagline">Local News · Daily Questions · Community Knowledge</div>
-  <button id="admin-btn" onclick="showAdminLogin()">Admin ▸</button>
-</div>
-
-<div id="site-nav" class="site-nav">
-  <button onclick="showArchiveBrowser()">Browse Past Quizzes</button>
-  <button id="site-nav-today-btn" onclick="exitArchiveMode()">Today's Quiz</button>
-</div>
-
-<!-- APP -->
-<div id="app">
-
-  <!-- REGISTER -->
-  <div id="screen-register" class="screen active">
-    <div class="edition-rule" style="margin-top: 0; margin-bottom: 0; padding-top: 0;">Today's Edition</div>
-    <h2>Know Your Community.</h2>
-    <p>5 questions + a bonus drawn from today's local news — updated daily by your editor.</p>
-    <h3 style="margin-top: 0; margin-bottom: 1;">Extra points for completing all questions!</h3>
-    <h4>Partial points for completing each question</h4>
-    <div class="points-grid">
-      <div class="points-card"><div class="pts">10</div><div class="label">pts each<br>Q1–2 · Starter</div></div>
-      <div class="points-card"><div class="pts">20</div><div class="label">pts each<br>Q3–4 · Feature</div></div>
-      <div class="points-card"><div class="pts">30</div><div class="label">pts each<br>Q5 · Scoop</div></div>
-      <div class="points-card"><div class="pts bonus-pts">50</div><div class="label">pts each<br>Q6 · Bonus</div></div>
-    </div>
-    <div class="edition-rule">Enter Your Byline</div>
-    <div id="reg-streak-display" style="display:none;margin:0 auto 16px;max-width:420px;text-align:center;font-family:'Courier Prime',monospace;font-size:13px;letter-spacing:1px;color:var(--gold);padding:8px 0;"></div>
-    <div class="input-group">
-      <input type="text" id="player-input" placeholder="Your name or pseudonym…" maxlength="30" />
-      <button class="btn-primary" onclick="registerPlayer()">Begin ▸</button>
-    </div>
-    <div style="max-width:420px;margin:0 auto 8px;">
-      <div style="display:flex;align-items:center;gap:10px;background:white;border:1px solid var(--rule);padding:10px 14px;flex-wrap:wrap;">
-        <input type="email" id="email-input" placeholder="your@email.com (optional)" style="flex:1;min-width:160px;border:none;outline:none;font-family:'Source Serif 4',serif;font-size:14px;color:var(--ink);background:transparent;" />
-        <label style="display:flex;align-items:center;gap:6px;font-family:'Courier Prime',monospace;font-size:11px;color:var(--muted);white-space:nowrap;cursor:pointer;">
-          <input type="checkbox" id="email-optin" style="accent-color:var(--green);" />
-          Notify me daily
-        </label>
-      </div>
-      <div style="font-size:11px;color:var(--muted);font-family:monospace;margin-top:4px;padding-left:2px;">Enter email above to get notified when the new daily quiz is ready.</div>
-    </div>
-    <p style="font-size:13px; color:var(--muted); margin-top:8px;">Your name is saved across visits. Your score accumulates over time.</p>
-    <div id="reg-error" style="color:var(--red);font-family:monospace,monospace;font-size:13px;margin-top:8px;display:none;"></div>
-    <div style="margin-top:30px;display:flex;flex-direction:column;gap:10px;align-items:center;">
-      <button class="btn-secondary" onclick="showLeaderboard()">View Leaderboard ▸</button>
-      <button class="btn-secondary" onclick="showArchiveBrowser()" style="border-color:var(--muted);color:var(--muted);">📰 Browse Past Quizzes</button>
-    </div>
-  </div>
-
-  <!-- QUIZ -->
-  <div id="screen-quiz" class="screen">
-    <div class="quiz-header">
-      <div class="player-name">Byline: <strong id="quiz-player-name"></strong></div>
-      <div class="score-display"><span>SCORE</span><span id="live-score">0</span></div>
-      <div class="score-display" id="streak-display" style="display:none"><span>STREAK</span><span id="live-streak">🔥 1</span></div>
-    </div>
-    <div class="progress-track" id="progress-track"></div>
-    <div id="question-area"></div>
-  </div>
-
-<!-- SUBSCRIBE INTERSTITIAL (after Q4 for non-subscribers) -->
-  <div id="screen-subscribe-interstitial" class="screen" style="text-align:center;">
-    <h2>Almost Done:<br>Don't miss your completion bonus!</h2>
-    <div class="interstitial-rule"></div>
-    <div style="font-family:'Playfair Display',serif;font-size:36px;color:var(--gold);text-align:center;margin:8px 0 4px;" id="sub-int-score">0</div>
-    <div style="font-family:monospace;font-size:11px;letter-spacing:2px;color:var(--muted);text-align:center;margin-bottom:16px;">POINTS SO FAR</div>
-    <button onclick="continueAfterSubInterstitial()" style="font-family:'Courier Prime',monospace;font-size:14px;font-weight:700;letter-spacing:2px;padding:14px 36px;background:var(--gold);color:var(--ink);border:none;cursor:pointer;width:100%;margin-bottom:24px;">Continue to Q5 ▸</button>
-    <div class="interstitial-rule"></div>
-    <p style="font-size:16px;margin:12px 0 6px;">Get tomorrow's quiz automatically.</p>
-    <p style="font-family:monospace;font-size:12px;color:var(--muted);margin:0 0 20px;letter-spacing:1px;">DAILY · FREE · UNSUBSCRIBE ANYTIME</p>
-    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:12px;">
-      <input id="sub-int-email" type="email" placeholder="your@email.com" style="flex:1;min-width:160px;max-width:240px;font-family:serif;font-size:14px;padding:10px 12px;border:1px solid #ccc;box-sizing:border-box;background:#fff;color:#1a1008;">
-      <button onclick="submitSubInterstitial()" style="font-family:'Courier Prime',monospace;font-size:12px;letter-spacing:1px;padding:10px 18px;background:none;border:1px solid var(--gold);color:var(--gold);cursor:pointer;white-space:nowrap;">Subscribe ▸</button>
-    </div>
-    <div id="sub-int-status" style="font-family:monospace;font-size:12px;min-height:18px;margin-bottom:16px;"></div>
-  </div>
-
-  <!-- INTERSTITIAL -->
-  <div id="screen-interstitial" class="screen">
-    <div class="phase-label">✦ Questions 1–5 Complete ✦</div>
-    <h2>Round One<br>Complete.</h2>
-    <div class="interstitial-rule"></div>
-    <div id="interstitial-score">0</div>
-    <div class="score-subtext">points earned so far</div>
-    <p>You've answered the day's news — from the straightforward to the substantive. But the hardest question still awaits.</p>
-    <div class="interstitial-rule"></div>
-    <div id="interstitial-sub-cta" style="margin:0 0 20px;padding:16px 20px;background:rgba(255,255,255,0.08);border:1px solid rgba(240,192,64,0.3);text-align:center;">
-      <div style="font-size:15px;margin-bottom:4px;">Enjoying the quiz?</div>
-      <div style="font-family:monospace;font-size:12px;color:var(--gold-light);letter-spacing:1px;margin-bottom:12px;">GET TOMORROW'S AUTOMATICALLY.</div>
-      <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
-        <input id="interstitial-sub-email" type="email" placeholder="your@email.com" style="flex:1;min-width:160px;max-width:240px;font-family:serif;font-size:14px;padding:8px 10px;border:1px solid #ccc;box-sizing:border-box;background:#fff;color:#1a1008;">
-        <button onclick="submitInterstitialSubscribe()" style="font-family:'Courier Prime',monospace;font-size:12px;letter-spacing:1px;padding:8px 16px;background:var(--gold);color:var(--ink);border:none;cursor:pointer;white-space:nowrap;">Subscribe ▸</button>
-      </div>
-      <div id="interstitial-sub-status" style="font-family:monospace;font-size:12px;margin-top:8px;min-height:16px;"></div>
-    </div>
-    <div class="pulse-text" style="font-family:monospace,monospace;font-size:12px;letter-spacing:3px;color:var(--gold-light);margin-bottom:28px;">THE BONUS ROUND AWAITS</div>
-    <p style="font-family:monospace,monospace;font-size:12px;color:var(--muted);margin-bottom:8px;">Taking you there now…</p>
-    <div id="interstitial-countdown" style="font-family:'Playfair Display',serif;font-size:28px;color:var(--gold);margin-bottom:24px;">3</div>
-  </div>
-
-  <!-- RESUME OVERLAY -->
-  <div id="resume-overlay" style="
-    display:none;
-    position:fixed;
-    inset:0;
-    z-index:3000;
-    background:rgba(26,16,8,0.72);
-    align-items:center;
-    justify-content:center;
-    pointer-events:auto;
-  ">
-<div style="
-  background:var(--paper);
-  color:var(--ink);
-  border-top:6px double var(--ink);
-  border-bottom:6px double var(--ink);
-  box-shadow:0 8px 24px rgba(0,0,0,0.25);
-  padding:28px 30px 24px;
-  max-width:520px;
-  width:min(90vw, 520px);
-  text-align:center;
-  position:relative;
-">
-
-  <!-- Small “edition” label -->
-  <div style="
-    font-family:'Courier Prime',monospace;
-    font-size:10px;
-    letter-spacing:2px;
-    color:var(--muted);
-    margin-bottom:10px;
-  ">
-    TODAY'S EDITION
-  </div>
-
-  <!-- Headline -->
-  <div style="
-    font-family:'Playfair Display',serif;
-    font-size:32px;
-    line-height:1.2;
-    margin-bottom:10px;
-    color:var(--ink);
-  ">
-    Welcome Back
-  </div>
-
-  <!-- Rule line -->
-  <div style="
-    width:60px;
-    height:2px;
-    background:var(--gold);
-    margin:10px auto 14px;
-  "></div>
-
-  <!-- Subhead -->
-  <div id="resume-overlay-text" style="
-    font-family:'Courier Prime',monospace;
-    font-size:12px;
-    letter-spacing:1.5px;
-    line-height:1.7;
-    color:var(--muted);
-    text-transform:uppercase;
-  ">
-    Continuing today’s quiz.
-  </div>
- </div>
-</div>
-
-<!-- FIRST-TIME PLAYER OVERLAY -->
-<div id="first-time-overlay" style="
-  display:none;
-  position:fixed;
-  inset:0;
-  z-index:3000;
-  background:rgba(26,16,8,0.85);
-  align-items:center;
-  justify-content:center;
-  pointer-events:auto;
-">
-  <div style="
-    background:var(--ink);
-    color:var(--paper);
-    border-top:4px double var(--gold);
-    border-bottom:4px double var(--gold);
-    box-shadow:0 8px 24px rgba(0,0,0,0.4);
-    padding:32px 36px 28px;
-    max-width:480px;
-    width:min(90vw, 480px);
-    text-align:center;
-  ">
-    <div style="font-family:'Courier Prime',monospace;font-size:11px;letter-spacing:3px;color:var(--gold-light);margin-bottom:10px;">DAILY DISPATCH QUIZ</div>
-    <div style="font-family:'Playfair Display',serif;font-size:28px;font-weight:900;margin-bottom:6px;">Welcome to<br>the Dispatch!</div>
-    <div style="width:40px;height:2px;background:var(--gold);margin:12px auto 20px;"></div>
-    <div style="font-family:'Courier Prime',monospace;font-size:11px;letter-spacing:2px;color:var(--gold-light);margin-bottom:14px;">HOW TO PLAY</div>
-    <div style="text-align:left;font-size:14px;line-height:2;color:#c8b89a;margin-bottom:24px;">
-      <div>✦ &nbsp;5 questions + a bonus, drawn from today's news</div>
-      <div>✦ &nbsp;Questions get harder as you go</div>
-      <div>✦ &nbsp;Partial points for every answer, even wrong ones</div>
-      <div>✦ &nbsp;Finish all 6 for a completion bonus</div>
-      <div>✦ &nbsp;Start your streak — best your friends</div>
-    </div>
-    <button onclick="dismissFirstTimeOverlay()" style="
-      font-family:'Courier Prime',monospace;
-      font-size:13px;
-      letter-spacing:2px;
-      padding:14px 32px;
-      background:var(--gold);
-      color:var(--ink);
-      border:none;
-      cursor:pointer;
-      font-weight:700;
-      width:100%;
-    ">Got it — let's play ▸</button>
-  </div>
- </div>
-
-  <!-- BONUS -->
-  <div id="screen-bonus" class="screen">
-    <div class="bonus-header">
-      <div class="bonus-badge">⭐ Bonus Round</div>
-      <h2>The Final<br>Dispatch</h2>
-      <div class="bonus-pts-label">50 POINTS · ONE CHANCE · NO HINTS</div>
-    </div>
-    <div id="bonus-area"></div>
-  </div>
-
-  <!-- RESULTS -->
-  <div id="screen-results" class="screen">
-    <div class="edition-rule">Final Score</div>
-    <h2>That's a Wrap.</h2>
-    <div class="results-banner">
-      <div class="today-score" id="result-today-score">0</div>
-      <div class="today-label">Today's Points</div>
-      <div class="all-time">All-Time Total: <strong id="result-alltime-score">0</strong> pts</div>
-    </div>
-    <div class="results-stats">
-      <div class="stat-cell"><div class="val" id="stat-correct">0</div><div class="lbl">Correct</div></div>
-      <div class="stat-cell"><div class="val" id="stat-pct">0%</div><div class="lbl">Accuracy</div></div>
-      <div class="stat-cell"><div class="val" id="stat-rank">#–</div><div class="lbl">Today's Rank</div></div>
-    </div>
-    <div class="results-breakdown" id="breakdown-table"></div>
-    <div id="dist-table"></div>
-    <div id="results-streak-nudge" style="display:none;margin:20px 0 0;padding:14px 16px;background:var(--ink);color:var(--paper);text-align:center;font-family:'Courier Prime',monospace;letter-spacing:1px;line-height:1.7;"></div>
-
-    <div id="results-subscribe-cta" style="margin:28px 0 8px;padding:20px;background:white;border:1px solid var(--rule);text-align:left;">
-      <div style="font-family:'Courier Prime',monospace;font-size:10px;letter-spacing:2px;color:var(--muted);margin-bottom:10px;">WANT TOMORROW'S QUIZ?</div>
-      <p style="font-size:15px;margin:0 0 14px;line-height:1.5;">Get tomorrow's quiz delivered to your inbox — with today's answers included.</p>
-      <div id="results-sub-form">
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <input id="results-sub-email" type="email" placeholder="your@email.com" style="flex:1;min-width:180px;font-family:serif;font-size:14px;padding:9px 12px;border:1px solid #ccc;box-sizing:border-box;">
-          <button onclick="submitResultsSubscribe()" style="font-family:'Courier Prime',monospace;font-size:12px;letter-spacing:1px;padding:9px 20px;background:var(--ink);color:var(--paper);border:none;cursor:pointer;white-space:nowrap;">Email Me the Quiz ▸</button>
-        </div>
-        <div id="results-sub-status" style="font-family:monospace;font-size:12px;margin-top:8px;display:none;"></div>
-      </div>
-      <div id="results-sub-done" style="display:none;font-family:'Courier Prime',monospace;font-size:13px;color:var(--green);padding:4px 0;">✓ You're in. See you tomorrow.</div>
-    </div>
-
-    <div id="share-section" style="margin:20px 0;padding:16px;background:white;border:1px solid var(--rule);text-align:center;display:none;">
-      <div style="font-family:monospace;font-size:11px;letter-spacing:2px;color:var(--muted);margin-bottom:8px;">SHARE YOUR SCORE</div>
-      <div id="share-text-preview" style="font-size:14px;color:var(--ink);margin-bottom:14px;line-height:1.5;white-space:pre-line;font-family:monospace;"></div>
-      <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
-        <button onclick="shareOnX()" style="font-family:monospace;font-size:12px;padding:8px 16px;background:#000;color:#fff;border:none;cursor:pointer;border-radius:2px;">Share on X</button>
-        <button onclick="shareOnBluesky()" style="font-family:monospace;font-size:12px;padding:8px 16px;background:#0085ff;color:#fff;border:none;cursor:pointer;border-radius:2px;">Share on Bluesky</button>
-        <button onclick="copyShareText()" style="font-family:monospace;font-size:12px;padding:8px 16px;background:none;border:1px solid var(--rule);color:var(--ink);cursor:pointer;border-radius:2px;">Copy</button>
-      </div>
-      <div id="share-copy-confirm" style="font-family:monospace;font-size:11px;color:var(--green);margin-top:6px;min-height:14px;"></div>
-    </div>
-
-    <div class="result-actions">
-      <button class="btn-primary" onclick="showLeaderboard()">View Leaderboard ▸</button>
-      <button class="btn-secondary" onclick="showScreen('screen-register')">Play Again</button>
-      <button class="btn-secondary" onclick="showCommunity()">💬 Community Board</button>
-      <button class="btn-secondary" onclick="showArchiveBrowser()" style="border-color:var(--muted);color:var(--muted);">📰 Browse Past Quizzes</button>
-    </div>
-  </div>
-
-  <!-- ARCHIVE BANNER (shown in archive mode) -->
-  <div id="archive-banner" class="archive-banner" style="display:none;">
-    📰 ARCHIVE MODE — Scores are not recorded &nbsp;·&nbsp; <span id="archive-date-label"></span>
-    <div style="display:flex;gap:10px;justify-content:center;margin-top:8px;">
-      <button onclick="showArchiveBrowser()" style="font-family:monospace;font-size:11px;padding:4px 12px;background:transparent;border:1px solid #f5e8c0;color:#f5e8c0;cursor:pointer;border-radius:2px;">◂ Return to Archive</button>
-      <button onclick="exitArchiveMode()" style="font-family:monospace;font-size:11px;padding:4px 12px;background:transparent;border:1px solid #f5e8c0;color:#f5e8c0;cursor:pointer;border-radius:2px;">Today's Quiz ▸</button>
-    </div>
-  </div>
-
-  <!-- ARCHIVE BROWSER SCREEN -->
-  <div id="screen-archive" class="screen">
-    <div class="edition-rule">The Archive</div>
-    <p style="font-family:monospace;font-size:12px;color:var(--muted);margin-bottom:16px;">Play past editions of the Daily Dispatch Quiz. Scores are not recorded.</p>
-    <div id="archive-list">
-      <p style="color:var(--muted);font-family:monospace;font-size:13px;">Loading past quizzes…</p>
-    </div>
-    <div style="margin-top:24px;padding:20px;background:white;border:1px solid var(--rule);text-align:center;">
-      <div style="font-size:17px;font-weight:600;margin-bottom:4px;">Never miss tomorrow's quiz.</div>
-      <div style="font-family:monospace;font-size:12px;color:var(--muted);margin-bottom:14px;">Get it delivered to your inbox each morning.</div>
-      <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
-        <input id="archive-sub-email" type="email" placeholder="your@email.com" style="flex:1;min-width:160px;max-width:240px;font-family:serif;font-size:14px;padding:9px 12px;border:1px solid #ccc;box-sizing:border-box;">
-        <button onclick="submitArchiveSubscribe()" style="font-family:'Courier Prime',monospace;font-size:12px;letter-spacing:1px;padding:9px 20px;background:var(--ink);color:var(--paper);border:none;cursor:pointer;white-space:nowrap;">Subscribe ▸</button>
-      </div>
-      <div id="archive-sub-status" style="font-family:monospace;font-size:12px;margin-top:8px;min-height:16px;color:var(--green);"></div>
-    </div>
-    <div style="margin-top:16px;">
-      <button class="btn-secondary" onclick="exitArchiveMode()">◂ Back</button>
-    </div>
-  </div>
-
-  <!-- LEADERBOARD -->
-  <div id="screen-leaderboard" class="screen">
-    <div class="edition-rule">Standings</div>
-  <div class="lb-tabs">
-    <div class="lb-tab active" onclick="showLbTab('today',this)">Today</div>
-    <div class="lb-tab" onclick="showLbTab('monthly',this)">This Month</div>
-  </div>
-  <div style="text-align:right; margin-top:-8px; margin-bottom:12px;">
-    <a href="#" onclick="showLbTab('alltime', null); return false;"
-       style="font-family:'Courier Prime',monospace; font-size:11px; letter-spacing:1px;
-          color:var(--muted); text-decoration:underline;">
-    View All-Time ▸
-  </a>
-</div>    <div id="lb-content"></div>
-    <div class="lb-back">
-      <button class="btn-secondary" onclick="showScreen(previousScreen)">◂ Back</button>
-    </div>
-  </div>
-
-  <!-- COMMUNITY -->
-  <div id="screen-community" class="screen">
-    <div class="edition-rule">Community Board</div>
-    <h2 style="margin-bottom:4px;">Player Discussion</h2>
-    <p style="font-family:monospace,monospace;font-size:12px;color:var(--muted);margin-bottom:20px;">Post reactions, debate answers, tip off fellow players.</p>
-
-    <!-- Post form -->
-    <div style="background:white;border:1px solid var(--rule);padding:16px;margin-bottom:20px;">
-      <div style="font-family:monospace,monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:8px;">YOUR PLAYER NAME</div>
-      <input id="board-name" type="text" maxlength="40" placeholder="Enter your player name…" style="width:100%;font-family:serif,serif;font-size:14px;padding:8px;border:1px solid #ccc;margin-bottom:12px;box-sizing:border-box;">
-      <div style="font-family:monospace,monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:8px;">YOUR MESSAGE</div>
-      <textarea id="board-text" maxlength="500" placeholder="What's on your mind?" style="width:100%;font-family:serif,serif;font-size:14px;padding:8px;border:1px solid #ccc;min-height:80px;resize:vertical;box-sizing:border-box;"></textarea>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
-        <span id="board-char-count" style="font-family:monospace,monospace;font-size:11px;color:var(--muted);">0 / 500</span>
-        <button onclick="submitPost()" style="font-family:monospace;font-size:12px;letter-spacing:1px;padding:8px 20px;background:var(--ink);color:var(--paper);border:none;cursor:pointer;">POST ▸</button>
-      </div>
-      <div id="board-status" style="font-family:monospace,monospace;font-size:12px;margin-top:8px;display:none;"></div>
-    </div>
-
-    <!-- Posts list -->
-    <div id="posts-list"></div>
-
-    <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--rule);display:flex;gap:16px;flex-wrap:wrap;">
-      <button class="btn-secondary" onclick="showScreen('screen-results')">◂ Back to Results</button>
-      <button class="btn-secondary" onclick="showContactForm()">✉ Message the Editor</button>
-    </div>
-  </div>
-
-  <!-- CONTACT FORM -->
-  <div id="screen-contact" class="screen">
-    <div class="edition-rule">Private Message</div>
-    <h2 style="margin-bottom:4px;">Message the Editor</h2>
-    <p style="font-family:monospace,monospace;font-size:12px;color:var(--muted);margin-bottom:20px;">Your message goes directly to the editor. Your name and email are never shared.</p>
-
-    <div style="background:white;border:1px solid var(--rule);padding:16px;">
-      <div style="font-family:monospace,monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:8px;">YOUR PLAYER NAME</div>
-      <input id="contact-name" type="text" maxlength="40" placeholder="Enter your player name…" style="width:100%;font-family:serif,serif;font-size:14px;padding:8px;border:1px solid #ccc;margin-bottom:12px;box-sizing:border-box;">
-      <div style="font-family:monospace,monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:8px;">YOUR MESSAGE</div>
-      <textarea id="contact-text" maxlength="1000" placeholder="What would you like to tell the editor?" style="width:100%;font-family:serif,serif;font-size:14px;padding:8px;border:1px solid #ccc;min-height:120px;resize:vertical;box-sizing:border-box;"></textarea>
-      <div style="display:flex;justify-content:flex-end;margin-top:12px;">
-        <button onclick="submitContact()" style="font-family:monospace;font-size:12px;letter-spacing:1px;padding:8px 20px;background:var(--ink);color:var(--paper);border:none;cursor:pointer;">SEND MESSAGE ▸</button>
-      </div>
-      <div id="contact-status" style="font-family:monospace,monospace;font-size:12px;margin-top:8px;display:none;"></div>
-    </div>
-
-    <div style="margin-top:20px;">
-      <button class="btn-secondary" onclick="showScreen('screen-community')">◂ Back to Community</button>
-    </div>
-  </div>
-
-  <!-- ADMIN -->
-  <div id="screen-admin" class="screen">
-    <h2>Editor's Desk</h2>
-    <nav id="admin-jump-nav">
-      <a href="#anc-generate">Generate</a>
-      <a href="#anc-archive">Archive</a>
-      <a href="#anc-published">Published</a>
-      <a href="#anc-community">Community</a>
-      <a href="#anc-blocked">Blocked</a>
-      <a href="#anc-subscribers">Subscribers</a>
-      <a href="#anc-quiz-archive">Quiz Archive</a>
-      <a href="#anc-engagement">Engagement</a>
-      <a href="#anc-leaderboard">Leaderboard</a>
-      <a href="#anc-players">Players</a>
-      <a href="#anc-message">Message</a>
-      <a href="#anc-prospects">Prospects</a>
-    </nav>
-
-    <div class="admin-section" id="anc-generate">
-      <h3>Step 1 — Paste News Article URLs</h3>
-      <div id="freshness-notice" style="background:#fff8e0;border:1px solid var(--gold);padding:10px 14px;margin-bottom:12px;font-family:monospace,monospace;font-size:12px;color:#7a5f00;line-height:1.6;">
-        <strong>⏱ Freshness scoring is active.</strong> Articles are ranked by recency — stories from the past 24 hours score highest. Older articles may still appear if they score well on local relevance. Stories older than 36 hours will be labeled <strong>ICYMI</strong> in the quiz. Paste links to recent articles for best results.
-      </div>
-      <p style="font-size:13px;color:var(--muted);margin-bottom:8px;">Enter your RSS feed or news website URLs once — they'll be saved and pre-filled every time you open the admin panel. <strong>Do not paste specific article URLs here.</strong></p>
-      <textarea class="url-input-area" id="urls-input" placeholder="Paste one RSS feed or news site URL per line…&#10;https://baltimorebrew.com/feed/&#10;https://marylandmatters.org/feed/&#10;…"></textarea>
-      <div style="display:flex;align-items:center;gap:12px;margin-top:8px;">
-        <button class="btn-secondary" style="font-size:11px;padding:7px 14px;" onclick="saveSites()">💾 Save Sites</button>
-        <span id="sites-saved-msg" style="font-family:monospace,monospace;font-size:11px;color:var(--green);display:none;">✓ Sites saved!</span>
-      </div>
-
-      <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--rule);">
-        <h3 style="margin-bottom:4px;">Today's Hand-Picked Articles <span style="font-weight:400;font-size:12px;color:var(--muted);font-family:monospace;">(optional — assigned first, RSS fills remaining slots)</span></h3>
-        <p style="font-size:13px;color:var(--muted);margin-bottom:8px;">Paste specific article URLs here to guarantee they appear in the quiz. Claude will use these first (in order), then fill remaining slots from the RSS feed. If you paste 6 URLs, RSS is not used at all. <strong>Remember to clear this box before running the next day's quiz.</strong></p>
-        <textarea class="url-input-area" id="article-urls-input" placeholder="Paste specific article URLs here, one per line…&#10;https://www.baltimoresun.com/2026/02/26/some-story/&#10;https://www.thebaltimorebanner.com/politics-power/…&#10;…" style="height:120px;"></textarea>
-        <div style="display:flex;align-items:center;gap:12px;margin-top:8px;">
-          <button class="btn-secondary" style="font-size:11px;padding:7px 14px;" onclick="saveArticleUrls()">💾 Save Article URLs</button>
-          <button class="btn-secondary" style="font-size:11px;padding:7px 14px;background:none;border-color:var(--red);color:var(--red);" onclick="clearArticleUrls()">✕ Clear</button>
-          <span id="article-urls-saved-msg" style="font-family:monospace,monospace;font-size:11px;color:var(--green);display:none;">✓ Saved!</span>
-        </div>
-      </div>
-
-      <details style="margin-top:14px;">
-        <summary style="font-family:monospace,monospace;font-size:12px;letter-spacing:1px;cursor:pointer;color:var(--muted);">▸ Paywalled or JS-only site? Paste article text directly instead</summary>
-        <div style="margin-top:10px;">
-          <p style="font-size:13px;color:var(--muted);margin-bottom:6px;">If a site blocks automated fetching, copy-paste the article text here (one article after another, separated by a blank line). The URL box above can be left empty.</p>
-          <textarea class="url-input-area" id="manual-text-input" placeholder="Paste full article text here…&#10;&#10;(Date: February 18, 2026 — include the date so Claude can verify freshness)" style="min-height:160px;"></textarea>
-        </div>
-      </details>
-
-      <div class="admin-actions" style="flex-wrap:wrap;gap:10px;">
-        <button class="btn-secondary" id="refresh-btn" onclick="refreshRSS()" style="font-size:12px;padding:8px 16px;">↻ Refresh Articles</button>
-        <button class="btn-generate" id="gen-btn" onclick="generateQuestions('production')">
-          ⚙ Generate Questions
-        </button>
-
-        <button class="btn-generate" id="gen-btn-sandbox" onclick="generateQuestions('sandbox')">
-          🧪 Sandbox Draft
-        </button>
-      </div>
-      <div id="rss-status" style="font-family:monospace,monospace;font-size:11px;color:var(--muted);margin-top:8px;"></div>
-      <div class="status-msg" id="gen-status" style="white-space:pre-wrap;"></div>
-      <div class="generating-overlay" id="gen-overlay">
-        <span class="spinner spin">⚙</span>
-        <p id="gen-progress-text">Fetching articles…</p>
-      </div>
-
-      <div id="sandbox-story-picker" class="admin-section" style="display:none;">
-          <h3>Sandbox Story Selection</h3>
-            <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">
-                For Sandbox Draft only, select up to 6 stories to use for question generation.
-                If none are selected, sandbox will use the automatic story pool.
-        </div>
-        <div id="sandbox-story-list"></div>
-</div>
-
-      <!-- Raw API response debug panel -->
-      <div id="raw-debug" style="display:none;margin-top:16px;background:#f0f0f0;border:1px solid #ccc;padding:12px;">
-        <div style="font-family:monospace,monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:6px;">▾ RAW CLAUDE RESPONSE (for debugging)</div>
-        <pre id="raw-debug-text" style="font-family:monospace,monospace;font-size:11px;white-space:pre-wrap;word-break:break-all;max-height:200px;overflow:auto;color:#333;"></pre>
-      </div>
-    </div>
-
-    <div class="admin-section" id="preview-section" style="display:none;">
-      <h3>Step 2 — Review Questions</h3>
-      <div id="q-preview-list"></div>
-
-      <div style="margin:16px 0 8px;">
-        <button class="btn-secondary" onclick="previewEmail()" style="background:#f5f0e8;border:1px solid var(--border);color:var(--ink);">📧 Preview Email</button>
-      </div>
-      <div id="email-preview-panel" style="display:none;margin-bottom:16px;border:2px solid var(--gold,#c8a84b);border-radius:4px;overflow:hidden;">
-        <div style="background:var(--gold,#c8a84b);padding:8px 16px;font-family:monospace;font-size:11px;letter-spacing:1px;display:flex;justify-content:space-between;align-items:center;">
-          <span>EMAIL PREVIEW — what subscribers will receive</span>
-          <button onclick="document.getElementById('email-preview-panel').style.display='none'" style="background:none;border:none;cursor:pointer;font-size:16px;">✕</button>
-        </div>
-        <div id="email-preview-inner" style="padding:16px;background:#fff;max-height:500px;overflow-y:auto;">
-          <p style="font-family:monospace;font-size:12px;color:var(--muted);">Loading preview…</p>
-        </div>
-        <div id="teaser-editor" style="display:none;padding:12px 16px;background:#f5f0e8;border-top:1px solid var(--gold);">
-          <div style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:8px;">EDIT TEASERS — these lines appear in the email</div>
-          <div id="teaser-fields"></div>
-          <button onclick="saveTeasers()" style="font-family:monospace;font-size:11px;letter-spacing:1px;padding:6px 16px;background:var(--ink);color:var(--paper);border:none;cursor:pointer;margin-top:10px;">✓ Save Teasers</button>
-          <span id="teaser-save-status" style="font-family:monospace;font-size:11px;color:var(--green);margin-left:10px;"></span>
-        </div>
-      </div>
-
-      <div class="admin-actions">
-        <button class="btn-generate" onclick="publishQuestions()">✓ Publish Today's Quiz</button>
-        <button class="btn-secondary" onclick="discardDraft()">✕ Discard Draft</button>
-        <button class="btn-secondary" onclick="showAddQuestionForm()" id="add-q-btn" style="border-color:var(--green);color:var(--green);">+ Add Question</button>
-        <button class="btn-secondary" onclick="emergencySave()" style="border-color:var(--red);color:var(--red);" title="Save visible questions directly to server, bypassing draft">⚑ Emergency Save</button>
-      </div>
-
-      <!-- Manual question entry form -->
-      <div id="add-question-form" style="display:none;margin-top:16px;background:white;border:2px solid var(--green);padding:20px;">
-        <div style="font-family:monospace;font-size:12px;letter-spacing:1px;color:var(--green);margin-bottom:14px;font-weight:700;">NEW QUESTION</div>
-
-        <div class="q-edit-label">QUESTION TEXT</div>
-        <textarea id="aq-question" placeholder="Write your question here…" style="width:100%;font-family:serif;font-size:14px;padding:8px;border:1px solid #ccc;min-height:64px;resize:vertical;box-sizing:border-box;margin-top:4px;"></textarea>
-
-        <div class="q-edit-label" style="margin-top:10px;">OPTIONS — type each answer choice, then select the correct one</div>
-        <div class="q-options-grid" style="margin-top:6px;">
-          <div class="q-option-row"><input type="radio" name="aq-correct" value="0" id="aq-r0" checked><label for="aq-r0">A</label><input type="text" id="aq-opt0" placeholder="Option A…" style="flex:1;"></div>
-          <div class="q-option-row"><input type="radio" name="aq-correct" value="1" id="aq-r1"><label for="aq-r1">B</label><input type="text" id="aq-opt1" placeholder="Option B…" style="flex:1;"></div>
-          <div class="q-option-row"><input type="radio" name="aq-correct" value="2" id="aq-r2"><label for="aq-r2">C</label><input type="text" id="aq-opt2" placeholder="Option C…" style="flex:1;"></div>
-          <div class="q-option-row"><input type="radio" name="aq-correct" value="3" id="aq-r3"><label for="aq-r3">D</label><input type="text" id="aq-opt3" placeholder="Option D…" style="flex:1;"></div>
-        </div>
-
-        <div class="q-edit-label" style="margin-top:10px;">EXPLANATION</div>
-        <input type="text" id="aq-explanation" placeholder="Why is this the correct answer?" style="width:100%;font-family:serif;font-size:14px;padding:8px;border:1px solid #ccc;box-sizing:border-box;margin-top:4px;">
-
-        <div class="q-edit-label" style="margin-top:10px;">SOURCE URL (optional)</div>
-        <input type="text" id="aq-url" placeholder="https://…" style="width:100%;font-family:monospace;font-size:12px;padding:8px;border:1px solid #ccc;box-sizing:border-box;margin-top:4px;">
-
-        <div class="q-edit-label" style="margin-top:10px;">DIFFICULTY</div>
-        <select id="aq-difficulty" style="font-family:monospace;font-size:12px;padding:6px 10px;border:1px solid #ccc;margin-top:4px;">
-          <option value="easy">Easy (10 pts)</option>
-          <option value="medium">Medium (20 pts)</option>
-          <option value="hard">Hard (30 pts)</option>
-          <option value="bonus">Bonus (50 pts)</option>
-        </select>
-
-        <div style="display:flex;gap:10px;margin-top:14px;">
-          <button class="btn-generate" onclick="addManualQuestion()" style="background:var(--green);">+ Add to Draft</button>
-          <button class="btn-secondary" onclick="hideAddQuestionForm()">Cancel</button>
-        </div>
-        <div id="aq-error" style="color:var(--red);font-family:monospace;font-size:12px;margin-top:8px;display:none;"></div>
-      </div>>
-    </div>
-
-    <div class="admin-section" id="anc-archive">
-      <h3>Question Archive</h3>
-      <p style="font-size:13px;color:var(--muted);margin-bottom:10px;">Questions in the archive will not be regenerated. <strong id="archive-count">0</strong> questions archived.</p>
-      <div id="archive-preview"></div>
-      <div class="admin-actions" style="margin-top:12px;">
-        <button class="btn-danger" onclick="clearArchive()">Clear Archive</button>
-        <button class="btn-danger" onclick="resetDailyScores()">Reset Daily Scores</button>
-      </div>
-    </div>
-
-    <div class="admin-section" id="anc-published">
-      <h3>Today's Published Quiz</h3>
-      <div id="published-preview">
-        <p style="font-size:13px;color:var(--muted);font-style:italic;">No quiz published today.</p>
-      </div>
-    </div>
-
-    <div class="admin-collapsible" style="margin-top:20px;" id="anc-community">
-      <details>
-        <summary>
-          <span class="summary-left">Community Posts <span id="admin-posts-badge" style="display:none;background:var(--red,#c0392b);color:white;font-size:11px;padding:2px 7px;border-radius:10px;font-family:monospace;margin-left:6px;"></span></span>
-          <span class="summary-arrow">▸</span>
-        </summary>
-        <div class="collapsible-body">
-          <div id="admin-posts-list"><p style="font-family:monospace;font-size:12px;color:var(--muted);">Loading posts…</p></div>
-        </div>
-      </details>
-    </div>
-
-    <div class="admin-collapsible" style="margin-top:20px;" id="anc-blocked">
-      <details>
-        <summary>
-          <span class="summary-left">Blocked Topics <span id="blocklist-count" style="font-family:monospace;font-size:12px;color:var(--muted);font-weight:400;letter-spacing:0;text-transform:none;"></span></span>
-          <span class="summary-arrow">▸</span>
-        </summary>
-        <div class="collapsible-body">
-          <p style="font-size:12px;color:var(--muted);font-family:monospace;margin-bottom:10px;">Topics blocked from appearing during question generation. Use the 🚫 Block button on any draft question to add one.</p>
-          <div id="blocklist-items" style="margin-bottom:10px;"><p style="color:var(--muted);font-family:monospace;font-size:12px;margin:0;">No topics blocked.</p></div>
-          <button onclick="clearBlocklist()" style="font-family:monospace;font-size:11px;padding:3px 10px;background:none;border:1px solid var(--muted);color:var(--muted);cursor:pointer;border-radius:2px;">Clear All</button>
-        </div>
-      </details>
-    </div>
-
-    <div class="admin-section" style="margin-top:20px;" id="anc-subscribers">
-      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
-        <h3 style="margin:0;">Email Subscribers <span id="sub-count" style="font-family:monospace;font-size:12px;color:var(--muted);font-weight:400;"></span></h3>
-        <div style="display:flex;align-items:center;gap:10px;">
-          <div id="email-pause-status" style="font-family:monospace;font-size:12px;"></div>
-          <button id="email-pause-btn" onclick="toggleEmailPause()" style="font-family:monospace;font-size:11px;padding:5px 14px;cursor:pointer;border-radius:2px;border:1px solid var(--red);color:var(--red);background:none;">Pause Emails</button>
-        </div>
-      </div>
-      <div id="sub-list" style="margin-top:10px;font-family:monospace;font-size:12px;max-height:220px;overflow-y:auto;border:1px solid var(--rule);padding:8px;">
-        <p style="color:var(--muted);">Loading…</p>
-      </div>
-    </div>
-
-    <div class="admin-collapsible" style="margin-top:20px;" id="anc-quiz-archive">
-      <details>
-        <summary>
-          <span class="summary-left">Published Quiz Archive <span id="archive-quiz-count" style="font-family:monospace;font-size:12px;color:var(--muted);font-weight:400;letter-spacing:0;text-transform:none;"></span></span>
-          <span class="summary-arrow">▸</span>
-        </summary>
-        <div class="collapsible-body">
-          <p style="font-size:12px;color:var(--muted);font-family:monospace;margin-bottom:10px;">Full text of all published quizzes. Click a date to expand.</p>
-          <div id="admin-archive-list" style="margin-top:8px;"><p style="color:var(--muted);font-family:monospace;font-size:12px;">Loading…</p></div>
-        </div>
-      </details>
-    </div>
-
-    <div class="admin-section" style="margin-top:20px;" id="anc-engagement">
-      <h3>Today's Engagement <span id="stats-date-label" style="font-family:monospace;font-size:12px;color:var(--muted);font-weight:400;"></span></h3>
-      <div id="admin-stats" style="font-family:monospace;font-size:13px;color:var(--muted);">
-        <p>Loading…</p>
-      </div>
-    </div>
-
-    <div class="admin-section" style="margin-top:20px;" id="anc-leaderboard">
-      <h3>Leaderboard</h3>
-      <p style="font-family:monospace;font-size:12px;color:var(--muted);margin-bottom:8px;">View without affecting scores.</p>
-      <button class="btn-secondary" onclick="previousScreen='screen-admin';showScreen('screen-leaderboard');showLbTab('alltime',document.querySelector('.lb-tab'));" style="font-size:12px;padding:6px 16px;">View Leaderboard ▸</button>
-    </div>
-
-    <div class="admin-collapsible" style="margin-top:20px;" id="anc-players">
-      <details>
-        <summary>
-          <span class="summary-left">Player Management</span>
-          <span class="summary-arrow">▸</span>
-        </summary>
-        <div class="collapsible-body">
-          <div id="player-list" style="font-family:monospace;font-size:13px;color:var(--muted);margin-bottom:12px;"><p>Loading players…</p></div>
-        </div>
-      </details>
-    </div>
-
-    <div class="admin-collapsible" style="margin-top:20px;" id="anc-message">
-      <details>
-        <summary>
-          <span class="summary-left">Message Players</span>
-          <span class="summary-arrow">▸</span>
-        </summary>
-        <div class="collapsible-body">
-          <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Send a custom message to selected players or all active subscribers. Emails sent via Resend from <strong><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="4f2a2b263b203d0f2b2e2623362b263c3f2e3b2c273e3a2635612c2022">[email&#160;protected]</a></strong>.</p>
-          <div style="display:flex;gap:0;margin-bottom:16px;border:1px solid var(--rule);">
-            <button id="msg-tab-select" onclick="switchMsgTab('select')" style="flex:1;font-family:monospace;font-size:11px;letter-spacing:1px;padding:9px 0;cursor:pointer;background:var(--ink);border:none;color:var(--paper);">SELECT PLAYERS</button>
-            <button id="msg-tab-bulk" onclick="switchMsgTab('bulk')" style="flex:1;font-family:monospace;font-size:11px;letter-spacing:1px;padding:9px 0;cursor:pointer;background:var(--paper);border:none;border-left:1px solid var(--rule);color:var(--muted);">ALL SUBSCRIBERS</button>
-          </div>
-          <div id="msg-panel-select">
-            <div style="margin-bottom:10px;">
-              <div style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:6px;">RECIPIENTS — check one or more</div>
-              <div style="display:flex;gap:8px;margin-bottom:8px;">
-                <button onclick="msgSelectAll()" style="font-family:monospace;font-size:10px;letter-spacing:1px;padding:3px 10px;background:none;border:1px solid var(--muted);color:var(--muted);cursor:pointer;">SELECT ALL</button>
-                <button onclick="msgSelectNone()" style="font-family:monospace;font-size:10px;letter-spacing:1px;padding:3px 10px;background:none;border:1px solid var(--muted);color:var(--muted);cursor:pointer;">CLEAR</button>
-                <span id="msg-selected-count" style="font-family:monospace;font-size:11px;color:var(--muted);line-height:2;margin-left:4px;"></span>
-              </div>
-              <div id="msg-checkbox-list" style="max-height:200px;overflow-y:auto;border:1px solid var(--rule);padding:6px 10px;background:white;font-family:monospace;font-size:12px;"><p style="color:var(--muted);">Loading subscribers…</p></div>
-            </div>
-            <div style="margin-bottom:12px;">
-              <div style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:6px;">SUBJECT</div>
-              <input type="text" id="msg-subject-select" placeholder="e.g. A note from the editor" style="width:100%;font-family:monospace;font-size:13px;padding:8px 10px;border:1px solid var(--rule);background:white;color:var(--ink);outline:none;box-sizing:border-box;" />
-            </div>
-            <div style="margin-bottom:12px;">
-              <div style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:6px;">MESSAGE</div>
-              <textarea id="msg-body-select" placeholder="Write your message here…" style="width:100%;font-family:monospace;font-size:13px;padding:8px 10px;border:1px solid var(--rule);background:white;color:var(--ink);outline:none;min-height:120px;resize:vertical;box-sizing:border-box;"></textarea>
-            </div>
-            <button class="btn-secondary" onclick="sendSelectedMessage()" style="font-size:11px;letter-spacing:1px;">SEND TO SELECTED ▸</button>
-          </div>
-          <div id="msg-panel-bulk" style="display:none;">
-            <div id="msg-bulk-count" style="font-family:monospace;font-size:11px;color:var(--muted);margin-bottom:12px;letter-spacing:1px;">Loading subscriber count…</div>
-            <div style="margin-bottom:12px;">
-              <div style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:6px;">SUBJECT</div>
-              <input type="text" id="msg-subject-bulk" placeholder="e.g. This week's quiz is live!" style="width:100%;font-family:monospace;font-size:13px;padding:8px 10px;border:1px solid var(--rule);background:white;color:var(--ink);outline:none;box-sizing:border-box;" />
-            </div>
-            <div style="margin-bottom:12px;">
-              <div style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:6px;">MESSAGE</div>
-              <textarea id="msg-body-bulk" placeholder="Write your message here…" style="width:100%;font-family:monospace;font-size:13px;padding:8px 10px;border:1px solid var(--rule);background:white;color:var(--ink);outline:none;min-height:120px;resize:vertical;box-sizing:border-box;"></textarea>
-            </div>
-            <button class="btn-secondary" onclick="sendBulkMessage()" style="font-size:11px;letter-spacing:1px;">SEND TO ALL SUBSCRIBERS ▸</button>
-          </div>
-          <div id="msg-status" style="display:none;margin-top:12px;font-family:monospace;font-size:12px;padding:8px 12px;"></div>
-        </div>
-      </details>
-    </div>
-
-    <div class="admin-collapsible" style="margin-top:20px;" id="anc-prospect-message">
-      <details>
-        <summary>Message Prospects</summary>
-        <div style="margin-top:16px;">
-
-          <!-- SEND TO ALL -->
-          <div style="margin-bottom:16px;">
-            <div style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:6px;">
-              SEND TO ALL PROSPECTS
-            </div>
-
-            <input id="msg-subject-prospect-bulk" type="text" placeholder="Subject line"
-              style="width:100%;padding:10px;border:1px solid var(--rule);margin-bottom:8px;font-family:inherit;font-size:14px;">
-
-            <textarea id="msg-body-prospect-bulk" placeholder="Write your message..."
-              style="width:100%;min-height:120px;padding:10px;border:1px solid var(--rule);font-family:inherit;font-size:14px;"></textarea>
-
-            <div style="margin-top:8px;">
-              <button class="btn-primary" onclick="sendBulkProspectMessage()">Send to All Prospects</button>
-            </div>
-          </div>
-
-          <!-- SEND TO SELECTED -->
-          <div style="margin-top:20px;border-top:1px solid var(--rule);padding-top:16px;">
-            <div style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:6px;">
-              SEND TO SELECTED PROSPECTS
-            </div>
-
-            <input id="msg-subject-prospect-select" type="text" placeholder="Subject line"
-              style="width:100%;padding:10px;border:1px solid var(--rule);margin-bottom:8px;font-family:inherit;font-size:14px;">
-
-            <textarea id="msg-body-prospect-select" placeholder="Write your message..."
-              style="width:100%;min-height:120px;padding:10px;border:1px solid var(--rule);font-family:inherit;font-size:14px;"></textarea>
-
-            <div id="prospect-msg-list"
-              style="margin-top:12px;max-height:220px;overflow-y:auto;border:1px solid var(--rule);padding:8px;background:white;">
-              <p style="color:var(--muted);">Loading…</p>
-            </div>
-
-            <div style="margin-top:10px;display:flex;gap:10px;">
-              <button class="btn-secondary" onclick="toggleAllProspectMsg(true)">Select All</button>
-              <button class="btn-secondary" onclick="toggleAllProspectMsg(false)">Clear</button>
-              <button class="btn-primary" onclick="sendSelectedProspectMessage()">Send to Selected</button>
-            </div>
-          </div>
-
-          <div id="msg-status-prospect"
-            style="margin-top:12px;font-family:monospace;font-size:12px;color:var(--muted);"></div>
-
-        </div>
-      </details>
-    </div>
-
-    <div class="admin-collapsible" style="margin-top:20px;" id="anc-prospects">
-      <details>
-        <summary>
-          <span class="summary-left">Prospects <span id="prospects-count" style="font-family:monospace;font-size:12px;color:var(--muted);font-weight:400;letter-spacing:0;text-transform:none;"></span></span>
-          <span class="summary-arrow">&#9658;</span>
-        </summary>
-        <div class="collapsible-body">
-          <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Prospects receive the same daily quiz email as subscribers, plus a one-click <strong>Subscribe Free</strong> button. When they click it, they move to your Subscribers list automatically.</p>
-
-          <div style="margin-bottom:16px;">
-            <div style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:6px;">IMPORT FROM CSV</div>
-            <p style="font-size:12px;color:var(--muted);font-family:monospace;margin-bottom:8px;">Paste CSV rows — one per line, format: <strong>Name, email@example.com</strong></p>
-            <textarea id="prospects-csv-input" placeholder="David Conn, dhconn@gmail.com&#10;Jane Smith, jane@example.com&#10;..." style="width:100%;font-family:monospace;font-size:12px;padding:8px 10px;border:1px solid var(--rule);background:white;color:var(--ink);outline:none;min-height:100px;resize:vertical;box-sizing:border-box;"></textarea>
-            <div style="display:flex;gap:10px;margin-top:8px;align-items:center;">
-              <button class="btn-secondary" onclick="importProspects()" style="font-size:11px;letter-spacing:1px;">IMPORT &#9658;</button>
-              <span id="prospects-import-status" style="font-family:monospace;font-size:11px;color:var(--muted);"></span>
-            </div>
-          </div>
-
-          <div id="prospects-list" style="margin-top:16px;font-family:monospace;font-size:12px;max-height:260px;overflow-y:auto;border:1px solid var(--rule);padding:8px;background:white;">
-            <p style="color:var(--muted);">Loading&#8230;</p>
-          </div>
-
-          <div style="margin-top:12px;">
-            <button class="btn-danger" onclick="clearAllProspects()" style="font-size:11px;">Clear All Prospects</button>
-          </div>
-        </div>
-      </details>
-    </div>
-
-    <div style="margin-top:20px;">
-      <button class="btn-secondary" onclick="showScreen('screen-register')">◂ Exit Admin</button>
-    </div>
-  </div>
-
-</div><!-- #app -->
-
-<!-- ADMIN LOGIN OVERLAY -->
-<div id="admin-login-overlay">
-  <div class="login-box">
-    <h3>Editor Access</h3>
-    <input type="password" id="admin-pw-input" placeholder="Password" onkeydown="if(event.key==='Enter')checkAdminPw()" />
-    <div style="display:flex;gap:10px;">
-      <button class="btn-primary" onclick="checkAdminPw()">Enter ▸</button>
-      <button class="btn-secondary" onclick="document.getElementById('admin-login-overlay').classList.remove('show')">Cancel</button>
-    </div>
-    <div class="login-error" id="login-error">Incorrect password.</div>
-  </div>
-</div>
-
-<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script>
-<script>
-// ── Prospects ─────────────────────────────────────────────────
-async function loadProspects() {
-  try {
-    const adminToken = lsGet('dnq_admin_token') || 'admin';
-    const res = await fetch('/api/prospects', {
-      headers: { 'x-admin-token': adminToken }
-    });
-    const { prospects } = await res.json();
-    const active = (prospects || []).filter(p => p.active !== false);
-
-    const countEl = document.getElementById('prospects-count');
-    if (countEl) countEl.textContent = '(' + active.length + ' active)';
-
-    const listEl = document.getElementById('prospects-list');
-    if (!listEl) return;
-    if (!active.length) {
-      listEl.innerHTML = '<p style="color:var(--muted);">No prospects yet. Import a CSV above.</p>';
-      return;
+const express = require('express');
+const https = require('https');
+const http = require('http');
+const { Pool } = require('pg')
+const path = require('path');
+
+const app = express();
+const PORT = process.env.PORT || 8080;
+
+app.use(express.json({ limit: '2mb' }));
+app.use(express.static(path.dirname(__filename), {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
     }
-    listEl.innerHTML = `
-      <table style="width:100%;border-collapse:collapse;">
-        <tr style="border-bottom:1px solid var(--rule);color:var(--muted);">
-          <th style="text-align:left;padding:4px 8px;font-weight:600;">Name</th>
-          <th style="text-align:left;padding:4px 8px;font-weight:600;">Email</th>
-          <th style="text-align:left;padding:4px 8px;font-weight:600;">Added</th>
-          <th style="padding:4px 8px;"></th>
-        </tr>
-        ${active.map(p => `
-          <tr style="border-bottom:1px solid #f0ebe0;">
-            <td style="padding:4px 8px;">${escHtml(p.name || '—')}</td>
-            <td style="padding:4px 8px;">${escHtml(p.email)}</td>
-            <td style="padding:4px 8px;">${p.addedAt ? p.addedAt.slice(0,10) : '—'}</td>
-            <td style="padding:4px 8px;">
-              <button onclick="removeProspect('${escHtml(p.email)}')"
-                style="font-family:monospace;font-size:10px;padding:2px 8px;cursor:pointer;background:none;border:1px solid var(--muted);color:var(--muted);">
-                REMOVE
-              </button>
-            </td>
-          </tr>`).join('')}
-      </table>`;
-  } catch(e) {
-    const listEl = document.getElementById('prospects-list');
-    if (listEl) listEl.innerHTML = '<p style="color:var(--muted);">Could not load prospects.</p>';
   }
-}
+}));
 
-async function importProspects() {
-  const raw = document.getElementById('prospects-csv-input').value.trim();
-  const statusEl = document.getElementById('prospects-import-status');
-  if (!raw) { statusEl.textContent = 'Paste some CSV rows first.'; return; }
-
-  const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
-  const entries = [];
-  const skipped = [];
-
-  for (const line of lines) {
-    const parts = line.split(',').map(p => p.trim());
-    let name = '', email = '';
-    for (const part of parts) {
-      if (part.includes('@')) email = part.toLowerCase();
-      else if (!name) name = part;
-    }
-    if (email) entries.push({ name, email });
-    else skipped.push(line);
-  }
-
-  if (!entries.length) { statusEl.textContent = 'No valid email addresses found.'; return; }
-
-  statusEl.textContent = 'Importing…';
-  try {
-  const adminToken = lsGet('dnq_admin_token') || 'admin';
-  const res = await fetch('/api/prospects', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-admin-token': adminToken
-    },
-    body: JSON.stringify({ prospects: entries })
-  });
-    const json = await res.json();
-    if (json.ok) {
-      const msg = '✓ Imported ' + json.added + ' new' +
-        (json.existing ? ', ' + json.existing + ' already listed' : '') +
-        (skipped.length ? ', ' + skipped.length + ' skipped (no email)' : '') + '.';
-      statusEl.textContent = msg;
-      document.getElementById('prospects-csv-input').value = '';
-      loadProspects();
-    } else {
-      statusEl.textContent = '✗ ' + (json.error || 'Import failed');
-    }
-  } catch(e) { statusEl.textContent = '✗ Error: ' + e.message; }
-}
-
-async function removeProspect(email) {
-  if (!confirm('Remove ' + email + ' from prospects?')) return;
-  try {
-    const adminToken = lsGet('dnq_admin_token') || 'admin';
-    await fetch('/api/prospects/' + encodeURIComponent(email), {
-      method: 'DELETE',
-      headers: { 'x-admin-token': adminToken }
-    });
-    loadProspects();
-  } catch(e) { alert('Remove failed: ' + e.message); }
-}
-
-async function clearAllProspects() {
-  if (!confirm('Remove all prospects? This cannot be undone.')) return;
-  try {
-    const adminToken = lsGet('dnq_admin_token') || 'admin';
-    await fetch('/api/prospects', {
-      method: 'DELETE',
-      headers: { 'x-admin-token': adminToken }
-    });
-    loadProspects();
-  } catch(e) { alert('Clear failed: ' + e.message); }
-}
-</script><script>
-// ═══════════════════════════════════════════════════════
-//  CONFIGURATION
-// ═══════════════════════════════════════════════════════
-const ADMIN_PASSWORD = 'Sco0p$1#'; // ← Change this
-const CLAUDE_MODEL = 'claude-sonnet-4-20250514';
-
-// Point values
-const POINTS = { easy: 10, medium: 20, hard: 30, bonus: 50 };
-const COMPLETION_BONUS = 10;
-
-function todayStr() {
-  // Always use Eastern time — quiz is Baltimore-based
-  const eastern = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
-  return eastern; // returns YYYY-MM-DD
-}
-
-// ═══════════════════════════════════════════════════════
-//  STATE
-// ═══════════════════════════════════════════════════════
-let state = {
-  playerName: '',
-  currentQ: 0,
-  sessionScore: 0,
-  streak: 0,
-  answers: [],
-  phase: 'regular', // regular | bonus | done
-  isReplay: false,   // ← add this
-  todayKey: todayStr()
-};
-
-function postAnswerDist(date, qIdx, idx) { // Changed 'correct' to 'idx'
-    if (archiveMode) return;
-    fetch('/api/answers', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        date, 
-        answers: [{ qIdx, chosenIndex: idx }], // Changed 'correct' to 'chosenIndex'
-        playerName: state.playerName || '' 
-      })
-    }).catch(err => {
-      console.error('postAnswerDist failed:', err);
-    });
-  }
-
-function computeProgressScore(answers, completed) {
-  const base = Object.values(answers || {}).reduce((sum, a) => {
-    return sum + (Number(a?.pts) || 0);
-  }, 0);
-  return base + (completed ? 10 : 0);
-}
-
-async function saveProgressToServer(completedOverride = false) {
-console.log('DDQ saveProgressToServer called', {
-  player: state.playerName,
-  date: state.todayKey,
-  sessionScore: state.sessionScore,
-  currentQ: state.currentQ,
-  completedOverride,
-  stateCompleted: state.completed,
-  answers: state.answers
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS, DELETE');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
 });
 
-  if (archiveMode) return;
-  if (!state.playerName || !state.todayKey) return;
-
-  const answersObj = {};
-  state.answers.forEach(a => {
-    if (a.qIdx === 'completion') return;
-    answersObj['q' + a.qIdx] = {
-      chosen: a.chosen,
-      correct: a.correct,
-      pts: a.pts
-    };
-  });
-
-console.log('computed score', computeProgressScore(answersObj, completedOverride));
-
-const completed = completedOverride || !!state.completed;
-const computedScore = computeProgressScore(answersObj, completed);
-
-console.log('DDQ computed vs session', {
-  computedScore,
-  sessionScore: state.sessionScore,
-  completed,
-  answersObj
+// ── Postgres connection ───────────────────────────────────────
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
 });
 
-const progress = {
-  score: computedScore,  currentQ: state.currentQ,
-  completed,
-  answers: answersObj,
-  updatedAtClient: new Date().toISOString()
-};
+// ── Key-value store backed by Postgres ───────────────────────
+// Single table: store(key TEXT PRIMARY KEY, value JSONB)
+// This mirrors the old await readData()/await writeData() pattern exactly.
 
-  console.log('DDQ posting progress payload', progress);
+async function initDb() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS store (
+      key TEXT PRIMARY KEY,
+      value JSONB NOT NULL
+    )
+  `);
+  console.log('DB: store table ready.');
+}
 
+async function getKey(key) {
   try {
-    const res = await fetch('/api/progress', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        playerName: state.playerName,
-        date: state.todayKey,
-        progress
-      })
-    });
-    if (!res.ok) {
-      const text = await res.text();
-      console.error('saveProgressToServer failed:', res.status, text);
-    }
-  } catch (e) {
-    console.error('saveProgressToServer error:', e);
-  }
-}
-let progressSaveChain = Promise.resolve();function showResumeOverlay() {
-  const overlay = document.getElementById('resume-overlay');
-  const textEl = document.getElementById('resume-overlay-text');
-  if (!overlay || !textEl) return;
-
-  textEl.textContent = `${state.sessionScore} points so far · Continuing today’s quiz `;
-  overlay.style.display = 'flex';
-  overlay.style.opacity = '1';
-  overlay.style.transition = 'opacity 0.4s ease';
-
-  setTimeout(() => {
-    overlay.style.opacity = '0';
-    setTimeout(() => {
-      overlay.style.display = 'none';
-    }, 400);
-  }, 2000);
+    const r = await pool.query('SELECT value FROM store WHERE key=$1', [key]);
+    return r.rows.length ? r.rows[0].value : null;
+  } catch(e) { console.error('getKey error', key, e.message); return null; }
 }
 
-function dismissFirstTimeOverlay() {
-  document.getElementById('first-time-overlay').style.display = 'none';
-  const pkey = (state.playerName || '').toLowerCase().trim();
-  if (pkey) lsSet('dnq_seen_intro_' + pkey, '1');  startQuiz(window._pendingQuiz, window._pendingQuizOptions);
-  window._pendingQuiz = null;
-  window._pendingQuizOptions = null;
-}
-
-function queueProgressSave(completedOverride = false) {
-  progressSaveChain = progressSaveChain
-    .then(() => saveProgressToServer(completedOverride))
-    .catch(err => {
-      console.error('queueProgressSave error:', err);
-    });
-
-  return progressSaveChain;
-}
-
-async function fetchSavedProgress(playerName, date) {
-  if (!playerName || !date) return null;
-
+async function setKey(key, value) {
   try {
-    const res = await fetch(
-      '/api/progress?date=' + encodeURIComponent(date) +
-      '&playerName=' + encodeURIComponent(playerName)
+    await pool.query(
+      'INSERT INTO store(key,value) VALUES($1,$2) ON CONFLICT(key) DO UPDATE SET value=$2',
+      [key, JSON.stringify(value)]
     );
-
-    if (!res.ok) {
-      const text = await res.text().catch(() => '');
-      console.error('fetchSavedProgress failed:', res.status, text);
-      return null;
-    }
-
-    return await res.json();
-  } catch (e) {
-    console.error('fetchSavedProgress error:', e);
-    return null;
-  }
+    return true;
+  } catch(e) { console.error('setKey error', key, e.message); return false; }
 }
 
-function applySavedProgress(saved) {
-  if (!saved) return false;
+// Legacy sync-style shims — kept so the rest of the code changes minimally.
+// All callers that used await readData()/await writeData() now use async versions below.
+async function readData() {
+  const keys = ['sites','rssCache','scores','dist','quizzes','archiveUrls',
+                 'archiveQuestions','archiveSlugs','posts','messages','subscribers','emailPaused','emailPausedSnapshot','topicBlocklist','cachedTeaserHtml','cachedTeaserDate','emailSentDates','prospects','statsExclusions'];
+  const data = {};
+  await Promise.all(keys.map(async k => {
+    const v = await getKey(k);
+    if (v !== null) data[k] = v;
+  }));
+  return data;
+}
 
-  const answersObj = saved.answers || {};
-  const rebuiltAnswers = Object.keys(answersObj)
-    .sort((a, b) => parseInt(a.slice(1), 10) - parseInt(b.slice(1), 10))
-    .map(qKey => {
-      const qIdx = parseInt(qKey.slice(1), 10);
-      const a = answersObj[qKey];
-      return {
-        qIdx,
-        chosen: a.chosen,
-        correct: a.correct,
-        pts: a.pts
-      };
-    })
-    .filter(a => !Number.isNaN(a.qIdx));
-
-  state.sessionScore = typeof saved.score === 'number' ? saved.score : 0;
-  state.answers = rebuiltAnswers;
-  state.phase = saved.completed ? 'done' : 'regular';
-
-  // Resume at the next unanswered question, not the last answered one
-  const answeredIdxs = rebuiltAnswers.map(a => a.qIdx).filter(n => !Number.isNaN(n));
-  if (saved.completed) {
-    state.currentQ = 5;
-  } else if (answeredIdxs.length) {
-    state.currentQ = Math.max(...answeredIdxs) + 1;
-  } else {
-    state.currentQ = 0;
-  }
-
-  // Clamp to valid range
-  if (state.currentQ > 5) state.currentQ = 5;
- 
+async function writeData(data) {
+  const keys = ['sites','rssCache','scores','dist','quizzes','archiveUrls',
+                 'archiveQuestions','archiveSlugs','posts','messages','subscribers','emailPaused','emailPausedSnapshot','topicBlocklist','cachedTeaserHtml','cachedTeaserDate','emailSentDates','prospects','statsExclusions'];
+  await Promise.all(keys.map(async k => {
+    if (data[k] === null) await setKey(k, null);
+    else if (data[k] !== undefined) await setKey(k, data[k]);
+  }));
   return true;
 }
 
-// ─── Storage helpers (localStorage fallback) ───
-function lsGet(key) {
-  try { return JSON.parse(localStorage.getItem(key)); } catch(e) { return null; }
-}
-function lsSet(key, val) {
-  try { localStorage.setItem(key, JSON.stringify(val)); } catch(e) {}
+// ── RSS feed fetcher ─────────────────────────────────────────
+// Fetches raw RSS/Atom XML from a URL, returns text
+function fetchUrl(url) {
+  return new Promise((resolve, reject) => {
+    const protocol = url.startsWith('https') ? https : http;
+    const req = protocol.get(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; NewsQuizBot/1.0)' },
+      timeout: 10000
+    }, (res) => {
+      // Follow redirects
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        return fetchUrl(res.headers.location).then(resolve).catch(reject);
+      }
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => resolve(data));
+    });
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')); });
+  });
 }
 
-// ─── Players ───
-function getPlayers() { return lsGet('dnq_players') || {}; }
-function savePlayers(p) { lsSet('dnq_players', p); }
+// Parse RSS/Atom XML — extracts titles, descriptions, links, pubDates
+function parseRSS(xml) {
+  const items = [];
+  // Match both RSS <item> and Atom <entry> tags
+  const itemRegex = /<(?:item|entry)[\s>]([\s\S]*?)<\/(?:item|entry)>/gi;
+  let match;
+  while ((match = itemRegex.exec(xml)) !== null) {
+    const block = match[1];
+    const get = (tag) => {
+      const m = block.match(new RegExp(`<${tag}[^>]*><!\\[CDATA\\[([\\s\\S]*?)\\]\\]></${tag}>`, 'i'))
+        || block.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, 'i'));
+      return m ? m[1].replace(/<[^>]+>/g, '').trim() : '';
+    };
+    const title = get('title');
+    const description = get('description') || get('summary') || get('content');
+    const link = get('link')
+      || (block.match(/<link[^>]+href="([^"]+)"/i)||[])[1]
+      || (block.match(/<guid[^>]*>([^<]+)<\/guid>/i)||[])[1]
+      || (block.match(/href="(https?:\/\/[^"]+)"/)||[])[1]
+      || '';
+    const pubDate = get('pubDate') || get('published') || get('updated') || '';
 
-function getOrCreatePlayer(name) {
-  const players = getPlayers();
-  const key = name.toLowerCase().trim();
-  if (!players[key]) {
-    players[key] = { displayName: name, allTime: 0, dailyScores: {}, streak: 0, lastPlayed: '' };
-  }
-  savePlayers(players);
-  return players[key];
-}
-
-// Calculate day-over-day streak from dailyScores object
-function getDayStreak(player) {
-  if (!player || !player.dailyScores) return 0;
-  const dates = Object.keys(player.dailyScores).sort().reverse();
-  if (!dates.length) return 0;
-  let streak = 0;
-  let check = new Date(todayStr() + 'T12:00:00');
-  for (let i = 0; i < dates.length; i++) {
-    const d = new Date(dates[i] + 'T12:00:00');
-    const diffDays = Math.round((check - d) / 86400000);
-    if (diffDays === 0 || diffDays === 1) {
-      streak++;
-      check = d;
-    } else {
-      break;
+    if (title) {
+      items.push({ title, description: description.slice(0, 2000), link, pubDate });
     }
+  }
+  return items;
+}
+
+// Known RSS feeds for Baltimore news sites
+const BALTIMORE_RSS_FEEDS = {
+  // Pure local outlets — confirmed working
+  'baltimoretimes-online.com':  'https://baltimoretimes-online.com/feed/',
+  'marylandmatters.org':        'https://marylandmatters.org/feed/',
+  'thedailyrecord.com':         'https://thedailyrecord.com/feed/',
+  'baltimorefishbowl.com':      'https://baltimorefishbowl.com/feed/',
+  'southbmore.com':             'https://www.southbmore.com/feed/',
+  'cbsnews.com/baltimore':      'https://www.cbsnews.com/baltimore/latest/rss/main',
+  // Pure local — feed URLs need alternate versions
+  'baltimorebrew.com':          'https://baltimorebrew.com/feed/rss/',
+  'thebanner.com':              'https://www.thebaltimorebanner.com/arc/outboundfeeds/rss/',
+  'thebaltimorebanner.com':     'https://www.thebaltimorebanner.com/arc/outboundfeeds/rss/',
+  'wypr.org':                   'https://www.wypr.org/podcast/news/rss.xml',
+  'baltimoresun.com':           'https://www.baltimoresun.com/arc/outboundfeeds/rss/',
+  'bizjournals.com/baltimore':  'https://www.bizjournals.com/baltimore/feed/news/local.rss',
+  'technical.ly':               'https://technical.ly/baltimore/feed/',
+  'dailyvoice.com':             'https://dailyvoice.com/maryland/feed.rss',
+  // TV stations — keyword filtered
+  'foxbaltimore.com':           'https://foxbaltimore.com/rss',
+  'wbaltv.com':                 'https://www.wbaltv.com/rss',
+  'wmar2news.com':              'https://www.wmar2news.com/rss',
+  'wbal.com':                   'https://www.wbal.com/rss',
+  'mytvbaltimore.com':          'https://foxbaltimore.com/rss',
+  'cwbaltimore.com':            'https://www.wmar2news.com/rss',
+  // Additional local sources
+  'afro.com':                   'https://afro.com/feed/',
+  'urbanleaguebaltimore.org':   'https://urbanleaguebaltimore.org/feed/',
+  'baltimoremagazine.com':      'https://www.baltimoremagazine.com/feed/',
+  'citypaper.com':              'https://www.citypaper.com/feed/',
+};
+
+// Filter items to last 24 hours
+function isRecent(pubDate) {
+  if (!pubDate) return true; // include if no date
+  try {
+    const d = new Date(pubDate);
+    if (isNaN(d.getTime())) return true; // unparseable date — include it
+    return (Date.now() - d.getTime()) < 72 * 60 * 60 * 1000; // 72hr window
+  } catch(e) { return true; }
+}
+
+// ── RSS cache ─────────────────────────────────────────────────
+// Articles are fetched in the background and cached in memory.
+// The cache is refreshed on startup and via the /api/rss/refresh endpoint.
+
+async function fetchAndCacheRSS() {
+  const data = await readData();
+  const savedSites = (data.sites || '').split('\n').map(s => s.trim()).filter(Boolean)
+    .filter(s => !s.includes('google.com') && !s.includes('therealnews.com')); // skip non-RSS sources
+  if (!savedSites.length) {
+    console.log('RSS: No sites saved yet, skipping fetch.');
+    return;
+  }
+
+  console.log(`RSS: Fetching feeds for ${savedSites.length} sites…`);
+
+  const feedsToFetch = [];
+  for (const site of savedSites) {
+    let matched = false;
+    for (const [key, feedUrl] of Object.entries(BALTIMORE_RSS_FEEDS)) {
+      if (site.includes(key)) {
+        feedsToFetch.push({ site, feedUrl });
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) {
+      const base = site.replace(/\/$/, '');
+      feedsToFetch.push({ site, feedUrl: base + '/feed/' });
+      feedsToFetch.push({ site, feedUrl: base + '/rss' });
+    }
+  }
+
+  const allItems = [];
+  const errors = [];
+
+  // Keywords that indicate a story is local to Baltimore/Central Maryland
+  const LOCAL_KEYWORDS = [
+    'baltimore', 'maryland', ' md ', 'md\'s', ' md:', 'annapolis', 'towson', 'bethesda', 'silver spring',
+    'columbia', 'ellicott city', 'bowie', 'laurel', 'rockville', 'gaithersburg',
+    'hagerstown', 'frederick', 'salisbury', 'ocean city', 'chesapeake',
+    'orioles', 'ravens', 'terps', 'terrapins', 'shock trauma', 'jhu', 'johns hopkins',
+    'morgan state', 'loyola', 'umbc', 'umd', 'bge', 'mta maryland',
+    'harford', 'howard county', 'anne arundel', 'carroll county', 'prince george',
+    'washington county', 'wicomico', 'worcester', 'somerset', 'dorchester',
+    'kent county', 'queen anne', 'talbot', 'caroline', 'cecil county', 'calvert', 'charles county'
+  ];
+
+  // URLs that are too sensitive/graphic for a community quiz
+  const BLACKLISTED_URLS = [
+    'university-maryland-police-sexual-misconduct',
+    '/sponsored-content/',
+    '/advertorial/',
+    '/paid-content/',
+    // Persistent national wire stories with no Maryland angle
+    'us-rules-supreme-court-colorado-oil-climate-lawsuit',
+    'heres-what-to-know-about-the-dhs-funding-shutdown',
+    'supreme-court-nra-free-speech-ny-official',
+    'federal-rules-louisiana-ten-commandments-law-schools-appeals',
+    // Baltimore Times food article — Claude invariably asks about Atlanta conference detail
+    'the-weight-we-carry-food-labor-and-black-womens-bodies-as-living-archives',
+  ];
+
+  function isLocalStory(item, site) {
+    // Skip CBS video pages — articles have more usable text for quiz generation
+    if (site.includes('cbsnews') && (item.link || '').includes('/video/')) return false;
+
+    // Filter DC sports teams — Nationals, Commanders, Capitals, Wizards
+    // These appear in Banner's sports section but have no Baltimore relevance
+    const itemLink = (item.link || '').toLowerCase();
+    const itemTitle = (item.title || '').toLowerCase();
+    const dcSportsPatterns = [
+      '/nationals-mlb/', '/commanders-nfl/', '/capitals-nhl/', '/wizards-nba/',
+      'nationals spring training', 'washington nationals',
+      'washington commanders'
+    ];
+    if (dcSportsPatterns.some(p => itemLink.includes(p) || itemTitle.includes(p))) return false;
+
+    // Filter weather forecasts — only keep if headline suggests historic/major storm
+    const weatherPatterns = ['first alert', 'degrees', 'temperatures', 'forecast',
+      'rain and snow', 'showers', 'warmer', 'colder', 'milder', 'weekend weather'];
+    const majorWeather = ['blizzard', 'hurricane', 'tornado', 'historic storm',
+      'state of emergency', 'major flooding', 'power outages'];
+    if (weatherPatterns.some(p => itemTitle.includes(p)) &&
+        !majorWeather.some(p => itemTitle.includes(p))) return false;
+    // These outlets publish ONLY local Baltimore/Maryland content — trust everything
+    // Truly hyper-local outlets — every story is Baltimore/Maryland specific
+    // Hyper-local outlets — trust everything they publish
+    const pureLocalSites = [
+      'baltimorebrew', 'baltimoretimes', 'baltimorefishbowl', 'southbmore',
+      'bizjournals.com/baltimore', 'technical.ly', 'wypr.org', 'marylandmatters',
+      'baltimorebanner', 'thebanner.com', 'baltimoresun', 'afro.com',
+      'baltimoremagazine', 'citypaper.com'
+    ];
+    if (pureLocalSites.some(s => site.includes(s))) return true;
+
+    // Daily Record and TV stations mix local with national wire — require keyword in title
+    const title = (item.title || '').toLowerCase();
+    return LOCAL_KEYWORDS.some(kw => title.includes(kw)) || title.startsWith('md ');
+  }
+
+  const fetchWithTimeout = (site, feedUrl) => new Promise(async (resolve) => {
+    const timer = setTimeout(() => resolve(), 8000);
+    try {
+      const xml = await fetchUrl(feedUrl);
+      const parsed = parseRSS(xml);
+      const recent = parsed.filter(item => isRecent(item.pubDate));
+      const items = recent.filter(item => isLocalStory(item, site));
+      console.log(`RSS OK: ${feedUrl} — ${parsed.length} total, ${recent.length} recent, ${items.length} local`);
+      if (parsed.length > 0 && recent.length === 0) {
+        console.log(`  oldest item date: ${parsed[parsed.length-1].pubDate}`);
+      }
+      items.forEach(item => allItems.push({ ...item, source: site }));
+    } catch(e) {
+      errors.push(`${feedUrl}: ${e.message}`);
+      console.log(`RSS FAIL: ${feedUrl} — ${e.message}`);
+    } finally {
+      clearTimeout(timer);
+      resolve();
+    }
+  });
+
+  await Promise.allSettled(feedsToFetch.map(({ site, feedUrl }) => fetchWithTimeout(site, feedUrl)));
+
+  // Deduplicate by title, then cap per source at 10 articles
+  const seen = new Set();
+  const sourceCount = {};
+  const unique = allItems.filter(item => {
+    // Exact title dedup
+    const titleKey = item.title.toLowerCase().trim();
+    if (seen.has(titleKey)) return false;
+    seen.add(titleKey);
+    // Per-source cap — prevent any one source dominating
+    const src = item.source || 'unknown';
+    sourceCount[src] = (sourceCount[src] || 0) + 1;
+    // Baltimore Banner gets a higher cap since it's our richest pure-local source
+    const cap = src.includes('thebanner') || src.includes('thebaltimorebanner') ? 30 : 15;
+    if (sourceCount[src] > cap) return false;
+    return true;
+  });
+
+  // Save to data file
+  const freshData = await readData();
+  freshData.rssCache = {
+    items: unique.slice(0, 100),
+    fetchedAt: new Date().toISOString(),
+    errors: errors.length ? errors : []
+  };
+  await writeData(freshData);
+  console.log(`RSS: Cached ${unique.length} articles. Errors: ${errors.length}`);
+}
+
+// ── Email helper (Resend) ─────────────────────────────────────
+
+// Scheduled daily refresh at 6am Eastern time
+function scheduleNextRefresh() {
+  const now = new Date();
+  const next = new Date();
+  // 6am Eastern = 11am UTC (EST) or 10am UTC (EDT)
+  const utcHour = 11;
+  next.setUTCHours(utcHour, 0, 0, 0);
+  if (next <= now) next.setUTCDate(next.getUTCDate() + 1); // tomorrow if already past
+  const msUntil = next - now;
+  console.log(`RSS: Next scheduled refresh in ${Math.round(msUntil/60000)} minutes (6am Eastern).`);
+  setTimeout(() => {
+    fetchAndCacheRSS();
+    scheduleNextRefresh(); // schedule the next day's refresh
+  }, msUntil);
+}
+scheduleNextRefresh();
+
+// ── GET /api/rss/debug — show all cached articles grouped by source ──
+app.get('/api/rss/debug', async (req, res) => {
+  const data = await readData();
+  const cache = data.rssCache || { items: [], fetchedAt: null };
+  
+  // Group by source
+  const bySource = {};
+  for (const item of cache.items) {
+    const src = item.source || 'unknown';
+    if (!bySource[src]) bySource[src] = [];
+    bySource[src].push({ title: item.title, pubDate: item.pubDate, link: item.link });
+  }
+
+  res.json({
+    version: '2.2-banner30',
+    fetchedAt: cache.fetchedAt,
+    totalCount: cache.items.length,
+    errors: cache.errors || [],
+    bySource
+  });
+});
+
+// ── GET /api/rss — return cached articles ─────────────────────
+app.get('/api/rss', async (req, res) => {
+  const data = await readData();
+  const cache = data.rssCache || { items: [], fetchedAt: null, errors: [] };
+  res.json(cache);
+});
+
+// ── POST /api/rss/refresh — manually trigger a fresh fetch ────
+app.post('/api/rss/refresh', async (req, res) => {
+  res.json({ ok: true, message: 'RSS refresh started in background.' });
+  fetchAndCacheRSS(); // run in background, don't await
+});
+
+// ── Redirect root to quiz ────────────────────────────────────
+app.get('/', async (req, res) => {
+  res.redirect('/news-quiz.html');
+});
+
+// ── Save/load news sites ──────────────────────────────────────
+app.post('/api/sites', async (req, res) => {
+  const { sites } = req.body || {};
+  if (typeof sites !== 'string') return res.status(400).json({ error: 'sites must be a string' });
+  const data = await readData();
+  data.sites = sites;
+  await writeData(data);
+  res.json({ ok: true });
+});
+
+app.get('/api/sites', async (req, res) => {
+  const data = await readData();
+  res.json({ sites: data.sites || '' });
+});
+
+// ── Answer distribution ──────────────────────────────────────
+app.post('/api/answers', async (req, res) => {
+  const { date, answers, playerName } = req.body || {};
+  if (!date || !Array.isArray(answers)) return res.status(400).json({ error: 'bad request' });
+  
+  const data = await readData();
+  const quiz = data.quizzes && data.quizzes[date];
+  if (!quiz) return res.status(404).json({ error: 'Quiz not found for this date' });
+
+  if (!data.dist) data.dist = {};
+  if (!data.dist[date]) data.dist[date] = {};
+
+  // Server-side validation loop
+  answers.forEach(({ qIdx, chosenIndex }) => {
+    if (qIdx === 'completion') return;
+    
+    const question = quiz.questions[qIdx];
+    if (!question) return;
+
+    // Validate: Is the chosen index actually the correct one?
+    const isActuallyCorrect = (chosenIndex === question.correctIndex);
+    
+    const k = 'q' + qIdx;
+    if (!data.dist[date][k]) data.dist[date][k] = { correct: 0, wrong: 0 };
+    
+    if (isActuallyCorrect) data.dist[date][k].correct++;
+    else data.dist[date][k].wrong++;
+
+    // Update per-player tracking if applicable
+    if (playerName && playerName.trim()) {
+      const key = playerName.trim().toLowerCase();
+      if (!data.dist[date].players) data.dist[date].players = {};
+      if (!data.dist[date].players[key]) {
+        data.dist[date].players[key] = { displayName: playerName.trim(), answers: {} };
+      }
+      data.dist[date].players[key].answers[k] = isActuallyCorrect;
+    }
+  });
+
+  // Keep existing cleanup logic for old distribution data
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 2);
+  Object.keys(data.dist).forEach(d => {
+    if (new Date(d) < cutoff) delete data.dist[d];
+  });
+
+  await writeData(data);
+  res.json({ ok: true });
+});
+
+// GET /api/answers?date=YYYY-MM-DD
+app.get('/api/answers', async (req, res) => {
+  const { date } = req.query;
+  if (!date) return res.status(400).json({ error: 'date required' });
+
+  const data = await readData();
+  const distForDate = (data.dist && data.dist[date]) || {};
+  const excludedMap = (data.statsExclusions && data.statsExclusions[date]) || {};
+  const players = distForDate.players || {};
+
+  // If there are no per-player answers stored, fall back to the raw distribution
+  if (!Object.keys(players).length) {
+    return res.json(distForDate);
+  }
+
+  const rebuilt = {};
+
+  for (const [playerKey, playerData] of Object.entries(players)) {
+    if (excludedMap[playerKey]) continue;
+
+    const answers = (playerData && playerData.answers) || {};
+    for (const [qKey, wasCorrect] of Object.entries(answers)) {
+      if (!rebuilt[qKey]) rebuilt[qKey] = { correct: 0, wrong: 0 };
+      if (wasCorrect) rebuilt[qKey].correct++;
+      else rebuilt[qKey].wrong++;
+    }
+  }
+
+  // Keep filtered players in the payload too, since admin screens may still inspect them
+  rebuilt.players = Object.fromEntries(
+    Object.entries(players).filter(([playerKey]) => !excludedMap[playerKey])
+  );
+
+  res.json(rebuilt);
+});
+
+// ── Quiz start tracking ───────────────────────────────────────
+// Records when a player starts the quiz — used for completion rate.
+// POST /api/quiz-start  { date }
+app.post('/api/quiz-start', async (req, res) => {
+  const { date } = req.body || {};
+  if (!date) return res.status(400).json({ error: 'date required' });
+  const starts = (await getKey('quizStarts')) || {};
+  starts[date] = (starts[date] || 0) + 1;
+  await setKey('quizStarts', starts);
+  res.json({ ok: true });
+});
+
+// GET /api/quiz-starts?date=YYYY-MM-DD
+app.get('/api/quiz-starts', async (req, res) => {
+  const { date } = req.query;
+  if (!date) return res.status(400).json({ error: 'date required' });
+  const starts = (await getKey('quizStarts')) || {};
+  res.json({ starts: starts[date] || 0, date });
+});
+
+// ── Article text fetcher ──────────────────────────────────────
+// Fetches full article text for a given URL, stripping HTML tags.
+// Used to give Claude full article content instead of just RSS snippets.
+app.post('/api/fetch-article', async (req, res) => {
+  const { url } = req.body  || {};
+  if (!url) return res.status(400).json({ error: 'url required' });
+
+  try {
+    const html = await fetchUrl(url);
+
+    // Strip script/style blocks first
+    let text = html
+      .replace(/<script[\s\S]*?<\/script>/gi, '')
+      .replace(/<style[\s\S]*?<\/style>/gi, '')
+      .replace(/<nav[\s\S]*?<\/nav>/gi, '')
+      .replace(/<header[\s\S]*?<\/header>/gi, '')
+      .replace(/<footer[\s\S]*?<\/footer>/gi, '');
+
+    // Try to extract main article body — look for common content containers
+    const articleMatch = text.match(/<article[\s\S]*?<\/article>/i)
+      || text.match(/<main[\s\S]*?<\/main>/i)
+      || text.match(/class="[^"]*(?:article|story|content|post|entry)-body[^"]*"[\s\S]*?<\/div>/i);
+
+    if (articleMatch) text = articleMatch[0];
+
+    // Strip remaining HTML tags and decode entities
+    text = text
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&nbsp;/g, ' ')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+
+    // Cap at 1500 chars — enough for Claude to write a good question, keeps prompt lean
+    const excerpt = text.slice(0, 1500);
+
+    if (excerpt.length < 100) {
+      return res.json({ ok: false, reason: 'paywall or insufficient content', excerpt: '' });
+    }
+
+    res.json({ ok: true, excerpt });
+  } catch(e) {
+    res.json({ ok: false, reason: e.message, excerpt: '' });
+  }
+});
+
+// ── Canonical per-player quiz progress ───────────────────────
+// Stored as progress = { [date]: { [playerKey]: { displayName, score, currentQ, completed, answers, startedAt, updatedAt } } }
+
+app.get('/api/progress', async (req, res) => {
+  const { date, playerName } = req.query;
+  if (!date) return res.status(400).json({ error: 'date required' });
+
+  try {
+    // This looks into your Postgres 'store' table for the 'progress' key
+    const allProgress = await getKey('progress') || {}; 
+    const dayData = allProgress[date] || {};
+
+    // If you're looking for one person: ?date=...&playerName=...
+    if (playerName) {
+      const key = playerName.toLowerCase().trim();
+      return res.json(dayData[key] || { score: 0, completed: false });
+    }
+
+    // If you're looking at the whole leaderboard: ?date=...
+    res.json(dayData);
+  } catch (e) {
+    console.error('Error in GET /api/progress:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/progress', async (req, res) => {
+  const { playerName, date, progress } = req.body || {};
+
+  if (!playerName || !date || !progress || typeof progress !== 'object') {
+    return res.status(400).json({ error: 'playerName, date, and progress required' });
+  }
+
+  try {
+    const data = await readData();
+    const quiz = data.quizzes && data.quizzes[date];
+    if (!quiz) return res.status(404).json({ error: 'Quiz not found' });
+
+  // Recalculate score server-side from stored per-answer points,
+  // which already include full credit or partial credit as awarded.
+  let validatedScore = 0;
+
+  if (progress.answers && typeof progress.answers === 'object') {
+    Object.values(progress.answers).forEach(answer => {
+      validatedScore += Number(answer?.pts) || 0;
+    });
+  }
+
+  // Add the 10-point completion bonus only when completed
+  if (progress.completed) {
+    validatedScore += 10;
+  }
+    const allProgress = (await getKey('progress')) || {};
+    if (!allProgress[date]) allProgress[date] = {};
+
+    const key = playerName.toLowerCase().trim();
+    const existing = allProgress[date][key] || {};
+
+    allProgress[date][key] = {
+      ...existing,
+      ...progress,
+      displayName: playerName.trim(),
+      updatedAt: new Date().toISOString(),
+      score: validatedScore
+    };
+
+    // Keep only last 2 days of progress
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - 2);
+    Object.keys(allProgress).forEach(d => {
+      if (new Date(d + 'T12:00:00') < cutoffDate) delete allProgress[d];
+    });
+
+    await setKey('progress', allProgress);
+    res.json({ ok: true, validatedScore });
+  } catch (e) {
+    console.error('[progress] POST error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Leaderboard ───────────────────────────────────────────────
+// Scores stored as data.scores = { playerKey: { displayName, allTime, dailyScores: {date: score} } }
+
+app.post('/api/scores', async (req, res) => {
+  const { playerName, date, score } = req.body  || {};
+
+  // 🔍 Log incoming request
+  console.log('[scores] incoming', {
+    playerName,
+    date,
+    score,
+    ts: new Date().toISOString()
+  });
+
+  if (!playerName || !date || typeof score !== 'number') {
+    console.error('[scores] bad request', req.body);
+    return res.status(400).json({ error: 'playerName, date, and score required' });
+  }
+
+  try {
+    const data = await readData();
+    if (!data.scores) data.scores = {};
+
+    const key = playerName.toLowerCase().trim();
+
+    if (!data.scores[key]) {
+      data.scores[key] = {
+        displayName: playerName.trim(),
+        allTime: 0,
+        dailyScores: {}
+      };
+    }
+
+    // Always overwrite with latest score
+    const prev = data.scores[key].dailyScores[date] || 0;
+    data.scores[key].dailyScores[date] = Math.max(prev, score);
+
+    // Recompute all-time
+    data.scores[key].allTime = Object.values(
+      data.scores[key].dailyScores
+    ).reduce((a, b) => a + b, 0);
+
+    await writeData(data);
+
+    // 🔍 Log success
+    console.log('[scores] saved', {
+      playerKey: key,
+      displayName: data.scores[key].displayName,
+      date,
+      previousScore: prev,
+      newScore: score,
+      allTime: data.scores[key].allTime
+    });
+
+    res.json({ ok: true });
+
+  } catch (e) {
+    console.error('[scores] error', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── DELETE /api/scores/:playerKey — admin delete a player ────
+app.delete('/api/scores/:playerKey', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  const key = req.params.playerKey.toLowerCase().trim();
+  const data = await readData();
+  if (!data.scores || !data.scores[key]) return res.status(404).json({ error: 'Player not found' });
+  const name = data.scores[key].displayName;
+  delete data.scores[key];
+  await writeData(data);
+  console.log('[Admin] Deleted player:', key);
+  res.json({ ok: true, deleted: name });
+});
+
+app.get('/api/scores', async (req, res) => {
+  try {
+    const data = await readData();
+    const scores = data.scores || {};
+    const today = easternToday();
+    const excludedMap = (data.statsExclusions && data.statsExclusions[today]) || {};
+
+    const filteredScores = Object.fromEntries(
+      Object.entries(scores).filter(([playerKey]) => !excludedMap[playerKey])
+    );
+
+    res.json({ scores: filteredScores });
+  } catch (e) {
+    console.error('[scores] GET error', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Admin stats exclusions ────────────────────────────────────
+
+app.get('/api/admin/stats-exclusions', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  const { date } = req.query;
+  if (!date) return res.status(400).json({ error: 'date required' });
+
+  try {
+    const data = await readData();
+    const all = data.statsExclusions || {};
+    res.json({ date, excluded: all[date] || {} });
+  } catch (e) {
+    console.error('[stats-exclusions] GET error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/admin/stats-exclusions', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  const { date, playerKey, excluded } = req.body || {};
+  if (!date || !playerKey || typeof excluded !== 'boolean') {
+    return res.status(400).json({ error: 'date, playerKey, and excluded required' });
+  }
+
+  try {
+    const key = playerKey.toLowerCase().trim();
+    const data = await readData();
+
+    if (!data.statsExclusions) data.statsExclusions = {};
+    if (!data.statsExclusions[date]) data.statsExclusions[date] = {};
+
+    if (excluded) data.statsExclusions[date][key] = true;
+    else delete data.statsExclusions[date][key];
+
+    if (Object.keys(data.statsExclusions[date]).length === 0) {
+      delete data.statsExclusions[date];
+    }
+
+    await writeData(data);
+    res.json({ ok: true, date, playerKey: key, excluded });
+  } catch (e) {
+    console.error('[stats-exclusions] POST error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Archive (used article URLs + question text) ───────────────
+app.get('/api/archive', async (req, res) => {
+  const data = await readData();
+  res.json({ urls: data.archiveUrls || [], questions: data.archiveQuestions || [], slugs: data.archiveSlugs || [] });
+});
+
+app.post('/api/archive', async (req, res) => {
+  const { urls, questions, slugs } = req.body;
+  const data = await readData();
+  if (!data.archiveUrls) data.archiveUrls = [];
+  if (!data.archiveQuestions) data.archiveQuestions = [];
+  if (!data.archiveSlugs) data.archiveSlugs = [];
+  if (urls) {
+    urls.forEach(u => { if (!data.archiveUrls.includes(u)) data.archiveUrls.push(u); });
+  }
+  if (questions) {
+    questions.forEach(q => { if (!data.archiveQuestions.includes(q)) data.archiveQuestions.push(q); });
+  }
+  if (slugs) {
+    slugs.forEach(s => { if (s && !data.archiveSlugs.includes(s)) data.archiveSlugs.push(s); });
+  }
+  // Keep last 60 entries (~1 week)
+  if (data.archiveUrls.length > 60) data.archiveUrls = data.archiveUrls.slice(-60);
+  if (data.archiveQuestions.length > 60) data.archiveQuestions = data.archiveQuestions.slice(-60);
+  if (data.archiveSlugs.length > 60) data.archiveSlugs = data.archiveSlugs.slice(-60);
+  await writeData(data);
+  res.json({ ok: true });
+});
+
+// ── Subscribers ───────────────────────────────────────────────
+// Stored as data.subscribers = { email: { name, subscribedAt, active } }
+
+app.post('/api/subscribe', async (req, res) => {
+  const { name, email } = req.body;
+  if (!email || !email.includes('@')) return res.status(400).json({ error: 'Valid email required.' });
+  const data = await readData();
+  if (!data.subscribers) data.subscribers = {};
+  const key = email.toLowerCase().trim();
+  data.subscribers[key] = {
+    name: (name || '').trim().slice(0, 40),
+    email: key,
+    subscribedAt: data.subscribers[key]?.subscribedAt || new Date().toISOString(),
+    active: true
+  };
+  await writeData(data);
+  res.json({ ok: true });
+});
+
+app.get('/api/unsubscribe', async (req, res) => {
+  const { email } = req.query;
+  if (!email) return res.status(400).send('Missing email.');
+  const data = await readData();
+  const key = decodeURIComponent(email).toLowerCase().trim();
+  if (data.subscribers && data.subscribers[key]) {
+    data.subscribers[key].active = false;
+    await writeData(data);
+  }
+  res.send(`
+    <html><body style="font-family:Georgia,serif;max-width:500px;margin:60px auto;text-align:center;">
+      <h2>You've been unsubscribed.</h2>
+      <p style="color:#666;">You won't receive any more quiz notifications at ${key}.</p>
+      <p><a href="/">Return to the quiz</a></p>
+    </body></html>
+  `);
+});
+
+// Helper: get today's date in Eastern time (quiz is Baltimore-based)
+function easternToday() {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+}
+
+// ── GET /api/quiz/latest — always return the most recently published quiz ──
+app.get('/api/quiz/latest', async (req, res) => {
+  const data = await readData();
+  if (!data.quizzes) return res.json({ quiz: null });
+  const dates = Object.keys(data.quizzes).sort();
+  if (dates.length === 0) return res.json({ quiz: null });
+  const mostRecent = dates[dates.length - 1];
+  res.json({ quiz: data.quizzes[mostRecent], date: mostRecent });
+});
+
+// ── POST /api/quiz/fix-date — copy most recent quiz to today's Eastern date ──
+app.post('/api/quiz/fix-date', async (req, res) => {
+  const data = await readData();
+  if (!data.quizzes) return res.status(404).json({ error: 'No quizzes found' });
+  const dates = Object.keys(data.quizzes).sort();
+  if (dates.length === 0) return res.status(404).json({ error: 'No quizzes found' });
+  const mostRecent = dates[dates.length - 1];
+  // Get today in Eastern time
+  const todayEastern = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  if (mostRecent === todayEastern) {
+    return res.json({ ok: true, message: 'Already stored under correct date', date: mostRecent });
+  }
+  // Copy to today's key
+  data.quizzes[todayEastern] = { ...data.quizzes[mostRecent], publishDate: todayEastern };
+  await writeData(data);
+  res.json({ ok: true, message: `Copied from ${mostRecent} to ${todayEastern}`, from: mostRecent, to: todayEastern });
+});
+
+// ── Generate teaser phrases for email ────────────────────────
+async function generateTeasers(questions) {
+  return new Promise((resolve) => {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) { resolve([]); return; }
+    const questionList = questions.map((q, i) => `Q${i+1}: ${q.question}`).join('\n');
+    const prompt = `You are writing teaser lines for a Baltimore local news quiz email.
+Here are today's quiz questions:
+${questionList}
+
+Pick the 3 most interesting or surprising topics. For each, write a 3-5 word teaser phrase that hints at the topic without giving away the answer.
+Style: slightly mysterious, intriguing, like a newspaper front page tease.
+Examples: "A soccer superstar arrives", "Cheese steaks cross state lines", "The Constitution meets zoning law"
+
+Respond with ONLY a JSON array of 3 strings. No preamble, no markdown.`;
+
+    const body = JSON.stringify({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 150,
+      messages: [{ role: 'user', content: prompt }]
+    });
+
+    const req = https.request({
+      hostname: 'api.anthropic.com',
+      path: '/v1/messages',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'Content-Length': Buffer.byteLength(body)
+      }
+    }, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          const parsed = JSON.parse(data);
+          const text = (parsed.content || []).map(c => c.text || '').join('').trim();
+          const clean = text.replace(/```json|```/g, '').trim();
+          const teasers = JSON.parse(clean);
+          resolve(Array.isArray(teasers) ? teasers.slice(0, 3) : []);
+        } catch(e) {
+          console.warn('Teaser parse failed:', e.message);
+          resolve([]);
+        }
+      });
+    });
+    req.on('error', (e) => { console.warn('Teaser request failed:', e.message); resolve([]); });
+    req.setTimeout(15000, () => { req.destroy(); resolve([]); });
+    req.write(body);
+    req.end();
+  });
+}
+
+function buildTeaserHtml(teasers) {
+  if (!teasers || teasers.length === 0) return '';
+  return `
+    <div style="margin:0 0 28px;padding:20px;background:#fff;border:1px solid #e0d8cc;text-align:left;">
+      <div style="font-family:monospace;font-size:10px;letter-spacing:2px;color:#999;margin-bottom:12px;">TODAY'S TOPICS INCLUDE…</div>
+      ${teasers.map(t => `<div style="font-family:Georgia,serif;font-size:15px;color:#1a1008;padding:6px 0;border-bottom:1px solid #f0ebe0;">· ${t}</div>`).join('')}
+    </div>`;
+}
+
+function buildEmailHtml(siteUrl, date, subscriberName, teaserHtml, unsubUrl) {
+  return `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1008;">
+    <a href="${siteUrl}" style="display:block;text-decoration:none;color:inherit;">
+    <div style="background:#1a1008;color:#f5f0e8;text-align:center;padding:24px;">
+      <div style="font-family:monospace;font-size:11px;letter-spacing:3px;color:#f0c040;margin-bottom:6px;">BALTIMORE · DAILY DISPATCH</div>
+      <div style="font-size:28px;font-weight:bold;">The Daily Dispatch Quiz</div>
+      <div style="font-family:monospace;font-size:10px;letter-spacing:2px;color:#aaa;margin-top:6px;">${date}</div>
+    </div>
+    </a>
+    <div style="padding:32px 24px;background:#f5f0e8;text-align:center;">
+      <p style="font-size:18px;margin:0 0 8px;">Hi${subscriberName ? ' ' + subscriberName : ''},</p>
+      <p style="font-size:16px;color:#444;margin:0 0 8px;">6 questions. 90 seconds.</p>
+      <p style="font-size:16px;color:#444;margin:0 0 24px;">How closely are you following the news?</p>
+      ${teaserHtml}
+      <a href="${siteUrl}" style="display:inline-block;background:#1a1008;color:#f5f0e8;padding:16px 36px;font-family:monospace;font-size:13px;letter-spacing:2px;text-decoration:none;text-transform:uppercase;">Play Today's Quiz ▸</a>
+
+<!--SUBSCRIBE_INSERT_POINT-->
+    </div>
+    <div style="padding:16px 24px;text-align:center;font-size:11px;color:#999;font-family:monospace;border-top:1px solid #e0d8cc;">
+      <a href="${unsubUrl}" style="color:#999;">Unsubscribe</a>
+    </div>
+  </div>`;
+}
+
+function buildResultsHtml(playerProgress, yesterdayQuiz) {
+  if (!playerProgress || !playerProgress.completed) return '';
+  const questions = (yesterdayQuiz && yesterdayQuiz.questions) || [];
+  const answers = playerProgress.answers || {};
+  const score = playerProgress.score || 0;
+
+  const rows = Object.entries(answers)
+    .filter(([k]) => /^q\d+$/.test(k))
+    .sort(([a],[b]) => parseInt(a.slice(1)) - parseInt(b.slice(1)))
+    .map(([k, a]) => {
+      const idx = parseInt(k.slice(1));
+      const q = questions[idx];
+      if (!q) return '';
+      const isBonus = q.difficulty === 'bonus';
+      const label = isBonus ? 'Bonus' : `Q${idx + 1}`;
+      const icon = a.correct ? '✓' : '✗';
+      const color = a.correct ? '#1a6b3c' : '#c0392b';
+      const correctAnswer = q.options && q.options[q.correctIndex] ? q.options[q.correctIndex] : '';
+      return `
+        <tr>
+          <td style="padding:6px 8px;font-family:monospace;font-size:12px;color:#6b5f4e;">${label}</td>
+          <td style="padding:6px 8px;font-family:monospace;font-size:14px;color:${color};font-weight:700;">${icon}</td>
+          <td style="padding:6px 8px;font-size:13px;color:#1a1008;">+${a.pts} pts</td>
+          <td style="padding:6px 8px;font-size:12px;color:#6b5f4e;font-style:italic;">${correctAnswer}</td>
+        </tr>`;
+    }).join('');
+
+  if (!rows) return '';
+
+  return `
+    <div style="margin:0 0 28px;padding:20px;background:#fff;border:1px solid #e0d8cc;text-align:left;">
+      <div style="font-family:monospace;font-size:10px;letter-spacing:2px;color:#999;margin-bottom:4px;">YESTERDAY'S RESULTS</div>
+      <div style="font-family:Georgia,serif;font-size:22px;font-weight:bold;color:#b8860b;margin-bottom:14px;">${score} pts</div>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:8px;">
+        ${rows}
+      </table>
+    </div>`;
+}
+
+// ── GET /api/blocklist — fetch topic blocklist ───────────────
+app.get('/api/blocklist', async (req, res) => {
+  const data = await readData();
+  res.json({ blocklist: data.topicBlocklist || [] });
+});
+
+// ── POST /api/blocklist — save topic blocklist ────────────────
+app.post('/api/blocklist', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  const data = await readData();
+  data.topicBlocklist = Array.isArray(req.body.blocklist) ? req.body.blocklist : [];
+  await writeData(data);
+  console.log('[Admin] Topic blocklist updated: ' + data.topicBlocklist.length + ' item(s)');
+  res.json({ ok: true, blocklist: data.topicBlocklist });
+});
+
+// ── GET /api/email-pause — get current pause state ──────────
+app.get('/api/email-pause', async (req, res) => {
+  const data = await readData();
+  res.json({ paused: !!data.emailPaused });
+});
+
+// ── POST /api/email-pause — set pause state ───────────────────
+app.post('/api/email-pause', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  const data = await readData();
+  const pausing = !!req.body.paused;
+  data.emailPaused = pausing;
+  const subs = data.subscribers || {};
+  if (pausing) {
+    // Snapshot who is currently active, then pause them all
+    data.emailPausedSnapshot = Object.keys(subs).filter(k => subs[k].active);
+    data.emailPausedSnapshot.forEach(k => { if (subs[k]) subs[k].active = false; });
+    console.log('[Admin] Email PAUSED — ' + data.emailPausedSnapshot.length + ' subscriber(s) paused');
+  } else {
+    // Restore snapshot subscribers, but also keep anyone manually activated during the pause
+    const snapshot = data.emailPausedSnapshot || [];
+    snapshot.forEach(k => { if (subs[k]) subs[k].active = true; });
+    // Anyone already active (manually reactivated during pause) stays active — no change needed
+    data.emailPausedSnapshot = null;
+    const restored = Object.values(subs).filter(s => s.active).length;
+    console.log('[Admin] Email RESUMED — ' + restored + ' subscriber(s) active');
+  }
+  await writeData(data);
+  res.json({ ok: true, paused: data.emailPaused });
+});
+
+// ── POST /api/teaser-cache — save edited teasers for use on publish ──────
+app.post('/api/teaser-cache', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  const { teaserHtml, date } = req.body;
+  if (!teaserHtml || !date) return res.status(400).json({ error: 'teaserHtml and date required' });
+  const data = await readData();
+  data.cachedTeaserHtml = teaserHtml;
+  data.cachedTeaserDate = date;
+  await writeData(data);
+  console.log('[Admin] Teaser cache updated for', date);
+  res.json({ ok: true });
+});
+
+// ── GET/POST /api/quiz/preview-email — generate teaser preview for admin ──
+// POST body: { questions: [...] } uses draft questions directly
+// GET falls back to most recently published quiz
+app.all('/api/quiz/preview-email', async (req, res) => {
+  const siteUrl = process.env.SITE_URL || 'https://dailydispatchquiz.com';
+  let questions = null;
+  let dateLabel = new Date().toISOString().slice(0, 10);
+
+  if (req.method === 'POST' && req.body && req.body.questions && req.body.questions.length) {
+    // Use draft questions passed from client
+    questions = req.body.questions;
+    console.log('[PreviewEmail] Using draft questions:', questions.length);
+  } else {
+    // Fall back to most recently published quiz
+    const data = await readData();
+    const dates = Object.keys(data.quizzes || {}).sort();
+    if (!dates.length) return res.json({ html: '<p>No quiz published yet.</p>' });
+    dateLabel = dates[dates.length - 1];
+    questions = data.quizzes[dateLabel].questions || [];
+    console.log('[PreviewEmail] Using published quiz:', dateLabel);
+  }
+
+  const teasers = await generateTeasers(questions);
+  const teaserHtml = buildTeaserHtml(teasers);
+  const html = buildEmailHtml(siteUrl, dateLabel, 'Subscriber', teaserHtml, siteUrl + '/api/unsubscribe?email=example');
+  // Cache teasers so publish can reuse them without regenerating
+  const previewData = await readData();
+  previewData.cachedTeaserHtml = teaserHtml;
+  previewData.cachedTeaserDate = dateLabel;
+  await writeData(previewData);
+  res.json({ html, teasers });
+});
+
+
+app.get('/api/quiz/all', async (req, res) => {
+  const data = await readData();
+  res.json({ quizzes: data.quizzes || {} });
+});
+
+// ── GET /api/quiz/archive — return list of available past quiz dates ──
+app.get('/api/quiz/archive', async (req, res) => {
+  const data = await readData();
+  const quizzes = data.quizzes || {};
+  const today = easternToday();
+  // Return all dates except today, sorted newest first, capped at 7
+  const dates = Object.keys(quizzes)
+    .filter(d => d !== today)
+    .sort()
+    .reverse()
+    .slice(0, 7);
+  res.json({ dates });
+});
+
+// ── GET /api/subscribers — return subscriber list for admin ───
+app.get('/api/subscribers', async (req, res) => {
+  const data = await readData();
+  const subs = Object.values(data.subscribers || {})
+    .sort((a, b) => new Date(b.subscribedAt) - new Date(a.subscribedAt));
+  res.json({ subscribers: subs });
+});
+
+// ── PATCH /api/subscribers/:email — toggle active status ──────
+app.patch('/api/subscribers/:email', async (req, res) => {
+  const email = decodeURIComponent(req.params.email);
+  const { active } = req.body;
+  if (typeof active !== 'boolean') return res.status(400).json({ error: 'active (boolean) required' });
+  const data = await readData();
+  if (!data.subscribers || !data.subscribers[email]) return res.status(404).json({ error: 'subscriber not found' });
+  data.subscribers[email].active = active;
+  await writeData(data);
+  res.json({ ok: true, email, active });
+});
+
+// ── Quiz persistence ──────────────────────────────────────────
+// Save published quiz to server so it survives browser/device changes
+app.post('/api/quiz', async (req, res) => {
+  const { date, quiz, silent } = req.body;
+  if (!date || !quiz) return res.status(400).json({ error: 'date and quiz required' });
+  const data = await readData();
+  if (!data.quizzes) data.quizzes = {};
+  data.quizzes[date] = quiz;
+  // Keep only last 14 days
+  const keys = Object.keys(data.quizzes).sort();
+  if (keys.length > 14) keys.slice(0, keys.length - 14).forEach(k => delete data.quizzes[k]);
+  await writeData(data);
+
+  // Send notification emails — skipped for silent saves (emergency save, edits, fixes)
+  // Also skipped if emails were already sent for this date (prevents double-send on re-publish)
+  if (!silent) {
+    const siteUrl = process.env.SITE_URL || 'https://your-app.railway.app';
+    const freshData = await readData();
+
+    // Guard: never send twice for the same date
+    if (!freshData.emailSentDates) freshData.emailSentDates = [];
+    if (freshData.emailSentDates.includes(date)) {
+      console.log(`[Email] Already sent notifications for ${date} — skipping duplicate send.`);
+      return res.json({ ok: true });
+    }
+    if (freshData.emailPaused) {
+      console.log('Email notifications are globally paused — skipping subscriber and prospect emails.');
+    }
+      const dow = new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' });
+      const subjects = {
+        Monday:    "Start off the week by climbing the Baltimore news Leaderboard",
+        Tuesday:   "Can you beat today's Baltimore news quiz?",
+        Wednesday: "6 questions about today's Baltimore headlines",
+        Thursday:  "Think you know today's Baltimore news?",
+        Friday:    "Friday - I'm in love, with the Daily Dispatch News Quiz",
+        Saturday:  "A very special Saturday Dispatch News Quiz is live",
+        Sunday:    "It's Sunday - relax and play the (90-second) Balt. News Quiz"
+      };
+      const subject = subjects[dow] || `Today's Baltimore Daily Dispatch Quiz is live — ${date}`;
+
+      let teaserHtml;
+      if (freshData.cachedTeaserHtml && freshData.cachedTeaserDate === date) {
+        console.log('[Email] Reusing cached teasers from preview for', date);
+        teaserHtml = freshData.cachedTeaserHtml;
+      } else {
+        console.log('[Email] No cached teasers found, generating fresh');
+        const teasers = await generateTeasers(quiz.questions || []);
+        teaserHtml = buildTeaserHtml(teasers);
+        console.log('Email teasers:', teasers.length ? teasers : 'none generated');
+      }
+
+    let sentAnyEmails = false;
+
+    const subscribers = freshData.emailPaused ? [] : Object.values(freshData.subscribers || {}).filter(s => s.active);
+    if (subscribers.length > 0) {
+      console.log(`Email: Sending quiz notification to ${subscribers.length} subscribers…`);
+
+// Fetch yesterday's progress and quiz for results recap
+      const yd = new Date(date + 'T12:00:00');
+      yd.setDate(yd.getDate() - 1);
+      const yesterday = yd.toISOString().slice(0, 10);
+      const yesterdayProgress = (await getKey('progress') || {})[yesterday] || {};
+      const yesterdayQuiz = (freshData.quizzes || {})[yesterday] || null;
+
+      const emails = subscribers.map(sub => {
+        const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(sub.email)}`;
+        const playerKey = (sub.name || '').toLowerCase().trim();
+        const playerProgress = yesterdayProgress[playerKey] || null;
+        const resultsHtml = buildResultsHtml(playerProgress, yesterdayQuiz);
+        const baseHtml = buildEmailHtml(siteUrl, date, sub.name, teaserHtml, unsubUrl);
+        const html = resultsHtml
+          ? baseHtml.replace(
+              '<p style="font-size:18px;margin:0 0 8px;">Hi',
+              resultsHtml + '<p style="font-size:18px;margin:0 0 8px;">Hi'
+            )
+          : baseHtml;
+        return {
+          from: 'Editor @ Daily Dispatch Quiz <editor@dailydispatchquiz.com>',
+          reply_to: 'dhconn@gmail.com',
+          to: [sub.email],
+          subject,
+          html
+        };
+      });
+      await sendEmailBatch(emails);
+      sentAnyEmails = true;
+    }
+
+    // Send to prospects — same email + one-click subscribe button
+    const activeProspects = freshData.emailPaused
+      ? []
+      : Object.values(freshData.prospects || {}).filter(p => p.active !== false);
+
+    if (activeProspects.length > 0) {
+      console.log(`[Prospects] Sending quiz email to ${activeProspects.length} prospect(s)…`);
+
+      const prospectEmails = activeProspects.map(p => {
+        const subscribeUrl = `${siteUrl}/subscribe?email=${encodeURIComponent(p.email)}&name=${encodeURIComponent(p.name || '')}`;
+        const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(p.email)}`;
+        const baseHtml = buildEmailHtml(siteUrl, date, p.name, teaserHtml, unsubUrl);
+
+        // Inject subscribe button before the unsubscribe footer
+        const subscribeBtn = `
+          <div style="padding:20px 24px;text-align:center;background:#f5f0e8;border-top:1px solid #e0d8cc;">
+            <p style="font-family:monospace;font-size:11px;letter-spacing:1px;color:#6b5f4e;margin-bottom:12px;">GET THIS AUTOMATICALLY EVERY MORNING</p>
+            <a href="${subscribeUrl}" style="display:inline-block;background:#c0392b;color:white;padding:12px 28px;font-family:monospace;font-size:12px;letter-spacing:2px;text-decoration:none;text-transform:uppercase;">Subscribe Free &#9658;</a>
+          </div>`;
+
+        const html = baseHtml.replace('<!--SUBSCRIBE_INSERT_POINT-->', subscribeBtn);
+
+        return {
+          from: 'Editor @ Daily Dispatch Quiz <editor@dailydispatchquiz.com>',
+          reply_to: 'dhconn@gmail.com',
+          to: [p.email],
+          subject,
+          html
+        };
+      });
+      await sendEmailBatch(prospectEmails);
+      sentAnyEmails = true;
+    }
+    if (sentAnyEmails) {
+      freshData.emailSentDates = [...(freshData.emailSentDates || []), date].slice(-30);
+      await writeData(freshData);
+    }
+  } else {
+    console.log('Silent save — email notifications skipped.');
+  }
+
+  res.json({ ok: true });
+});
+
+app.get('/api/quiz', async (req, res) => {
+  const { date } = req.query;
+  const data = await readData();
+  if (!data.quizzes) return res.json({ quiz: null });
+
+  const dates = Object.keys(data.quizzes).sort();
+  if (dates.length === 0) return res.json({ quiz: null });
+
+  // Exact date match
+  if (date && data.quizzes[date]) {
+    return res.json({ quiz: data.quizzes[date], date });
+  }
+
+  // Always fall back to most recently published quiz regardless of date
+  const mostRecent = dates[dates.length - 1];
+  res.json({ quiz: data.quizzes[mostRecent], date: mostRecent, fallback: true });
+});
+
+// ── Anthropic API proxy ───────────────────────────────────────
+app.post('/api/claude', async (req, res) => {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    return res.status(500).json({
+      error: { message: 'ANTHROPIC_API_KEY is not set in Railway Variables.' }
+    });
+  }
+
+  const body = JSON.stringify(req.body);
+  const options = {
+    hostname: 'api.anthropic.com',
+    path: '/v1/messages',
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Content-Length': Buffer.byteLength(body),
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01'
+    }
+  };
+
+  const proxyReq = https.request(options, (proxyRes) => {
+    res.status(proxyRes.statusCode);
+    proxyRes.pipe(res);
+  });
+  proxyReq.on('error', (err) => {
+    if (!res.headersSent) res.status(502).json({ error: { message: 'Proxy error: ' + err.message } });
+  });
+  proxyReq.setTimeout(90000, () => {
+    proxyReq.destroy(new Error('Anthropic request timeout'));
+    if (!res.headersSent) res.status(504).json({ error: { message: 'Claude API timed out after 90s. Try again.' } });
+  });
+  proxyReq.write(body);
+  proxyReq.end();
+});
+
+// ── Start ─────────────────────────────────────────────────────
+initDb().then(() => {
+  app.listen(PORT, () => {
+    console.log(`Daily Dispatch Quiz running on port ${PORT}`);
+    if (process.env.ANTHROPIC_API_KEY) {
+      console.log('✓ Using Anthropic API');
+    } else {
+      console.log('⚠ WARNING: ANTHROPIC_API_KEY is not set.');
+    }
+  });
+  // Fetch RSS after DB is ready
+  setTimeout(fetchAndCacheRSS, 5000);
+  scheduleNextRefresh();
+  scheduleStreakNudge();
+}).catch(err => {
+  console.error('DB init failed:', err.message);
+  process.exit(1);
+});
+
+// ── Email helper (Resend) ─────────────────────────────────────
+// Single email send (used for unsubscribe confirmations etc.)
+async function sendEmail(to, subject, html) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) { console.log('Email skipped: RESEND_API_KEY not set.'); return false; }
+  const body = JSON.stringify({
+    from: 'Editor @ Daily Dispatch Quiz <editor@dailydispatchquiz.com>',
+    reply_to: 'dhconn@gmail.com',
+    to: [to], subject, html
+  });
+  return new Promise((resolve) => {
+    const req = https.request({
+      hostname: 'api.resend.com', path: '/emails', method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) }
+    }, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        if (res.statusCode < 300) { console.log(`[Email] Sent to ${to} — status ${res.statusCode}`); resolve(true); }
+        else { console.error(`[Email] FAILED to ${to} — status ${res.statusCode} — ${data}`); resolve(false); }
+      });
+    });
+    req.on('error', (e) => { console.error(`[Email] Request error to ${to}:`, e.message); resolve(false); });
+    req.write(body);
+    req.end();
+  });
+}
+
+// Batch email send — sends up to 100 emails per request, chunked with delay between batches
+async function sendEmailBatch(emails) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) { console.log('Email skipped: RESEND_API_KEY not set.'); return; }
+  const CHUNK_SIZE = 100;
+  const CHUNK_DELAY = 1000; // 1 second between chunks
+  const chunks = [];
+  for (let i = 0; i < emails.length; i += CHUNK_SIZE) {
+    chunks.push(emails.slice(i, i + CHUNK_SIZE));
+  }
+  console.log(`[Email] Sending ${emails.length} emails in ${chunks.length} batch(es)`);
+  for (let c = 0; c < chunks.length; c++) {
+    const chunk = chunks[c];
+    const body = JSON.stringify(chunk);
+    await new Promise((resolve) => {
+      const req = https.request({
+        hostname: 'api.resend.com', path: '/emails/batch', method: 'POST',
+        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) }
+      }, (res) => {
+        let data = '';
+        res.on('data', d => data += d);
+        res.on('end', () => {
+          if (res.statusCode < 300) {
+            console.log(`[Email] Batch ${c + 1}/${chunks.length} sent (${chunk.length} emails) — status ${res.statusCode}`);
+          } else {
+            console.error(`[Email] Batch ${c + 1}/${chunks.length} FAILED — status ${res.statusCode} — ${data}`);
+          }
+          resolve();
+        });
+      });
+      req.on('error', (e) => { console.error(`[Email] Batch request error:`, e.message); resolve(); });
+      req.write(body);
+      req.end();
+    });
+    if (c < chunks.length - 1) await new Promise(r => setTimeout(r, CHUNK_DELAY));
+  }
+}
+
+// ── POST /api/admin/message/bulk — send custom email to selected or all subscribers ──
+app.post('/api/admin/message/bulk', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  const { subject, body, recipients, audience } = req.body;
+  if (!subject || !body) return res.status(400).json({ error: 'subject and body required' });
+
+  const siteUrl = process.env.SITE_URL || 'https://dailydispatchquiz.com';
+  const data = await readData();
+
+  let targets;
+  if (Array.isArray(recipients) && recipients.length) {
+    targets = recipients
+      .map(r => ({
+        email: String(r?.email || '').trim(),
+        name: String(r?.name || '').trim()
+      }))
+      .filter(r => r.email);
+
+  } else if (audience === 'prospects') {
+    const prospects = Object.values(data.prospects || {});
+    const subscribers = data.subscribers || {};
+
+    targets = prospects
+      .filter(p =>
+        p &&
+        p.email &&
+        p.active !== false &&
+        !subscribers[String(p.email).toLowerCase().trim()]?.active
+      )
+      .map(p => ({
+        email: String(p.email || '').trim(),
+        name: String(p.name || '').trim()
+      }));
+
+  } else {
+    targets = Object.values(data.subscribers || {})
+      .filter(s => s.active)
+      .map(s => ({ email: s.email, name: s.name || '' }));
+  }
+
+  if (!targets.length) return res.json({ ok: false, error: 'No recipients found' });
+
+  const htmlBody = body.replace(/\n/g, '<br>');
+  const emails = targets.map(t => {
+    const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(t.email)}`;
+    return {
+      from: 'Editor @ Daily Dispatch Quiz <editor@dailydispatchquiz.com>',
+      reply_to: 'dhconn@gmail.com',
+      to: [t.email],
+      subject,
+      html: `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1008;">
+        <div style="background:#1a1008;color:#f5f0e8;text-align:center;padding:24px;">
+          <div style="font-family:monospace;font-size:11px;letter-spacing:3px;color:#f0c040;margin-bottom:6px;">BALTIMORE · DAILY DISPATCH</div>
+          <div style="font-size:24px;font-weight:bold;">The Daily Dispatch Quiz</div>
+        </div>
+        <div style="padding:32px 24px;background:#f5f0e8;">
+          ${t.name ? `<p style="font-size:16px;margin:0 0 16px;">Hi ${t.name},</p>` : ''}
+          <div style="font-size:15px;line-height:1.7;">${htmlBody}</div>
+        </div>
+        <div style="padding:16px 24px;text-align:center;font-size:11px;color:#999;font-family:monospace;border-top:1px solid #e0d8cc;">
+          <a href="${unsubUrl}" style="color:#999;">Unsubscribe</a>
+        </div>
+      </div>`
+    };
+  });
+
+  await sendEmailBatch(emails);
+  console.log(`[Admin] Bulk message sent to ${emails.length} recipient(s): "${subject}"`);
+  res.json({ ok: true, message: `Sent to ${emails.length} recipient${emails.length !== 1 ? 's' : ''}` });
+});
+
+
+// ── GET /subscribe — one-click subscribe from email link ─────
+// Usage: /subscribe?email=jane@example.com&name=Jane
+app.get('/subscribe', async (req, res) => {
+  const email = (req.query.email || '').toLowerCase().trim();
+  const name  = (req.query.name  || '').trim().slice(0, 40);
+  const siteUrl = process.env.SITE_URL || 'https://dailydispatchquiz.com';
+
+  if (!email || !email.includes('@')) return res.status(400).send('Invalid email address.');
+
+  try {
+    const data = await readData();
+    if (!data.subscribers) data.subscribers = {};
+    const wasAlready = data.subscribers[email]?.active === true;
+    data.subscribers[email] = {
+      name,
+      email,
+      subscribedAt: data.subscribers[email]?.subscribedAt || new Date().toISOString(),
+      active: true
+    };
+    // Remove from prospects if present
+    if (data.prospects) {
+      const pk = email.toLowerCase().trim();
+      if (data.prospects[pk]) data.prospects[pk].active = false;
+    }
+    await writeData(data);
+    console.log(`[Subscribe] ${name} <${email}> subscribed via one-click link`);
+
+    const headline = wasAlready ? `You're already subscribed${name ? ', ' + name : ''}!` : `You're subscribed${name ? ', ' + name : ''}!`;
+    const subline  = wasAlready ? `You'll continue to receive The Daily Dispatch Quiz every morning.` : `You'll receive The Daily Dispatch Quiz in your inbox every morning, starting tomorrow.`;
+
+    res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Subscribed — The Daily Dispatch Quiz</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Source+Serif+4:wght@300;400;600&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Source Serif 4',serif;background:#f5f0e8;color:#1a1008;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px}
+    .card{background:white;border:1px solid #2c1f0e;max-width:480px;width:100%;text-align:center}
+    .card-header{background:#1a1008;color:#f5f0e8;padding:24px}
+    .eyebrow{font-family:'Courier Prime',monospace;font-size:11px;letter-spacing:3px;color:#f0c040;margin-bottom:6px}
+    .card-header h1{font-family:'Playfair Display',serif;font-size:26px;font-weight:900}
+    .card-body{padding:36px 32px}
+    .checkmark{font-size:52px;margin-bottom:16px}
+    .card-body h2{font-family:'Playfair Display',serif;font-size:24px;font-weight:700;margin-bottom:12px}
+    .card-body p{font-size:15px;color:#6b5f4e;line-height:1.7;margin-bottom:28px}
+    .play-btn{display:inline-block;background:#1a1008;color:#f5f0e8;padding:14px 32px;font-family:'Courier Prime',monospace;font-size:12px;letter-spacing:2px;text-transform:uppercase;text-decoration:none}
+    .card-footer{padding:16px;border-top:1px solid #ede8da;font-family:'Courier Prime',monospace;font-size:11px;color:#aaa}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="card-header">
+      <div class="eyebrow">BALTIMORE &middot; DAILY DISPATCH</div>
+      <h1>The Daily Dispatch Quiz</h1>
+    </div>
+    <div class="card-body">
+      <div class="checkmark">&#10003;</div>
+      <h2>${headline}</h2>
+      <p>${subline}</p>
+      <a href="${siteUrl}" class="play-btn">Play Today&#39;s Quiz &#9658;</a>
+    </div>
+    <div class="card-footer">dailydispatchquiz.com</div>
+  </div>
+</body>
+</html>`);
+  } catch(e) {
+    console.error('[Subscribe] Error:', e.message);
+    res.status(500).send('Something went wrong. Please try again.');
+  }
+});
+
+// ── Prospects ─────────────────────────────────────────────────
+// Stored as data.prospects = { email: { name, email, addedAt, active } }
+
+app.get('/api/prospects', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  const data = await readData();
+  const prospects = Object.values(data.prospects || {})
+    .filter(p => p.active !== false)
+    .sort((a, b) => new Date(b.addedAt) - new Date(a.addedAt));
+
+  res.json({ prospects });
+});
+
+app.post('/api/prospects', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  const { prospects } = req.body;
+  if (!Array.isArray(prospects)) {
+    return res.status(400).json({ error: 'prospects array required' });
+  }
+
+  const data = await readData();
+  if (!data.prospects) data.prospects = {};
+  if (!data.subscribers) data.subscribers = {};
+
+  let added = 0, existing = 0;
+
+  for (const { name, email } of prospects) {
+    if (!email || !email.includes('@')) continue;
+
+    const key = email.toLowerCase().trim();
+
+    // Skip if already an active subscriber
+    if (data.subscribers[key]?.active) { existing++; continue; }
+    if (data.prospects[key] && data.prospects[key].active !== false) { existing++; continue; }
+
+    data.prospects[key] = {
+      name: (name || '').trim().slice(0, 40),
+      email: key,
+      addedAt: new Date().toISOString(),
+      active: true
+    };
+    added++;
+  }
+
+  await writeData(data);
+  console.log(`[Prospects] Imported ${added} new, ${existing} existing`);
+  res.json({ ok: true, added, existing });
+});
+
+app.delete('/api/prospects/:email', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  const email = decodeURIComponent(req.params.email).toLowerCase().trim();
+  const data = await readData();
+
+  if (data.prospects && data.prospects[email]) {
+    data.prospects[email].active = false;
+    await writeData(data);
+  }
+
+  res.json({ ok: true });
+});
+
+app.delete('/api/prospects', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  const data = await readData();
+  data.prospects = {};
+  await writeData(data);
+  res.json({ ok: true });
+});
+
+// ── Streak calculation ────────────────────────────────────────
+function calcStreak(dailyScores) {
+  let streak = 0;
+  const check = new Date();
+  check.setDate(check.getDate() - 1);
+  while (true) {
+    const d = check.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+    if (dailyScores[d] !== undefined) { streak++; check.setDate(check.getDate() - 1); }
+    else break;
   }
   return streak;
 }
 
-// Milestone label for a given streak count
-function streakMilestone(n) {
-  if (n >= 30) return '🏆 30-day streak!';
-  if (n >= 14) return '🔥 2-week streak!';
-  if (n >= 7)  return '🔥 7-day streak!';
-  if (n >= 3)  return '🔥 3-day streak!';
-  return null;
-}
-
-function updatePlayerScore(name, todayScore) {
-  const players = getPlayers();
-  const key = name.toLowerCase().trim();
-  if (!players[key]) return;
-  if (!players[key].dailyScores) players[key].dailyScores = {};
-  
-  // Overwrite today's score, don't accumulate
-  players[key].dailyScores[state.todayKey] = todayScore;
-  
-  // Recompute all-time from scratch
-  players[key].allTime = Object.values(players[key].dailyScores)
-    .reduce((a, b) => a + b, 0);
-  
-  savePlayers(players);
-}
-
-// ─── Quiz data ───
-function getTodayQuiz() { return lsGet('dnq_quiz_' + todayStr()); }
-function saveTodayQuiz(q) { lsSet('dnq_quiz_' + todayStr(), q); }
-function getDraftQuiz() { return lsGet('dnq_draft'); }
-function saveDraftQuiz(q) { lsSet('dnq_draft', q); }
-function clearDraftQuiz() { localStorage.removeItem('dnq_draft'); }
-
-// ─── Archive ───
-function getArchive() { return lsGet('dnq_archive') || []; }
-function getArchiveUrls() { return lsGet('dnq_archive_urls') || []; }
-function getArchiveSlugs() { return lsGet('dnq_archive_slugs') || []; }
-
-// Extract a 2-4 word topic slug from a question for cross-day deduplication.
-// Strips stop words, question words, and generic terms to isolate the subject.
-function extractTopicSlug(question) {
-  const stop = new Set([
-    'a','an','the','and','or','but','in','on','at','to','for','of','with','is','are','was',
-    'were','be','been','has','have','had','will','would','that','this','as','from','by',
-    'after','over','about','how','what','who','when','where','which','why','does','do',
-    'did','its','their','into','than','some','could','new','more','year','week','day',
-    'baltimore','maryland','city','county','state','local','major','first',
-    'according','revealed','shows','mean','means','reveal','approach','make','makes',
-    // generic quiz question words
-    'happen','impact','effect','result','response','plan','proposal','effort','initiative',
-    'feature','include','included','hosted','held','took','place','during','between',
-    'following','ahead','recently','announced','said','says',
-    // question framing words that obscure the actual topic
-    'author','argue','argued','argues','serve','served','serves','complete','completing',
-    'mentioned','having','being','surprising','prompted','expressed','concern','concerns',
-    'existing','happening','league','team','neighborhoods','leaders','facility',
-    'small','town','near','best','final','season','speaker','writers','keynote'
-  ]);
-  return question
-    .toLowerCase()
-    .replace(/[^a-z0-9 ]/g, ' ')
-    .split(/\s+/)
-    .filter(w => w.length > 3 && !stop.has(w))
-    .slice(0, 4)
-    .join(' ');
-}
-
-function addToArchive(questions) {
-  const archive = getArchive();
-  const archiveUrls = getArchiveUrls();
-  const archiveSlugs = getArchiveSlugs();
-  questions.forEach(q => {
-    if (!archive.includes(q.question)) archive.push(q.question);
-    if (q.sourceUrl && !archiveUrls.includes(q.sourceUrl)) archiveUrls.push(q.sourceUrl);
-    const slug = extractTopicSlug(q.question);
-    if (slug && !archiveSlugs.includes(slug)) archiveSlugs.push(slug);
-  });
-  // Keep last 7 days worth (max 60 entries)
-  if (archive.length > 60) archive.splice(0, archive.length - 60);
-  if (archiveUrls.length > 60) archiveUrls.splice(0, archiveUrls.length - 60);
-  if (archiveSlugs.length > 60) archiveSlugs.splice(0, archiveSlugs.length - 60);
-  lsSet('dnq_archive', archive);
-  lsSet('dnq_archive_urls', archiveUrls);
-  lsSet('dnq_archive_slugs', archiveSlugs);
-}
-
-// ═══════════════════════════════════════════════════════
-//  INIT
-// ═══════════════════════════════════════════════════════
-document.addEventListener('DOMContentLoaded', () => {
-  // Ensure archive banner is hidden on fresh load
-  const bannerEl = document.getElementById('archive-banner');
-  if (bannerEl) bannerEl.style.display = 'none';
-  archiveMode = false;
-  updateNav();
-
-  document.getElementById('today-dateline').textContent =
-    new Date().toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' }).toUpperCase();
-
-  // Restore player name from last session
-  const saved = lsGet('dnq_current_player');
-  if (saved) {
-    document.getElementById('player-input').value = saved;
-    // Show day streak for returning player
-    const players = getPlayers();
-    const player = players[saved.toLowerCase().trim()];
-    if (player) {
-      const dayStreak = getDayStreak(player);
-      const streakEl = document.getElementById('reg-streak-display');
-      if (dayStreak >= 2) {
-        const milestone = streakMilestone(dayStreak);
-        streakEl.innerHTML = milestone
-          ? `${milestone} &nbsp;·&nbsp; Keep it going!`
-          : `🔥 ${dayStreak}-day streak &nbsp;·&nbsp; Keep it going!`;
-        streakEl.style.display = 'block';
-      }
-    }
+// ── Streak nudge emails — 7pm Eastern daily ───────────────────
+async function sendStreakNudges() {
+  const today = easternToday();
+  const data = await readData();
+  if (!data.quizzes || !data.quizzes[today]) { console.log('[StreakNudge] No quiz today — skipping.'); return; }
+  if (data.emailPaused) { console.log('[StreakNudge] Emails paused — skipping.'); return; }
+  const subscribers = data.subscribers || {};
+  const scores = data.scores || {};
+  const siteUrl = process.env.SITE_URL || 'https://dailydispatchquiz.com';
+  const nudgeTargets = [];
+  for (const sub of Object.values(subscribers)) {
+    if (!sub.active || !sub.email) continue;
+    const playerKey = sub.playerKey || Object.keys(scores).find(k => sub.name && k === sub.name.toLowerCase().trim());
+    if (!playerKey || !scores[playerKey]) continue;
+    const { dailyScores, displayName } = scores[playerKey];
+    if (dailyScores[today] !== undefined) continue;
+    const streak = calcStreak(dailyScores);
+    if (streak < 3) continue;
+    nudgeTargets.push({ email: sub.email, name: sub.name || displayName, streak });
   }
-
-  // Restore admin session if previously authenticated
-  if (lsGet('dnq_admin_authed') === '1') {
-    showAdminScreen();
-  }
-});
-
-// ═══════════════════════════════════════════════════════
-//  SCREEN MANAGEMENT
-// ═══════════════════════════════════════════════════════
-function updateNav() {
-  const banner = document.getElementById('archive-banner');
-  if (banner) banner.style.display = archiveMode ? 'block' : 'none';
-
-  const todayBtn = document.getElementById('site-nav-today-btn');
-  if (todayBtn) todayBtn.style.display = archiveMode ? 'inline-block' : 'none';
-}
-
-function showScreen(id) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
-  updateNav();
-  window.scrollTo(0, 0);
-}
-
-// ═══════════════════════════════════════════════════════
-//  REGISTER
-// ═══════════════════════════════════════════════════════
-async function submitInterstitialSubscribe() {
-  const emailEl = document.getElementById('interstitial-sub-email');
-  const statusEl = document.getElementById('interstitial-sub-status');
-  const email = emailEl ? emailEl.value.trim() : '';
-  if (!email) { if (statusEl) statusEl.textContent = 'Please enter your email.'; return; }
-  if (statusEl) statusEl.textContent = 'Subscribing…';
-  try {
-    const name = state.playerName || '';
-    const res = await fetch('/api/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, name }) });
-    const data = await res.json();
-    if (data.ok) {
-      if (statusEl) statusEl.textContent = "\u2713 You're in. See you tomorrow!";
-      if (emailEl) emailEl.style.display = 'none';
-      lsSet('dnq_subscribed', '1');
-      document.getElementById('interstitial-sub-cta').querySelector('button') && (document.getElementById('interstitial-sub-cta').querySelector('button').style.display = 'none');
-    } else {
-      if (statusEl) statusEl.textContent = data.error || 'Something went wrong.';
-    }
-  } catch(e) {
-    if (statusEl) statusEl.textContent = 'Error: ' + e.message;
-  }
-}
-
-async function submitArchiveSubscribe() {
-  const emailEl = document.getElementById('archive-sub-email');
-  const statusEl = document.getElementById('archive-sub-status');
-  const email = emailEl ? emailEl.value.trim() : '';
-  if (!email) { if (statusEl) statusEl.textContent = 'Please enter your email.'; return; }
-  if (statusEl) statusEl.textContent = 'Subscribing…';
-  try {
-    const name = state.playerName || '';
-    const res = await fetch('/api/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, name }) });
-    const data = await res.json();
-    if (data.ok) {
-      if (statusEl) statusEl.textContent = "You're in. See you tomorrow!";
-      if (emailEl) emailEl.value = '';
-      lsSet('dnq_subscribed', '1');
-    } else {
-      if (statusEl) statusEl.textContent = data.error || 'Something went wrong.';
-    }
-  } catch(e) {
-    if (statusEl) statusEl.textContent = 'Error: ' + e.message;
-  }
-}
-
-function buildShareText() {
-  const score = state.sessionScore;
-  const maxScore = 10 + 10 + 20 + 20 + 30 + 50 + 10; // 150 with completion bonus
-  const siteUrl = 'https://dailydispatchquiz.com';
-  return `Daily Dispatch Quiz
-Score: ${score}/${maxScore}
-How closely were you following Baltimore news today?
-${siteUrl}`;
-}
-
-function shareOnX() {
-  const text = encodeURIComponent(buildShareText());
-  window.open('https://x.com/intent/tweet?text=' + text, '_blank');
-}
-
-function shareOnBluesky() {
-  const text = encodeURIComponent(buildShareText());
-  window.open('https://bsky.app/intent/compose?text=' + text, '_blank');
-}
-
-function copyShareText() {
-  navigator.clipboard.writeText(buildShareText()).then(() => {
-    const el = document.getElementById('share-copy-confirm');
-    if (el) { el.textContent = '✓ Copied!'; setTimeout(() => el.textContent = '', 2000); }
-  });
-}
-
-async function submitResultsSubscribe() {
-  const emailEl = document.getElementById('results-sub-email');
-  const statusEl = document.getElementById('results-sub-status');
-  const email = emailEl.value.trim();
-  if (!email || !email.includes('@')) {
-    statusEl.textContent = 'Please enter a valid email address.';
-    statusEl.style.color = 'var(--red)';
-    statusEl.style.display = 'block';
-    return;
-  }
-  statusEl.textContent = 'Signing you up…';
-  statusEl.style.color = 'var(--muted)';
-  statusEl.style.display = 'block';
-  try {
-    const res = await fetch('/api/subscribe', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: state.playerName || '', email })
-    });
-    const data = await res.json();
-    if (data.ok) {
-      lsSet('dnq_subscribed', '1');
-      document.getElementById('results-sub-form').style.display = 'none';
-      document.getElementById('results-sub-done').style.display = 'block';
-    } else {
-      statusEl.textContent = data.error || 'Something went wrong. Please try again.';
-      statusEl.style.color = 'var(--red)';
-    }
-  } catch(e) {
-    statusEl.textContent = 'Could not connect. Please try again.';
-    statusEl.style.color = 'var(--red)';
-  }
-}
-
-async function registerPlayer() {
-  const name = document.getElementById('player-input').value.trim();
-  const errEl = document.getElementById('reg-error');
-  if (!name) { errEl.textContent = 'Please enter a name or pseudonym.'; errEl.style.display='block'; return; }
-  errEl.style.display='none';
-  lsSet('dnq_player_name', name); // save for community board pre-fill
-
-  // Subscribe email if provided and opted in
-  const emailEl = document.getElementById('email-input');
-  const optinEl = document.getElementById('email-optin');
-  if (emailEl && optinEl && optinEl.checked && emailEl.value.includes('@')) {
-    fetch('/api/subscribe', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email: emailEl.value.trim() })
-    }).catch(() => {}); // fire and forget
-  }
-
-  state.playerName = name;
-  lsSet('dnq_current_player', name);
-  getOrCreatePlayer(name);
-
-  // // Server is authoritative — always fetch today's quiz from server first
-  let quiz = null;
-  let quizDate = todayStr();
-  try {
-    // First try exact date match
-    const serverRes = await fetch('/api/quiz?date=' + todayStr());
-    const serverData = await serverRes.json();
-    if (serverData.quiz && serverData.quiz.questions && serverData.quiz.questions.length >= 6) {
-      quiz = serverData.quiz;
-      quizDate = serverData.date || quiz.publishDate || todayStr();
-      saveTodayQuiz(quiz);
-    }
-    // If no exact match, fetch most recent (no date param = server returns latest)
-    if (!quiz) {
-      const latestRes = await fetch('/api/quiz/latest');
-      const latestData = await latestRes.json();
-      if (latestData.quiz && latestData.quiz.questions && latestData.quiz.questions.length >= 6) {
-        quiz = latestData.quiz;
-        quizDate = latestData.date || quiz.publishDate || todayStr();
-        saveTodayQuiz(quiz);
-      }
-    }
-  } catch(e) { /* fall back to localStorage */ }
-  // Fall back to localStorage only if server has nothing
-  if (!quiz || !quiz.questions || quiz.questions.length < 6) {
-    quiz = getTodayQuiz();
-    quizDate = quiz?.publishDate || todayStr();
-  }
-
-  // Update dateline to show actual quiz publish date
-  if (quiz && quizDate) {
-    const [y, m, d] = quizDate.split('-').map(Number);
-    const quizDateObj = new Date(y, m - 1, d);
-    const dateLabel = quizDateObj.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }).toUpperCase();
-    const isStale = quizDate !== todayStr();
-    const dl = document.getElementById('today-dateline');
-    dl.textContent = dateLabel;
-    if (isStale) {
-      dl.style.color = 'var(--muted)';
-      dl.insertAdjacentHTML('afterend', '<div style="font-family:monospace;font-size:11px;color:var(--red);letter-spacing:1px;margin-top:4px;">LAST UPDATED ' + quizDate + ' — NEW QUIZ COMING SOON</div>');
-    }
-  }
-
-  // Use today's date as the key for score recording — never an old publish date
-  state.todayKey = todayStr();
-  if (!quiz || !quiz.questions || quiz.questions.length < 6) {
-    // Show no-quiz state
-    showScreen('screen-quiz');
-    document.getElementById('quiz-player-name').textContent = name;
-    document.getElementById('live-score').textContent = '0';
-    document.getElementById('question-area').innerHTML = `
-      <div class="no-quiz-card">
-        <div class="big-text">📰</div>
-        <p>No quiz has been published for today yet. Check back soon!</p>
-        <p style="margin-top:16px;"><button class="btn-secondary" onclick="showScreen('screen-register')">◂ Back</button></p>
-      </div>`;
-    buildProgressTrack([]);
-    return;
-  }
-
-  const players = getPlayers();
-  const pkey = name.toLowerCase().trim();
-  const saved = await fetchSavedProgress(name, state.todayKey);
-
-  const localCompleted = !!(
-    players[pkey] &&
-    players[pkey].dailyScores &&
-    players[pkey].dailyScores[state.todayKey] !== undefined
-  );
-
-  const serverCompleted = !!(saved && saved.completed);
-
-  if (localCompleted || serverCompleted) {
-    const priorScore =
-      (saved && typeof saved.score === 'number' ? saved.score : null) ??
-      ((players[pkey] && players[pkey].dailyScores)
-        ? players[pkey].dailyScores[state.todayKey]
-        : null);
-
-    if (!confirm(`You already completed the ${state.todayKey} quiz${priorScore !== null ? ' (' + priorScore + ' pts)' : ''}. Play again? Your new score won't count.`)) {
-      showLeaderboard();
-      return;
-    }
-    state.isReplay = true;
-  }
-
-  const resumed = !!(
-    saved &&
-    !saved.completed &&
-    saved.answers &&
-    Object.keys(saved.answers).length > 0
-  );
-
-  if (resumed) {
-    applySavedProgress(saved);
-  }
-
-const introKey = 'dnq_seen_intro_' + pkey;
-if (!lsGet(introKey) && !resumed) {    window._pendingQuiz = quiz;
-    window._pendingQuizOptions = { resumed };
-    const overlay = document.getElementById('first-time-overlay');
-    overlay.style.display = 'flex';
-  } else {
-    startQuiz(quiz, { resumed });
-  }
-}
-
-// ═══════════════════════════════════════════════════════
-//  QUIZ FLOW
-// ═══════════════════════════════════════════════════════
-let quizQuestions = [];
-let quizAnswered = false;
-
-function shuffleArray(arr) {
-  // Fisher-Yates shuffle — used to randomize within difficulty tiers
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
-function applyConfidenceRamp(questions) {
-  // Return questions in original order — difficulty progression is intentional
-  if (!questions || questions.length < 6) return questions;
-  return questions;
-}
-
-function startQuiz(quiz, options = {}) {
-  const { resumed = false } = options;
-
-  quizQuestions = quiz.questions;
-  console.log('[quiz-start]', {
-    player: state.playerName,
-    todayKey: state.todayKey,
-    resumed,
-    questions: quizQuestions.map((q, i) => ({
-      idx: i,
-      question: q.question,
-      correctIndex: q.correctIndex,
-      options: q.options
-    }))
-  });
-
-  // Record quiz start for completion rate tracking only on a fresh start
-  if (!archiveMode && !resumed) {
-    fetch('/api/quiz-start', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ date: state.todayKey })
-    }).catch(() => {});
-  }
-
-  if (!resumed) {
-    state.currentQ = 0;
-    state.sessionScore = 0;
-    state.streak = 0;
-    state.answers = [];
-    state.phase = 'regular';
-  }
-
-  document.getElementById('quiz-player-name').textContent = state.playerName;
-  document.getElementById('live-score').textContent = String(state.sessionScore);
-  buildProgressTrack(quizQuestions);
-  showScreen('screen-quiz');
-
-  if (state.phase === 'done') {
-    finishQuiz();
-    return;
-  }
-
-  renderQuestion();
-  if (resumed) {
-    showResumeOverlay();
-  }
-}
-
-function buildProgressTrack(qs) {
-  const track = document.getElementById('progress-track');
-  if (!qs.length) { track.innerHTML = ''; return; }
-  let html = '';
-  for (let i = 0; i < 5; i++) {
-    const cls = i === 0 ? 'current' : '';
-    html += `<div class="progress-dot ${cls}" id="pd-${i}">${i+1}</div>`;
-    if (i === 2) html += `<span class="progress-separator">·</span>`;
-  }
-  html += `<span class="progress-separator">◆</span>`;
-  html += `<div class="progress-dot bonus" id="pd-5">★</div>`;
-  track.innerHTML = html;
-}
-
-function getDifficultyLabel(idx) {
-  const q = quizQuestions[idx];
-  const diff = q ? q.difficulty : null;
-  const pts = diff === 'bonus' ? 50 : diff === 'hard' ? 30 : diff === 'medium' ? 20 : 10;  if (diff === 'bonus') return { label: 'Bonus', cls: 'bonus', pts };
-  if (diff === 'hard')  return { label: 'Scoop',   cls: 'hard',   pts };
-  if (diff === 'medium') return { label: 'Feature', cls: 'medium', pts };
-  return { label: 'Starter', cls: 'easy', pts };
-}
-
-function renderQuestion() {
-  const q = quizQuestions[state.currentQ];
-  const diff = getDifficultyLabel(state.currentQ);
-  quizAnswered = false;
-
-  const optLetters = ['A','B','C','D'];
-  let optHtml = '';
-  q.options.forEach((opt, i) => {
-    optHtml += `<button class="option-btn" onclick="selectAnswer(${i})" id="opt-${i}">
-      <span class="opt-letter">${optLetters[i]}</span>
-      <span>${escHtml(opt)}</span>
-    </button>`;
-  });
-
-  // ICYMI label for stories older than 36 hours
-  let icymiHtml = '';
-  if (q.pubDate) {
-    try {
-      const hoursOld = (Date.now() - new Date(q.pubDate).getTime()) / 3600000;
-      if (hoursOld >= 36 && !isNaN(hoursOld)) {
-        icymiHtml = `<div style="font-size:11px;letter-spacing:1px;font-family:monospace;color:var(--muted);margin-bottom:6px;text-transform:uppercase;">⏪ ICYMI</div>`;
-      }
-    } catch(e) {}
-  }
-  document.getElementById('question-area').innerHTML = `
-    <div class="difficulty-band">
-      <span class="diff-label ${diff.cls}">${diff.label}</span>
-      <span class="pts-label">+${diff.pts} pts if correct</span>
-    </div>
-    <div class="question-card">
-      <div class="q-number">Question ${state.currentQ + 1} of 5</div>
-      ${icymiHtml}
-      <div class="q-text">${escHtml(q.question)}</div>
-      <div class="options-grid">${optHtml}</div>
-      <div id="feedback-area"></div>
-    </div>
-  `;
-}
-
-function selectAnswer(idx) {
-  if (quizAnswered) return;
-  quizAnswered = true;
-
-  const q = quizQuestions[state.currentQ];
-  const correct = idx === q.correctIndex;
-  const diff = getDifficultyLabel(state.currentQ);
-  const pts = correct ? diff.pts : Math.round(diff.pts * 0.25);
-
-  state.sessionScore += pts;
-  state.answers.push({ qIdx: state.currentQ, chosen: idx, correct, pts });
-
- // Save running score to server after every answer
-  if (!state.isReplay) {
-    fetch('/api/scores', {
-       method: 'POST',
-       headers: { 'Content-Type': 'application/json' },
-       body: JSON.stringify({
-          playerName: state.playerName,
-          date: state.todayKey,
-          score: state.sessionScore
-      })
-    }).catch(() => {});
-  }
-
-    if (!state.isReplay) {
-       postAnswerDist(state.todayKey, state.currentQ, idx);
-       queueProgressSave();
-    }
-  document.getElementById('live-score').textContent = state.sessionScore;
-
-  // ── Visual feedback on correct answer ───────────────────────
-  if (correct) {
-    // Score counter pop
-    const scoreEl = document.getElementById('live-score');
-    if (scoreEl) {
-      scoreEl.classList.remove('score-pop');
-      void scoreEl.offsetWidth;
-      scoreEl.classList.add('score-pop');
-      setTimeout(() => scoreEl.classList.remove('score-pop'), 400);
-    }
-
-    // +pts popup rises from correct answer button, 180ms after confetti
-    setTimeout(() => {
-      const correctBtn = document.getElementById('opt-' + q.correctIndex);
-      if (correctBtn) {
-        const popup = document.createElement('div');
-        popup.className = 'pts-popup' + (q.difficulty === 'bonus' ? ' bonus' : '');
-        popup.textContent = '+' + pts;
-        const rect = correctBtn.getBoundingClientRect();
-        popup.style.left = (rect.left + rect.width / 2 - 24) + 'px';
-        popup.style.top  = (rect.top + rect.height / 2 - 16) + 'px';
-        document.body.appendChild(popup);
-        setTimeout(() => popup.remove(), 1300);
-      }
-    }, 180);
-
-    // Particle burst from the chosen button
-    const btn = document.getElementById('opt-' + idx);
-    if (btn) {
-      const rect = btn.getBoundingClientRect();
-      const cx = rect.left + rect.width / 2;
-      const cy = rect.top + rect.height / 2;
-      const colors = ['#2d6a2d','#4a9e4a','#f0c040','#6dbf6d','#a8e6a8','#fff','#ffd700','#88cc88'];
-      const shapes = ['50%', '50%', '50%', '2px', '0%', '0%']; // circles, thin bars, squares
-      for (let p = 0; p < 30; p++) {
-        const el = document.createElement('div');
-        el.className = 'particle';
-        const angle = (p / 30) * 2 * Math.PI + (Math.random() - 0.5) * 0.4;
-        const dist = 80 + Math.random() * 100;
-        const size = 6 + Math.floor(Math.random() * 10);
-        const shape = shapes[p % shapes.length];
-        const gravity = 40 + Math.random() * 60; // downward pull
-        const rot = (Math.random() - 0.5) * 720;
-        el.style.cssText = `
-          left:${cx}px; top:${cy}px;
-          width:${shape === '2px' ? 3 : size}px;
-          height:${shape === '2px' ? size * 2 : size}px;
-          background:${colors[p % colors.length]};
-          border-radius:${shape};
-          --dx:${Math.cos(angle) * dist}px;
-          --dy:${Math.sin(angle) * dist + gravity}px;
-          --rot:${rot}deg;
-        `;
-        document.body.appendChild(el);
-        setTimeout(() => el.remove(), 1200);
-      }
-    }
-  }
-
-// ── Visual feedback on wrong answer (consolation points) ─────
-  if (!correct) {
-    const wrongBtn = document.getElementById('opt-' + idx);
-    if (wrongBtn) {
-      // Floating +pts text
-      const popup = document.createElement('div');
-      popup.className = 'pts-popup consolation';
-      popup.textContent = '+' + pts;
-      const rect = wrongBtn.getBoundingClientRect();
-      popup.style.left = (rect.left + rect.width / 2 - 24) + 'px';
-      popup.style.top  = (rect.top + rect.height / 2 - 16) + 'px';
-      document.body.appendChild(popup);
-      setTimeout(() => popup.remove(), 1300);
-
-      // 4 small muted gold dots drifting upward
-      const cx = rect.left + rect.width / 2;
-      const cy = rect.top + rect.height / 2;
-      const colors = ['#b8860b','#c8a020','#a07010','#d4a830'];
-      for (let p = 0; p < 4; p++) {
-        const el = document.createElement('div');
-        el.className = 'particle';
-        const angle = -Math.PI / 2 + (p - 1.5) * 0.4;
-        const dist = 30 + Math.random() * 30;
-        const size = 4 + Math.floor(Math.random() * 4);
-        el.style.cssText = `
-          left:${cx}px; top:${cy}px;
-          width:${size}px; height:${size}px;
-          background:${colors[p % colors.length]};
-          border-radius:50%;
-          --dx:${Math.cos(angle) * dist}px;
-          --dy:${Math.sin(angle) * dist}px;
-          --rot:0deg;
-          opacity:0.7;
-        `;
-        document.body.appendChild(el);
-        setTimeout(() => el.remove(), 1000);
-      }
-    }
-  }
-
-  // Update streak
-  if (correct) {
-    state.streak++;
-  } else {
-    state.streak = 0;
-  }
-  const streakEl = document.getElementById('streak-display');
-  const streakVal = document.getElementById('live-streak');
-  if (state.streak >= 2) {
-    streakEl.style.display = '';
-    streakVal.textContent = '🔥 ' + state.streak;
-  } else {
-    streakEl.style.display = 'none';
-  }
-
-  // Update progress dot
-  const pd = document.getElementById('pd-' + state.currentQ);
-  if (pd) { pd.className = 'progress-dot ' + (correct ? 'correct' : 'wrong'); }
-
-  // Style options
-  for (let i = 0; i < q.options.length; i++) {
-    const btn = document.getElementById('opt-' + i);
-    if (!btn) continue;
-    btn.disabled = true;
-    if (i === q.correctIndex) btn.classList.add('reveal-correct');
-    if (i === idx && !correct) btn.classList.add('wrong');
-    if (i === idx && correct) { btn.classList.remove('reveal-correct'); btn.classList.add('correct'); }
-  }
-
-  // Feedback
-  const fb = document.getElementById('feedback-area');
-  if (fb) {
-    const sourceLink = q.sourceUrl
-      ? `<a href="${escHtml(q.sourceUrl)}" target="_blank" rel="noopener" class="read-more-link">Read the full story →</a>`
-      : '';
-    fb.innerHTML = `
-      <div class="feedback-box ${correct ? 'correct' : 'wrong'}">
-        <div class="fb-headline">${correct ? '✓ CORRECT' : '✗ INCORRECT'}</div>
-        <div class="fb-text">${escHtml(q.explanation || (correct ? 'Well done!' : 'Better luck next time.'))}</div>
-        <div class="pts-earned" style="${correct ? '' : 'color:var(--muted);font-size:12px;'}">+${pts} pts${correct ? '' : ' (participation)'}</div>
-        ${sourceLink}
-      </div>
-      <button class="next-btn" onclick="advanceQuestion()">
-        ${state.currentQ < 4 ? 'Next Question ▸' : 'See Results Tally ▸'}
-      </button>
-      <div id="comment-badge" style="margin-top:8px;text-align:center;font-family:monospace;font-size:11px;color:var(--muted);"></div>
-    `;
-    // Completion bonus nudge — shown after Q2 to encourage finishing
-    if (state.currentQ === 1) {
-      const nudge = document.createElement('div');
-      nudge.style.cssText = 'margin-top:10px;text-align:center;font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--gold);opacity:0.9;';
-      nudge.textContent = '\u2605 Finish all 6 questions to earn a +10 completion bonus';
-      fb.appendChild(nudge);
-    }
-
-    // Async: populate comment count badge
-    getWeeklyCommentCount().then(count => {
-      const badge = document.getElementById('comment-badge');
-      if (!badge) return;
-      if (count > 0) {
-        badge.innerHTML = `<a href="#" onclick="showCommunity();return false;" style="color:var(--muted);text-decoration:underline;">💬 ${count} comment${count === 1 ? '' : 's'} this week</a>`;
-      } else {
-        badge.innerHTML = `<a href="#" onclick="showCommunity();return false;" style="color:var(--muted);text-decoration:underline;">💬 Be the first to comment</a>`;
-      }
-    });
-  }
-}
-
-function advanceQuestion() {
-  state.currentQ++;
-  window.scrollTo(0, 0);
-  const regularCount = Math.min(quizQuestions.length - 1, 5);
-  if (state.currentQ === 4 && !lsGet('dnq_subscribed') && !archiveMode) {
-    // Show subscribe prompt after Q3 for non-subscribers
-    showSubscribeInterstitial();
-  } else if (state.currentQ < regularCount) {
-    // Update progress dot
-    const pd = document.getElementById('pd-' + state.currentQ);
-    if (pd) pd.className = 'progress-dot current';
-    renderQuestion();
-  } else {
-    showInterstitial();
-  }
-}
-
-// ═══════════════════════════════════════════════════════
-//  INTERSTITIAL
-// ═══════════════════════════════════════════════════════
-function showSubscribeInterstitial() {
-  showScreen('screen-subscribe-interstitial');
-  const scoreEl = document.getElementById('sub-int-score');
-    if (scoreEl) scoreEl.textContent = state.sessionScore;
-  // Pre-fill email if player entered one on register screen
-  const emailEl = document.getElementById('sub-int-email');
-  const regEmail = document.getElementById('email-input');
-  if (emailEl && regEmail && regEmail.value) emailEl.value = regEmail.value;
-}
-
-function continueAfterSubInterstitial() {
-  const pd = document.getElementById('pd-' + state.currentQ);
-  if (pd) pd.className = 'progress-dot current';
-  renderQuestion();
-  showScreen('screen-quiz');
-}
-
-async function submitSubInterstitial() {
-  const emailEl = document.getElementById('sub-int-email');
-  const statusEl = document.getElementById('sub-int-status');
-  const email = emailEl ? emailEl.value.trim() : '';
-  if (!email) { if (statusEl) statusEl.textContent = 'Please enter your email.'; return; }
-  if (statusEl) statusEl.textContent = 'Subscribing...';
-  try {
-    const res = await fetch('/api/subscribe', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, name: state.playerName || '' })
-    });
-    const data = await res.json();
-    if (data.ok) {
-      if (statusEl) statusEl.textContent = "You're in. See you tomorrow!";
-      if (emailEl) emailEl.style.display = 'none';
-      document.querySelector('#screen-subscribe-interstitial button[onclick="submitSubInterstitial()"]').style.display = 'none';
-      lsSet('dnq_subscribed', '1');
-      setTimeout(continueAfterSubInterstitial, 1800);
-    } else {
-      if (statusEl) statusEl.textContent = data.error || 'Something went wrong.';
-    }
-  } catch(e) {
-    if (statusEl) statusEl.textContent = 'Error: ' + e.message;
-  }
-}
-
-function showInterstitial() {
-  document.getElementById('interstitial-score').textContent = state.sessionScore;
-  // Subscribe CTA now shown after Q3 instead — hide it here
-  const intSubCta = document.getElementById('interstitial-sub-cta');
-  if (intSubCta) intSubCta.style.display = 'none';
-  showScreen('screen-interstitial');
-  // Auto-advance to bonus after 3-second countdown
-  let count = 3;
-  const cdEl = document.getElementById('interstitial-countdown');
-  const timer = setInterval(() => {
-    count--;
-    if (count > 0) {
-      cdEl.textContent = count;
-    } else {
-      clearInterval(timer);
-      startBonusRound();
-    }
-  }, 1000);
-}
-
-function startBonusRound() {
-  showScreen('screen-bonus');
-  renderBonus();
-}
-
-// ═══════════════════════════════════════════════════════
-//  BONUS ROUND
-// ═══════════════════════════════════════════════════════
-let bonusAnswered = false;
-
-function renderBonus() {
-  const q = quizQuestions[5]; // bonus is index 5
-  bonusAnswered = false;
-  const optLetters = ['A','B','C','D'];
-  let optHtml = '';
-  q.options.forEach((opt, i) => {
-    optHtml += `<button class="option-btn" onclick="selectBonus(${i})" id="bopt-${i}">
-      <span class="opt-letter">${optLetters[i]}</span>
-      <span>${escHtml(opt)}</span>
-    </button>`;
-  });
-  document.getElementById('bonus-area').innerHTML = `
-    <div class="bonus-question-card">
-      <div class="q-number" style="color:rgba(255,215,0,0.5);">Bonus Question · 50 Points</div>
-      <div class="q-text">${escHtml(q.question)}</div>
-    </div>
-    <div class="bonus-options options-grid">${optHtml}</div>
-    <div id="bonus-feedback-area"></div>
-  `;
-}
-
-function selectBonus(idx) {
-     if (bonusAnswered) return;
-      bonusAnswered = true;
-      const q = quizQuestions[5];
-      const correct = idx === q.correctIndex;
-      const pts = correct ? POINTS.bonus : Math.round(POINTS.bonus * 0.25);
-      state.sessionScore += pts;
-      state.answers.push({ qIdx: 5, chosen: idx, correct, pts });
-      if (!state.isReplay) {
-          postAnswerDist(state.todayKey, 5, idx);
-      }
-
-  // Style
-  for (let i = 0; i < q.options.length; i++) {
-    const btn = document.getElementById('bopt-' + i);
-    if (!btn) continue;
-    btn.disabled = true;
-    if (i === q.correctIndex) btn.classList.add('reveal-correct');
-    if (i === idx && !correct) btn.classList.add('wrong');
-    if (i === idx && correct) { btn.classList.remove('reveal-correct'); btn.classList.add('correct'); }
-  }
-
-  if (correct) {
-    // Confetti burst from chosen button
-    const chosenBtn = document.getElementById('bopt-' + idx);
-    if (chosenBtn) {
-      const rect = chosenBtn.getBoundingClientRect();
-      const cx = rect.left + rect.width / 2;
-      const cy = rect.top + rect.height / 2;
-      const colors = ['#f0c040','#ffd700','#fff','#ffe066','#ffb700','#fff8dc','#ffa500','#fffbe6'];
-      const shapes = ['50%', '50%', '50%', '2px', '0%', '0%'];
-      for (let p = 0; p < 40; p++) {
-        const el = document.createElement('div');
-        el.className = 'particle';
-        const angle = (p / 40) * 2 * Math.PI + (Math.random() - 0.5) * 0.4;
-        const dist = 90 + Math.random() * 120;
-        const size = 6 + Math.floor(Math.random() * 12);
-        const shape = shapes[p % shapes.length];
-        const gravity = 40 + Math.random() * 60;
-        const rot = (Math.random() - 0.5) * 720;
-        el.style.cssText = `
-          left:${cx}px; top:${cy}px;
-          width:${shape === '2px' ? 3 : size}px;
-          height:${shape === '2px' ? size * 2 : size}px;
-          background:${colors[p % colors.length]};
-          border-radius:${shape};
-          --dx:${Math.cos(angle) * dist}px;
-          --dy:${Math.sin(angle) * dist + gravity}px;
-          --rot:${rot}deg;
-        `;
-        document.body.appendChild(el);
-        setTimeout(() => el.remove(), 1200);
-      }
-    }
-    // +50 pts popup, 180ms after confetti
-    setTimeout(() => {
-      const correctBtn = document.getElementById('bopt-' + q.correctIndex);
-      if (correctBtn) {
-        const popup = document.createElement('div');
-        popup.className = 'pts-popup bonus';
-        popup.textContent = '+50';
-        const rect = correctBtn.getBoundingClientRect();
-        popup.style.left = (rect.left + rect.width / 2 - 24) + 'px';
-        popup.style.top  = (rect.top + rect.height / 2 - 16) + 'px';
-        document.body.appendChild(popup);
-        setTimeout(() => popup.remove(), 1300);
-      }
-    }, 180);
-  }
-
-  const fb = document.getElementById('bonus-feedback-area');
-  if (fb) {
-    const sourceLink = q.sourceUrl
-      ? `<a href="${escHtml(q.sourceUrl)}" target="_blank" rel="noopener" class="read-more-link" style="color:var(--bonus-gold);">Read the full story →</a>`
-      : '';
-    fb.innerHTML = `
-      <div class="bonus-feedback">
-        <div class="fb-headline">${correct ? '⭐ CORRECT — EXCEPTIONAL!' : '✗ NOT QUITE'}</div>
-        <div class="fb-text">${escHtml(q.explanation || '')}</div>
-        ${correct ? `<div class="pts-earned">+50 pts</div>` : ''}
-        ${sourceLink}
-      </div>
-      <button class="bonus-next-btn" onclick="finishQuiz()">View Final Results ▸</button>
-    `;
-  }
-
-  // Update bonus progress dot
-  const pd = document.getElementById('pd-5');
-  if (pd) pd.className = 'progress-dot bonus ' + (correct ? 'correct' : 'wrong');
-}
-
-// ═══════════════════════════════════════════════════════
-//  RESULTS
-// ═══════════════════════════════════════════════════════
-async function finishQuiz() {
-  if (state.phase === 'done') return; // prevent double-execution
-  // Completion bonus — awarded for answering all 6 questions
-  const allAnswered = state.answers.length >= 6;
-  if (allAnswered && !archiveMode) {
-    state.sessionScore += COMPLETION_BONUS;
-    state.answers.push({ qIdx: 'completion', correct: true, pts: COMPLETION_BONUS });
-  }
-
-  state.phase = 'done';
-  if (!state.isReplay) {
-    await saveProgressToServer(true);
-    updatePlayerScore(state.playerName, state.sessionScore);
-}
-
-  // Calculate day-over-day streak (after score is saved so today counts)
-  const players = getPlayers();
-  const playerKey = state.playerName.toLowerCase().trim();
-  const dayStreak = getDayStreak(players[playerKey]);
-
-  // Submit score to server for shared leaderboard (not in archive mode)
-  if (!archiveMode && !state.isReplay) {
-    try {
-      await fetch('/api/scores', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          playerName: state.playerName,
-          date: state.todayKey,
-          score: state.sessionScore
-        })
-      });
-    } catch(e) {}
-
-    // Batch-submit all answer distribution data in one reliable POST at completion
-    // (individual per-question posts during play are best-effort; this is the guarantee)
-    try {
-      const answerPayload = state.answers
-        .filter(a => a.qIdx !== 'completion')
-        .map(a => ({ qIdx: a.qIdx, correct: a.correct }));
-      if (answerPayload.length > 0) {
-        await fetch('/api/answers', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            date: state.todayKey,
-            answers: answerPayload,
-            playerName: state.playerName
-          })
-        });
-      }
-    } catch(e) {}
-  }
-
-    // Compute stats
-  const total = state.answers.length;
-  const correct = state.answers.filter(a => a.correct).length;
-  const pct = total ? Math.round(correct/total*100) : 0;
-
-  // Get rank
-  const todayScores = Object.values(players)
-    .map(p => (p.dailyScores || {})[state.todayKey] || 0)
-    .sort((a,b) => b-a);
-  const myScore = (players[state.playerName.toLowerCase().trim()]?.dailyScores || {})[state.todayKey] || state.sessionScore;
-  const rank = todayScores.findIndex(s => s <= myScore) + 1;
-
-  // All-time
-  const allTime = players[state.playerName.toLowerCase().trim()]?.allTime || state.sessionScore;
-
-  document.getElementById('result-today-score').textContent = state.sessionScore;
-  document.getElementById('result-alltime-score').textContent = allTime;
-  document.getElementById('stat-correct').textContent = correct;
-  document.getElementById('stat-pct').textContent = pct + '%';
-  document.getElementById('stat-rank').textContent = '#' + rank;
-
-  // Breakdown — full Q&A summary
-  let brows = `<div class="breakdown-header">Today's Answers</div>`;
-  state.answers.forEach(a => {
-    if (a.qIdx === 'completion') {
-      brows += `<div class="breakdown-row">
-        <span class="q-label" style="color:var(--gold);">+</span>
-        <span class="q-short">Completion bonus</span>
-        <span class="q-result c">+${COMPLETION_BONUS}</span>
-      </div>`;
-      return;
-    }
-    const q = quizQuestions[a.qIdx];
-    if (!q) return;
-    const isBonus = q.difficulty === 'bonus';
-    const label = isBonus ? 'BONUS' : ('Q' + (a.qIdx + 1));
-    const correctAnswer = q.options[q.correctIndex] || '';
-    const chosenAnswer = q.options[a.chosen] || '';
-    const resultCls = a.correct ? 'c' : 'w';
-    const resultIcon = a.correct ? '✓' : '✗';
-    brows += `<div class="breakdown-row" style="flex-direction:column;align-items:flex-start;gap:6px;padding:14px 0;border-bottom:1px solid var(--rule);">
-      <div style="display:flex;align-items:center;gap:8px;width:100%;">
-        <span class="q-label">${label}</span>
-        <span class="q-result ${resultCls}" style="font-size:15px;">${resultIcon}</span>
-        <span style="font-size:13px;color:${a.correct ? 'var(--green)' : 'var(--red)'};font-family:monospace;">+${a.pts} pts</span>
-      </div>
-      <div style="font-size:15px;font-weight:600;line-height:1.4;">${escHtml(q.question)}</div>
-      ${!a.correct ? `<div style="font-size:13px;color:var(--red);font-family:monospace;">Your answer: ${escHtml(chosenAnswer)}</div>` : ''}
-      <div style="font-size:13px;line-height:1.4;">${q.sourceUrl ? `<a href="${escHtml(q.sourceUrl)}" target="_blank" style="color:var(--green);text-decoration:none;font-weight:600;">✓ ${escHtml(correctAnswer)}</a>` : `<span style="color:var(--green);font-weight:600;">✓ ${escHtml(correctAnswer)}</span>`}</div>
-    </div>`;
-  });
-  if (archiveMode) {
-    const archiveBarResults = `<div style="background:#5a4a2a;color:#f5e8c0;text-align:center;font-family:'Courier Prime',monospace;font-size:11px;letter-spacing:1px;padding:8px;margin-bottom:16px;display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:8px;"><span>📰 ARCHIVE MODE &nbsp;·&nbsp; ${document.getElementById('archive-date-label').textContent}</span><span style="display:flex;gap:8px;"><button onclick="showArchiveBrowser()" style="font-family:monospace;font-size:11px;padding:3px 10px;background:transparent;border:1px solid #f5e8c0;color:#f5e8c0;cursor:pointer;border-radius:2px;">◂ Return to Archive</button><button onclick="exitArchiveMode()" style="font-family:monospace;font-size:11px;padding:3px 10px;background:transparent;border:1px solid #f5e8c0;color:#f5e8c0;cursor:pointer;border-radius:2px;">Today's Quiz ▸</button></span></div>`;
-    brows = archiveBarResults + brows;
-  }
-  document.getElementById('breakdown-table').innerHTML = brows;
-  // Show share section with current score
-  if (!archiveMode) {
-    const shareSection = document.getElementById('share-section');
-    const sharePreview = document.getElementById('share-text-preview');
-    if (shareSection && sharePreview) {
-      sharePreview.textContent = buildShareText();
-      shareSection.style.display = 'block';
-    }
-  }
-  showScreen('screen-results');
-
-  // Hide subscribe CTA if player already subscribed this session or previously
-  const alreadySubscribed = lsGet('dnq_subscribed');
-  if (alreadySubscribed) {
-    document.getElementById('results-subscribe-cta').style.display = 'none';
-  }
-
-  // Show day streak + tomorrow nudge
-  const streakNudgeEl = document.getElementById('results-streak-nudge');
-  if (streakNudgeEl && !archiveMode) {
-    const milestone = streakMilestone(dayStreak);
-    let nudgeHtml = '';
-    if (milestone) {
-      nudgeHtml = `<span style="font-size:15px;">${milestone}</span><br><span style="font-size:13px;opacity:0.85;">Come back tomorrow to extend your streak to ${dayStreak + 1} days.</span>`;
-    } else if (dayStreak >= 2) {
-      nudgeHtml = `<span>🔥 ${dayStreak}-day streak</span><br><span style="font-size:13px;opacity:0.85;">Come back tomorrow to keep it alive.</span>`;
-    } else if (dayStreak === 1) {
-      nudgeHtml = `<span style="font-size:13px;opacity:0.85;">Come back tomorrow to start a streak.</span>`;
-    }
-    if (nudgeHtml) {
-      streakNudgeEl.innerHTML = nudgeHtml;
-      streakNudgeEl.style.display = 'block';
-    }
-  }
-
-  document.getElementById('dist-table').innerHTML = '<div class="breakdown-header" style="margin-top:24px;">How Others Did</div><div style="font-size:13px;color:var(--muted);padding:8px 0;">Loading…</div>';
-
-  // Fetch community distribution from server
-  fetch('/api/answers?date=' + state.todayKey)
-    .then(r => r.json())
-    .then(dist2 => {
-      const totalPlayers = dist2['q0'] ? (dist2['q0'].correct + dist2['q0'].wrong) : 0;
-      let distHtml = '<div class="breakdown-header" style="margin-top:24px;">How Others Did</div>';
-      if (totalPlayers < 2) {
-        distHtml += '<div style="font-size:13px;color:var(--muted);padding:8px 0;">Be the first! Distribution appears once more players have finished.</div>';
-      } else {
-        distHtml += `<div style="font-size:12px;color:var(--muted);padding:4px 16px 8px;">Based on ${totalPlayers} player${totalPlayers === 1 ? '' : 's'} today</div>`;
-        quizQuestions.forEach((q, i) => {
-          const k = 'q' + i;
-          const d = dist2[k] || { correct: 0, wrong: 0 };
-          const total = d.correct + d.wrong;
-          const pct = total ? Math.round(d.correct / total * 100) : 0;
-          const isBonus = i === 5;
-          const label = isBonus ? 'BONUS' : ('Q' + (i + 1));
-          distHtml += `<div class="dist-row">
-            <span class="dist-label">${label}</span>
-            <div class="dist-bar-wrap"><div class="dist-bar" style="width:${pct}%"></div></div>
-            <span class="dist-pct">${pct}%</span>
-          </div>`;
-        });
-      }
-      document.getElementById('dist-table').innerHTML = distHtml;
-    })
-    .catch(() => {
-      document.getElementById('dist-table').innerHTML = '';
-    });
-}
-
-// ═══════════════════════════════════════════════════════
-//  LEADERBOARD
-// ═══════════════════════════════════════════════════════
-let currentLbTab = 'alltime';
-let previousScreen = 'screen-register';
-
-function showLeaderboard() {
-  currentLbTab = 'today';
-  document.querySelectorAll('.lb-tab').forEach((t,i) => t.classList.toggle('active', i===0));
-  renderLeaderboard('today');
-  showScreen('screen-leaderboard');
-}
-
-function showLbTab(tab, el) {
-  currentLbTab = tab;
-  document.querySelectorAll('.lb-tab').forEach(t => t.classList.remove('active'));
-  if (el) el.classList.add('active');
-  renderLeaderboard(tab);
-}
-
-async function renderLeaderboard(tab) {
-  const el = document.getElementById('lb-content');
-  if (el) el.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px;font-family:monospace;font-size:12px;">Loading…</div>';
-
-  let players = {};
-  try {
-    const res = await fetch('/api/scores');
-    const data = await res.json();
-    if (data.scores) players = data.scores;
-  } catch(e) {}
-
-  const today = todayStr();
-  const monthPrefix = today.slice(0, 7); // "2026-04"
-
-  let rows = Object.entries(players).map(([key, p]) => {
-    let score = 0;
-    if (tab === 'today') {
-      score = (p.dailyScores || {})[today] || 0;
-    } else if (tab === 'monthly') {
-      score = Object.entries(p.dailyScores || {})
-        .filter(([date]) => date.startsWith(monthPrefix))
-        .reduce((sum, [, val]) => sum + val, 0);
-    } else {
-      score = p.allTime || 0;
-    }
+  if (!nudgeTargets.length) { console.log('[StreakNudge] No eligible players.'); return; }
+  console.log(`[StreakNudge] Sending nudges to ${nudgeTargets.length} player(s)...`);
+  const emails = nudgeTargets.map(({ email, name, streak }) => {
+    const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(email)}`;
     return {
-      name: p.displayName || key,
-      score,
-      isMe: key === state.playerName.toLowerCase().trim()
+      from: 'Editor @ Daily Dispatch Quiz <editor@dailydispatchquiz.com>',
+      reply_to: 'dhconn@gmail.com',
+      to: [email],
+      subject: `Your ${streak}-day streak is on the line`,
+      html: `
+      <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1008;">
+        <a href="${siteUrl}" style="display:block;text-decoration:none;color:inherit;">
+          <div style="background:#1a1008;color:#f5f0e8;text-align:center;padding:24px;">
+            <div style="font-family:monospace;font-size:11px;letter-spacing:3px;color:#f0c040;margin-bottom:6px;">BALTIMORE · DAILY DISPATCH</div>
+            <div style="font-size:28px;font-weight:bold;">The Daily Dispatch Quiz</div>
+          </div>
+        </a>
+        <div style="padding:32px 24px;background:#f5f0e8;text-align:center;">
+          <div style="font-size:52px;margin-bottom:12px;">🔥</div>
+          <p style="font-size:22px;font-weight:bold;margin:0 0 10px;font-family:Georgia,serif;">
+            ${streak} days in a row${name ? ', ' + name : ''}.
+          </p>
+          <p style="font-size:15px;color:#6b5f4e;margin:0 0 28px;line-height:1.7;">
+            You've answered Baltimore news questions ${streak} days straight.<br>
+            Today's quiz is waiting — don't break the streak now.
+          </p>
+          <a href="${siteUrl}" style="display:inline-block;background:#1a1008;color:#f5f0e8;padding:16px 36px;font-family:monospace;font-size:13px;letter-spacing:2px;text-decoration:none;text-transform:uppercase;">Play Today's Quiz ▸</a>
+        </div>
+        <div style="padding:16px 24px;text-align:center;font-size:11px;color:#999;font-family:monospace;border-top:1px solid #e0d8cc;">
+          You're receiving this because you're on a streak. <a href="${unsubUrl}" style="color:#999;">Unsubscribe</a>
+        </div>
+      </div>`
     };
   });
-
-  rows.sort((a, b) => b.score - a.score);
-  if (tab !== 'alltime') rows = rows.filter(r => r.score > 0);
-
-  // Tab header label
-  const monthLabel = new Date(monthPrefix + '-15').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-  const tabLabel = tab === 'today' ? today
-    : tab === 'monthly' ? monthLabel
-    : 'All-Time';
-
-  let html = `
-    <div style="font-family:'Courier Prime',monospace;font-size:11px;letter-spacing:2px;
-                color:var(--muted);text-transform:uppercase;margin-bottom:12px;">
-      ${tab === 'alltime' ? 'All-Time Standings' : tab === 'monthly' ? monthLabel + ' Standings' : 'Today · ' + today}
-    </div>
-    <table class="lb-table"><thead><tr>
-      <th style="width:40px">Rank</th>
-      <th>Name</th>
-      <th style="text-align:right">Score</th>
-    </tr></thead><tbody>`;
-
-  if (!rows.length) {
-    html += `<tr><td colspan="3" style="text-align:center;color:var(--muted);font-style:italic;padding:30px;">No scores yet.</td></tr>`;
-  }
-  rows.forEach((r, i) => {
-    const rankCls = i===0 ? 'gold' : i===1 ? 'silver' : i===2 ? 'bronze' : '';
-    html += `<tr class="${r.isMe ? 'me' : ''}">
-      <td><div class="rank ${rankCls}">${i+1}</div></td>
-      <td style="font-weight:${r.isMe?'700':'400'}">${escHtml(r.name)}${r.isMe ? ' <span style="color:var(--red);font-family:\'Courier Prime\',monospace;font-size:11px;">◀ YOU</span>' : ''}</td>
-      <td style="text-align:right"><span class="score-val">${r.score}</span></td>
-    </tr>`;
-  });
-  html += '</tbody></table>';
-  document.getElementById('lb-content').innerHTML = html;
+  await sendEmailBatch(emails);
+  console.log(`[StreakNudge] Done — nudged ${emails.length} player(s).`);
 }
 
-// ═══════════════════════════════════════════════════════
-//  ADMIN
-// ═══════════════════════════════════════════════════════
-function showAdminLogin() {
-  document.getElementById('admin-login-overlay').classList.add('show');
-  document.getElementById('admin-pw-input').value = '';
-  document.getElementById('login-error').style.display = 'none';
-  setTimeout(() => document.getElementById('admin-pw-input').focus(), 100);
+function scheduleStreakNudge() {
+  const now = new Date();
+  const next = new Date();
+  // Calculate next 7pm Eastern — accounts for EST/EDT automatically
+  const eastern = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+  next.setTime(now.getTime());
+  // Find the UTC time that corresponds to 7pm Eastern today
+  const easternOffset = (now.getTime() - eastern.getTime()); // ms offset
+  const target = new Date(now);
+  target.setHours(0, 0, 0, 0);
+  target.setTime(target.getTime() + easternOffset + (19 * 60 * 60 * 1000)); // 19:00 Eastern
+  if (target <= now) target.setDate(target.getDate() + 1);
+  const msUntil = target - now;
+  console.log(`[StreakNudge] Next nudge run in ${Math.round(msUntil / 60000)} minutes (7pm Eastern).`);
+  setTimeout(() => {
+    sendStreakNudges();
+    scheduleStreakNudge();
+  }, msUntil);
 }
 
-function checkAdminPw() {
-  const pw = document.getElementById('admin-pw-input').value;
-  if (pw === ADMIN_PASSWORD) {
-    lsSet('dnq_admin_authed', '1');
-    document.getElementById('admin-login-overlay').classList.remove('show');
-    showAdminScreen();
-  } else {
-    document.getElementById('login-error').style.display = 'block';
-  }
-}
+// ── Message board ─────────────────────────────────────────────
+// Posts stored as data.posts = [{ id, playerName, text, createdAt, deleted }]
 
-async function showAdminScreen() {
-  showScreen('screen-admin');
-  await refreshAdminPreviews();
-  loadAdminPosts();
-  loadArticleUrls();
-  loadSubscribers();
-  loadAdminArchive();
-  loadAdminStats();
-  loadTodayQuestions();
-  loadPlayerList();
-  loadEmailPauseState();
-  loadTopicBlocklist();
-  loadMsgSubscribers();
-  loadMsgProspects();
-  loadProspects();
-}
-
-// ─── RSS cache helpers ───────────────────────────────────────────────────
-async function refreshRSS() {
-  const btn = document.getElementById('refresh-btn');
-  const statusEl = document.getElementById('rss-status');
-  btn.disabled = true;
-  btn.textContent = '↻ Refreshing…';
-  statusEl.textContent = 'Fetching latest articles from RSS feeds…';
-  try {
-    await fetch('/api/rss/refresh', { method: 'POST' });
-    // Poll for completion — check every 2s for up to 30s
-    let attempts = 0;
-    const poll = setInterval(async () => {
-      attempts++;
-      const res = await fetch('/api/rss');
-      const data = await res.json();
-      if (data.fetchedAt) {
-        clearInterval(poll);
-        btn.disabled = false;
-        btn.textContent = '↻ Refresh Articles';
-        const count = data.items ? data.items.length : 0;
-        const when = new Date(data.fetchedAt).toLocaleTimeString();
-        statusEl.textContent = `✓ ${count} articles cached at ${when}. Ready to generate.`;
-        statusEl.style.color = 'var(--green)';
-      }
-      if (attempts > 15) {
-        clearInterval(poll);
-        btn.disabled = false;
-        btn.textContent = '↻ Refresh Articles';
-        statusEl.textContent = 'Refresh complete. Click Generate to create questions.';
-      }
-    }, 2000);
-  } catch(e) {
-    btn.disabled = false;
-    btn.textContent = '↻ Refresh Articles';
-    statusEl.textContent = 'Refresh failed: ' + e.message;
-    statusEl.style.color = 'var(--red)';
-  }
-}
-
-async function loadRSSStatus() {
-  try {
-    const res = await fetch('/api/rss');
-    const data = await res.json();
-    const statusEl = document.getElementById('rss-status');
-    if (statusEl) {
-      if (data.fetchedAt) {
-        const count = data.items ? data.items.length : 0;
-        const when = new Date(data.fetchedAt).toLocaleTimeString();
-        statusEl.textContent = `✓ ${count} articles cached at ${when}. Click Generate or Refresh Articles for latest.`;
-        statusEl.style.color = 'var(--green)';
-      } else {
-        statusEl.textContent = 'No articles cached yet. Click ↻ Refresh Articles first.';
-        statusEl.style.color = 'var(--muted)';
-      }
-    }
-  } catch(e) {}
-}
-
-
-// ─── Admin inbox & moderation ────────────────────────────────────────────
-
-async function loadAdminMessages() {
-  const el = document.getElementById('admin-messages');
-  if (!el) return;
-  try {
-    const res = await fetch('/api/messages');
-    const data = await res.json();
-    const msgs = data.messages || [];
-    const unread = msgs.filter(m => !m.read).length;
-    const badge = document.getElementById('unread-badge');
-    if (badge) { badge.style.display = unread > 0 ? 'inline' : 'none'; badge.textContent = unread + ' new'; }
-    if (msgs.length === 0) { el.innerHTML = '<p style="font-family:courier,monospace;font-size:12px;color:var(--muted);">No messages yet.</p>'; return; }
-    el.innerHTML = msgs.map(m => `
-      <div style="background:${m.read ? 'white' : 'var(--cream)'};border:1px solid var(--rule);padding:12px;margin-bottom:8px;">
-        <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
-          <strong style="font-family:monospace;font-size:12px;">${escHtml(m.playerName)}</strong>
-          <span style="font-family:monospace;font-size:10px;color:var(--muted);">${new Date(m.createdAt).toLocaleString()}${m.read ? '' : ' · NEW'}</span>
-        </div>
-        <p style="font-size:13px;margin:0 0 8px;">${escHtml(m.text)}</p>
-        ${!m.read ? `<button onclick="markRead('${m.id}')" style="font-family:monospace;font-size:11px;padding:4px 10px;cursor:pointer;">Mark read</button>` : ''}
-      </div>`).join('');
-  } catch(e) { el.innerHTML = '<p style="color:var(--red);font-size:12px;">Could not load messages.</p>'; }
-}
-
-async function markRead(id) {
-  await fetch('/api/messages/' + id + '/read', { method: 'POST' });
-  loadAdminMessages();
-}
-
-async function loadAdminPosts() {
-  const el = document.getElementById('admin-posts-list');
-  if (!el) return;
-  try {
-    const res = await fetch('/api/posts');
-    const data = await res.json();
-    const posts = data.posts || [];
-    if (posts.length === 0) { el.innerHTML = '<p style="font-family:courier,monospace;font-size:12px;color:var(--muted);">No posts yet.</p>'; return; }
-    el.innerHTML = posts.map(p => `
-      <div style="background:white;border:1px solid var(--rule);padding:12px;margin-bottom:8px;display:flex;gap:12px;align-items:flex-start;">
-        <div style="flex:1;">
-          <strong style="font-family:monospace;font-size:12px;">${escHtml(p.playerName)}</strong>
-          <span style="font-family:monospace;font-size:10px;color:var(--muted);margin-left:8px;">${new Date(p.createdAt).toLocaleString()}</span>
-          <p style="font-size:13px;margin:4px 0 0;">${escHtml(p.text)}</p>
-        </div>
-        <button onclick="deletePost('${p.id}')" style="font-family:monospace;font-size:11px;padding:4px 10px;background:var(--red);color:white;border:none;cursor:pointer;white-space:nowrap;">Delete</button>
-      </div>`).join('');
-  } catch(e) { el.innerHTML = '<p style="color:var(--red);font-size:12px;">Could not load posts.</p>'; }
-}
-
-async function deletePost(id) {
-  if (!confirm('Delete this post?')) return;
-  await fetch('/api/posts/' + id, { method: 'DELETE' });
-  loadAdminPosts();
-}
-
-
-// ─── Community board ─────────────────────────────────────────────────────
-
-async function getWeeklyCommentCount() {
-  try {
-    const res = await fetch('/api/posts');
-    const data = await res.json();
-    const posts = data.posts || [];
-    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-    return posts.filter(p => new Date(p.createdAt).getTime() > weekAgo).length;
-  } catch(e) { return 0; }
-}
-
-// Character counter for message board
-document.addEventListener('DOMContentLoaded', () => {
-  const ta = document.getElementById('board-text');
-  if (ta) {
-    ta.addEventListener('input', () => {
-      document.getElementById('board-char-count').textContent = `${ta.value.length} / 500`;
-    });
-  }
+app.get('/api/posts', async (req, res) => {
+  const data = await readData();
+  const posts = (data.posts || []).filter(p => !p.deleted);
+  res.json({ posts });
 });
 
-
-function showCommunity() {
-  showScreen('screen-community');
-  loadPosts();
-  const name = lsGet('dnq_player_name') || '';
-  const bn = document.getElementById('board-name');
-  const cn = document.getElementById('contact-name');
-  if (bn && name) bn.value = name;
-  if (cn && name) cn.value = name;
-}
-
-function showContactForm() {
-  showScreen('screen-contact');
-  const name = lsGet('dnq_player_name') || '';
-  const cn = document.getElementById('contact-name');
-  if (cn && name) cn.value = name;
-}
-
-async function loadPosts() {
-  const list = document.getElementById('posts-list');
-  if (!list) return;
-  list.innerHTML = '<p style="font-family:courier,monospace;font-size:12px;color:var(--muted);">Loading…</p>';
+app.post('/api/posts', async (req, res) => {
+  const { playerName, text, isEditorReply, replyTo } = req.body;
+  if (!playerName || !playerName.trim()) return res.status(400).json({ error: 'Player name required.' });
+  if (!text || !text.trim()) return res.status(400).json({ error: 'Message text required.' });
+  if (text.length > 500) return res.status(400).json({ error: 'Message too long (500 char max).' });
+  const data = await readData();
+  if (!data.posts) data.posts = [];
+  const post = {
+    id: Date.now().toString(),
+    playerName: playerName.trim().slice(0, 40),
+    text: text.trim(),
+    createdAt: new Date().toISOString(),
+    ...(isEditorReply && { isEditorReply: true }),
+    ...(replyTo && { replyTo })
+  };
+  data.posts.unshift(post); // newest first
+  if (data.posts.length > 200) data.posts = data.posts.slice(0, 200); // cap at 200
+  await writeData(data);
+  // ── Notify admin of new community post ──
   try {
-    const res = await fetch('/api/posts');
-    const data = await res.json();
-    if (!data.posts || data.posts.length === 0) {
-      list.innerHTML = '<p style="font-family:courier,monospace;font-size:13px;color:var(--muted);text-align:center;padding:20px;">No posts yet — be the first!</p>';
-      return;
-    }
-    list.innerHTML = data.posts.map(p => `
-      <div style="background:white;border:1px solid var(--rule);padding:14px;margin-bottom:10px;">
-        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">
-          <strong style="font-family:\'Courier Prime\',monospace;font-size:13px;">${escHtml(p.playerName)}</strong>
-          <span style="font-family:\'Courier Prime\',monospace;font-size:10px;color:var(--muted);">${new Date(p.createdAt).toLocaleString()}</span>
+    const adminEmail = process.env.EDITOR_EMAIL || 'your@email.com';
+
+    const subject = isEditorReply
+      ? `Editor reply posted`
+      : `New community post from ${post.playerName}`;
+
+    const html = `
+      <div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.5;">
+        <p><strong>${isEditorReply ? 'Editor reply' : 'New post submitted'}</strong></p>
+        <p><strong>Player:</strong> ${post.playerName}</p>
+        ${replyTo ? `<p><strong>Replying to:</strong> ${replyTo}</p>` : ''}
+        <p><strong>Message:</strong></p>
+        <div style="padding:10px;border:1px solid #ddd;background:#f9f9f9;">
+          ${post.text}
         </div>
-        <p style="font-size:14px;line-height:1.5;margin:0;">${escHtml(p.text)}</p>
-      </div>`).join('');
-  } catch(e) {
-    list.innerHTML = '<p style="color:var(--red);">Could not load posts.</p>';
-  }
-}
-
-async function submitPost() {
-  const name = document.getElementById('board-name').value.trim();
-  const text = document.getElementById('board-text').value.trim();
-  if (!name) { showBoardStatus('Please enter your player name.', 'error'); return; }
-  if (!text)  { showBoardStatus('Please write something.', 'error'); return; }
-  try {
-    const res = await fetch('/api/posts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ playerName: name, text })
-    });
-    const data = await res.json();
-    if (!res.ok) { showBoardStatus(data.error || 'Post failed.', 'error'); return; }
-    document.getElementById('board-text').value = '';
-    document.getElementById('board-char-count').textContent = '0 / 500';
-    showBoardStatus('✓ Posted!', 'success');
-    lsSet('dnq_player_name', name);
-    loadPosts();
-  } catch(e) { showBoardStatus('Post failed. Try again.', 'error'); }
-}
-
-function showBoardStatus(msg, type) {
-  const el = document.getElementById('board-status');
-  el.style.display = 'block';
-  el.style.color = type === 'error' ? 'var(--red)' : 'var(--green)';
-  el.textContent = msg;
-  setTimeout(() => el.style.display = 'none', 3000);
-}
-
-async function submitContact() {
-  const name = document.getElementById('contact-name').value.trim();
-  const text = document.getElementById('contact-text').value.trim();
-  if (!name) { showContactStatus('Please enter your player name.', 'error'); return; }
-  if (!text)  { showContactStatus('Please write a message.', 'error'); return; }
-  try {
-    const res = await fetch('/api/contact', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ playerName: name, text })
-    });
-    const data = await res.json();
-    if (!res.ok) { showContactStatus(data.error || 'Send failed.', 'error'); return; }
-    document.getElementById('contact-text').value = '';
-    showContactStatus('✓ Message sent to the editor!', 'success');
-    lsSet('dnq_player_name', name);
-  } catch(e) { showContactStatus('Send failed. Try again.', 'error'); }
-}
-
-function showContactStatus(msg, type) {
-  const el = document.getElementById('contact-status');
-  el.style.display = 'block';
-  el.style.color = type === 'error' ? 'var(--red)' : 'var(--green)';
-  el.textContent = msg;
-}
-
-
-// ─── Saved news sites (server-side) ───────────────────────────────────────
-async function saveArticleUrls() {
-  const val = document.getElementById('article-urls-input').value.trim();
-  lsSet('dnq_article_urls', val);
-  const msg = document.getElementById('article-urls-saved-msg');
-  msg.style.display = 'inline';
-  setTimeout(() => { msg.style.display = 'none'; }, 2000);
-}
-
-function clearArticleUrls() {
-  if (!confirm('Clear all saved article URLs?')) return;
-  lsSet('dnq_article_urls', '');
-  document.getElementById('article-urls-input').value = '';
-}
-
-function loadArticleUrls() {
-  const saved = lsGet('dnq_article_urls') || '';
-  if (saved) document.getElementById('article-urls-input').value = saved;
-}
-
-async function saveSites() {
-  const val = document.getElementById('urls-input').value.trim();
-  lsSet('dnq_sites', val); // always save locally as backup
-  const msg = document.getElementById('sites-saved-msg');
-  msg.style.display = 'inline';
-  msg.style.color = 'var(--muted)';
-  msg.textContent = 'Saving…';
-  try {
-    const res = await fetch('/api/sites', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sites: val })
-    });
-    if (res.ok) {
-      msg.textContent = '✓ Sites saved!';
-      msg.style.color = 'var(--green)';
-    } else {
-      msg.textContent = '✗ Save failed';
-      msg.style.color = 'var(--red)';
-    }
-  } catch(e) {
-    msg.textContent = '✗ Save failed';
-    msg.style.color = 'var(--red)';
-  }
-  setTimeout(() => { msg.style.display = 'none'; }, 3000);
-}
-
-async function loadSavedSites() {
-  try {
-    const res = await fetch('/api/sites');
-    if (res.ok) {
-      const data = await res.json();
-      if (data.sites) {
-        document.getElementById('urls-input').value = data.sites;
-        lsSet('dnq_sites', data.sites); // keep local backup in sync
-        return;
-      }
-    }
-  } catch(e) { /* fall through to localStorage */ }
-  // Fall back to localStorage if server unavailable
-  const local = lsGet('dnq_sites');
-  if (local) document.getElementById('urls-input').value = local;
-}
-
-async function refreshAdminPreviews() {
-  // Load saved news sites from server
-  await loadSavedSites();
-  loadRSSStatus();
-  loadAdminMessages();
-  loadAdminPosts();
-
-  // Archive count
-  const archive = getArchive();
-  document.getElementById('archive-count').textContent = archive.length;
-
-  // Archive preview (first 20)
-  const prev = archive.slice(0,20);
-  document.getElementById('archive-preview').innerHTML = prev.map(q =>
-    `<span class="archive-pill">${escHtml(q.slice(0,50))}…</span>`
-  ).join('') + (archive.length > 20 ? `<span class="archive-pill">+${archive.length-20} more</span>` : '');
-
-  // Today's published — fetch from server to get correct article URLs
-  let today = null;
-  try {
-    const todayRes = await fetch('/api/quiz?date=' + todayStr());
-    if (todayRes.ok) {
-      const todayData = await todayRes.json();
-      if (todayData.quiz && todayData.quiz.questions) today = todayData.quiz;
-    }
-    // Also check yesterday in case of UTC date rollover
-    if (!today) {
-      const d = new Date(); d.setDate(d.getDate() - 1);
-      const yest = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-      const yestRes = await fetch('/api/quiz?date=' + yest);
-      if (yestRes.ok) {
-        const yestData = await yestRes.json();
-        if (yestData.quiz && yestData.quiz.questions) today = yestData.quiz;
-      }
-    }
-  } catch(e) {
-    today = getTodayQuiz(); // fallback to localStorage
-  }
-  if (today && today.questions) {
-    document.getElementById('published-preview').innerHTML =
-      `<p style="color:var(--green);font-family:monospace;font-size:12px;margin-bottom:8px;">✓ ${today.questions.length} questions published for ${todayStr()}</p>` +
-      today.questions.map((q,i) => {
-        const srcLink = q.sourceUrl
-          ? `<div style="font-size:11px;font-family:monospace;margin-top:5px;"><a href="${q.sourceUrl}" target="_blank" style="color:var(--muted);" onclick="event.stopPropagation()">↗ ${q.sourceUrl.replace(/^https?:\/\//,'').slice(0,70)}${q.sourceUrl.length > 73 ? '…' : ''}</a></div>`
-          : '';
-        const diff = q.difficulty || '';
-        const pts = POINTS[diff] || '';
-        const diffLabel = diff ? diff.charAt(0).toUpperCase() + diff.slice(1) : '';
-        const diffBadge = diffLabel ? `<span style="font-family:monospace;font-size:10px;letter-spacing:1px;padding:1px 6px;border:1px solid var(--muted);border-radius:2px;color:var(--muted);margin-left:6px;">${diffLabel.toUpperCase()}${pts ? ' · ' + pts + ' pts' : ''}</span>` : '';
-        return `<div class="q-review-card" style="cursor:pointer;" onclick="console.log('clicked published question', '${todayStr()}', ${i}); jumpToArchiveQuestion('${todayStr()}', ${i})" title="View full question & answers in archive"><div class="q-meta"><span>Q${i+1}${diffBadge}</span></div><div class="q-preview">${escHtml(q.question)}${srcLink}</div></div>`;
-      }).join('');
-  } else {
-    document.getElementById('published-preview').innerHTML = `<p style="font-size:13px;color:var(--muted);font-style:italic;">No quiz published today.</p>`;
-  }
-
-  // Draft
-  const draft = getDraftQuiz();
-  if (draft && draft.questions) {
-    showDraftPreview(draft.questions);
-  }
-}
-
-function setStatus(msg, type) {
-  const el = document.getElementById('gen-status');
-  el.textContent = msg;
-  el.className = 'status-msg show ' + type;
-}
-
-function getLockedQuestions() {
-  return new Set(JSON.parse(localStorage.getItem('dnq_locked_qs') || '[]'));
-}
-function setLockedQuestions(set) {
-  localStorage.setItem('dnq_locked_qs', JSON.stringify([...set]));
-}
-function toggleLock(idx) {
-  const locked = getLockedQuestions();
-  if (locked.has(idx)) locked.delete(idx);
-  else locked.add(idx);
-  setLockedQuestions(locked);
-  showDraftPreview(getDraftQuiz().questions);
-}
-function clearAllLocks() {
-  localStorage.removeItem('dnq_locked_qs');
-}
-
-function buildPromptSandbox(ctx) {
-  const {
-    storyPacketsText,
-    archiveQuestionList,
-    archiveSlugList,
-    todayKey
-  } = ctx;
-
-  return `
-You are writing a Baltimore local news quiz for ${todayKey}.
-
-Write exactly 6 multiple-choice questions:
-- Q1-Q3 = easy
-- Q4-Q5 = medium
-- Q6 = hard
-
-Use only the supplied local stories.
-
-EDITORIAL PRIORITY:
-Choose stories that feel worth talking about with a friend after reading the news.
-Prefer:
-- major local decisions
-- policy changes
-- public impacts
-- development or redevelopment
-- education, transit, housing, business, courts, government, culture, labor, health, or community change
-- notable actions by important local people or institutions
-- conflicts, reversals, approvals, openings, shutdowns, settlements, appointments, or public controversies
-
-AVOID BORING STORY CHOICES:
-Do not use a story if it is mainly:
-- a routine crash, fire, or isolated incident with no broader significance
-- a routine game result or ordinary sports recap
-- a routine staffing change or resignation unless it has unusual statewide or major local importance
-- a generic event listing or low-stakes feature
-- a story whose only memorable fact is where something happened
-
-CORE RULE:
-Each question must be based on the MAIN TAKEAWAY of the story, not a stray detail.
-
-Good anchors:
-- what changed
-- what decision was made
-- what goal was pursued
-- what outcome occurred
-- what conflict or problem drove the story
-- what notable action a person or institution took
-
-Bad anchors:
-- a minor location detail
-- a colorful quote
-- an exact number that is not the real point
-- a procedural step
-- a fact a normal reader would not remember later
-
-DO NOT ASK ABOUT:
-- what the story "means," "suggests," or "implies"
-- the author's interpretation
-- minor procedural details
-- throwaway quotes
-- a detail a normal reader would not remember
-
-NUMBERS RULE:
-Dollar amounts, percentages, attendance counts, and dates may appear in the story, but should usually NOT be the thing being asked about unless that number is truly the central news.
-
-GOOD EXAMPLE:
-Story: County executive found $9.3 million for schools to avoid larger class sizes.
-Good question: What goal did the county executive pursue in finding extra school funding?
-Bad question: How much money was added?
-
-ARCHIVE RULE:
-Do not repeat or closely paraphrase any blocked, archived, or recently used question.
-If a story topic overlaps with an archived topic, choose a different story.
-
-ONE EVENT RULE:
-Only one question per distinct news event.
-
-DISTRACTOR RULE:
-All four answers must be plausible and in the same category as the correct answer.
-Do not use joke answers.
-Do not make the correct answer noticeably longer or more specific than the others.
-
-STYLE RULE:
-Questions must be concrete and factual.
-Prefer:
-- What did X announce?
-- What change was approved?
-- What goal did X pursue?
-- What problem triggered X?
-- What did officials decide?
-- What will happen next?
-- What is changing for residents?
-- Which project or proposal did X support?
-
-Avoid vague phrasing like:
-- What does this say about...
-- What is the meaning of...
-- What does this imply...
-- What does this suggest...
-
-QUALITY CHECK BEFORE FINALIZING:
-For each candidate question, ask:
-1. Is this about the most interesting or meaningful part of the story?
-2. Would a normal local news reader remember this fact an hour later?
-3. Is this story more quiz-worthy than a routine accident, routine sports result, or ordinary personnel move?
-If any answer is no, choose a better story or rewrite the question.
-
-OUTPUT:
-Return valid JSON only in this format:
-
-{
-  "coreFacts": [
-    "one sentence main takeaway for Q1 source",
-    "one sentence main takeaway for Q2 source",
-    "one sentence main takeaway for Q3 source",
-    "one sentence main takeaway for Q4 source",
-    "one sentence main takeaway for Q5 source",
-    "one sentence main takeaway for Q6 source"
-  ],
-  "questions": [
-    {
-      "question": "text",
-      "options": ["A", "B", "C", "D"],
-      "correctIndex": 0,
-      "explanation": "brief explanation",
-      "sourceUrl": "https://...",
-      "difficulty": "easy"
-    }
-  ]
-}
-
-RECENT QUESTION ARCHIVE:
-${archiveQuestionList || '(none)'}
-
-RECENT TOPIC SLUGS:
-${archiveSlugList || '(none)'}
-
-STORIES:
-${storyPacketsText}
-`.trim();
-}
-
-async function generateQuestions(mode = 'production') {
-  const urls = document.getElementById('urls-input').value.trim();
-  const articleUrls = document.getElementById('article-urls-input').value.trim();
-  const manualText = document.getElementById('manual-text-input').value.trim();
-
-  if (!urls && !articleUrls && !manualText) {
-    setStatus('Please paste at least one news site URL — or paste article text directly.', 'error');
-    return;
-  }
-
-  const genBtn = document.getElementById('gen-btn');
-  const sandboxBtn = document.getElementById('gen-btn-sandbox');
-
-  if (genBtn) genBtn.disabled = true;
-  if (sandboxBtn) sandboxBtn.disabled = true;
-
-  document.getElementById('gen-overlay').classList.add('show');
-  document.getElementById('preview-section').style.display = 'none';
-  document.getElementById('raw-debug').style.display = 'none';
-  setStatus('', '');
-
-  const modeLabel = mode === 'sandbox' ? 'sandbox draft' : 'draft';
-  setStatus(`Generating ${modeLabel}...`, 'success');
-
-  // Article URLs = hand-picked specific articles (one-time, not saved)
-  // Feed URLs = RSS/site URLs saved in the feeds box
-  const articleUrlList = articleUrls ? articleUrls.split('\n').map(u => u.trim()).filter(u => u.startsWith('http')) : [];
-  const urlList = urls ? urls.split('\n').map(u => u.trim()).filter(u => u.startsWith('http')) : [];
-  // Fetch server-side archive (authoritative, works across devices/sessions)
-  let serverArchiveUrls = [], serverArchiveQuestions = [], serverArchiveSlugs = [];
-  try {
-    const archRes = await Promise.race([
-      fetch('/api/archive'),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000))
-    ]);
-    if (archRes.ok) {
-      const archData = await archRes.json();
-      serverArchiveUrls = archData.urls || [];
-      serverArchiveQuestions = archData.questions || [];
-      serverArchiveSlugs = archData.slugs || [];
-    }
-  } catch(e) { console.warn('[Archive] fetch failed or timed out, using localStorage fallback'); }
-  // Merge with localStorage fallback (covers current session before first publish)
-  const allArchiveUrls = [...new Set([...serverArchiveUrls, ...getArchiveUrls()])];
-  const allArchiveQuestions = [...new Set([...serverArchiveQuestions, ...getArchive()])];
-  const allArchiveSlugs = [...new Set([...serverArchiveSlugs, ...getArchiveSlugs()])];
-
-  const archiveNote = allArchiveQuestions.length > 0
-    ? `Do NOT generate questions about these previously used topics: ${allArchiveQuestions.slice(-30).join(' | ')}`
-    : '';
-
-  // Always fetch RSS cache. If specific articles are provided, they go first;
-  // RSS articles are used only to fill remaining slots up to 11.
-  const isFeedMode = articleUrlList.length === 0;
-
-  let rssContent = '';
-  let sandboxAcceptedBlocks = [];
-  try {
-    const rssRes = await fetch('/api/rss');
-    if (rssRes.ok) {
-      const rssData = await rssRes.json();
-      if (rssData.items && rssData.items.length > 0) {
-          // Interleave articles across sources so Claude sees variety from the start
-          const bySource = {};
-          for (const item of rssData.items) {
-            const domain = item.source || 'unknown';
-            if (!bySource[domain]) bySource[domain] = [];
-            if (bySource[domain].length < 4) bySource[domain].push(item);
-          }
-          const sourceQueues = Object.values(bySource);
-          const interleaved = [];
-          let added = true;
-          while (added) {
-            added = false;
-            for (const queue of sourceQueues) {
-              if (queue.length > 0) { interleaved.push(queue.shift()); added = true; }
-            }
-          }
-          // ── Filter out articles used in previous quizzes ──────
-          const _archivedUrls = new Set(allArchiveUrls.length ? allArchiveUrls : getArchiveUrls());
-          const filteredInterleaved = interleaved.filter(item => {
-            if (!item.link) return true;
-            if (_archivedUrls.has(item.link)) {
-              console.log('[ArchiveFilter] Skipping previously used URL:', item.link);
-              return false;
-            }
-            return true;
-          });
-
-          // ── Quiz-worthiness scoring ──────────────────────────
-          // Sorts articles so outcome/decision stories float above process stories.
-          // Does not filter anything out — just reorders before the screener runs.
-          function freshnessBonus(pubDate) {
-            if (!pubDate) return 0;
-            try {
-              const hours = (Date.now() - new Date(pubDate).getTime()) / 3600000;
-              if (isNaN(hours)) return 0;
-              if (hours < 24) return 3;
-              if (hours < 48) return 2;
-              if (hours < 72) return 1;
-              return -3;
-            } catch(e) { return 0; }
-          }
-
-          function quizWorthiness(title, pubDate, link) {
-            const t = (title || '').toLowerCase();
-            let score = 0;
-            score += freshnessBonus(pubDate);
-            // Boost: concrete outcomes and decisions
-            if (/\b(approved?|passed?|signed|funded|launched|opened?|announced?|renamed?|awarded?|selected?|elected?|promoted?|hired?|fired?|broke ground|breaking ground|unveiled?)\b/.test(t)) score += 3;
-            // Boost: named places (Baltimore-specific stories)
-            if (/\b(baltimore|towson|annapolis|columbia|ellicott city|catonsville|fells point|inner harbor|dundalk|hampden|canton|federal hill|remington|charles village|pigtown|brooklyn|curtis bay)\b/.test(t)) score += 2;
-            // Boost: visible projects and community topics
-            if (/\b(park|bridge|school|project|festival|restaurant|stadium|transit|housing|development|museum|library|trail|renovation|concert|exhibit)\b/.test(t)) score += 2;
-            // Boost: named newsworthy people (not just titles)
-            if (/\b(mayor|governor|coach|director|ceo|founder|chef|artist|author|musician|athlete)\b/.test(t)) score += 1;
-            // Downweight: legislative process without outcome
-            if (/\b(committee|hearing|testimony|task force|amendment|debate|markup|session|proposal|consideration|discusses?|reviews?|weighs?|mulls?)\b/.test(t)) score -= 2;
-            // Downweight: individual incidents
-            if (/\b(shooting|homicide|stabbing|crash|arrest|charged?|indicted?|sentenced?)\b/.test(t)) score -= 3;
-            // Extra penalty: routine individual crime with no systemic angle
-            if (/\b(shooting|homicide|stabbing|gunshot|gun fire|gunman|killed|fatal|dead|murder|robbery|burglary|carjack|assault)\b/.test(t)) score -= 3;
-            // But restore some credit if it involves public officials or systemic significance
-            if (/\b(police officer|officer shot|officer killed|detective|commissioner|police chief|systemic|pattern|department)\b/.test(t)) score += 3;
-            // Downweight: opinion/analysis
-            if (/\b(opinion|editorial|commentary|analysis|column|perspective|why |how to)\b/.test(t)) score -= 4;
-            // Also penalize opinion/column URLs
-            if (/\/opinion\/|\/column\/|\/commentary\/|\/perspective\//.test(link || '')) score -= 3;
-            return score;
-          }
-
-          // Sort by score descending, preserving source interleaving as a tiebreaker
-          const scored = filteredInterleaved.map((item, i) => ({ item, score: quizWorthiness(item.title, item.pubDate, item.link), i }));
-          scored.sort((a, b) => b.score - a.score || a.i - b.i);
-          const sortedItems = scored.map(s => s.item);
-
-          console.log('[QuizScore] Top 6 articles:');
-          scored.slice(0, 6).forEach(s => console.log(`  [${s.score > 0 ? '+' : ''}${s.score}] ${s.item.title}`));
-
-          rssContent = sortedItems.map((item, idx) =>
-            `ARTICLE ${idx + 1}:\nSOURCE: ${item.source}\nHEADLINE: ${item.title}\nSUMMARY: ${item.description}\nARTICLE_URL: ${item.link}\nDATE: ${item.pubDate}`
-          ).join('\n\n---\n\n');
-        }
-      }
-    } catch(e) { /* cache unavailable, proceed without */ }
-
-  // ── Step 1: Pre-screen RSS articles for newsworthiness ──────
-  // Pre-screen RSS articles whenever we have them (both feed-only and hybrid modes)
-  if (rssContent) {
-    document.getElementById('gen-progress-text').textContent = 'Evaluating articles…';
-    try {
-      const blocks = rssContent.split('---').map(b => b.trim()).filter(Boolean);
-      const headlines = blocks.map((b, i) => {
-        const m = b.match(/HEADLINE: (.+)/);
-        const u = b.match(/URL: (.+)/);
-        return `${i}: ${m ? m[1].trim() : '(no headline)'} | ${u ? u[1].trim() : ''}`;
-      }).join('\n');
-
-      // Use already-fetched server archive URLs (fetched above, no second request needed)
-      const recentUrls = allArchiveUrls.length > 0 ? allArchiveUrls : getArchiveUrls();
-
-      const recentUrlNote = recentUrls.length > 0
-        ? 'ALREADY USED THIS WEEK (REJECT these URLs and any article covering the same topic):\n' + recentUrls.join('\n') + '\n\n'
-        : '';
-
-      const screenPrompt = 'You are an editor screening articles for a Baltimore local news quiz. ' +
-        'For each article below, decide if it is suitable for a quiz question.\n\n' +
-        recentUrlNote +
-        'REJECT only if clearly one of these:\n' +
-        '- Weather forecast or routine temperature update\n' +
-        '- DC team sports story (Nationals, Commanders, Capitals, Wizards) with no Baltimore/Maryland angle\n' +
-        '- Routine sports transaction, injury update, or spring training note\n' +
-        '- Sports story that an average Baltimore resident would not be expected to know about\n' +
-        '- Headline roundup or headlines digest article (morning, afternoon, evening, weekly, or any multi-story summary)\n' +
-        '- Named court case with no broader significance (individual sentencing, routine probation violation)\n' +
-        '- Obituary or memorial piece\n' +
-        '- Real estate listing or Hot House feature\n' +
-        '- Things to do events calendar\n' +
-        '- Individual incident story: house fire, car crash, single shooting, mall altercation, or isolated crime — unless it has broader public safety, policy, or multi-incident significance\n\n' +
-        'ACCEPT stories that involve meaningful local impact, decisions, policy, development, public institutions, or issues affecting many residents.\n' +
-        'Prefer to reject borderline stories, but ensure enough variety to produce at least 6 distinct quiz questions.\n' +
-        'When in doubt, balance quality with coverage — include enough strong and moderately strong stories to support a full 6-question quiz.\n\n' +
-        'EXTRA HINT: If an article URL contains \'headlines\' or \'roundup\' or \'digest\' in the path, it is almost certainly a multi-story summary — REJECT it.\n\n' +
-        'ARTICLES:\n' + headlines + '\n\n' +
-        'DUPLICATE DETECTION: After deciding accept/reject, also identify pairs of accepted articles that cover the same news event from different angles or outlets. Two articles are duplicates if a reader would say they are "about the same thing" — same incident, same decision, same person\'s action. Different takes on a developing story still count as duplicates.\n\n' +
-        'Respond with ONLY a JSON object in this exact format (no explanation):\n' +
-        '{"accepted": [0,2,4,7,9], "duplicates": [[2,7],[4,9]]}\n' +
-        'If no duplicates found, return {"accepted": [0,2,4,7,9], "duplicates": []}\n' +
-        'The duplicates array contains pairs of indices from the accepted list that cover the same event. Only include each pair once.';
-      
-const screenController = new AbortController();
-      const screenTimer = setTimeout(() => screenController.abort(), 30000);
-      let screenResponse;
-      try {
-        screenResponse = await fetch('/api/claude', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          signal: screenController.signal,
-          body: JSON.stringify({
-            model: CLAUDE_MODEL,
-            max_tokens: 600,
-            messages: [{ role: 'user', content: screenPrompt }]
-          })
-        });
-      } finally {
-        clearTimeout(screenTimer);
-      }
-
-      const screenData = await screenResponse.json();
-      if (!screenData.error && screenData.content && screenData.content.length) {
-        const screenText = screenData.content.map(c => c.text || '').join('').trim();
-        const clean = screenText.replace(/```json|```/g, '').trim();
-        const parsed = JSON.parse(clean);
-
-        // Handle both old format (array) and new format (object with accepted/duplicates)
-        const acceptedIndices = Array.isArray(parsed) ? parsed : (parsed.accepted || []);
-        const duplicatePairs = Array.isArray(parsed) ? [] : (parsed.duplicates || []);
-
-        // Build set of duplicate indices to suppress — keep only the first of each pair
-        const suppressedByDupe = new Set();
-        for (const pair of duplicatePairs) {
-          if (Array.isArray(pair) && pair.length >= 2) {
-            // Keep pair[0], suppress pair[1] and any further
-            for (let i = 1; i < pair.length; i++) suppressedByDupe.add(pair[i]);
-            console.log(`[PreScreen] Duplicate suppressed: article ${pair[1]} is same event as article ${pair[0]}`);
-          }
-        }
-
-        console.log(`[PreScreen] Accepted ${acceptedIndices.length} of ${blocks.length} articles. Duplicates suppressed: ${suppressedByDupe.size}`);
-
-        const acceptedBlocks = acceptedIndices
-          .filter(i => i >= 0 && i < blocks.length && !suppressedByDupe.has(i))
-          .map(i => blocks[i]);
-        sandboxAcceptedBlocks = acceptedBlocks.slice();
-        rssContent = acceptedBlocks.join('\n\n---\n\n');
-        console.log(`[PreScreen] RSS content filtered to ${acceptedBlocks.length} articles after dupe removal`);
-
-        const picker = document.getElementById('sandbox-story-picker');
-        const list = document.getElementById('sandbox-story-list');
-
-        if (picker && list) {
-          picker.style.display = (mode === 'sandbox') ? 'block' : 'none';
-          list.innerHTML = '';
-
-          acceptedBlocks.forEach((block, idx) => {
-            const headlineMatch = block.match(/HEADLINE: (.+)/);
-            const sourceMatch = block.match(/SOURCE: (.+)/);
-            const headline = headlineMatch ? headlineMatch[1].trim() : '(no headline)';
-            const source = sourceMatch ? sourceMatch[1].trim() : '';
-
-            const row = document.createElement('div');
-            row.style.marginBottom = '8px';
-            row.innerHTML = `
-              <label style="display:block;cursor:pointer;line-height:1.4;">
-                <input type="checkbox" class="sandbox-story-checkbox" value="${idx}" style="margin-right:8px;">
-                <strong>${headline}</strong>
-                ${source ? `<div style="font-size:12px;color:var(--muted);margin-left:22px;">${source}</div>` : ''}
-              </label>
-            `;
-            list.appendChild(row);
-          });
-        }
-
-      }
-    } catch(e) {
-      console.warn('[PreScreen] Screening step failed, proceeding with full RSS:', e.message);
-    }
-  }
-
-  // ── Step 1.5: Fetch full article text ────────────────────────
-  // Only enrich the first 6 articles — these are the ones Claude will actually use.
-  // Fetching all candidates was bloating the prompt and causing timeouts.
-  if (rssContent) {
-    document.getElementById('gen-progress-text').textContent = 'Fetching article content…';
-    const blocks = rssContent.split('---').map(b => b.trim()).filter(Boolean);
-    const toEnrich = blocks.slice(0, 6);
-    const rest = blocks.slice(6);
-    const enriched = await Promise.all(toEnrich.map(async (block) => {
-      const urlMatch = block.match(/ARTICLE_URL: (.+)/);
-      if (!urlMatch) return block;
-      const articleUrl = urlMatch[1].trim();
-      try {
-        const fetchRes = await Promise.race([
-          fetch('/api/fetch-article', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: articleUrl })
-          }),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('fetch-article timeout')), 8000))
-        ]);
-        const fetchData = await fetchRes.json();
-        if (fetchData.ok && fetchData.excerpt && fetchData.excerpt.length > 200) {
-          console.log(`[ArticleFetch] Full text retrieved: ${articleUrl.slice(0,60)}`);
-          // Replace SUMMARY but preserve ARTICLE_URL and DATE lines
-          const articleUrlLine = `ARTICLE_URL: ${articleUrl}`;
-          const dateMatch = block.match(/DATE: .+/);
-          const dateLine = dateMatch ? dateMatch[0] : '';
-          const headlineMatch = block.match(/HEADLINE: .+/);
-          const headlineLine = headlineMatch ? headlineMatch[0] : '';
-          const sourceMatch = block.match(/SOURCE: .+/);
-          const sourceLine = sourceMatch ? sourceMatch[0] : '';
-          return [sourceLine, headlineLine, articleUrlLine, dateLine, 'FULL TEXT:', fetchData.excerpt]
-            .filter(Boolean).join('\n');
-        } else {
-          console.log(`[ArticleFetch] Paywall/failed (${fetchData.reason}): ${articleUrl.slice(0,60)}`);
-          return block; // keep RSS excerpt
-        }
-      } catch(e) {
-        return block; // keep RSS excerpt on error
-      }
-    }));
-    rssContent = [...enriched, ...rest].join('\n\n---\n\n');
-  }
-
-  // ── Article pool guard — abort before calling Claude if nothing to work with ──
-  const _articleCount = (rssContent.match(/ARTICLE \d+:/g) || []).length;
-  const _hasAssignedUrls = articleUrlList.length > 0;
-  const _hasManual = !!(manualText && manualText.trim());
-  console.log('[Article pipeline]', {
-    rssArticles: _articleCount,
-    assignedUrls: articleUrlList.length,
-    hasManual: _hasManual,
-    archiveUrlsLoaded: allArchiveUrls.length
-  });
-  if (_articleCount === 0 && !_hasAssignedUrls && !_hasManual) {
-    setStatus('No candidate articles available. Try refreshing the RSS feed, pasting article text manually, or checking your network connection.', 'error');
-    console.warn('[Generation aborted] Article pool is empty — Claude call skipped.');
-    return;
-  }
-
-  let prompt;
-    try {
-      prompt = (mode === 'sandbox')
-        ? (() => {
-            const checked = Array.from(document.querySelectorAll('.sandbox-story-checkbox:checked'))
-              .map(cb => parseInt(cb.value, 10))
-              .filter(i => !isNaN(i));
-
-            let selectedText;
-
-            if (checked.length > 0) {
-              const selectedBlocks = checked
-                .filter(i => i >= 0 && i < sandboxAcceptedBlocks.length)
-                .map(i => sandboxAcceptedBlocks[i]);
-
-              selectedText = selectedBlocks.join('\n\n---\n\n');
-            } else {
-              selectedText = rssContent;
-            }
-
-            return buildPromptSandbox({
-              storyPacketsText: selectedText,
-              archiveQuestionList: allArchiveQuestions.join('\n'),
-              archiveSlugList: allArchiveSlugs.join('\n'),
-              todayKey: todayStr()
-            });
-          })()
-        : buildPromptProduction(urlList, articleUrlList, manualText, archiveNote, rssContent, isFeedMode, allArchiveUrls, allArchiveSlugs);
-    } catch(err) {
-    console.error('[Prompt build failed]', err);
-    setStatus('Quiz generation failed while building prompt: ' + err.message, 'error');
-    return;
-  }
-  console.log('[Prompt diagnostics]', {
-    promptLength: prompt.length,
-    articleCount: (rssContent.match(/---/g) || []).length + (rssContent.trim().length > 0 ? 1 : 0),
-    archiveUrlCount: allArchiveUrls.length,
-    archiveSlugCount: allArchiveSlugs.length,
-    hasManualText: !!manualText
-  });
-  let rawResponse = '';
-
-  // ── Step 2: Generate questions ───────────────────────────────
-  document.getElementById('gen-progress-text').textContent = 'Generating questions…';
-
-  try {
-    const claudeController = new AbortController();
-    const claudeTimer = setTimeout(() => claudeController.abort(), 60000);
-    let response;
-    try {
-      response = await fetch('/api/claude', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: claudeController.signal,
-        body: JSON.stringify({
-          model: CLAUDE_MODEL,
-          max_tokens: 4000,
-          messages: [{ role: 'user', content: prompt }]
-        })
-      });
-    } finally {
-      clearTimeout(claudeTimer);
-    }
-
-    const data = await response.json();
-    if (data.error) throw new Error(`API error: ${data.error.message}`);
-    if (!data.content || !data.content.length) throw new Error('API returned empty content. Check your API key.');
-
-    rawResponse = data.content.map(b => b.text || '').join('');
-    console.log('[Claude response] length:', rawResponse.length, 'chars');
-    showRawDebug(rawResponse);
-
-    let questions = parseQuestions(rawResponse);
-
-    if (questions.length === 0) {
-      throw new Error('Claude returned a response but no questions were parsed. See Raw Response below.');
-    }
-
-    // ── Quality audit + conditional retry ────────────────────
-    const weakQuestions = auditQuestions(questions);
-    if (weakQuestions.length >= 2) {
-      console.warn(`[QualityFilter] ${weakQuestions.length} weak questions — triggering targeted retry`);
-      document.getElementById('gen-progress-text').textContent = 'Refining ' + weakQuestions.length + ' questions…';
-
-      const weakDescriptions = weakQuestions.map(w =>
-        `Q${w.index + 1} ("${questions[w.index].question.slice(0, 60)}…") — issues: ${w.flags.join(', ')}`
-      ).join('\n');
-
-      const retryPrompt =
-        'The following questions from a Baltimore news quiz need to be replaced because they test incidental details rather than the main point of the story:\n\n' +
-        weakDescriptions + '\n\n' +
-        'For each question listed above, write a replacement that:\n' +
-        '- Tests the central hook of the story (the fact a reader would remember when retelling it)\n' +
-        '- Uses no banned openings (What does this reveal/demonstrate/suggest/show)\n' +
-        '- Avoids attendance figures, vehicle types, timing details, neighborhood-as-answer, publication references\n' +
-        '- Keeps the same difficulty and sourceUrl as the original\n\n' +
-        'Return ONLY a JSON array of replacement question objects (same schema as before), one per weak question listed. No preamble.';
-
-      try {
-        const retryRes = await fetch('/api/claude', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model: 'claude-sonnet-4-20250514',
-            max_tokens: 2000,
-            messages: [{ role: 'user', content: retryPrompt }]
-          })
-        });
-        const retryData = await retryRes.json();
-        if (!retryData.error && retryData.content) {
-          const retryText = retryData.content.map(b => b.text || '').join('');
-          console.log('[Retry response] length:', retryText.length);
-          try {
-            const bt = String.fromCharCode(96); const fence = bt+bt+bt;
-            let clean = retryText.split(fence+'json').join('').split(fence).join('').trim();
-            const start = clean.indexOf('[');
-            const end = clean.lastIndexOf(']');
-            if (start !== -1 && end !== -1) {
-              const replacements = JSON.parse(clean.slice(start, end + 1));
-              replacements.forEach((rep, ri) => {
-                if (ri < weakQuestions.length) {
-                  const origIdx = weakQuestions[ri].index;
-                  console.log(`[Retry] Replacing Q${origIdx+1} with: "${rep.question ? rep.question.slice(0,60) : '?'}"`);
-                  questions[origIdx] = { ...questions[origIdx], ...rep };
-                }
-              });
-              console.log('[Retry] Replacements applied.');
-            }
-          } catch(parseErr) {
-            console.warn('[Retry] Could not parse retry response, keeping originals:', parseErr);
-          }
-        }
-      } catch(retryErr) {
-        console.warn('[Retry] Retry call failed, keeping originals:', retryErr);
-      }
-    }
-
-    if (questions.length < 6) {
-      setStatus(`⚠ Only ${questions.length} questions generated — need 6 to publish. Use "+ Add Question" below to fill the gaps manually.`, 'error');
-    } else if (!document.getElementById('gen-status').classList.contains('error')) {
-      const weakCount = weakQuestions.length;
-      const retryNote = weakCount >= 2 ? ` (${weakCount} questions auto-refined)` : weakCount === 1 ? ` (1 question flagged — review Q${weakQuestions[0].index+1})` : '';
-      setStatus(`✓ ${questions.length} questions generated for ${modeLabel}${retryNote}. Review below, then publish.`, 'success');
-    }
-
-    if (questions.length > 0) {
-      // Re-inject any locked questions from previous draft
-      const locked = getLockedQuestions();
-      if (locked.size > 0) {
-        const prevDraft = getDraftQuiz();
-        if (prevDraft && prevDraft.questions) {
-          locked.forEach(idx => {
-            if (prevDraft.questions[idx]) questions[idx] = prevDraft.questions[idx];
-          });
-        }
-      }
-             saveDraftQuiz({
-                questions,
-                generatedAt: new Date().toISOString(),
-                urls: urlList,
-                promptMode: mode
-              });
-
-      showDraftPreview(questions);
-    } else {
-      // Even with 0 questions, show the preview section so admin can add manually
-      document.getElementById('preview-section').style.display = 'block';
-      document.getElementById('q-preview-list').innerHTML = '<p style="font-family:monospace;font-size:13px;color:var(--muted);padding:8px 0;">No questions generated. Use "+ Add Question" to write them manually.</p>';
-    }
-
-  } catch (err) {
-    setStatus('Error: ' + err.message, 'error');
-    if (rawResponse) showRawDebug(rawResponse);
-    console.error(err);
-  } finally {
-    if (genBtn) genBtn.disabled = false;
-    if (sandboxBtn) sandboxBtn.disabled = false;
-    document.getElementById('gen-overlay').classList.remove('show');
-  }
-}
-
-function showRawDebug(text) {
-  const el = document.getElementById('raw-debug');
-  el.style.display = 'block';
-  document.getElementById('raw-debug-text').textContent = text;
-
-  // Show coreFacts in console if present
-  try {
-    const bt = String.fromCharCode(96); const fence = bt+bt+bt;
-    let clean = text.split(fence+'json').join('').split(fence).join('').trim();
-    const start = clean.indexOf('{'); const end = clean.lastIndexOf('}');
-    if (start !== -1 && end !== -1) {
-      const parsed = JSON.parse(clean.slice(start, end+1));
-      if (parsed.coreFacts && parsed.coreFacts.length) {
-        console.log('[CoreFacts] Claude\'s story summaries:');
-        parsed.coreFacts.forEach((f, i) => console.log(`  Q${i+1}: ${f}`));
-      }
-    }
-  } catch(e) {}
-}
-
-function buildPromptProduction(urlList, articleUrlList, manualText, archiveNote, rssContent, isFeedMode, allArchiveUrls, allArchiveSlugs) {
-  allArchiveUrls = allArchiveUrls || [];
-  allArchiveSlugs = allArchiveSlugs || [];
-  const manualBlock = manualText
-    ? 'MANUALLY PROVIDED ARTICLE TEXT (use as additional source):\n' + manualText.slice(0, 4000)
-    : '';
-
-  const isSpecificArticles = articleUrlList.length > 0;
-
-  const fallback = !rssContent && !manualBlock && !isSpecificArticles
-    ? 'Search for and read the most recent articles from these Baltimore news websites:\n' + urlList.join('\n')
-    : '';
-
-  const specificArticlesBlock = isSpecificArticles
-    ? 'EDITOR-PICKED ARTICLES (these are assigned to Q1–' + articleUrlList.length + ' — use ONLY these URLs for those questions, in order):\n' + articleUrlList.join('\n') + '\n\nRemaining question slots will be filled from the RSS articles provided below.\n'
-    : '';
-
-  // ── Topic deduplication: pick 11 topically distinct articles ──
-  function topicWords(headline) {
-    const stop = new Set(['a','an','the','and','or','but','in','on','at','to','for','of','with',
-      'is','are','was','were','be','been','has','have','had','will','would','that','this','as',
-      'from','by','after','over','about','how','what','who','when','where','says','say','amid',
-      'new','more','year','week','day','monday','tuesday','wednesday','thursday','friday',
-      'saturday','sunday','after','its','their','amid','into','than','some','could','local']);
-    return headline.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\s+/)
-      .filter(w => w.length > 3 && !stop.has(w));
-  }
-
-  function topicsOverlap(h1, h2) {
-    // Named entity check first: if both headlines share a proper noun (capitalized
-    // word 4+ chars, not a generic stop word) that's a strong signal of same event.
-    // We check this BEFORE the outcome verb exception — a second article about
-    // "Coca-Cola explosion" is still the same event even if it has new details.
-    const namedEntityStops = new Set(['Baltimore','Maryland','City','County','State','Federal','Local','North','South','East','West','Johns','Hopkins','Avenue','Street','Police','Officer']);
-    const namedEntities = h => (h.match(/\b[A-Z][a-z]{3,}\b/g) || []).filter(w => !namedEntityStops.has(w));
-    const e1 = new Set(namedEntities(h1));
-    const shared = namedEntities(h2).filter(w => e1.has(w));
-    if (shared.length >= 1) return true;
-
-    // Also catch hyphenated brand/company names by checking lowercased full match
-    // e.g. "coca-cola" appears in both → same event
-    const brands = h => (h.toLowerCase().match(/\b[a-z]+-[a-z]+\b/g) || []);
-    const b1 = new Set(brands(h1));
-    if (brands(h2).some(b => b1.has(b))) return true;
-
-    // Acronym check: catch shared all-caps abbreviations (ICE, DHS, MTA, etc.)
-    // These won't match the named entity regex since they're not Title Case
-    const acronyms = h => (h.match(/\b[A-Z]{2,}\b/g) || []);
-    const a1 = new Set(acronyms(h1));
-    const sharedAcronyms = acronyms(h2).filter(a => a1.has(a));
-    if (sharedAcronyms.length >= 1) return true;
-
-    // Outcome verb exception: only applies when no named entity overlap found above.
-    // A story that has advanced (bill passed vs. bill considered) is fresh news.
-    const outcomeVerbs = /\b(passed?|approved?|signed|enacted|launched|opened?|announced?|awarded?|funded|broke ground|breaking ground|unveiled?|elected?|appointed?|resigned?)\b/i;
-    if (outcomeVerbs.test(h1) || outcomeVerbs.test(h2)) return false;
-
-    const w1 = new Set(topicWords(h1));
-    return topicWords(h2).filter(w => w1.has(w)).length >= 2;
-  }
-
-  const difficulties = ['easy','easy','medium','medium','hard','bonus'];
-  const points =       ['10',  '10',  '20',  '20',  '30',  '50'];
-
-  let assignedArticles = '';
-
-  if (isSpecificArticles) {
-    // Specific articles go first, guaranteed. RSS fills remaining slots up to 11.
-    const specificBlocks = articleUrlList.map((url, i) =>
-      `ARTICLE ${i + 1}:\nURL: ${url}`
-    );
-    const chosenHeadlines = []; // track headlines from RSS fill to dedup
-    const rssBlocks = [];
-
-    if (rssContent) {
-      const blocks = rssContent.split('---').map(b => b.trim()).filter(Boolean);
-      const needed = 6 - specificBlocks.length;
-      console.log(`[TopicDedup] ${specificBlocks.length} specific articles, need ${needed} more from RSS`);
-      for (const block of blocks) {
-        if (rssBlocks.length >= needed) break;
-        const m = block.match(/HEADLINE: (.+)/);
-        if (!m) continue;
-        const headline = m[1].trim();
-        const overlap = chosenHeadlines.find(h => topicsOverlap(h, headline));
-        if (overlap) {
-          console.log(`[TopicDedup] SKIPPED (overlaps with "${overlap}"): ${headline}`);
-          continue;
-        }
-        chosenHeadlines.push(headline);
-        rssBlocks.push(block);
-        console.log(`[TopicDedup] RSS FILL (${rssBlocks.length}/${needed}): ${headline}`);
-      }
-    }
-
-    const allBlocks = [...specificBlocks, ...rssBlocks];
-    assignedArticles = allBlocks.map((block, i) => {
-      const label = i < specificBlocks.length ? ' [EDITOR PICK]' : '';
-      const urlMatch = block.match(/ARTICLE_URL: (.+)/);
-      const articleUrl = urlMatch ? urlMatch[1].trim() : '';
-      const urlReminder = articleUrl ? `\n      ⚠ sourceUrl MUST be: ${articleUrl}` : '';
-      return 'QUESTION ' + (i+1) + ' (' + difficulties[i] + ', ' + points[i] + ' pts)' + label + ' — write exactly ONE question about THIS article:' + urlReminder + '\n' + block;
-    }).join('\n\n===\n\n');
-
-  } else if (rssContent) {
-    const blocks = rssContent.split('---').map(b => b.trim()).filter(Boolean);
-    const chosen = [];
-    const chosenHeadlines = [];
-    console.log(`[TopicDedup] Starting with ${blocks.length} article blocks`);
-    for (const block of blocks) {
-      const m = block.match(/HEADLINE: (.+)/);
-      if (!m) continue;
-      const headline = m[1].trim();
-      const overlap = chosenHeadlines.find(h => topicsOverlap(h, headline));
-      if (overlap) {
-        console.log(`[TopicDedup] SKIPPED (overlaps with "${overlap}"): ${headline}`);
-        continue;
-      }
-      chosenHeadlines.push(headline);
-      chosen.push(block);
-      console.log(`[TopicDedup] CHOSEN (${chosen.length}/11): ${headline}`);
-      if (chosen.length >= 6) break;
-    }
-    console.log(`[TopicDedup] Final count: ${chosen.length} articles assigned to Claude`);
-    assignedArticles = chosen.map((block, i) => {
-      const urlMatch = block.match(/ARTICLE_URL: (.+)/);
-      const articleUrl = urlMatch ? urlMatch[1].trim() : '';
-      const urlReminder = articleUrl ? `\n      ⚠ sourceUrl MUST be: ${articleUrl}` : '';
-      return 'QUESTION ' + (i+1) + ' (' + difficulties[i] + ', ' + points[i] + ' pts) — write exactly ONE question about THIS article:' + urlReminder + '\n' + block;
-    }).join('\n\n===\n\n');
-  }
-
-  return 'You are writing questions for a LOCAL NEWS QUIZ about Baltimore and the Central Maryland region.\n\n' +
-    (specificArticlesBlock ? specificArticlesBlock + '\n\n' : '') +
-    (manualBlock ? manualBlock + '\n\n' : '') +
-    (fallback ? fallback + '\n\n' : '') +
-    (archiveNote ? 'PREVIOUSLY USED TOPICS — do not repeat these:\n' + archiveNote + '\n\n' : '') +
-    (getTopicBlocklist().length > 0 ? 'BLOCKED TOPICS — the editor has explicitly blocked these topics from today\'s quiz. Do not generate any questions about these subjects under any circumstances:\n' + getTopicBlocklist().filter(t => !t.startsWith('http')).map(t => '- ' + t).join('\n') + (getTopicBlocklist().some(t => t.startsWith('http')) ? '\n\nBLOCKED URLS — do not use these source articles:\n' + getTopicBlocklist().filter(t => t.startsWith('http')).map(t => '- ' + t).join('\n') : '') + '\n\n' : '') +
-    (allArchiveUrls.length > 0 ? 'PREVIOUSLY USED SOURCE URLS — do not generate questions from these exact URLs, even if the article appears in the RSS feed today:\n' + allArchiveUrls.slice(-30).join('\n') + '\n\n' : '') +
-    (allArchiveSlugs.length > 0 ? 'RECENTLY COVERED TOPICS — do not ask about these subjects again today, even from a different article or outlet, UNLESS the new article contains a concrete new outcome (bill passed, project approved, person appointed, facility opened):\n' + allArchiveSlugs.slice(-42).map(s => '- ' + s).join('\n') + '\n\n' : '') +
-    'INSTRUCTIONS:\n' +
-    '- Write exactly one question per numbered article — use ONLY the assigned article for that question\n' +
-    '- Each article is used for exactly one question — do not reuse any article\n' +
-    '- If two articles cover the same event or person, only the first one appears below — ignore any duplicates\n' +
-    '- Use the exact URL from each article as the sourceUrl\n' +
-    '- Do NOT use training knowledge — only facts from the assigned article\n' +
-    '- Keep all questions appropriate for a general community audience\n' +
-    '- For articles touching national topics, frame the question around the Maryland/Baltimore local angle\n\n' +
-    'DO NOT CREATE QUESTIONS ABOUT:\n' +
-    '- Street names or exact addresses\n' +
-    '- Procedural court motions or legal filings\n' +
-    '- Minor individual defendants with no broader significance\n' +
-    '- Groundbreaking ceremony details (who held a shovel, what color the hard hats were)\n' +
-    '- Hyper-local trivia unless it has clear policy or economic impact\n' +
-    '- Dollar amounts, durations, unit counts, vote tallies, dates, or times — unless the number IS the entire headline (e.g. a record-breaking figure everyone is talking about)\n\n' +
-    'QUESTION DESIGN RULES:\n' +
-    'Q1 (easy, 10pts): FACTUAL. Ask what happened, who decided, or what was announced. Answerable from the headline alone.\n' +
-    'Q2 (easy, 10pts): SPECIFIC DETAIL. A concrete fact requiring reading: a named person, org, place, or stated reason.\n' +
-    'GUARDRAIL for Q1+Q2: NEVER ask about exact dollar amounts, street addresses, specific years/dates, or minor officials. Test decisions, outcomes, roles, relationships.\n' +
-    'BAD: How much does the city earn from the marina? GOOD: Why did Baltimore choose private management for the marina?\n' +
-    'Q3 (medium, 20pts): CAUSE. Ask why something happened or what triggered a decision.\n' +
-    'Q4 (medium, 20pts): EFFECT. Ask what this means for a specific group, institution, or situation.\n' +
-    'Q5 (hard, 30pts): IMPLICATION. Ask what this reveals or signals. A non-obvious takeaway requiring analysis.\n' +
-    'Q6 (bonus, 50pts): THE MOST MEMORABLE STORY. Choose the article with the most surprising, distinctive, or shareable fact — something a reader would say "wait, really?" about. Frame the question around that hook. Do NOT make it hard by relying on obscure details or statistics. It should be the fact that makes the story stick.\n' +
-    'WRONG ANSWERS: Same category as correct answer. Plausible to someone who did NOT read the article. Never all dates/amounts/similar numbers.\n' +
-    'EXPLANATIONS: Q1/Q2 = plain fact only, no policy analysis. Q3/Q4 = one sentence of cause or effect. Q5/Q6 = analysis welcome.\n' +
-    'EXPLANATION STYLE: Write explanations as short news-style summaries of the story — what happened, who was involved, what it means. Do NOT refer to "the article", "the headline", "the summary", or "according to the source". Write as if briefing someone who missed the news.\n' +
-    'CRITICAL: Write explanation FIRST, then set correctIndex to match it exactly.\n' +
-    'QUESTION LENGTH: Keep questions under 20 words whenever possible. Prefer direct, specific questions over long descriptive ones.\n\n' +
-    'ARTICLE SELECTION FILTER — before writing a question, ask: would a well-informed Baltimore resident mention this to a friend over coffee? If no, skip it.\n' +
-    '- SKIP: routine sports transactions, injury updates, spring training notes. INCLUDE: sports stories that rise to civic significance — a record-breaking achievement, a major stadium decision, a championship result, a landmark signing that the average Baltimore resident would be expected to know about\n' +
-    '- SKIP: minor arts/culture items with no broader community impact\n' +
-    '- SKIP: individual incident stories — house fires, car crashes, single shootings — unless mass casualty, systemic pattern, or major public safety policy angle\n' +
-    '- SKIP: individual crime incidents (shootings, stabbings, robberies, burglaries, arrests, officer-involved shootings) unless a major public figure or systemic citywide pattern is central. The test: would a Baltimore resident who missed this story feel meaningfully less informed about their city? Individual crimes almost never pass this test.\n' +
-    '- SKIP: ALL weather stories unless a historic storm caused major documented damage\n' +
-    '- SKIP: anniversary or milestone articles unless a specific newsworthy development is the focus\n' +
-    '- SKIP: DC-area team stories (Nationals, Commanders, Capitals, Wizards) without explicit Baltimore/Maryland angle\n' +
-    '- USE: sports stories about record-breaking achievements, major roster decisions, or stadium/ownership news\n' +
-    '- USE: arts/culture stories involving major institutions (BSO, BMA, Center Stage) or nationally recognized figures\n' +
-    '- USE: anything involving public money, public safety, elections, housing, schools, or the local economy\n\n' +
-    'HERE ARE YOUR 6 ASSIGNED ARTICLES:\n\n' +
-    (assignedArticles || rssContent) + '\n\n' +
-    'QUESTION QUALITY CONSTRAINTS:\n' +
-    '- Every question must contain a specific factual anchor: a named person, a specific location or neighborhood, a concrete decision or outcome, or a number that IS the story (record-breaking, historic, etc.)\n' +
-    '- Questions must be answerable by an attentive reader of the article — not by someone with insider knowledge of local government. Prefer: who did something, what was approved, where something will happen, what changed.\n' +
-    '- Avoid procedural or bureaucratic trivia: committee names, zoning overlay codes, motion types, filing numbers, meeting agendas.\n' +
-    '- Use neighborhood names only when the article explains their significance. Never assume the reader knows where a neighborhood is or what it is known for.\n' +
-    '- Aim for topic diversity across the 6 questions: mix government, business/development, culture, transportation, education, sports, and community news where the articles allow.\n' +
-    '- Avoid multiple questions that feel like they are all about a meeting or officials discussing something. Prefer outcomes and decisions over process and proposals.\n' +
-'- NEVER ask who wrote, authored, or contributed an article or commentary. The author byline is never a quiz-worthy fact. Ask about the substance — what was argued, what was proposed, what the implications are.\n' +
-    '- NEVER reference the publication, outlet, or writer in the question itself. Questions test news and events, not news coverage. Wrong: "A Baltimore Banner writer discovered...", "According to a Baltimore Sun report...", "What did a Fishbowl reporter find...". Right: frame the question around what happened in the world, not who covered it. Rare exception: if the story is explicitly about a publication or journalist as a newsmaker.\n' +
-'- For opinion or commentary pieces, ask about the central concrete claim or proposal — not who wrote it, not why they argued it, not what impact their argument has. Test the substance: what specific change did they advocate for, what fact did they highlight, what outcome did they predict?\n' +
-    '- COLUMN/FEATURE ARTICLES: These often bury the news hook deep in the piece. Ignore scene-setting opening paragraphs and narrative framing. Look for the concrete civic fact — a decision, opening, development, or change — that the piece is ultimately reporting on. Ask about that fact, not the narrative wrapper around it.\n' +
-    '- AVOID questions framed as "Why does X argue...", "What does X reveal about...", "What does this mean for...", "What does X\'s approach show about...", "What does this analysis suggest...", "What impact does...", "What does X illustrate about..." — these produce vague interpretive answers with no single correct answer.\n' +
-'- BANNED QUESTION WORDS: never use "analyze", "analysis", "impact", "reveal", "illustrate", "suggest", "significance", "implication", "reflect", "indicate" as the operative word in a question. If you catch yourself using these words, rewrite the question as a concrete factual one.\n' +
-    '- BANNED QUESTION OPENINGS: never begin a question with "What does this reveal", "What does this demonstrate", "What does this suggest", "What does this show", "What does this mean", "What does this say about", "What does X\'s decision reveal", or any variant of these. These produce interpretive answers with no single correct fact. Rewrite as a concrete factual question.\n' +
-    '- Prefer concrete, factual questions: "What did X propose?", "What did X announce?", "What specific change did X call for?", "What will replace X?", "Who attended X?", "How many X attended?", "What opened in X neighborhood?"\n' +
-    '- SAME-EVENT RULE: Do not generate multiple questions about the same news event, even if it appears in multiple articles or outlets. Treat coverage of the same legislation, announcement, decision, or incident from different sources as a single topic. One event = one question maximum.\n' +
-    '- DISTRACTOR QUALITY: Generate distractors deliberately — do not let them emerge randomly. Incorrect answers must be plausible alternatives in the same category as the correct answer:\n' +
-    '  * If the correct answer is a PERSON, wrong answers should be other real or plausible people (ideally others connected to Baltimore, Maryland, or the relevant field)\n' +
-    '  * If the correct answer is a PROJECT FEATURE or PROPOSAL, wrong answers should be other plausible features or proposals of the same type\n' +
-    '  * If the correct answer is a LOCATION, wrong answers should be other real locations\n' +
-    '  * If the correct answer is a NUMBER or AMOUNT, wrong answers should be other plausible numbers in the same range\n' +
-    '  * If the correct answer is an ORGANIZATION or AGENCY, wrong answers should be other real organizations\n' +
-    '- Never use obviously unrelated, impossible, or humorous distractors. All four options should feel realistic to someone who follows Baltimore news.\n' +
-    '- LENGTH GIVEAWAY: Do not make the correct answer noticeably longer, more detailed, or more specific than the other options. All four options should be similar in length and grammatical form. Readers often guess the longest option — avoid this.\n' +
-    '- For harder questions (Q4–Q6), use "Near-Miss" distractors: mention other real Baltimore entities or places that are currently in the news to make the choice less obvious.\n\n' +
-'- CORE FACT STEP: Before writing each question, identify the central news fact of the story in one sentence. This must describe the main event or development reported — what actually happened. Only generate a question based on that core fact.\n' +
-    '  Valid core facts: "A Coca-Cola bottling facility explosion injured four workers in Baltimore." | "Baltimore County broke ground on Rockdale Park renovations." | "D.C. United hosted Inter Miami in a sold-out match at M&T Bank Stadium."\n' +
-    '  Invalid core facts (reject these): a specific vehicle someone used | a quote from a source | an attendance or crowd figure | a logistical detail like road closure timing | a descriptive detail not central to the story | the author\'s argument or framing in a column\n' +
-    '- SALIENT FACT TEST: Ask: would a reader likely remember this detail when summarizing the story to a friend? If not, find a more central fact.\n' +
-    '- NEWS VALUE TYPE: Each question must be based on one of these: a decision or approval, a new development or opening, a major event or milestone, a named person\'s notable action or statement, a visible change affecting the community, or a public controversy with clear local significance. Do not base questions on minor descriptive details.\n' +
-    '- BANNED DETAIL TYPES: Never write a question whose correct answer is primarily: an attendance figure or crowd count, an exact street closure schedule or timing, a specific vehicle or equipment type, a block number or address fragment, a menu item or food detail unless the story is fundamentally about that item, a neighborhood location unless that neighborhood IS the story.\n' +
-    '- BAD QUESTION PATTERNS — never use these framings: "What was the attendance at...", "In which neighborhood did someone find...", "What unusual timing did officials choose for...", "What type of vehicle did an official use...", "How much exactly was budgeted for...", "On which block did...", "What specific tool did..."\n' +
-    '- TOPIC BALANCE: Do not over-concentrate on state legislative politics even if it dominates the feeds. Prefer a mix of city life topics: development, transportation, schools, business openings, culture, community news, local government, sports.\n\n' +
-'GENERATION PROCESS — work through these steps in your head before outputting anything:\nStep 1 — CORE FACT: For each article, identify one sentence: the central news fact (main event/development). Reject: incidental details, descriptive color, quotes, statistics, logistical details, column framing.\nStep 2 — NEWS VALUE CHECK: Confirm the core fact is: a decision/approval, new development/opening, major event/milestone, notable person action/statement, visible community change, or public controversy.\nStep 3 — QUESTION: Write a question testing the core fact only.\nDo all of this silently. Output ONLY the final JSON object — no preamble, no reasoning, no markdown. Your entire response must start with { and end with }.\nInclude a coreFacts array in the JSON (one sentence per question from Step 1) for debugging.\n\n' +
-    'OUTPUT: Respond with ONLY valid JSON. No preamble, no markdown. Start with { and end with }.\n\n' +
-    'IMPORTANT: Always write questions for ALL 6 assigned articles. Never return an empty questions array.\n' +
-    'Set staleWarning to true only if articles appear more than 3 days old.\n\n' +
-    'difficulty values: "easy" | "medium" | "hard" | "bonus"\n' +
-    'BONUS QUESTION: The bonus question should come from the most surprising or memorable story of the day. Prefer: major public events, celebrity or notable-person appearances, unusual civic developments, record-breaking or historic milestones, large public gatherings with local significance. Avoid: routine crime incidents, minor police blotter items, procedural government actions, or stories whose only hook is an obscure detail. The bonus tests something that would make a reader say "I didn\'t know that happened" — about the story itself, not a footnote within it.\n' +
-    'Include a "pubDate" field on each question, copied exactly from the DATE: field of the assigned article. This is used to label older stories for readers.\n' +
-    'correctIndex: MUST be the 0-based index of the option your explanation describes as correct. Write explanation FIRST, then set correctIndex to match.\n' +
-    'sourceUrl: copy ARTICLE_URL exactly. NEVER use a feed URL ending in /feed/ or /rss.\n' +
-    'Generate exactly 6 questions, one per assigned article.';
-}
-
-
-// ═══════════════════════════════════════════════════════
-//  QUESTION QUALITY FILTER
-// ═══════════════════════════════════════════════════════
-
-function scoreQuestionQuality(q) {
-  const text = (q.question || '').toLowerCase();
-  const flags = [];
-
-  // Banned openings
-  const bannedOpenings = [
-    'what does this reveal', 'what does this demonstrate', 'what does this suggest',
-    'what does this show', 'what does this mean', 'what does this say about',
-    'what does x', 'what does the'
-  ];
-  if (bannedOpenings.some(p => text.startsWith(p))) {
-    flags.push('interpretive opening: "' + q.question.slice(0, 40) + '"');
-  }
-
-  // Banned detail types in question text
-  const bannedDetails = [
-    { pattern: /\attendance/, reason: 'attendance figure question' },
-    { pattern: /\how many (fans|people|attendees)/, reason: 'crowd count question' },
-    { pattern: /\what (type|kind) of vehicle/, reason: 'vehicle detail question' },
-    { pattern: /\which (block|street corner|address)/, reason: 'address detail question' },
-    { pattern: /\what (unusual )?timing/, reason: 'timing detail question' },
-    { pattern: /\which neighborhood did/, reason: 'neighborhood-as-answer question' },
-    { pattern: /\what specific tool/, reason: 'equipment detail question' },
-    { pattern: /\how much exactly/, reason: 'exact amount question' },
-    { pattern: /\battendance\b|\bcrowd\b/, reason: 'attendance/crowd detail' },
-    { pattern: /\bhow many (fans|people|attendees|voters)\b/, reason: 'count-based question' },
-    { pattern: /\bwhat (type|kind) of vehicle\b/, reason: 'vehicle detail' },
-    { pattern: /\bwhat (unusual )?timing\b/, reason: 'timing detail' },
-    { pattern: /\bwhich (block|street corner|address|high school|elementary|middle school)\b/i, reason: 'hyper-local/address detail' },
-    { pattern: /\bhow much( exactly)?\b|\bwhat amount\b|\b(grant|budget|cost|price|fee|worth)\b/i, reason: 'monetary/dollar figure' },
-    { pattern: /\b(official|spokesperson|representative|bureaucrat|witness|victim)\b/i, reason: 'minor person name' },
-    { pattern: /\b(reopen|opening|open|launch|start|begin)\b.*\b(on|in)\b/i, reason: 'timing/date trivia' },
-    { pattern: /\baccording to\b|\breporter\b|\bwriter\b|\bjournalist\b|\bbanner\b|\bfishbowl\b|\bsun\b|\bbrew\b|\bmatters\b/, reason: 'publication/writer reference' }
-  ];
-  for (const { pattern, reason } of bannedDetails) {
-    if (pattern.test(text)) flags.push(reason);
-  }
-
-  // Crime/incident bonus check
-  const crimeTerms = /(arrested?|shooting|homicide|stabbing|robbery|burglary|theft|stolen|murder|assault|crash|fire death)/i;
-  if (q.difficulty === 'bonus' && crimeTerms.test(q.question + ' ' + (q.explanation || ''))) {
-    flags.push('bonus question based on crime/incident story');
-  }
-
-  // Publication reference check
-  const pubRefs = /(banner|fishbowl|sun|brew|matters|reporter|writer|journalist|according to)/i;
-  if (pubRefs.test(text)) {
-    flags.push('references publication or writer in question');
-  }
-
-  return { ok: flags.length === 0, flags };
-}
-
-function auditQuestions(questions) {
-  const results = questions.map((q, i) => {
-    const { ok, flags } = scoreQuestionQuality(q);
-    if (!ok) console.warn(`[QualityFilter] Q${i+1} flagged:`, flags);
-    return { index: i, ok, flags };
-  });
-  const weak = results.filter(r => !r.ok);
-  console.log(`[QualityFilter] ${questions.length - weak.length}/${questions.length} questions passed. ${weak.length} flagged.`);
-  return weak;
-}
-
-function parseQuestions(text) {
-  // Strip markdown fences if present
-  const bt = String.fromCharCode(96); const fence = bt+bt+bt; let clean = text.split(fence+'json').join('').split(fence).join('').trim();
-  // Find JSON object
-  const start = clean.indexOf('{');
-  const end = clean.lastIndexOf('}');
-  if (start === -1 || end === -1) {
-    console.warn('[parseQuestions] No JSON found. Response preview:', text.slice(0, 400));
-    throw new Error('No JSON found in response. Claude said: ' + text.slice(0, 120).replace(/\n/g, ' '));
-  }
-  clean = clean.slice(start, end+1);
-  const parsed = JSON.parse(clean);
-
-  // Surface stale article warnings to the admin UI (advisory only)
-  if (parsed.staleWarning && parsed.staleArticles && parsed.staleArticles.length > 0) {
-    const staleMsg = 'Note: ' + parsed.staleArticles.length + ' article(s) may be older than 3 days. Questions generated anyway.';
-    console.warn('Stale articles:', parsed.staleArticles);
-    setStatus(staleMsg, 'info');
-  }
-
-  const questions = parsed.questions || [];
-  return enforceQuizRules(questions);
-}
-
-function enforceQuizRules(questions) {
-  // 1. Deduplicate — reject questions that are clearly about the same topic
-  // Use first 60 chars of question text as the key, not sourceUrl (which can be a generic feed URL)
-  const seenTopics = new Set();
-  const seenUrls = new Set();
-  const deduped = questions.filter(q => {
-    const topicKey = q.question.slice(0, 60).toLowerCase().replace(/[^a-z0-9]/g, '');
-    // Only reject on URL if it's a real article URL (not a generic feed URL)
-    const isFeedUrl = !q.sourceUrl || q.sourceUrl.endsWith('/feed/') || q.sourceUrl.endsWith('/feed');
-    if (!isFeedUrl && seenUrls.has(q.sourceUrl)) return false;
-    if (seenTopics.has(topicKey)) return false;
-    seenTopics.add(topicKey);
-    if (!isFeedUrl) seenUrls.add(q.sourceUrl);
-    return true;
-  });
-
-  // 2. Validate correctIndex, shuffle options, and strip feed URLs
-  const feedPatterns = ['/feed/', '/rss', 'outboundfeeds/rss'];
-  return deduped.map(q => {
-    let fixed = { ...q };
-
-    // Range check
-    if (fixed.correctIndex < 0 || fixed.correctIndex > 3) fixed.correctIndex = 0;
-
-    // Strip feed URLs
-    if (fixed.sourceUrl && feedPatterns.some(p => fixed.sourceUrl.includes(p))) {
-      fixed.sourceUrl = '';
-    }
-    return fixed;
-  });
-}
-function showAddQuestionForm() {
-  document.getElementById('add-question-form').style.display = 'block';
-  document.getElementById('add-q-btn').style.display = 'none';
-  // Clear form
-  ['aq-question','aq-opt0','aq-opt1','aq-opt2','aq-opt3','aq-explanation','aq-url'].forEach(id => {
-    document.getElementById(id).value = '';
-  });
-  document.getElementById('aq-r0').checked = true;
-  document.getElementById('aq-difficulty').value = 'easy';
-  document.getElementById('aq-error').style.display = 'none';
-  document.getElementById('aq-question').focus();
-}
-
-function hideAddQuestionForm() {
-  document.getElementById('add-question-form').style.display = 'none';
-  document.getElementById('add-q-btn').style.display = '';
-}
-
-function addManualQuestion() {
-  const question = document.getElementById('aq-question').value.trim();
-  const opts = ['aq-opt0','aq-opt1','aq-opt2','aq-opt3'].map(id => document.getElementById(id).value.trim());
-  const correctIndex = parseInt(document.querySelector('input[name="aq-correct"]:checked').value);
-  const explanation = document.getElementById('aq-explanation').value.trim();
-  const sourceUrl = document.getElementById('aq-url').value.trim();
-  const difficulty = document.getElementById('aq-difficulty').value;
-
-  const errEl = document.getElementById('aq-error');
-  if (!question) { errEl.textContent = 'Please enter a question.'; errEl.style.display = 'block'; return; }
-  if (opts.some(o => !o)) { errEl.textContent = 'Please fill in all four answer options.'; errEl.style.display = 'block'; return; }
-  if (!explanation) { errEl.textContent = 'Please add an explanation.'; errEl.style.display = 'block'; return; }
-  errEl.style.display = 'none';
-
-  const newQ = { question, options: opts, correctIndex, explanation, sourceUrl, difficulty };
-
-  // Add to draft, or create a new draft if none exists
-  let draft = getDraftQuiz() || { questions: [], generatedAt: new Date().toISOString(), urls: [] };
-  draft.questions.push(newQ);
-  saveDraftQuiz(draft);
-  showDraftPreview(draft.questions);
-  hideAddQuestionForm();
-  document.getElementById('preview-section').style.display = 'block';
-  setStatus('Question added. ' + draft.questions.length + ' questions in draft.', 'success');
-}
-
-function showDraftPreview(questions) {
-  const diffMap = { easy:'easy', medium:'medium', hard:'hard', bonus:'bonus' };
-  let html = '';
-  questions.forEach((q, i) => {
-    const diff = q.difficulty || (i < 4 ? 'easy' : i < 7 ? 'medium' : i < 10 ? 'hard' : 'bonus');
-    const optLetters = ['A','B','C','D'];
-    let optionsHtml = '<div class="q-options-grid">';
-    q.options.forEach((opt, oi) => {
-      optionsHtml += '<div class="q-option-row">' +
-        '<input type="radio" name="correct-' + i + '" id="correct-' + i + '-' + oi + '" value="' + oi + '" ' + (oi === q.correctIndex ? 'checked' : '') + ' onchange="updateDraftCorrect(' + i + ', ' + oi + ')">' +
-        '<label for="correct-' + i + '-' + oi + '">' + optLetters[oi] + '</label>' +
-        '<input type="text" value="' + escHtml(opt) + '" oninput="updateDraftOption(' + i + ', ' + oi + ', this.value)" style="flex:1;">' +
-        '</div>';
-    });
-    optionsHtml += '</div>';
-
-    const sourceLink = q.sourceUrl ? '<a href="' + escHtml(q.sourceUrl) + '" target="_blank" style="font-family:monospace;font-size:11px;color:var(--blue);white-space:nowrap;">Open</a>' : '';
-    const qLabel = i === 5 ? 'BONUS' : ('Q'+(i+1));
-    const diffClass = diffMap[diff] || 'easy';
-
-    // ICYMI badge for articles older than 36 hours
-    let icymiBadge = '';
-    if (q.pubDate) {
-      try {
-        const hoursOld = (Date.now() - new Date(q.pubDate).getTime()) / 3600000;
-        if (!isNaN(hoursOld) && hoursOld >= 36) {
-          icymiBadge = '<span style="font-family:monospace;font-size:10px;letter-spacing:1px;color:#fff;background:#888;padding:1px 6px;border-radius:2px;margin-left:6px;">ICYMI</span>';
-        }
-      } catch(e) {}
-    }
-
-    html += '<div class="q-review-card" id="qcard-' + i + '">' +
-      '<div class="q-meta">' +
-        '<span><strong>' + qLabel + '</strong></span>' +
-        '<span class="diff-label ' + diffClass + '" style="display:inline-block">' + diff.toUpperCase() + '</span>' +
-        icymiBadge +
-        '<span style="margin-left:auto;display:flex;align-items:center;gap:10px;">' +
-          '<label style="font-size:10px;color:var(--muted)">Move to position:</label>' +
-          '<input type="number" min="1" max="11" style="width:44px;font-size:12px;padding:2px 4px;border:1px solid var(--border);border-radius:3px;" ' +
-            'placeholder="' + (i+1) + '" onchange="reorderQuestion(' + i + ', parseInt(this.value)-1, this)">' +
-          '<button onclick="toggleLock(' + i + ')" title="Lock this question so Generate skips it" style="background:none;border:1px solid ' + (getLockedQuestions().has(i) ? 'var(--green);color:var(--green)' : '#888;color:#888') + ';border-radius:3px;padding:2px 8px;font-size:11px;cursor:pointer;font-family:inherit;">' + (getLockedQuestions().has(i) ? '🔒 Locked' : '🔓 Lock') + '</button>' +
-          '<button onclick="blockQuestionTopic(' + i + ')" title="Block this topic from being regenerated" style="background:none;border:1px solid #888;color:#888;border-radius:3px;padding:2px 8px;font-size:11px;cursor:pointer;font-family:inherit;">🚫 Block</button>' +
-          '<button onclick="replaceQuestion(' + i + ')" title="Replace with a new question" style="background:none;border:1px solid var(--gold);color:var(--gold,#b8860b);border-radius:3px;padding:2px 8px;font-size:11px;cursor:pointer;font-family:inherit;">↺ Replace</button>' +
-          '<button onclick="deleteQuestion(' + i + ')" title="Delete this question" style="background:none;border:1px solid var(--red);color:var(--red);border-radius:3px;padding:2px 8px;font-size:11px;cursor:pointer;font-family:inherit;">✕ Delete</button>' +
-        '</span>' +
-      '</div>' +
-      '<div class="q-edit-label">QUESTION</div>' +
-      '<textarea oninput="updateDraftQuestion(' + i + ', this.value)">' + escHtml(q.question) + '</textarea>' +
-      '<div class="q-edit-label">OPTIONS — click radio button to mark correct answer</div>' +
-      optionsHtml +
-      '<div class="q-edit-label">EXPLANATION</div>' +
-      '<input type="text" value="' + escHtml(q.explanation || '') + '" oninput="updateDraftExplanation(' + i + ', this.value)">' +
-      '<div class="q-edit-label">SOURCE URL</div>' +
-      '<div style="display:flex;align-items:center;gap:8px;">' +
-        '<input type="text" value="' + escHtml(q.sourceUrl || '') + '" oninput="updateDraftSourceUrl(' + i + ', this.value)" style="flex:1;font-size:11px;">' +
-        sourceLink +
-      '</div>' +
-    '</div>';
-  });
-  document.getElementById('q-preview-list').innerHTML = html;
-  document.getElementById('preview-section').style.display = 'block';
-}
-
-// Live-edit helpers — update the draft in localStorage as admin types
-// ── Topic Blocklist ─────────────────────────────────────────
-// ── Topic Blocklist (server-backed) ─────────────────────────
-let _blocklist = null; // in-memory cache
-
-async function loadTopicBlocklist() {
-  try {
-    const res = await fetch('/api/blocklist');
-    const data = await res.json();
-    _blocklist = data.blocklist || [];
-  } catch(e) {
-    _blocklist = [];
-  }
-  renderBlocklist();
-  return _blocklist;
-}
-
-function getTopicBlocklist() {
-  return _blocklist || [];
-}
-
-async function saveTopicBlocklist(list) {
-  const adminToken = lsGet('dnq_admin_token') || 'admin';
-  try {
-    await fetch('/api/blocklist', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
-      body: JSON.stringify({ blocklist: list })
-    });
-    _blocklist = list;
-    renderBlocklist();
-  } catch(e) {
-    alert('Failed to save blocklist: ' + e.message);
-  }
-}
-
-async function blockQuestionTopic(idx) {
-  const draft = getDraftQuiz();
-  if (!draft || !draft.questions || !draft.questions[idx]) return;
-  const q = draft.questions[idx];
-  const topic = q.question.slice(0, 120).replace(/"/g, '');
-  const list = getTopicBlocklist();
-  if (list.includes(topic)) { alert('This topic is already blocked.'); return; }
-  list.push(topic);
-  // Also block by source URL if available, for stronger matching
-  if (q.sourceUrl && !list.includes(q.sourceUrl)) list.push(q.sourceUrl);
-  await saveTopicBlocklist(list);
-  // Also delete the question from draft
-  draft.questions.splice(idx, 1);
-  saveDraftQuiz(draft);
-  showDraftPreview(draft.questions);
-  setStatus('Topic blocked and question removed. It won\'t appear in regenerated questions.', 'info');
-}
-
-async function unblockTopic(idx) {
-  const list = getTopicBlocklist();
-  list.splice(idx, 1);
-  await saveTopicBlocklist(list);
-}
-
-async function clearBlocklist() {
-  if (!confirm('Clear all blocked topics?')) return;
-  await saveTopicBlocklist([]);
-}
-
-function renderBlocklist() {
-  const el = document.getElementById('blocklist-items');
-  if (!el) return;
-  const list = getTopicBlocklist();
-  const countEl = document.getElementById('blocklist-count');
-  if (countEl) countEl.textContent = list.length ? '(' + list.length + ')' : '';
-  if (!list.length) {
-    el.innerHTML = '<p style="color:var(--muted);font-family:monospace;font-size:12px;margin:0;">No topics blocked.</p>';
-    return;
-  }
-  el.innerHTML = list.map((t, i) =>
-    '<div style="display:flex;align-items:flex-start;gap:8px;padding:5px 0;border-bottom:1px solid var(--rule);">' +
-    '<span contenteditable="true" onblur="editBlocklistItem(' + i + ', this.textContent.trim())" ' +
-      'style="font-family:monospace;font-size:11px;flex:1;line-height:1.4;outline:none;border-bottom:1px dashed var(--muted);">' + escHtml(t) + '</span>' +
-    '<button onclick="unblockTopic(' + i + ')" style="font-family:monospace;font-size:10px;padding:2px 7px;background:none;border:1px solid var(--muted);color:var(--muted);cursor:pointer;white-space:nowrap;border-radius:2px;flex-shrink:0;">Remove</button>' +
-    '</div>'
-  ).join('');
-}
-
-async function editBlocklistItem(idx, newText) {
-  if (!newText) return;
-  const list = getTopicBlocklist();
-  if (list[idx] === newText) return; // no change
-  list[idx] = newText;
-  await saveTopicBlocklist(list);
-}
-
-function deleteQuestion(idx) {
-  const draft = getDraftQuiz();
-  if (!draft || !draft.questions) return;
-  if (!confirm('Delete question ' + (idx + 1) + '? You can regenerate to replace it.')) return;
-  draft.questions.splice(idx, 1);
-  const diffs = ['easy','easy','medium','medium','hard','bonus'];
-  draft.questions.forEach((q, i) => { q.difficulty = diffs[i] || q.difficulty; });
-  saveDraftQuiz(draft);
-  showDraftPreview(draft.questions);
-  setStatus('Question ' + (idx + 1) + ' deleted. ' + draft.questions.length + ' questions remaining.', 'info');
-}
-
-async function replaceQuestion(idx) {
-  const draft = getDraftQuiz();
-  if (!draft || !draft.questions) return;
-  if (!confirm('Replace question ' + (idx + 1) + ' with a freshly generated one?')) return;
-
-  setStatus('Generating replacement question…', 'info');
-
-  // Get existing headlines to avoid duplicates
-  const usedHeadlines = draft.questions.map(q => q.question);
-  const diffs = ['easy','easy','medium','medium','hard','bonus'];
-  const pts =   ['10',  '10',  '20',  '20',  '30',  '50'];
-  const difficulty = diffs[idx] || 'medium';
-  const points = pts[idx] || '20';
-
-  // Build a short prompt for one replacement question from RSS
-  let rssSnippet = '';
-  try {
-    const rssRes = await fetch('/api/rss');
-    if (rssRes.ok) {
-      const rssData = await rssRes.json();
-      if (rssData.items) {
-        // Filter out topics already in the draft
-        const available = rssData.items.filter(item =>
-          !draft.questions.some(q => q.sourceUrl === item.link)
-        );
-        rssSnippet = available.slice(0, 20).map((item, i) =>
-          `ARTICLE ${i+1}:\nSOURCE: ${item.source}\nHEADLINE: ${item.title}\nSUMMARY: ${item.description}\nURL: ${item.link}`
-        ).join('\n\n---\n\n');
-      }
-    }
-  } catch(e) {}
-
-  if (!rssSnippet) {
-    setStatus('Could not load RSS articles for replacement.', 'error');
-    return;
-  }
-
-  const prompt = 'You are writing ONE replacement question for a Baltimore local news quiz.\n\n' +
-    'ALREADY USED TOPICS — do not repeat these:\n' + usedHeadlines.join('\n') + '\n\n' +
-    (getTopicBlocklist().length > 0 ? 'BLOCKED TOPICS — do not generate questions about any of these subjects under any circumstances:\n' + getTopicBlocklist().filter(t => !t.startsWith('http')).map(t => '- ' + t).join('\n') + (getTopicBlocklist().some(t => t.startsWith('http')) ? '\n\nBLOCKED URLS — do not use these source articles:\n' + getTopicBlocklist().filter(t => t.startsWith('http')).map(t => '- ' + t).join('\n') : '') + '\n\n' : '') +
-    'AVAILABLE ARTICLES (pick the single most newsworthy one not already covered):\n\n' + rssSnippet + '\n\n' +
-    'QUESTION FOCUS RULES:\n' +
-    '- Ask about the WHO or WHAT that makes the story newsworthy, NOT dollar amounts, durations, or counts\n' +
-    '- Wrong answers must be the same category as the correct answer (same type of company, person, place)\n' +
-    '- Skip routine sports transactions, minor arts items, individual crime stories, and weather unless historic\n\n' +
-    'Write exactly ONE question at difficulty: ' + difficulty + ' (' + points + ' pts).\n\n' +
-    'OUTPUT: Respond with ONLY valid JSON. No preamble, no markdown.\n' +
-    '{"question":"...","options":["A","B","C","D"],"correctIndex":0,"explanation":"...","difficulty":"' + difficulty + '","sourceUrl":"..."}';
-
-  try {
-    const res = await fetch('/api/claude', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 600,
-        messages: [{ role: 'user', content: prompt }]
-      })
-    });
-    const data = await res.json();
-    const text = (data.content || []).map(c => c.text || '').join('').trim();
-    const clean = text.replace(/```json|```/g, '').trim();
-    const newQ = JSON.parse(clean);
-    newQ.difficulty = difficulty;
-
-    draft.questions[idx] = newQ;
-    // Block the replaced question's topic
-      const oldQ = draft.questions[idx];
-      if (oldQ) {
-        const list = getTopicBlocklist();
-        const topic = oldQ.question.slice(0, 120).replace(/"/g, '');
-        if (!list.includes(topic)) list.push(topic);
-        if (oldQ.sourceUrl && !list.includes(oldQ.sourceUrl)) list.push(oldQ.sourceUrl);
-        await saveTopicBlocklist(list);
-      }
-
-      draft.questions[idx] = newQ;
-      saveDraftQuiz(draft);
-      showDraftPreview(draft.questions);
-      setStatus('Question ' + (idx + 1) + ' replaced and old topic blocked!', 'success');
-    saveDraftQuiz(draft);
-    showDraftPreview(draft.questions);
-    setStatus('Question ' + (idx + 1) + ' replaced!', 'success');
-  } catch(e) {
-    setStatus('Replacement failed — try again. (' + e.message + ')', 'error');
-  }
-}
-
-
-function reorderQuestion(fromIdx, toIdx, inputEl) {
-  const draft = getDraftQuiz();
-  if (!draft || !draft.questions) return;
-  const qs = draft.questions;
-  if (isNaN(toIdx) || toIdx < 0 || toIdx >= qs.length || toIdx === fromIdx) {
-    inputEl.value = '';
-    return;
-  }
-  const [moved] = qs.splice(fromIdx, 1);
-  qs.splice(toIdx, 0, moved);
-  // Re-apply difficulty labels based on new positions
-  const diffs = ['easy','easy','medium','medium','hard','bonus'];
-  qs.forEach((q, i) => { q.difficulty = diffs[i] || q.difficulty; });
-  draft.questions = qs;
-  saveDraftQuiz(draft);
-  showDraftPreview(qs);
-  setStatus('Question moved to position ' + (toIdx + 1) + '.', 'info');
-}
-
-function updateDraftQuestion(i, val) {
-  const draft = getDraftQuiz();
-  if (draft && draft.questions[i]) { draft.questions[i].question = val; saveDraftQuiz(draft); }
-}
-function updateDraftOption(i, oi, val) {
-  const draft = getDraftQuiz();
-  if (draft && draft.questions[i]) { draft.questions[i].options[oi] = val; saveDraftQuiz(draft); }
-}
-function updateDraftCorrect(i, oi) {
-  const draft = getDraftQuiz();
-  if (draft && draft.questions[i]) { draft.questions[i].correctIndex = oi; saveDraftQuiz(draft); }
-}
-function updateDraftExplanation(i, val) {
-  const draft = getDraftQuiz();
-  if (draft && draft.questions[i]) { draft.questions[i].explanation = val; saveDraftQuiz(draft); }
-}
-function updateDraftSourceUrl(i, val) {
-  const draft = getDraftQuiz();
-  if (draft && draft.questions[i]) { draft.questions[i].sourceUrl = val; saveDraftQuiz(draft); }
-}
-
-
-function validateQuestions(questions) {
-  const errors = [];
-  if (!questions || questions.length < 6) {
-    errors.push('Need exactly 6 questions, found ' + (questions ? questions.length : 0));
-  }
-  (questions || []).forEach((q, i) => {
-    const label = 'Q' + (i+1);
-    if (!q.question || q.question.trim().length < 10) errors.push(label + ': question text missing or too short');
-    if (!Array.isArray(q.options) || q.options.length !== 4) errors.push(label + ': must have exactly 4 options');
-    if (typeof q.correctIndex !== 'number' || q.correctIndex < 0 || q.correctIndex > 3) errors.push(label + ': correctIndex must be 0-3');
-    if (!q.sourceUrl || q.sourceUrl.trim().length < 10) errors.push(label + ': sourceUrl missing');
-    if (!q.explanation || q.explanation.trim().length < 10) errors.push(label + ': explanation missing or too short');
-    if (!q.difficulty) errors.push(label + ': difficulty missing');
-  });
-  return errors;
-}
-
-async function publishQuestions() {
-  const draft = getDraftQuiz();
-  if (!draft || !draft.questions) { setStatus('No draft to publish.', 'error'); return; }
-
-  // Validate before publishing
-  const validationErrors = validateQuestions(draft.questions);
-  if (validationErrors.length > 0) {
-    setStatus('Cannot publish — quiz has errors: ' + validationErrors.join(' | '), 'error');
-    console.error('[Publish] Validation failed:', validationErrors);
-    return;
-  }
-
-  draft.publishDate = todayStr();
-  saveTodayQuiz(draft);
-  addToArchive(draft.questions);
-
-  // Save to server — wait for confirmation before clearing draft
-  try {
-    const archiveRes = await fetch('/api/archive', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          urls: draft.questions.map(q => q.sourceUrl).filter(Boolean),
-          questions: draft.questions.map(q => q.question),
-          slugs: draft.questions.map(q => extractTopicSlug(q.question)).filter(Boolean)
-      })
-  });
-
-    const archiveData = await archiveRes.json();
-    if (!archiveRes.ok || !archiveData.ok) {
-        throw new Error('Archive save failed');
-    }
-    const saveRes = await fetch('/api/quiz', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ date: todayStr(), quiz: draft })
-    });
-
-    const saveData = await saveRes.json();
-    if (!saveData.ok) throw new Error('Server returned not-ok');
-
-    // Only clear draft AFTER server confirms success
-    clearDraftQuiz();
-    clearAllLocks();
-    setStatus('✓ Quiz published for ' + todayStr() + ' and saved to server! Players can now play.', 'success');    
-  } catch(e) {
-    setStatus('⚠ Quiz saved locally but FAILED to save to server (' + e.message + '). Draft preserved — try publishing again.', 'error');
-    console.error('Server save failed:', e);
-  }
-  // Keep the preview visible so you can refer back to what was published
-  refreshAdminPreviews();
-}
-
-async function previewEmail() {
-  const panel = document.getElementById('email-preview-panel');
-  const inner = document.getElementById('email-preview-inner');
-  panel.style.display = 'block';
-  inner.innerHTML = '<p style="font-family:monospace;font-size:12px;color:var(--muted);">Generating teasers and building preview… (may take 5-10 seconds)</p>';
-  document.getElementById('teaser-editor').style.display = 'none';
-  try {
-    const draft = getDraftQuiz();
-    const fetchOpts = draft && draft.questions && draft.questions.length
-      ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ questions: draft.questions }) }
-      : {};
-    const res = await fetch('/api/quiz/preview-email', fetchOpts);
-    const data = await res.json();
-    inner.innerHTML = data.html;
-    if (data.teasers && data.teasers.length) {
-      const fieldsEl = document.getElementById('teaser-fields');
-      fieldsEl.innerHTML = data.teasers.map((t, i) =>
-        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">' +
-        '<span style="font-family:monospace;font-size:11px;color:var(--muted);width:16px;">·</span>' +
-        '<input type="text" id="teaser-' + i + '" value="' + escHtml(t) + '" ' +
-        'style="flex:1;font-family:Georgia,serif;font-size:13px;padding:5px 8px;border:1px solid var(--rule);background:#fff;">' +
-        '</div>'
-      ).join('');
-      document.getElementById('teaser-editor').style.display = 'block';
-      document.getElementById('teaser-save-status').textContent = '';
-    }
-  } catch(e) {
-    inner.innerHTML = '<p style="font-family:monospace;font-size:12px;color:red;">Preview failed: ' + e.message + '</p>';
-  }
-}
-
-async function saveTeasers() {
-  const statusEl = document.getElementById('teaser-save-status');
-  const teasers = [];
-  let i = 0;
-  while (document.getElementById('teaser-' + i)) {
-    teasers.push(document.getElementById('teaser-' + i).value.trim());
-    i++;
-  }
-  // Build updated teaserHtml and cache it on the server
-  const teaserHtml = teasers.filter(Boolean).map(t =>
-    `<div style="font-family:Georgia,serif;font-size:15px;color:#1a1008;padding:6px 0;border-bottom:1px solid #f0ebe0;">· ${t}</div>`
-  ).join('');
-  const wrappedHtml = `<div style="margin:0 0 28px;padding:20px;background:#fff;border:1px solid #e0d8cc;text-align:left;"><div style="font-family:monospace;font-size:10px;letter-spacing:2px;color:#999;margin-bottom:12px;">TODAY'S TOPICS INCLUDE…</div>${teaserHtml}</div>`;
-  try {
-    const adminToken = lsGet('dnq_admin_token') || 'admin';
-    const res = await fetch('/api/teaser-cache', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
-      body: JSON.stringify({ teaserHtml: wrappedHtml, date: todayStr() })
-    });
-    const data = await res.json();
-    if (data.ok) {
-      statusEl.textContent = '✓ Saved — these teasers will be used on publish.';
-      // Refresh the preview to show updated teasers
-      const inner = document.getElementById('email-preview-inner');
-      inner.innerHTML = inner.innerHTML; // force repaint hint
-    } else {
-      statusEl.textContent = 'Save failed.';
-    }
-  } catch(e) {
-    statusEl.textContent = 'Error: ' + e.message;
-  }
-}
-
-
-async function emergencySave() {
-  const cards = document.querySelectorAll('#q-preview-list .q-review-card');
-  if (!cards.length) { alert('No questions visible in preview to save.'); return; }
-  const diffs = ['easy','easy','medium','medium','hard','bonus'];
-  const questions = Array.from(cards).map((card, i) => {
-    const question = card.querySelector('textarea').value;
-    const optionRows = card.querySelectorAll('.q-option-row input[type="text"]');
-    const options = Array.from(optionRows).slice(0, 4).map(o => o.value);
-    const correctRadio = card.querySelector('input[type="radio"]:checked');
-    const correctIndex = correctRadio ? parseInt(correctRadio.value) : 0;
-    // Explanation and sourceUrl are the inputs OUTSIDE the options grid
-    const allTextInputs = card.querySelectorAll('input[type="text"]');
-    const nonOptionInputs = Array.from(allTextInputs).filter(el => !el.closest('.q-option-row'));
-    const explanation = nonOptionInputs[0]?.value || '';
-    const sourceUrl = nonOptionInputs[1]?.value || '';
-    return { question, options, correctIndex, explanation, sourceUrl, difficulty: diffs[i] };
-  });
-  if (!confirm(`Emergency save ${questions.length} visible questions to server as today's quiz?`)) return;
-  const key = todayStr();
-  const quiz = { questions, publishDate: key, generatedAt: new Date().toISOString() };
-  try {
-    const res = await fetch('/api/quiz', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ date: key, quiz, silent: true })
-    });
-    const data = await res.json();
-    if (data.ok) {
-      saveDraftQuiz({ questions, generatedAt: new Date().toISOString(), urls: [] });
-      setStatus('⚑ Emergency save successful! Quiz saved for ' + key, 'success');
-    } else {
-      setStatus('⚑ Emergency save FAILED — try again.', 'error');
-    }
-  } catch(e) {
-    setStatus('⚑ Emergency save FAILED: ' + e.message, 'error');
-  }
-}
-
-function discardDraft() {
-  clearDraftQuiz();
-  document.getElementById('preview-section').style.display = 'none';
-  document.getElementById('q-preview-list').innerHTML = '';
-  setStatus('Draft discarded.', 'info');
-}
-
-function clearArchive() {
-  if (!confirm('Clear the entire question archive? Past questions may be regenerated.')) return;
-  lsSet('dnq_archive', []);
-  lsSet('dnq_archive_urls', []);
-  lsSet('dnq_archive_slugs', []);
-  refreshAdminPreviews();
-}
-
-function resetDailyScores() {
-  if (!confirm('Reset all daily scores for today? All-time scores will be preserved.')) return;
-  const players = getPlayers();
-  Object.values(players).forEach(p => {
-    if (p.dailyScores) delete p.dailyScores[state.todayKey];
-  });
-  savePlayers(players);
-  setStatus('Daily scores reset.', 'success');
-}
-
-// ═══════════════════════════════════════════════════════
-//  UTILITIES
-// ═══════════════════════════════════════════════════════
-function escHtml(str) {
-  if (!str) return '';
-  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-function jumpToArchiveQuestion(date, qIndex) {
-  const archiveWrap = document.getElementById('anc-quiz-archive');
-  if (archiveWrap) {
-    const details = archiveWrap.querySelector('details');
-    if (details && !details.open) details.open = true;
-  }
-  // Ensure the archive section for this date is expanded
-  const id = 'arc-' + date;
-  const body = document.getElementById(id);
-  const chevron = document.getElementById(id + '-chevron');
-  if (body && !body.classList.contains('open')) {
-    body.classList.add('open');
-    if (chevron) chevron.textContent = '▾';
-  }
-  // Scroll to the specific question within the expanded archive
-  const qCards = body ? body.querySelectorAll('.admin-arc-q') : [];
-  const target = qCards[qIndex] || body;
- if (target) {
-    setTimeout(() => {
-      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      target.style.outline = '4px solid red';
-      target.style.background = '#fff200';
-      console.log('jump target:', target);
-      setTimeout(() => {
-        target.style.outline = '';
-        target.style.background = '';
-      }, 1500);
-    }, 50);
-  }
-}
-
-// ── Admin archive review ──────────────────────────────────────
-async function loadAdminArchive() {
-  const listEl = document.getElementById('admin-archive-list');
-  const countEl = document.getElementById('archive-quiz-count');
-  if (!listEl) return;
-  try {
-    const res = await fetch('/api/quiz/all');
-    const { quizzes } = await res.json();
-    const dates = Object.keys(quizzes).sort().reverse();
-    countEl.textContent = `(${dates.length} quiz${dates.length !== 1 ? 'zes' : ''})`;
-    if (dates.length === 0) {
-      listEl.innerHTML = '<p style="color:var(--muted);font-family:monospace;font-size:12px;">No published quizzes yet.</p>';
-      return;
-    }
-    listEl.innerHTML = dates.map(date => {
-      const quiz = quizzes[date];
-      const questions = quiz.questions || [];
-      const letters = ['A','B','C','D'];
-      const qHtml = questions.map((q, qi) => {
-        const optLetters = ['A','B','C','D'];
-        const editId = `arc-edit-${date}-${qi}`;
-        const viewId = `arc-view-${date}-${qi}`;
-        const viewHtml = `
-          <div id="${viewId}">
-            <div class="admin-arc-qtext">Q${qi+1}. ${escHtml(q.question)} <span style="font-family:monospace;font-size:10px;letter-spacing:1px;padding:1px 6px;border:1px solid var(--muted);border-radius:2px;color:var(--muted);font-weight:400;">${q.difficulty ? q.difficulty.toUpperCase() : ''} ${POINTS[q.difficulty] ? '· ' + POINTS[q.difficulty] + ' pts' : ''}</span></div>
-            ${q.options.map((opt, oi) => `
-              <div class="admin-arc-opt ${oi === q.correctIndex ? 'correct' : ''}">
-                ${oi === q.correctIndex ? '✓' : '○'} ${optLetters[oi]}. ${escHtml(opt)}
-              </div>
-            `).join('')}
-            ${q.explanation ? `<div style="font-size:12px;color:var(--muted);font-style:italic;margin-top:6px;padding:6px 0;">💡 ${escHtml(q.explanation)}</div>` : ''}
-            ${q.sourceUrl ? `<div class="admin-arc-source"><a href="${q.sourceUrl}" target="_blank">↗ ${q.sourceUrl.replace(/^https?:\/\//, '').slice(0,60)}${q.sourceUrl.length > 63 ? '…' : ''}</a></div>` : ''}
-            <button onclick="showArchiveEdit('${date}',${qi})" style="margin-top:8px;font-family:monospace;font-size:11px;padding:3px 10px;background:none;border:1px solid var(--muted);color:var(--muted);cursor:pointer;border-radius:2px;">✎ Edit</button>
-          </div>`;
-        const editHtml = `
-          <div id="${editId}" style="display:none;background:#fffbe6;border:1px solid var(--gold,#c8a84b);padding:12px;border-radius:3px;">
-            <div style="font-family:monospace;font-size:11px;color:var(--muted);margin-bottom:8px;">EDITING Q${qi+1} — ${date}</div>
-            <div class="q-edit-label">QUESTION</div>
-            <textarea id="${editId}-q" style="width:100%;font-size:13px;padding:6px;border:1px solid var(--border);margin-bottom:8px;">${escHtml(q.question)}</textarea>
-            <div class="q-edit-label">OPTIONS — click radio to mark correct</div>
-            ${q.options.map((opt, oi) => `
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-                <input type="radio" name="${editId}-correct" value="${oi}" ${oi === q.correctIndex ? 'checked' : ''}>
-                <span style="font-family:monospace;font-size:12px;">${optLetters[oi]}.</span>
-                <input type="text" id="${editId}-opt${oi}" value="${escHtml(opt)}" style="flex:1;font-size:13px;padding:4px 6px;border:1px solid var(--border);">
-              </div>
-            `).join('')}
-            <div class="q-edit-label" style="margin-top:8px;">EXPLANATION</div>
-            <input type="text" id="${editId}-expl" value="${escHtml(q.explanation||'')}" style="width:100%;font-size:13px;padding:4px 6px;border:1px solid var(--border);margin-bottom:6px;">
-            <div class="q-edit-label">SOURCE URL</div>
-            <input type="text" id="${editId}-url" value="${escHtml(q.sourceUrl||'')}" style="width:100%;font-size:12px;padding:4px 6px;border:1px solid var(--border);margin-bottom:10px;">
-            <div style="display:flex;gap:8px;">
-              <button onclick="saveArchiveEdit('${date}',${qi})" style="font-family:monospace;font-size:12px;padding:6px 16px;background:var(--green);color:white;border:none;cursor:pointer;">✓ Save</button>
-              <button onclick="cancelArchiveEdit('${date}',${qi})" style="font-family:monospace;font-size:12px;padding:6px 16px;background:none;border:1px solid var(--muted);color:var(--muted);cursor:pointer;">Cancel</button>
-            </div>
-            <div id="${editId}-status" style="font-family:monospace;font-size:12px;margin-top:6px;"></div>
-          </div>`;
-        return `<div class="admin-arc-q">${viewHtml}${editHtml}</div>`;
-      }).join('');
-      const id = 'arc-' + date;
-      return `
-        <div class="admin-arc-date" onclick="toggleAdminArc('${id}')">
-          <span>${date} &nbsp;·&nbsp; ${formatArchiveDate(date)}</span>
-          <span style="display:flex;align-items:center;gap:12px;">
-            <button onclick="event.stopPropagation();republishQuiz('${date}')" style="font-family:monospace;font-size:10px;padding:3px 10px;background:none;border:1px solid var(--gold,#c8a84b);color:var(--gold,#c8a84b);cursor:pointer;border-radius:2px;letter-spacing:1px;">↺ REPUBLISH</button>
-            <span id="${id}-chevron">▸</span>
-          </span>
-        </div>
-        <div class="admin-arc-body" id="${id}">${qHtml}</div>
-      `;
-    }).join('');
-  } catch(e) {
-    listEl.innerHTML = '<p style="color:var(--muted);">Could not load archive.</p>';
-  }
-}
-
-function showArchiveEdit(date, qi) {
-  document.getElementById(`arc-view-${date}-${qi}`).style.display = 'none';
-  document.getElementById(`arc-edit-${date}-${qi}`).style.display = 'block';
-}
-
-function cancelArchiveEdit(date, qi) {
-  document.getElementById(`arc-edit-${date}-${qi}`).style.display = 'none';
-  document.getElementById(`arc-view-${date}-${qi}`).style.display = 'block';
-}
-
-async function saveArchiveEdit(date, qi) {
-  const editId = `arc-edit-${date}-${qi}`;
-  const statusEl = document.getElementById(`${editId}-status`);
-  statusEl.textContent = 'Saving…';
-  statusEl.style.color = 'var(--muted)';
-  try {
-    const res = await fetch(`/api/quiz?date=${date}`);
-    const data = await res.json();
-    const quiz = data.quiz;
-    const q = quiz.questions[qi];
-    q.question = document.getElementById(`${editId}-q`).value.trim();
-    q.options = [0,1,2,3].map(oi => document.getElementById(`${editId}-opt${oi}`).value.trim());
-    const checkedRadio = document.querySelector(`input[name="${editId}-correct"]:checked`);
-    q.correctIndex = checkedRadio ? parseInt(checkedRadio.value) : 0;
-    q.explanation = document.getElementById(`${editId}-expl`).value.trim();
-    q.sourceUrl = document.getElementById(`${editId}-url`).value.trim();
-    const saveRes = await fetch('/api/quiz', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ date, quiz })
-    });
-    const saveData = await saveRes.json();
-    if (saveData.ok) {
-      statusEl.textContent = '✓ Saved!';
-      statusEl.style.color = 'var(--green)';
-      setTimeout(() => loadAdminArchive(), 1000);
-    } else {
-      throw new Error('Server returned not-ok');
-    }
-  } catch(e) {
-    statusEl.textContent = '✗ Save failed: ' + e.message;
-    statusEl.style.color = 'var(--red)';
-  }
-}
-
-function toggleAdminArc(id) {
-  const body = document.getElementById(id);
-  const chevron = document.getElementById(id + '-chevron');
-  if (!body) return;
-  const open = body.classList.toggle('open');
-  if (chevron) chevron.textContent = open ? '▾' : '▸';
-}
-
-async function republishQuiz(date) {
-  if (!confirm(`Load the ${date} quiz into draft for editing and republishing?`)) return;
-  try {
-    const res = await fetch(`/api/quiz?date=${date}`);
-    const data = await res.json();
-    if (!data.quiz || !data.quiz.questions) throw new Error('No questions found');
-    saveDraftQuiz({ questions: data.quiz.questions });
-    showDraftPreview(data.quiz.questions);
-    setStatus(`Loaded ${data.quiz.questions.length} questions from ${date} into draft. Edit as needed, then click Publish.`, 'success');
-    document.getElementById('preview-section').scrollIntoView({ behavior: 'smooth' });
-  } catch(e) {
-    alert('Republish failed: ' + e.message);
-  }
-}
-
-
-// ── Archive browser ───────────────────────────────────────────
-let archiveMode = false;
-let savedQuizQuestions = null;
-let savedQuizDate = null;
-
-async function showArchiveBrowser() {
-  showScreen('screen-archive');
-  const listEl = document.getElementById('archive-list');
-  listEl.innerHTML = '<p style="color:var(--muted);font-family:monospace;font-size:13px;">Loading…</p>';
-  try {
-    const res = await fetch('/api/quiz/archive');
-    const { dates } = await res.json();
-    if (!dates || dates.length === 0) {
-      listEl.innerHTML = '<p style="color:var(--muted);font-family:monospace;font-size:13px;">No past quizzes available yet.</p>';
-      return;
-    }
-    listEl.innerHTML = dates.map(d => `
-      <div class="archive-card" onclick="playArchiveQuiz('${d}')">
-        <div>
-          <div class="arc-date">${d}</div>
-          <div class="arc-label">${formatArchiveDate(d)}</div>
-        </div>
-        <span style="font-family:monospace;font-size:12px;color:var(--muted);">Play ▸</span>
+        <p style="margin-top:12px;color:#666;font-size:12px;">
+          ${new Date(post.createdAt).toLocaleString()}
+        </p>
       </div>
-    `).join('');
-  } catch(e) {
-    listEl.innerHTML = '<p style="color:var(--muted);">Could not load archive.</p>';
-  }
-}
-
-function formatArchiveDate(dateStr) {
-  const d = new Date(dateStr + 'T12:00:00');
-  return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-}
-
-async function playArchiveQuiz(date) {
-  try {
-    const res = await fetch(`/api/quiz?date=${date}`);
-    const data = await res.json();
-    if (!data.quiz || !data.quiz.questions) {
-      alert('Could not load quiz for ' + date);
-      return;
-    }
-    // Save current state
-    savedQuizQuestions = quizQuestions ? [...quizQuestions] : null;
-    savedQuizDate = state.todayKey;
-    // Enter archive mode
-    archiveMode = true;
-    document.body.classList.add('archive-mode');
-    updateNav();
-    document.getElementById('archive-date-label').textContent = formatArchiveDate(date);
-    // Load archive quiz
-    quizQuestions = enforceQuizRules(data.quiz.questions);
-    state.currentQ = 0;
-    state.sessionScore = 0;
-    state.answers = [];
-    state.streak = 0;
-    showScreen('screen-quiz');
-    buildProgressTrack(quizQuestions);
-    renderQuestion(quizQuestions[0], 0);
-    document.getElementById('live-score').textContent = '0';
-    document.getElementById('quiz-player-name').textContent = state.playerName || 'Reader';
-  } catch(e) {
-    alert('Error loading archive quiz: ' + e.message);
-  }
-}
-
-function exitArchiveMode() {
-  archiveMode = false;
-  document.body.classList.remove('archive-mode');
-  updateNav();
-  showScreen('screen-register');
-}
-
-// ── Subscriber list for admin ─────────────────────────────────
-async function loadEmailPauseState() {
-  try {
-    const res = await fetch('/api/email-pause');
-    const data = await res.json();
-    updateEmailPauseUI(data.paused);
-  } catch(e) {
-    const el = document.getElementById('email-pause-status');
-    if (el) el.textContent = 'Could not load status.';
-  }
-}
-
-function updateEmailPauseUI(paused) {
-  const status = document.getElementById('email-pause-status');
-  const btn = document.getElementById('email-pause-btn');
-  if (!status || !btn) return;
-  btn.dataset.paused = paused ? 'true' : 'false';
-  if (paused) {
-    status.innerHTML = '⏸ <strong style="color:var(--red);">Emails paused</strong> — no notifications will be sent on publish.';
-    btn.textContent = '▶ Resume Emails';
-    btn.style.borderColor = 'var(--green)';
-    btn.style.color = 'var(--green)';
-  } else {
-    status.innerHTML = '✓ <strong style="color:var(--green);">Emails active</strong> — subscribers will be notified on publish.';
-    btn.textContent = '⏸ Pause Emails';
-    btn.style.borderColor = 'var(--red)';
-    btn.style.color = 'var(--red)';
-  }
-}
-
-async function toggleEmailPause() {
-  const btn = document.getElementById('email-pause-btn');
-  const currentlyPaused = btn.dataset.paused === 'true';
-  try {
-    const adminToken = lsGet('dnq_admin_token') || 'admin';
-    const res = await fetch('/api/email-pause', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
-      body: JSON.stringify({ paused: !currentlyPaused })
-    });
-    const data = await res.json();
-    if (data.ok) { loadEmailPauseState(); loadSubscribers(); }
-  } catch(e) {
-    alert('Failed to update email pause state: ' + e.message);
-  }
-}
-
-async function loadPlayerList() {
-  const el = document.getElementById('player-list');
-  if (!el) return;
-  try {
-    const res = await fetch('/api/scores');
-    const data = await res.json();
-    const scores = data.scores || {};
-    const players = Object.entries(scores).sort((a,b) => b[1].allTime - a[1].allTime);
-    if (!players.length) { el.innerHTML = '<p>No players yet.</p>'; return; }
-    el.innerHTML = players.map(([key, p]) => `
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--rule);">
-        <span>${escHtml(p.displayName)} <span style="color:var(--muted);font-size:11px;">(${p.allTime} pts)</span></span>
-        <button onclick="deletePlayer('${escHtml(key)}')" style="font-family:monospace;font-size:11px;padding:2px 8px;background:none;border:1px solid var(--red);color:var(--red);cursor:pointer;border-radius:2px;">✕ Delete</button>
-      </div>`).join('');
-  } catch(e) {
-    el.innerHTML = '<p style="color:red;">Failed to load players.</p>';
-  }
-}
-
-async function deletePlayer(playerKey) {
-  if (!confirm('Delete player "' + playerKey + '" from the leaderboard? This cannot be undone.')) return;
-  try {
-    const adminToken = lsGet('dnq_admin_token') || 'admin';
-    const res = await fetch('/api/scores/' + encodeURIComponent(playerKey), {
-      method: 'DELETE',
-      headers: { 'x-admin-token': adminToken }
-    });
-    const data = await res.json();
-    if (data.ok) {
-      alert('Deleted: ' + data.deleted);
-      loadPlayerList();
-    } else {
-      alert('Error: ' + (data.error || 'Unknown error'));
-    }
-  } catch(e) {
-    alert('Delete failed: ' + e.message);
-  }
-}
-
-async function loadAdminStats() {
-  const el = document.getElementById('admin-stats');
-  const labelEl = document.getElementById('stats-date-label');
-  if (!el) return;
-
-  const today = todayStr();
-  if (labelEl) labelEl.textContent = today;
-
-  try {
-    // Canonical truth: unique player/day progress records
-    const progressRes = await fetch('/api/progress?date=' + today);
-    const progress = progressRes.ok ? await progressRes.json() : {};
-
-    const adminToken = lsGet('dnq_admin_token') || 'admin';
-
-    let excludedMap = {};
-    try {
-      const exclRes = await fetch('/api/admin/stats-exclusions?date=' + today, {
-        headers: { 'x-admin-token': adminToken }
-      });
-      if (exclRes.ok) {
-        const exclData = await exclRes.json();
-        excludedMap = exclData.excluded || {};
-      }
-    } catch (e) {}
-
-    const hiddenPlayers = Object.keys(excludedMap || {});
-
-    const filteredProgress = Object.fromEntries(
-      Object.entries(progress || {}).filter(([playerKey]) => !excludedMap[playerKey])
-    );
-
-    const players = Object.values(filteredProgress);
-
-    const starts = players.length;
-    const completions = players.filter(p => p.completed === true).length;
-    const bonusAttempts = players.filter(p => p.answers && p.answers.q5 !== undefined).length;
-
-    // Average question reached:
-    // completed players count as 6, otherwise use highest answered q index + 1
-    const reachedVals = players.map(p => {
-      if (p.completed) return 6;
-      const keys = Object.keys(p.answers || {})
-        .filter(k => /^q\d+$/.test(k))
-        .map(k => parseInt(k.slice(1), 10))
-        .filter(n => !isNaN(n));
-      return keys.length ? (Math.max(...keys) + 1) : 0;
-    });
-
-    const avgQReached = reachedVals.length
-      ? (reachedVals.reduce((a, b) => a + b, 0) / reachedVals.length).toFixed(1)
-      : '—';
-
-    const compRate = starts > 0
-      ? Math.round(completions / starts * 100)
-      : '—';
-
-    const scoreVals = players
-      .map(p => typeof p.score === 'number' ? p.score : null)
-      .filter(v => v !== null);
-
-    const avgScore = scoreVals.length
-      ? Math.round(scoreVals.reduce((a, b) => a + b, 0) / scoreVals.length)
-      : '—';
-
-    // Per-question correct % from canonical progress
-    let qRows = '';
-    for (let i = 0; i <= 5; i++) {
-      const key = 'q' + i;
-      let total = 0;
-      let correctCount = 0;
-
-      players.forEach(p => {
-        const a = p.answers && p.answers[key];
-        if (a !== undefined) {
-          total++;
-          if (a.correct) correctCount++;
-        }
-      });
-
-      const pct = total > 0 ? Math.round(correctCount / total * 100) : '—';
-      const label = i === 5 ? 'Bonus' : ('Q' + (i + 1));
-      const bar = total > 0
-        ? `<span style="display:inline-block;width:${typeof pct === 'number' ? pct : 0}px;height:8px;background:var(--green);vertical-align:middle;margin-left:6px;opacity:0.7;"></span>`
-        : '';
-
-      qRows += `<tr>
-        <td style="padding:2px 8px 2px 0;">${label}</td>
-        <td style="padding:2px 8px 2px 0;">${total} players</td>
-        <td style="padding:2px 0;">${pct}% correct${bar}</td>
-      </tr>`;
-    }
-
-    // Per-player question grid (today + yesterday) from canonical progress
-    let playerGridHtml = '';
-    const yd = new Date();
-    yd.setDate(yd.getDate() - 1);
-    const yesterday = `${yd.getFullYear()}-${String(yd.getMonth() + 1).padStart(2, '0')}-${String(yd.getDate()).padStart(2, '0')}`;
-
-    let yesterdayProgress = {};
-    try {
-      const ydRes = await fetch('/api/progress?date=' + yesterday);
-      if (ydRes.ok) yesterdayProgress = await ydRes.json();
-    } catch (e) {}
-
-    // Fetch today's quiz for answer text lookup
-    let todayQuiz = null;
-    try {
-      const quizRes = await fetch('/api/quiz?date=' + today);
-      const quizData = await quizRes.json();
-      todayQuiz = quizData.quiz || null;
-    } catch(e) {}
-
-    const gridData = [
-      [today, filteredProgress || {}],
-      [yesterday, yesterdayProgress || {}]
-    ];
-
-    gridData.forEach(([dateLabel, progObj]) => {
-      const entries = Object.entries(progObj || {});
-      if (!entries.length) return;
-
-      let rowsHtml = '';
-      entries
-        .sort((a, b) => {
-          const aName = (a[1].displayName || a[0] || '').toLowerCase();
-          const bName = (b[1].displayName || b[0] || '').toLowerCase();
-          return aName.localeCompare(bName);
-        })
-        .forEach(([playerKey, p]) => {
-          const displayName = p.displayName || playerKey;
-
-    let qCells = '';
-    for (let i = 0; i <= 5; i++) {
-          const a = p.answers && p.answers['q' + i];
-          let cell = '—';
-          let color = 'var(--muted)';
-          let tooltip = '';
-
-               if (a !== undefined) {
-                      const correct = typeof a === 'object' ? a.correct : null;
-                      const chosenIdx = typeof a === 'object' ? a.chosen : a;
-                      cell = correct ? '✓' : '✗';
-                      color = correct ? 'var(--green)' : 'var(--red)';
-
-                          if (todayQuiz && todayQuiz.questions && todayQuiz.questions[i]) {
-                            const q = todayQuiz.questions[i];
-                            const trunc = t => (t || '').split(' ').slice(0, 2).join(' ');
-                            const chosenText = q.options[chosenIdx] || '';
-                            const correctText = q.options[q.correctIndex] || '';
-                            if (correct) {
-                              tooltip = `<div style="font-size:10px;color:${color};font-family:monospace;line-height:1.3;">[${chosenIdx}] ${trunc(chosenText)}</div>`;
-                            } else {
-                              tooltip = `<div style="font-size:10px;color:${color};font-family:monospace;line-height:1.3;">[${chosenIdx}] ${trunc(chosenText)}</div><div style="font-size:10px;color:var(--muted);font-family:monospace;line-height:1.3;">✓[${q.correctIndex}] ${trunc(correctText)}</div>`;
-                            }
-                        }
-                    }
-
-            qCells += `<td style="padding:4px 8px;text-align:left;color:${color};font-family:monospace;">${cell}${tooltip}</td>`;
-          }
-
-          const completedCell = p.completed ? '✓' : '—';
-          const completedColor = p.completed ? 'var(--green)' : 'var(--muted)';
-          const DIFF_PTS = { easy: 10, medium: 20, hard: 30, bonus: 50 };
-          let scoreVal = 0;
-          for (let i = 0; i <= 5; i++) {
-            const a = p.answers && p.answers['q' + i];
-            if (!a) continue;
-            // Use the stored pts if available, otherwise infer from difficulty
-            scoreVal += typeof a.pts === 'number' ? a.pts : 0;
-          }
-          if (p.completed) scoreVal += 10;
-          scoreVal = scoreVal || '—';
-
-    const isTodayStats = dateLabel === today;
-    const isExcluded = !!excludedMap[playerKey];
-
-    const adminCell = isTodayStats
-      ? `<td style="padding:4px 0 4px 8px;text-align:right;">
-        <button
-          onclick='toggleStatsExclusion(${JSON.stringify(playerKey)}, ${isExcluded ? "false" : "true"})'
-            style="
-            font-family:monospace;
-            font-size:11px;
-            padding:2px 8px;
-            background:none;
-            border:1px solid ${isExcluded ? 'var(--green)' : 'var(--red)'};
-            color:${isExcluded ? 'var(--green)' : 'var(--red)'};
-            cursor:pointer;
-            border-radius:2px;
-          "
-        >
-            ${isExcluded ? 'Restore' : 'Hide'}
-        </button>
-      </td>`
-    : '';
-
-    rowsHtml += `<tr>
-      <td style="padding:4px 8px 4px 0;font-weight:600;">${escHtml(displayName)}</td>
-      ${qCells}
-      <td style="padding:4px 8px;text-align:center;color:${completedColor};font-family:monospace;">${completedCell}</td>
-      <td style="padding:4px 0 4px 8px;text-align:right;font-family:monospace;">${scoreVal}</td>
-      ${adminCell}
-    </tr>`;
-        });
-
-      playerGridHtml += `
-        <div style="margin-top:16px;">
-          <div style="font-family:monospace;font-size:12px;letter-spacing:1px;color:var(--muted);margin-bottom:6px;">
-            PLAYER BREAKDOWN · ${dateLabel}
-          </div>
-          <div style="overflow-x:auto;">
-            <table style="width:100%;border-collapse:collapse;font-size:13px;">
-              <thead>
-                <tr style="border-bottom:1px solid var(--rule);">
-                  <th style="text-align:left;padding:4px 8px 4px 0;">Player</th>
-                  <th style="padding:4px 8px;">Q1</th>
-                  <th style="padding:4px 8px;">Q2</th>
-                  <th style="padding:4px 8px;">Q3</th>
-                  <th style="padding:4px 8px;">Q4</th>
-                  <th style="padding:4px 8px;">Q5</th>
-                  <th style="padding:4px 8px;">B</th>
-                  <th style="padding:4px 8px;">Done</th>
-                  <th style="text-align:right;padding:4px 0 4px 8px;">Score</th>
-                  ${dateLabel === today ? '<th style="text-align:right;padding:4px 0 4px 8px;">Admin</th>' : ''}
-                </tr>
-              </thead>
-              <tbody>
-                ${rowsHtml}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      `;
-
-    if (dateLabel === today && hiddenPlayers.length) {
-      playerGridHtml += `
-        <div style="
-          margin-top:12px;
-          padding:12px 14px;
-          border:1px solid var(--rule);
-          background:rgba(0,0,0,0.03);
-          border-radius:8px;
-          box-shadow:0 1px 2px rgba(0,0,0,0.04);
-      ">
-        <div style="
-           font-family:monospace;
-                 font-size:12px;
-                 letter-spacing:1px;
-                 color:var(--muted);
-                 margin-bottom:8px;
-      ">
-        HIDDEN FROM TODAY'S STATS
-              </div>
-              <div style="
-                font-size:12px;
-                color:var(--muted);
-                margin-bottom:8px;
-                line-height:1.4;
-      ">
-        These players are excluded from today’s engagement and breakdown stats.
-      </div>
-
-      <div style="display:flex;flex-direction:column;gap:6px;">
-        ${hiddenPlayers.map((pk, idx) => `
-        <div style="
-         display:flex;
-         justify-content:space-between;
-          align-items:center;
-          gap:12px;
-         padding:6px 0;
-          ${idx > 0 ? 'border-top:1px solid rgba(0,0,0,0.06);' : ''}
-    ">
-    <span style="font-family:monospace;font-size:12px;">${escHtml(pk)}</span>
-    <button
-        onclick='toggleStatsExclusion(${JSON.stringify(pk)}, false)'
-         style="
-        font-family:monospace;
-        font-size:11px;
-        padding:3px 9px;
-        background:none;
-        border:1px solid var(--green);
-        color:var(--green);
-        cursor:pointer;
-        border-radius:999px;
-        white-space:nowrap;
-      "
-        >
-          Restore
-        </button>
-      </div>
-  `).join('')}      </div>
-  </div>
-   `;
-  }
-});
-
-el.innerHTML = `
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:16px;">
-        <div style="background:white;border:1px solid var(--rule);padding:12px;text-align:center;">
-          <div style="font-size:22px;font-weight:bold;color:var(--ink);">${starts}</div>
-          <div style="font-size:10px;letter-spacing:1px;color:var(--muted);margin-top:2px;">STARTED</div>
-        </div>
-        <div style="background:white;border:1px solid var(--rule);padding:12px;text-align:center;">
-          <div style="font-size:22px;font-weight:bold;color:var(--ink);">${completions}</div>
-          <div style="font-size:10px;letter-spacing:1px;color:var(--muted);margin-top:2px;">COMPLETED</div>
-        </div>
-        <div style="background:white;border:1px solid var(--rule);padding:12px;text-align:center;">
-          <div style="font-size:22px;font-weight:bold;color:${typeof compRate==='number'&&compRate>=70?'var(--green)':typeof compRate==='number'&&compRate<50?'var(--red)':'var(--ink)'};">${typeof compRate==='number'?compRate+'%':compRate}</div>
-          <div style="font-size:10px;letter-spacing:1px;color:var(--muted);margin-top:2px;">COMPLETION</div>
-        </div>
-        <div style="background:white;border:1px solid var(--rule);padding:12px;text-align:center;">
-          <div style="font-size:22px;font-weight:bold;color:var(--ink);">${avgQReached}</div>
-          <div style="font-size:10px;letter-spacing:1px;color:var(--muted);margin-top:2px;">AVG Q REACHED</div>
-        </div>
-        <div style="background:white;border:1px solid var(--rule);padding:12px;text-align:center;">
-          <div style="font-size:22px;font-weight:bold;color:var(--ink);">${bonusAttempts}</div>
-          <div style="font-size:10px;letter-spacing:1px;color:var(--muted);margin-top:2px;">BONUS ATTEMPTS</div>
-        </div>
-        <div style="background:white;border:1px solid var(--rule);padding:12px;text-align:center;">
-          <div style="font-size:22px;font-weight:bold;color:var(--ink);">${avgScore}</div>
-          <div style="font-size:10px;letter-spacing:1px;color:var(--muted);margin-top:2px;">AVG SCORE</div>
-        </div>
-      </div>
-      <table style="width:100%;border-collapse:collapse;font-size:12px;">${qRows}</table>
-      ${playerGridHtml}
     `;
-    } catch(e) {
-      el.innerHTML = '<p style="color:var(--muted);">Could not load stats.</p>';
-    }
-}
 
-async function loadTodayQuestions() {
-  const el = document.getElementById('admin-today-questions');
-  if (!el) return;
-  try {
-    const res = await fetch('/api/quiz?date=' + todayStr());
-    const data = await res.json();
-    const questions = data.quiz && data.quiz.questions ? data.quiz.questions : [];
-    if (!questions.length) { el.innerHTML = '<p style="font-family:monospace;font-size:12px;color:var(--muted);">No quiz published yet today.</p>'; return; }
-    const letters = ['A','B','C','D'];
-    el.innerHTML = questions.map((q, i) => `
-      <div style="margin-bottom:16px;padding:12px;background:white;border:1px solid var(--rule);">
-        <div style="font-family:monospace;font-size:11px;color:var(--muted);margin-bottom:6px;">${i === 5 ? 'BONUS' : 'Q' + (i+1)} · ${(q.difficulty||'').toUpperCase()}</div>
-        <div style="font-size:14px;font-weight:600;margin-bottom:10px;">${escHtml(q.question)}</div>
-        ${q.options.map((opt, oi) => `
-          <div style="padding:4px 8px;margin-bottom:4px;font-size:13px;
-            ${oi === q.correctIndex ? 'background:#d4edda;border-left:3px solid var(--green);font-weight:600;' : 'color:var(--muted);'}">
-            ${letters[oi]}. ${escHtml(opt)}
-          </div>`).join('')}
-        ${q.explanation ? `<div style="font-size:12px;font-style:italic;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--rule);">💡 ${escHtml(q.explanation)}</div>` : ''}
-      </div>`).join('');
-  } catch(e) {
-    el.innerHTML = '<p style="color:var(--red);font-size:12px;">Could not load questions.</p>';
+    await sendEmail(adminEmail, subject, html);  } catch (e) {
+    console.error('[Posts] Email notify failed:', e.message);
   }
-}
-
-async function toggleSubscriber(email, active) {
-  try {
-    const res = await fetch('/api/subscribers/' + encodeURIComponent(email), {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ active })
-    });
-    if (!res.ok) throw new Error('Server error');
-    loadSubscribers(); // Refresh the list
-  } catch(e) {
-    alert('Could not update subscriber: ' + e.message);
-  }
-}
-
-async function toggleStatsExclusion(playerKey, excluded) {
-  const actionWord = excluded ? 'hide' : 'restore';
-  if (!confirm(`Are you sure you want to ${actionWord} "${playerKey}" ${excluded ? 'from' : 'in'} today’s stats?`)) {
-    return;
-  }
-
-  try {
-    const adminToken = lsGet('dnq_admin_token') || 'admin';
-    const res = await fetch('/api/admin/stats-exclusions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-admin-token': adminToken
-      },
-      body: JSON.stringify({
-        date: todayStr(),
-        playerKey,
-        excluded
-      })
-    });
-
-    const text = await res.text();
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch (_) {
-      throw new Error(`Non-JSON response from server (${res.status})`);
-    }
-
-    if (!res.ok || !data.ok) {
-      throw new Error(data.error || 'Update failed');
-    }
-
-    await loadAdminStats();
-  } catch (e) {
-    alert('Stats exclusion update failed: ' + e.message);
-  }
-}
-
-async function loadSubscribers() {
-  const listEl = document.getElementById('sub-list');
-  const countEl = document.getElementById('sub-count');
-  if (!listEl) return;
-  try {
-    const res = await fetch('/api/subscribers');
-    const { subscribers } = await res.json();
-    const active = subscribers.filter(s => s.active);
-    countEl.textContent = `(${active.length} active)`;
-    if (subscribers.length === 0) {
-      listEl.innerHTML = '<p style="color:var(--muted);">No subscribers yet.</p>';
-      return;
-    }
-    listEl.innerHTML = `
-      <table style="width:100%;border-collapse:collapse;">
-        <tr style="border-bottom:1px solid var(--rule);color:var(--muted);">
-          <th style="text-align:left;padding:4px 8px;font-weight:600;">Email</th>
-          <th style="text-align:left;padding:4px 8px;font-weight:600;">Name</th>
-          <th style="text-align:left;padding:4px 8px;font-weight:600;">Subscribed</th>
-          <th style="text-align:left;padding:4px 8px;font-weight:600;">Status</th>
-          <th style="padding:4px 8px;"></th>
-        </tr>
-        ${subscribers.map(s => `
-          <tr style="border-bottom:1px solid #f0ebe0;" id="sub-row-${btoa(s.email).replace(/=/g,'')}">
-            <td style="padding:4px 8px;">${s.email}</td>
-            <td style="padding:4px 8px;">${s.name || '—'}</td>
-            <td style="padding:4px 8px;">${s.subscribedAt ? s.subscribedAt.slice(0,10) : '—'}</td>
-            <td style="padding:4px 8px;color:${s.active ? 'var(--green)' : 'var(--muted)'};">${s.active ? 'Active' : 'Paused'}</td>
-            <td style="padding:4px 8px;">
-              <button onclick="toggleSubscriber('${s.email}', ${!s.active})"
-                style="font-family:monospace;font-size:10px;padding:2px 8px;cursor:pointer;border-radius:2px;letter-spacing:1px;background:none;border:1px solid ${s.active ? 'var(--muted)' : 'var(--green)'}; color:${s.active ? 'var(--muted)' : 'var(--green)'};">
-                ${s.active ? 'PAUSE' : 'RESTORE'}
-              </button>
-            </td>
-          </tr>
-        `).join('')}
-      </table>
-    `;
-  } catch(e) {
-    listEl.innerHTML = '<p style="color:var(--muted);">Could not load subscribers.</p>';
-  }
-}
-
-// Enter key for registration
-document.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && document.getElementById('screen-register').classList.contains('active')) {
-    registerPlayer();
-  }
+  res.json({ ok: true, post });
 });
 
-// ── Admin Messaging ──────────────────────────────────────────
-let msgSubscriberList = [];
-let msgProspectList = [];
+app.delete('/api/posts/:id', async (req, res) => {
+  const data = await readData();
+  const post = (data.posts || []).find(p => p.id === req.params.id);
+  if (!post) return res.status(404).json({ error: 'Post not found.' });
+  post.deleted = true;
+  await writeData(data);
+  res.json({ ok: true });
+});
 
-async function loadMsgSubscribers() {
-  try {
-    const res = await fetch('/api/subscribers');
-    const { subscribers } = await res.json();
-    msgSubscriberList = (subscribers || []).filter(s => s.active);
-  } catch(e) { msgSubscriberList = []; }
+// ── Contact the Editor ────────────────────────────────────────
+// Messages stored as data.messages = [{ id, playerName, text, createdAt, read }]
 
-  const listEl = document.getElementById('msg-checkbox-list');
-  if (listEl) {
-    if (msgSubscriberList.length) {
-      const sorted = [...msgSubscriberList].sort((a,b) => (a.name||a.email).localeCompare(b.name||b.email));
-      listEl.innerHTML = sorted.map(s =>
-        '<label style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid #f0ebe0;cursor:pointer;">' +
-          '<input type="checkbox" class="msg-cb" value="' + s.email + '" data-name="' + (s.name||'') + '" onchange="updateMsgSelectedCount()" style="cursor:pointer;accent-color:var(--ink);">' +
-          '<span style="flex:1;">' + (s.name ? '<strong>' + s.name + '</strong> — ' + s.email : s.email) + '</span>' +
-        '</label>'
-      ).join('');
-    } else {
-      listEl.innerHTML = '<p style="color:var(--muted);">No active subscribers found.</p>';
-    }
-  }
-  const countEl = document.getElementById('msg-bulk-count');
-  if (countEl) countEl.textContent = msgSubscriberList.length
-    ? msgSubscriberList.length + ' active subscriber' + (msgSubscriberList.length !== 1 ? 's' : '') + ' will receive this message'
-    : 'No active subscribers found';
-  updateMsgSelectedCount();
-}
+app.post('/api/contact', async (req, res) => {
+  const { playerName, text } = req.body;
+  if (!playerName || !playerName.trim()) return res.status(400).json({ error: 'Player name required.' });
+  if (!text || !text.trim()) return res.status(400).json({ error: 'Message required.' });
+  if (text.length > 1000) return res.status(400).json({ error: 'Message too long (1000 char max).' });
 
-function updateMsgSelectedCount() {
-  const checked = document.querySelectorAll('.msg-cb:checked').length;
-  const el = document.getElementById('msg-selected-count');
-  if (el) el.textContent = checked ? checked + ' selected' : '';
-}
-function msgSelectAll()  { document.querySelectorAll('.msg-cb').forEach(cb => cb.checked = true);  updateMsgSelectedCount(); }
-function msgSelectNone() { document.querySelectorAll('.msg-cb').forEach(cb => cb.checked = false); updateMsgSelectedCount(); }
+  const data = await readData();
+  if (!data.messages) data.messages = [];
+  const msg = {
+    id: Date.now().toString(),
+    playerName: playerName.trim().slice(0, 40),
+    text: text.trim(),
+    createdAt: new Date().toISOString(),
+    read: false
+  };
+  data.messages.unshift(msg);
+  await writeData(data);
 
-function switchMsgTab(tab) {
-  const s = document.getElementById('msg-panel-select'), b = document.getElementById('msg-panel-bulk');
-  const ts = document.getElementById('msg-tab-select'), tb = document.getElementById('msg-tab-bulk');
-  if (tab === 'select') {
-    s.style.display='block'; b.style.display='none';
-    ts.style.background='var(--ink)'; ts.style.color='var(--paper)';
-    tb.style.background='var(--paper)'; tb.style.color='var(--muted)';
-  } else {
-    s.style.display='none'; b.style.display='block';
-    tb.style.background='var(--ink)'; tb.style.color='var(--paper)';
-    ts.style.background='var(--paper)'; ts.style.color='var(--muted)';
-  }
-  document.getElementById('msg-status').style.display = 'none';
-}
-
-function showMsgStatus(msg, ok) {
-  const el = document.getElementById('msg-status');
-  el.textContent = msg; el.style.display = 'block';
-  el.style.background = ok ? '#e8f5ee' : '#fceaea';
-  el.style.color      = ok ? '#1b4332' : '#7b1a1a';
-  el.style.borderLeft = ok ? '3px solid var(--green)' : '3px solid var(--red)';
-}
-
-async function sendSelectedMessage() {
-  const subject = document.getElementById('msg-subject-select').value.trim();
-  const body    = document.getElementById('msg-body-select').value.trim();
-
-  const recipients = Array.from(document.querySelectorAll('.msg-cb:checked'))
-    .map(cb => ({
-      email: cb.value,
-      name: cb.getAttribute('data-name') || ''
-    }))
-    .filter(r => r.email);
-
-  if (!subject) { showMsgStatus('Please enter a subject line.', false); return; }
-  if (!body)    { showMsgStatus('Please write a message.', false); return; }
-  if (!recipients.length) { showMsgStatus('Please select at least one player.', false); return; }
-
-  if (!confirm('Send this message to ' + recipients.length + ' selected player' + (recipients.length !== 1 ? 's' : '') + '?')) return;
-
-  showMsgStatus('Sending to ' + recipients.length + ' selected player' + (recipients.length !== 1 ? 's' : '') + '…', true);
-
-  try {
-    const adminToken = lsGet('dnq_admin_token') || 'admin';
-    const res = await fetch('/api/admin/message/bulk', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-admin-token': adminToken
-      },
-      body: JSON.stringify({
-        subject,
-        body,
-        recipients
-      })
-    });
-
-    const json = await res.json();
-
-    if (json.ok) {
-      showMsgStatus('✓ ' + (json.message || ('Sent to ' + recipients.length + ' selected player' + (recipients.length !== 1 ? 's' : '') + '.')), true);
-      document.getElementById('msg-subject-select').value = '';
-      document.getElementById('msg-body-select').value = '';
-      msgSelectNone();
-    } else {
-      showMsgStatus('✗ ' + (json.error || 'Send failed'), false);
-    }
-  } catch (e) {
-    showMsgStatus('✗ Error: ' + e.message, false);
-  }
-}
-
-async function loadMsgProspects() {
-    const wrap = document.getElementById('prospect-msg-list');
-      if (wrap) {
-        wrap.innerHTML = '<div style="color:var(--muted);font-family:monospace;font-size:12px;">Loading prospects…</div>';
-      }
-
-      try {
-        const adminToken = lsGet('dnq_admin_token') || 'admin';
-        const res = await fetch('/api/prospects', {
-          headers: { 'x-admin-token': adminToken }
-        });
-        const data = await res.json();
-
-        msgProspectList = Array.isArray(data.prospects) ? data.prospects : [];
-        renderProspectMsgList();
-      } catch (e) {
-        msgProspectList = [];
-        if (wrap) {
-          wrap.innerHTML = '<div style="color:var(--red);font-family:monospace;font-size:12px;">Could not load prospects.</div>';
-        }
-      }
-    }
-
-function renderProspectMsgList() {
-    const wrap = document.getElementById('prospect-msg-list');
-    if (!wrap) return;
-
-    const active = msgProspectList.filter(p => p && p.email && p.active !== false);
-
-    if (!active.length) {
-    wrap.innerHTML = '<div style="color:var(--muted);font-style:italic;">No active prospects found.</div>';
-    return;
-    }
-
-    wrap.innerHTML = active.map(p => {
-      const name = escHtml(p.name || '');
-      const email = escHtml(p.email || '');
-      const label = name ? `${name} <span style="color:var(--muted)">(${email})</span>` : email;
-
-      return `
-        <label style="display:flex;align-items:flex-start;gap:10px;padding:6px 4px;border-bottom:1px solid #eee;cursor:pointer;">
-            <input type="checkbox"
-                class="msg-prospect-cb"
-                       value="${email}"
-                             data-name="${name}"
-                       style="margin-top:3px;">
-             <span style="font-size:13px;line-height:1.4;">${label}</span>
-        </label>
-                `;
-            }).join('');
-        }
-
-function toggleAllProspectMsg(on) {
-        document.querySelectorAll('.msg-prospect-cb').forEach(cb => {
-        cb.checked = !!on;
-     });
-}
-
-async function sendBulkProspectMessage() {
-  const subject = document.getElementById('msg-subject-prospect-bulk').value.trim();
-  const body = document.getElementById('msg-body-prospect-bulk').value.trim();
-
-  const active = msgProspectList.filter(p => p && p.email && p.active !== false);
-
-  if (!subject) {
-    document.getElementById('msg-status-prospect').textContent = 'Please enter a subject line.';
-    return;
-  }
-  if (!body) {
-    document.getElementById('msg-status-prospect').textContent = 'Please write a message.';
-    return;
-  }
-  if (!active.length) {
-    document.getElementById('msg-status-prospect').textContent = 'No active prospects to message.';
-    return;
+  // Forward to editor's email
+  const editorEmail = process.env.EDITOR_EMAIL;
+  if (editorEmail) {
+    await sendEmail(
+      editorEmail,
+      `Quiz message from ${msg.playerName}`,
+      `<p><strong>From:</strong> ${msg.playerName}</p>
+       <p><strong>Sent:</strong> ${new Date(msg.createdAt).toLocaleString()}</p>
+       <hr>
+       <p>${msg.text.replace(/\n/g, '<br>')}</p>
+       <hr>
+       <p style="color:#999;font-size:12px;">Baltimore Daily Dispatch Quiz</p>`
+    );
   }
 
-  if (!confirm(`Send this message to all ${active.length} prospects?`)) return;
+  res.json({ ok: true });
+});
 
-  document.getElementById('msg-status-prospect').textContent = `Sending to ${active.length} prospects…`;
+app.get('/api/messages', async (req, res) => {
+  const data = await readData();
+  res.json({ messages: data.messages || [] });
+});
 
-  try {
-    const adminToken = lsGet('dnq_admin_token') || 'admin';
-    const res = await fetch('/api/admin/message/bulk', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-admin-token': adminToken
-      },
-      body: JSON.stringify({
-        subject,
-        body,
-        audience: 'prospects'
-      })
-    });
-
-    const json = await res.json();
-
-    if (!res.ok) {
-      document.getElementById('msg-status-prospect').textContent = json.error || 'Send failed.';
-      return;
-    }
-
-    document.getElementById('msg-status-prospect').textContent =
-      `Sent ${json.sent || 0} prospect emails${json.failed ? ` (${json.failed} failed)` : ''}.`;
-  } catch (e) {
-    document.getElementById('msg-status-prospect').textContent = 'Send failed.';
-  }
-}
-
-async function sendBulkMessage() {
-  const subject = document.getElementById('msg-subject-bulk').value.trim();
-  const body    = document.getElementById('msg-body-bulk').value.trim();
-  if (!subject) { showMsgStatus('Please enter a subject line.', false); return; }
-  if (!body)    { showMsgStatus('Please write a message.', false); return; }
-  if (!msgSubscriberList.length) { showMsgStatus('No active subscribers to message.', false); return; }
-  if (!confirm('Send this message to all ' + msgSubscriberList.length + ' active subscribers?')) return;
-  showMsgStatus('Sending to ' + msgSubscriberList.length + ' subscribers…', true);
-  try {
-    const adminToken = lsGet('dnq_admin_token') || 'admin';
-    const res = await fetch('/api/admin/message/bulk', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
-      body: JSON.stringify({ subject, body })
-    });
-    const json = await res.json();
-    if (json.ok) {
-      showMsgStatus('✓ ' + json.message, true);
-      document.getElementById('msg-subject-bulk').value = '';
-      document.getElementById('msg-body-bulk').value = '';
-    } else {
-      showMsgStatus('✗ ' + (json.error || 'Send failed'), false);
-    }
-  } catch(e) {
-    showMsgStatus('✗ Error: ' + e.message, false);
-  }
-}
-
-async function sendSelectedProspectMessage() {
-  const subject = document.getElementById('msg-subject-prospect-select').value.trim();
-  const body = document.getElementById('msg-body-prospect-select').value.trim();
-
-  const recipients = Array.from(document.querySelectorAll('.msg-prospect-cb:checked'))
-    .map(cb => ({
-      email: cb.value,
-      name: cb.getAttribute('data-name') || ''
-    }))
-    .filter(r => r.email);
-
-  if (!subject) {
-    document.getElementById('msg-status-prospect').textContent = 'Please enter a subject line.';
-    return;
-  }
-  if (!body) {
-    document.getElementById('msg-status-prospect').textContent = 'Please write a message.';
-    return;
-  }
-  if (!recipients.length) {
-    document.getElementById('msg-status-prospect').textContent = 'Please select at least one prospect.';
-    return;
-  }
-
-  if (!confirm(`Send this message to ${recipients.length} selected prospect${recipients.length === 1 ? '' : 's'}?`)) return;
-
-  document.getElementById('msg-status-prospect').textContent =
-    `Sending to ${recipients.length} selected prospects…`;
-
-  try {
-    const adminToken = lsGet('dnq_admin_token') || 'admin';
-    const res = await fetch('/api/admin/message/bulk', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-admin-token': adminToken
-      },
-      body: JSON.stringify({
-        subject,
-        body,
-        audience: 'prospects',
-        recipients
-      })
-    });
-
-    const json = await res.json();
-
-    if (!res.ok) {
-      document.getElementById('msg-status-prospect').textContent = json.error || 'Send failed.';
-      return;
-    }
-
-    document.getElementById('msg-status-prospect').textContent =
-      `Sent ${json.sent || 0} prospect emails${json.failed ? ` (${json.failed} failed)` : ''}.`;
-  } catch (e) {
-    document.getElementById('msg-status-prospect').textContent = 'Send failed.';
-  }
-}
-
-</script>
-</body>
-</html>
+app.post('/api/messages/:id/read', async (req, res) => {
+  const data = await readData();
+  const msg = (data.messages || []).find(m => m.id === req.params.id);
+  if (msg) { msg.read = true; await writeData(data); }
+  res.json({ ok: true });
+});
