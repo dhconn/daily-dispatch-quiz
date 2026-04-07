@@ -598,28 +598,20 @@ app.post('/api/progress', async (req, res) => {
     const quiz = data.quizzes && data.quizzes[date];
     if (!quiz) return res.status(404).json({ error: 'Quiz not found' });
 
-    // Recalculate score server-side based on the answers array in progress
+  // Recalculate score server-side from stored per-answer points,
+  // which already include full credit or partial credit as awarded.
   let validatedScore = 0;
-      if (progress.answers) {
-        Object.entries(progress.answers).forEach(([key, choice]) => {
-          const qIdx = parseInt(key.replace('q', ''));
-          const question = quiz.questions[qIdx];
-        
-          // Handle if choice is an object {chosen: X} or just the number X
-          const chosenIndex = (typeof choice === 'object') ? choice.chosen : choice;
 
-          if (question && chosenIndex === question.correctIndex) {
-            // Use the points from the quiz (e.g., 10, 20, 50)
-            validatedScore += (question.points || 10);
-          }
-        });
-      }
+  if (progress.answers && typeof progress.answers === 'object') {
+    Object.values(progress.answers).forEach(answer => {
+      validatedScore += Number(answer?.pts) || 0;
+    });
+  }
 
-    // Add the 10-point bonus for completing all 6 questions
-    if (progress.completed) {
-      validatedScore += 10;
-    }
-
+  // Add the 10-point completion bonus only when completed
+  if (progress.completed) {
+    validatedScore += 10;
+  }
     const allProgress = (await getKey('progress')) || {};
     if (!allProgress[date]) allProgress[date] = {};
 
