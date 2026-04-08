@@ -1813,6 +1813,19 @@ app.delete('/api/posts/:id', async (req, res) => {
   res.json({ ok: true });
 });
 
+app.patch('/api/posts/:id', async (req, res) => {
+  const { text } = req.body;
+  if (!text || !text.trim()) return res.status(400).json({ error: 'Text required.' });
+  if (text.length > 500) return res.status(400).json({ error: 'Message too long.' });
+  const data = await readData();
+  const post = (data.posts || []).find(p => p.id === req.params.id);
+  if (!post) return res.status(404).json({ error: 'Post not found.' });
+  post.text = text.trim();
+  post.editedAt = new Date().toISOString();
+  await writeData(data);
+  res.json({ ok: true });
+});
+
 // ── Contact the Editor ────────────────────────────────────────
 // Messages stored as data.messages = [{ id, playerName, text, createdAt, read }]
 
