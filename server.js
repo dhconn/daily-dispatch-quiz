@@ -8,6 +8,7 @@ const app = express();
 const PORT = process.env.PORT || 8080;
 
 app.use(express.json({ limit: '2mb' }));
+app.use('/images', express.static(path.join(__dirname, 'public', 'images')));
 app.use(express.static(path.dirname(__filename), {
   setHeaders: (res, filePath) => {
     if (filePath.endsWith('.html')) {
