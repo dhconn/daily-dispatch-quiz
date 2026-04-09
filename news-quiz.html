@@ -6515,7 +6515,7 @@ function insertImageTag(textareaId) {
       return;
     }
 
-    const imgTag = `<img src="${cleanedUrl}" alt="" style="max-width:100%;height:auto;display:block;margin:16px auto;border:0;">`;
+    const imgTag = `<img src="${cleanedUrl}" alt="" width="520" style="width:100%;max-width:520px;height:auto;display:block;margin:16px auto;border:0;">`;
     const ta = document.getElementById(textareaId);
     if (!ta) return;
 
