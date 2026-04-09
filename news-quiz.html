@@ -6506,26 +6506,27 @@ let msgSubscriberList = [];
 let msgProspectList = [];
 
 function insertImageTag(textareaId) {
-  const url = prompt('Paste the image URL (e.g., https://dailydispatchquiz.com/images/your-file.png)');
-  if (!url) return;
+    const url = prompt('Paste the image URL (e.g., https://dailydispatchquiz.com/images/your-file.png)');
+    if (!url) return;
 
-  const cleanedUrl = url.trim();
-  if (!/^https?:\/\//i.test(cleanedUrl)) {
-    alert('Please enter a full URL starting with https://');
-    return;
-  }
+    const cleanedUrl = url.trim();
+    if (!/^https?:\/\//i.test(cleanedUrl)) {
+      alert('Please enter a full URL starting with https://');
+      return;
+    }
 
-  const imgTag = `<img src="${cleanedUrl}" alt="" style="max-width:100%;height:auto;display:block;margin:16px auto;border:0;">`;
-  const ta = document.getElementById(textareaId);
-  if (!ta) return;
+    const imgTag = `<img src="${cleanedUrl}" alt="" style="max-width:100%;height:auto;display:block;margin:16px auto;border:0;">`;
+    const ta = document.getElementById(textareaId);
+    if (!ta) return;
 
-  const start = ta.selectionStart || 0;
-  const end = ta.selectionEnd || 0;
-  const before = ta.value.slice(0, start);
-  const after = ta.value.slice(end);
+    const start = ta.selectionStart || 0;
+    const end = ta.selectionEnd || 0;
+    const before = ta.value.slice(0, start);
+    const after = ta.value.slice(end);
 
-  ta.value = before + '\n\n' + imgTag + '\n\n' + after;
-  ta.focus();
+    ta.value = before + '\n\n' + imgTag + '\n\n' + after;
+    ta.focus();
+ }
 }
 async function loadMsgSubscribers() {
   try {
