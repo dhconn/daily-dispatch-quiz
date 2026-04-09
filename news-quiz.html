@@ -1883,7 +1883,13 @@
             <div style="margin-bottom:12px;">
               <div style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:6px;">MESSAGE</div>
               <textarea id="msg-body-select" placeholder="Write your message here…" style="width:100%;font-family:monospace;font-size:13px;padding:8px 10px;border:1px solid var(--rule);background:white;color:var(--ink);outline:none;min-height:120px;resize:vertical;box-sizing:border-box;"></textarea>
-            </div>
+
+            <div style="margin-top:6px;">
+                <button type="button" onclick="insertImageTag('msg-body-select')" style="font-family:monospace;font-size:10px;letter-spacing:1px;padding:4px 10px;border:1px solid var(--muted);background:none;color:var(--muted);cursor:pointer;">
+                  INSERT IMAGE
+                </button>
+            </div>            
+     	  </div>
             <button class="btn-secondary" onclick="sendSelectedMessage()" style="font-size:11px;letter-spacing:1px;">SEND TO SELECTED ▸</button>
           </div>
           <div id="msg-panel-bulk" style="display:none;">
@@ -1894,8 +1900,14 @@
             </div>
             <div style="margin-bottom:12px;">
               <div style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:6px;">MESSAGE</div>
-              <textarea id="msg-body-bulk" placeholder="Write your message here…" style="width:100%;font-family:monospace;font-size:13px;padding:8px 10px;border:1px solid var(--rule);background:white;color:var(--ink);outline:none;min-height:120px;resize:vertical;box-sizing:border-box;"></textarea>
-            </div>
+            <textarea id="msg-body-bulk" placeholder="Write your message here…" style="width:100%;font-family:monospace;font-size:13px;padding:8px 10px;border:1px solid var(--rule);background:white;color:var(--ink);outline:none;min-height:120px;resize:vertical;box-sizing:border-box;"></textarea>
+
+            <div style="margin-top:6px;">
+              <button type="button" onclick="insertImageTag('msg-body-bulk')" style="font-family:monospace;font-size:10px;letter-spacing:1px;padding:4px 10px;border:1px solid var(--muted);background:none;color:var(--muted);cursor:pointer;">
+                INSERT IMAGE
+              </button>
+          </div>            
+	</div>
             <button class="btn-secondary" onclick="sendBulkMessage()" style="font-size:11px;letter-spacing:1px;">SEND TO ALL SUBSCRIBERS ▸</button>
           </div>
           <div id="msg-status" style="display:none;margin-top:12px;font-family:monospace;font-size:12px;padding:8px 12px;"></div>
@@ -1918,7 +1930,13 @@
               style="width:100%;padding:10px;border:1px solid var(--rule);margin-bottom:8px;font-family:inherit;font-size:14px;">
 
             <textarea id="msg-body-prospect-bulk" placeholder="Write your message..."
-              style="width:100%;min-height:120px;padding:10px;border:1px solid var(--rule);font-family:inherit;font-size:14px;"></textarea>
+  style="width:100%;min-height:120px;padding:10px;border:1px solid var(--rule);font-family:inherit;font-size:14px;"></textarea>
+
+            <div style="margin-top:6px;">
+              <button type="button" onclick="insertImageTag('msg-body-prospect-bulk')" style="font-family:monospace;font-size:10px;letter-spacing:1px;padding:4px 10px;border:1px solid var(--muted);background:none;color:var(--muted);cursor:pointer;">
+                INSERT IMAGE
+              </button>
+            </div>
 
             <div style="margin-top:8px;">
               <button class="btn-primary" onclick="sendBulkProspectMessage()">Send to All Prospects</button>
@@ -1934,8 +1952,14 @@
             <input id="msg-subject-prospect-select" type="text" placeholder="Subject line"
               style="width:100%;padding:10px;border:1px solid var(--rule);margin-bottom:8px;font-family:inherit;font-size:14px;">
 
-            <textarea id="msg-body-prospect-select" placeholder="Write your message..."
-              style="width:100%;min-height:120px;padding:10px;border:1px solid var(--rule);font-family:inherit;font-size:14px;"></textarea>
+          <textarea id="msg-body-prospect-select" placeholder="Write your message..."
+  style="width:100%;min-height:120px;padding:10px;border:1px solid var(--rule);font-family:inherit;font-size:14px;"></textarea>
+
+          <div style="margin-top:6px;">
+            <button type="button" onclick="insertImageTag('msg-body-prospect-select')" style="font-family:monospace;font-size:10px;letter-spacing:1px;padding:4px 10px;border:1px solid var(--muted);background:none;color:var(--muted);cursor:pointer;">
+              INSERT IMAGE
+            </button>
+          </div>
 
             <div id="prospect-msg-list"
               style="margin-top:12px;max-height:220px;overflow-y:auto;border:1px solid var(--rule);padding:8px;background:white;">
@@ -6481,6 +6505,28 @@ document.addEventListener('keydown', e => {
 let msgSubscriberList = [];
 let msgProspectList = [];
 
+function insertImageTag(textareaId) {
+  const url = prompt('Paste the image URL (e.g., https://dailydispatchquiz.com/images/your-file.png)');
+  if (!url) return;
+
+  const cleanedUrl = url.trim();
+  if (!/^https?:\/\//i.test(cleanedUrl)) {
+    alert('Please enter a full URL starting with https://');
+    return;
+  }
+
+  const imgTag = `<img src="${cleanedUrl}" alt="" style="max-width:100%;height:auto;display:block;margin:16px auto;border:0;">`;
+  const ta = document.getElementById(textareaId);
+  if (!ta) return;
+
+  const start = ta.selectionStart || 0;
+  const end = ta.selectionEnd || 0;
+  const before = ta.value.slice(0, start);
+  const after = ta.value.slice(end);
+
+  ta.value = before + '\n\n' + imgTag + '\n\n' + after;
+  ta.focus();
+}
 async function loadMsgSubscribers() {
   try {
     const res = await fetch('/api/subscribers');
