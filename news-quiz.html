@@ -6006,13 +6006,24 @@ async function deletePlayer(playerKey) {
   }
 }
 
+let adminStatsDate = todayStr();
+
+function adminStatsNav(offset) {
+  const d = new Date(adminStatsDate + 'T12:00:00');
+  d.setDate(d.getDate() + offset);
+  const next = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  if (next > todayStr()) return;
+  adminStatsDate = next;
+  loadAdminStats();
+}
+
 async function loadAdminStats() {
   const el = document.getElementById('admin-stats');
   const labelEl = document.getElementById('stats-date-label');
   if (!el) return;
 
-  const today = todayStr();
-  if (labelEl) labelEl.textContent = today;
+  const today = adminStatsDate;
+    if (labelEl) labelEl.innerHTML = `<button onclick="adminStatsNav(-1)" style="font-size:0.85em;margin-right:6px;">&#8592;</button>${today}<button onclick="adminStatsNav(1)" style="font-size:0.85em;margin-left:6px;${today >= todayStr() ? 'visibility:hidden' : ''}">&#8594;</button>`;
 
   try {
     // Canonical truth: unique player/day progress records
