@@ -6527,7 +6527,7 @@ function insertImageTag(textareaId) {
     ta.value = before + '\n\n' + imgTag + '\n\n' + after;
     ta.focus();
  }
-}
+
 async function loadMsgSubscribers() {
   try {
     const res = await fetch('/api/subscribers');
