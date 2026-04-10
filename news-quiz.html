@@ -2368,7 +2368,11 @@ function lsGet(key) {
   try { return JSON.parse(localStorage.getItem(key)); } catch(e) { return null; }
 }
 function lsSet(key, val) {
-  try { localStorage.setItem(key, JSON.stringify(val)); } catch(e) {}
+  try {
+      localStorage.setItem(key, JSON.stringify(val));
+    } catch(e) {
+      console.error('[localStorage write failed]', key, e);
+  }
 }
 
 // ─── Players ───
@@ -5505,6 +5509,7 @@ function validateQuestions(questions) {
 }
 
 async function publishQuestions() {
+  console.log('[Publish] draft at click:', getDraftQuiz());
   const draft = getDraftQuiz();
   if (!draft || !draft.questions) { setStatus('No draft to publish.', 'error'); return; }
 
