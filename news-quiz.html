@@ -1816,6 +1816,16 @@
       </div>
     </div>
 
+    <div class="admin-section" style="margin-top:20px;" id="anc-prospects">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
+        <h3 style="margin:0;">Prospect List</h3>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div id="prospect-pause-status" style="font-family:monospace;font-size:12px;"></div>
+          <button id="prospect-pause-btn" onclick="toggleProspectPause()" style="font-family:monospace;font-size:11px;padding:5px 14px;cursor:pointer;border-radius:2px;border:1px solid var(--red);color:var(--red);background:none;">Pause Prospect Emails</button>
+        </div>
+      </div>
+      </div>
+
     <div class="admin-collapsible" style="margin-top:20px;" id="anc-quiz-archive">
       <details>
         <summary>
@@ -2148,7 +2158,69 @@ async function clearAllProspects() {
     loadProspects();
   } catch(e) { alert('Clear failed: ' + e.message); }
 }
-</script><script>
+
+// ── Prospects ─────────────────────────────────────────────────
+
+async function loadProspectPauseState() {
+  try {
+    const res = await fetch('/api/prospect-pause');
+    const data = await res.json();
+    updateProspectPauseUI(data.paused);
+  } catch(e) {
+    const el = document.getElementById('prospect-pause-status');
+    if (el) el.textContent = 'Could not load status.';
+  }
+}
+
+function updateProspectPauseUI(paused) {
+  const status = document.getElementById('prospect-pause-status');
+  const btn = document.getElementById('prospect-pause-btn');
+  if (!status || !btn) return;
+  btn.dataset.paused = paused ? 'true' : 'false';
+  if (paused) {
+    status.innerHTML = '⏸ <strong style="color:var(--red);">Prospects paused</strong>';
+    btn.textContent = '▶ Resume Prospect Emails';
+    btn.style.borderColor = 'var(--green)';
+    btn.style.color = 'var(--green)';
+  } else {
+    status.innerHTML = '✓ <strong style="color:var(--green);">Prospects active</strong>';
+    btn.textContent = '⏸ Pause Prospect Emails';
+    btn.style.borderColor = 'var(--red)';
+    btn.style.color = 'var(--red)';
+  }
+}
+
+async function toggleProspectPause() {
+  const btn = document.getElementById('prospect-pause-btn');
+  const currentlyPaused = btn.dataset.paused === 'true';
+  try {
+    const adminToken = lsGet('dnq_admin_token') || 'admin';
+    const res = await fetch('/api/prospect-pause', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+      body: JSON.stringify({ paused: !currentlyPaused })
+    });
+    const data = await res.json();
+    if (data.ok) { loadProspectPauseState(); }
+  } catch(e) {
+    alert('Failed to update prospect pause state: ' + e.message);
+  }
+}
+
+async function loadProspects() {
+  // Always check the pause status when loading prospects
+  loadProspectPauseState(); 
+
+  try {
+    const adminToken = lsGet('dnq_admin_token') || 'admin';
+    const res = await fetch('/api/prospects', {
+      headers: { 'x-admin-token': adminToken }
+    });
+    // ... rest of your existing loadProspects function
+
+</script>
+<script>
+
 // ═══════════════════════════════════════════════════════
 //  CONFIGURATION
 // ═══════════════════════════════════════════════════════
@@ -5526,9 +5598,9 @@ async function publishQuestions() {
   saveTodayQuiz(draft);
   addToArchive(draft.questions);
 
-  // Save to server — wait for confirmation before clearing draft
+// Save to server — wait for confirmation before clearing draft
   try {
-    /* const archiveRes = await fetch('/api/archive', {
+    const archiveRes = await fetch('/api/archive', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -5536,32 +5608,31 @@ async function publishQuestions() {
           questions: draft.questions.map(q => q.question),
           slugs: draft.questions.map(q => extractTopicSlug(q.question)).filter(Boolean)
       })
-  });
-  */
+    });
     const archiveData = await archiveRes.json();
-    if (!archiveRes.ok || !archiveData.ok) {
-        throw new Error('Archive save failed');
-    }
+
     const saveRes = await fetch('/api/quiz', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ date: todayStr(), quiz: draft, silent: false })
     });
-
     const saveData = await saveRes.json();
-    if (!saveData.ok) throw new Error('Server returned not-ok');
+
+    if (!archiveData.ok || !saveData.ok) {
+        throw new Error('Server returned not-ok');
+    }
 
     // Only clear draft AFTER server confirms success
     clearDraftQuiz();
     clearAllLocks();
     setStatus('✓ Quiz published for ' + todayStr() + ' and saved to server! Players can now play.', 'success');    
+
   } catch(e) {
     setStatus('⚠ Quiz saved locally but FAILED to save to server (' + e.message + '). Draft preserved — try publishing again.', 'error');
     console.error('Server save failed:', e);
   }
-  // Keep the preview visible so you can refer back to what was published
-  refreshAdminPreviews();
-}
+
+//FIXME AFTER TEST: Delete the four lines under  --- FAKE DATA FOR TESTING ---.  Remove the /* at the start and the */ after the saveData line.   Restore the setStatus line to the original message if you want the "Players can now play" text back. 
 
 async function previewEmail() {
   const panel = document.getElementById('email-preview-panel');
@@ -5994,6 +6065,52 @@ async function toggleEmailPause() {
     if (data.ok) { loadEmailPauseState(); loadSubscribers(); }
   } catch(e) {
     alert('Failed to update email pause state: ' + e.message);
+  }
+}
+
+async function loadProspectPauseState() {
+  try {
+    const res = await fetch('/api/prospect-pause'); // New endpoint
+    const data = await res.json();
+    updateProspectPauseUI(data.paused);
+  } catch(e) {
+    const el = document.getElementById('prospect-pause-status');
+    if (el) el.textContent = 'Could not load status.';
+  }
+}
+
+function updateProspectPauseUI(paused) {
+  const status = document.getElementById('prospect-pause-status');
+  const btn = document.getElementById('prospect-pause-btn');
+  if (!status || !btn) return;
+  btn.dataset.paused = paused ? 'true' : 'false';
+  if (paused) {
+    status.innerHTML = '⏸ <strong style="color:var(--red);">Prospect Emails paused</strong>';
+    btn.textContent = '▶ Resume Prospect Emails';
+    btn.style.borderColor = 'var(--green)';
+    btn.style.color = 'var(--green)';
+  } else {
+    status.innerHTML = '✓ <strong style="color:var(--green);">Prospect Emails active</strong>';
+    btn.textContent = '⏸ Pause Prospect Emails';
+    btn.style.borderColor = 'var(--red)';
+    btn.style.color = 'var(--red)';
+  }
+}
+
+async function toggleProspectPause() {
+  const btn = document.getElementById('prospect-pause-btn');
+  const currentlyPaused = btn.dataset.paused === 'true';
+  try {
+    const adminToken = lsGet('dnq_admin_token') || 'admin';
+    const res = await fetch('/api/prospect-pause', { // New endpoint
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+      body: JSON.stringify({ paused: !currentlyPaused })
+    });
+    const data = await res.json();
+    if (data.ok) { loadProspectPauseState(); }
+  } catch(e) {
+    alert('Failed to update prospect pause state: ' + e.message);
   }
 }
 
