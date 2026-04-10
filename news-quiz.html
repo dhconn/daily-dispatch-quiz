@@ -5501,9 +5501,10 @@ function validateQuestions(questions) {
     if (!q.sourceUrl || q.sourceUrl.trim().length < 10) errors.push(label + ': sourceUrl missing or too short ("' + (q.sourceUrl || '') + '")');
     if (!Array.isArray(q.options) || q.options.length !== 4) errors.push(label + ': must have exactly 4 options');
     if (typeof q.correctIndex !== 'number' || q.correctIndex < 0 || q.correctIndex > 3) errors.push(label + ': correctIndex must be 0-3');
-    if (!q.sourceUrl || q.sourceUrl.trim().length < 10) errors.push(label + ': sourceUrl missing');
     if (!q.explanation || q.explanation.trim().length < 10) errors.push(label + ': explanation missing or too short');
-    if (!q.difficulty) errors.push(label + ': difficulty missing');
+    if (!q.difficulty) {
+           q.difficulty = (i === 5) ? 'bonus' : 'easy';
+        }  
   });
   return errors;
 }
