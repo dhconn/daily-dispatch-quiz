@@ -2161,54 +2161,6 @@ async function clearAllProspects() {
   } catch(e) { alert('Clear failed: ' + e.message); }
 }
 
-// ── Prospects ─────────────────────────────────────────────────
-
-async function loadProspectPauseState() {
-  try {
-    const res = await fetch('/api/prospect-pause');
-    const data = await res.json();
-    updateProspectPauseUI(data.paused);
-  } catch(e) {
-    const el = document.getElementById('prospect-pause-status');
-    if (el) el.textContent = 'Could not load status.';
-  }
-}
-
-function updateProspectPauseUI(paused) {
-  const status = document.getElementById('prospect-pause-status');
-  const btn = document.getElementById('prospect-pause-btn');
-  if (!status || !btn) return;
-  btn.dataset.paused = paused ? 'true' : 'false';
-  if (paused) {
-    status.innerHTML = '⏸ <strong style="color:var(--red);">Prospects paused</strong>';
-    btn.textContent = '▶ Resume Prospect Emails';
-    btn.style.borderColor = 'var(--green)';
-    btn.style.color = 'var(--green)';
-  } else {
-    status.innerHTML = '✓ <strong style="color:var(--green);">Prospects active</strong>';
-    btn.textContent = '⏸ Pause Prospect Emails';
-    btn.style.borderColor = 'var(--red)';
-    btn.style.color = 'var(--red)';
-  }
-}
-
-async function toggleProspectPause() {
-  const btn = document.getElementById('prospect-pause-btn');
-  const currentlyPaused = btn.dataset.paused === 'true';
-  try {
-    const adminToken = lsGet('dnq_admin_token') || 'admin';
-    const res = await fetch('/api/prospect-pause', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
-      body: JSON.stringify({ paused: !currentlyPaused })
-    });
-    const data = await res.json();
-    if (data.ok) { loadProspectPauseState(); }
-  } catch(e) {
-    alert('Failed to update prospect pause state: ' + e.message);
-  }
-}
-
 </script>
 <script>
 
