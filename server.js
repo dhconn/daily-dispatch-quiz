@@ -1629,6 +1629,24 @@ app.post('/api/prospects', async (req, res) => {
   res.json({ ok: true, added, existing });
 });
 
+app.get('/api/prospect-pause', async (req, res) => {
+  const data = await readData();
+  res.json({ paused: !!data.prospectsPaused });
+});
+
+app.post('/api/prospect-pause', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  const { paused } = req.body;
+  const data = await readData();
+  data.prospectsPaused = !!paused;
+  await writeData(data);
+  res.json({ ok: true, paused: data.prospectsPaused });
+});
+
 app.delete('/api/prospects/:email', async (req, res) => {
   const adminToken = process.env.ADMIN_TOKEN || 'admin';
   if (req.headers['x-admin-token'] !== adminToken) {
