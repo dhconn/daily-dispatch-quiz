@@ -5631,6 +5631,7 @@ async function publishQuestions() {
     setStatus('⚠ Quiz saved locally but FAILED to save to server (' + e.message + '). Draft preserved — try publishing again.', 'error');
     console.error('Server save failed:', e);
   }
+}
 
 //FIXME AFTER TEST: Delete the four lines under  --- FAKE DATA FOR TESTING ---.  Remove the /* at the start and the */ after the saveData line.   Restore the setStatus line to the original message if you want the "Players can now play" text back. 
 
@@ -5698,7 +5699,6 @@ async function saveTeasers() {
     statusEl.textContent = 'Error: ' + e.message;
   }
 }
-
 
 async function emergencySave() {
   const cards = document.querySelectorAll('#q-preview-list .q-review-card');
