@@ -6207,29 +6207,19 @@ async function loadAdminStats() {
       </tr>`;
     }
 
-    // Per-player question grid (today + yesterday) from canonical progress
-    let playerGridHtml = '';
-    const yd = new Date();
-    yd.setDate(yd.getDate() - 1);
-    const yesterday = `${yd.getFullYear()}-${String(yd.getMonth() + 1).padStart(2, '0')}-${String(yd.getDate()).padStart(2, '0')}`;
-
-    let yesterdayProgress = {};
-    try {
-      const ydRes = await fetch('/api/progress?date=' + yesterday);
-      if (ydRes.ok) yesterdayProgress = await ydRes.json();
-    } catch (e) {}
+    // Per-player question grid from canonical progress
+        let playerGridHtml = '';
 
     // Fetch today's quiz for answer text lookup
     let todayQuiz = null;
     try {
-      const quizRes = await fetch('/api/quiz?date=' + today);
-      const quizData = await quizRes.json();
-      todayQuiz = quizData.quiz || null;
+          const quizRes = await fetch('/api/quiz?date=' + today);
+          const quizData = await quizRes.json();
+          todayQuiz = quizData.quiz || null;
     } catch(e) {}
 
     const gridData = [
-      [today, filteredProgress || {}],
-      [yesterday, yesterdayProgress || {}]
+      [today, filteredProgress || {}]
     ];
 
     gridData.forEach(([dateLabel, progObj]) => {
