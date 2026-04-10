@@ -2042,8 +2042,10 @@
 
 <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script>
 <script>
+
 // ── Prospects ─────────────────────────────────────────────────
 async function loadProspects() {
+  loadProspectPauseState();
   try {
     const adminToken = lsGet('dnq_admin_token') || 'admin';
     const res = await fetch('/api/prospects', {
@@ -2206,17 +2208,6 @@ async function toggleProspectPause() {
     alert('Failed to update prospect pause state: ' + e.message);
   }
 }
-
-async function loadProspects() {
-  // Always check the pause status when loading prospects
-  loadProspectPauseState(); 
-
-  try {
-    const adminToken = lsGet('dnq_admin_token') || 'admin';
-    const res = await fetch('/api/prospects', {
-      headers: { 'x-admin-token': adminToken }
-    });
-    // ... rest of your existing loadProspects function
 
 </script>
 <script>
