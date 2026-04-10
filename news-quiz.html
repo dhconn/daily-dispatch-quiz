@@ -5528,7 +5528,7 @@ async function publishQuestions() {
 
   // Save to server — wait for confirmation before clearing draft
   try {
-    const archiveRes = await fetch('/api/archive', {
+    /* const archiveRes = await fetch('/api/archive', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -5537,7 +5537,7 @@ async function publishQuestions() {
           slugs: draft.questions.map(q => extractTopicSlug(q.question)).filter(Boolean)
       })
   });
-
+  */
     const archiveData = await archiveRes.json();
     if (!archiveRes.ok || !archiveData.ok) {
         throw new Error('Archive save failed');
