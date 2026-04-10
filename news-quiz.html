@@ -5494,7 +5494,7 @@ function validateQuestions(questions) {
   }
   (questions || []).forEach((q, i) => {
     const label = 'Q' + (i+1);
-    if (!q.question || q.question.trim().length < 10) errors.push(label + ': question text missing or too short');
+    if (!q.sourceUrl || q.sourceUrl.trim().length < 10) errors.push(label + ': sourceUrl missing or too short ("' + (q.sourceUrl || '') + '")');
     if (!Array.isArray(q.options) || q.options.length !== 4) errors.push(label + ': must have exactly 4 options');
     if (typeof q.correctIndex !== 'number' || q.correctIndex < 0 || q.correctIndex > 3) errors.push(label + ': correctIndex must be 0-3');
     if (!q.sourceUrl || q.sourceUrl.trim().length < 10) errors.push(label + ': sourceUrl missing');
@@ -5539,7 +5539,7 @@ async function publishQuestions() {
     const saveRes = await fetch('/api/quiz', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ date: todayStr(), quiz: draft })
+      body: JSON.stringify({ date: todayStr(), quiz: draft, silent: false })
     });
 
     const saveData = await saveRes.json();
@@ -5647,7 +5647,7 @@ async function emergencySave() {
     const res = await fetch('/api/quiz', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ date: key, quiz, silent: true })
+      body: JSON.stringify({ date: key, quiz, silent: false })
     });
     const data = await res.json();
     if (data.ok) {
