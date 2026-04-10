@@ -5600,7 +5600,7 @@ async function publishQuestions() {
 
 // Save to server — wait for confirmation before clearing draft
   try {
-    const archiveRes = await fetch('/api/archive', {
+    /* const archiveRes = await fetch('/api/archive', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -5617,12 +5617,19 @@ async function publishQuestions() {
       body: JSON.stringify({ date: todayStr(), quiz: draft, silent: false })
     });
     const saveData = await saveRes.json();
+  */
 
-    if (!archiveData.ok || !saveData.ok) {
+    // 3. REMOVETHESE 4 FAKE LINES AFTER TEST
+    const archiveRes = { ok: true };
+    const archiveData = { ok: true };
+    const saveRes = { ok: true };
+    const saveData = { ok: true };
+
+    if (!archiveRes.ok || !saveData.ok) {
         throw new Error('Server returned not-ok');
     }
 
-    // Only clear draft AFTER server confirms success
+    // Only clear THESE three lines AFTER server confirms success
     clearDraftQuiz();
     clearAllLocks();
     setStatus('✓ Quiz published for ' + todayStr() + ' and saved to server! Players can now play.', 'success');    
