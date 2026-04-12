@@ -596,6 +596,14 @@ app.post('/api/progress', async (req, res) => {
 
   try {
     const data = await readData();
+
+    console.log('[progress] incoming', {
+      playerName,
+      date,
+      hasProgress: !!progress,
+      hasQuiz: !!(data.quizzes && data.quizzes[date])
+    });
+
     const quiz = data.quizzes && data.quizzes[date];
     if (!quiz) return res.status(404).json({ error: 'Quiz not found' });
 
@@ -632,6 +640,15 @@ app.post('/api/progress', async (req, res) => {
     cutoffDate.setDate(cutoffDate.getDate() - 2);
     Object.keys(allProgress).forEach(d => {
       if (new Date(d + 'T12:00:00') < cutoffDate) delete allProgress[d];
+    });
+
+    console.log('[progress] saving', {
+      key,
+      date,
+      validatedScore,
+      completed: progress.completed,
+      currentQ: progress.currentQ,
+      answerCount: Object.keys(progress.answers || {}).length
     });
 
     await setKey('progress', allProgress);
