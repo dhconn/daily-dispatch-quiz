@@ -2091,7 +2091,10 @@ async function loadProspects() {
           </tr>`).join('')}
       </table>`;
 
-    // 5. Update both locations if they are on the screen
+      // 5. Update both locations if they are on the screen
+    const listEl = document.getElementById('prospects-list');
+    const listElBulk = document.getElementById('prospects-list-bulk');
+
     if (listEl) listEl.innerHTML = tableHtml;
     if (listElBulk) listElBulk.innerHTML = tableHtml;
 
@@ -6476,6 +6479,7 @@ function switchMsgTab(tab) {
     s.style.display='block'; b.style.display='none';
     ts.style.background='var(--ink)'; ts.style.color='var(--paper)';
     tb.style.background='var(--paper)'; tb.style.color='var(--muted)';
+    loadProspects();
   } else {
     s.style.display='none'; b.style.display='block';
     tb.style.background='var(--ink)'; tb.style.color='var(--paper)';
