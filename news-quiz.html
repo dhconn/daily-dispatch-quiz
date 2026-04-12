@@ -5525,65 +5525,72 @@ function validateQuestions(questions) {
 }
 
 async function publishQuestions() {
-  console.log('[Publish] draft at click:', getDraftQuiz());
-  const draft = getDraftQuiz();
-  if (!draft || !draft.questions) { setStatus('No draft to publish.', 'error'); return; }
+    const draft = getDraftQuiz();
+      if (!draft || !draft.questions) { 
+        setStatus('No draft to publish.', 'error'); 
+        return; 
+      }
 
-  // Validate before publishing
-  const validationErrors = validateQuestions(draft.questions);
-  if (validationErrors.length > 0) {
-    setStatus('Cannot publish — quiz has errors: ' + validationErrors.join(' | '), 'error');
-    console.error('[Publish] Validation failed:', validationErrors);
-    return;
-  }
+      // 1. Validate
+      const validationErrors = validateQuestions(draft.questions);
+      if (validationErrors.length > 0) {
+        setStatus('Cannot publish — quiz has errors: ' + validationErrors.join(' | '), 'error');
+        return;
+      }
 
-  draft.publishDate = todayStr();
-  saveTodayQuiz(draft);
-  addToArchive(draft.questions);
+      // 2. Prepare data
+      draft.publishDate = todayStr();
+      const adminToken = lsGet('dnq_admin_token') || 'admin';
 
-// Save to server — wait for confirmation before clearing draft
-  try {
-    /* const archiveRes = await fetch('/api/archive', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          urls: draft.questions.map(q => q.sourceUrl).filter(Boolean),
-          questions: draft.questions.map(q => q.question),
-          slugs: draft.questions.map(q => extractTopicSlug(q.question)).filter(Boolean)
-      })
-    });
-    const archiveData = await archiveRes.json();
+      try {
+        // 3. Save to Archive
+        const archiveRes = await fetch('/api/archive', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'x-admin-token': adminToken 
+          },
+          body: JSON.stringify({
+            urls: draft.questions.map(q => q.sourceUrl).filter(Boolean),
+            questions: draft.questions.map(q => q.question),
+            slugs: draft.questions.map(q => extractTopicSlug(q.question)).filter(Boolean)
+          })
+        });
 
-    const saveRes = await fetch('/api/quiz', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ date: todayStr(), quiz: draft, silent: false })
-    });
-    const saveData = await saveRes.json();
-  */
+        // 4. Save Live Quiz & Trigger Emails
+        // Note: 'silent: false' is what tells the server to send the emails!
+        const saveRes = await fetch('/api/quiz', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'x-admin-token': adminToken 
+          },
+          body: JSON.stringify({ 
+            date: todayStr(), 
+            quiz: draft, 
+            silent: false 
+          })
+        });
 
-    // 3. REMOVETHESE 4 FAKE LINES AFTER TEST
-    const archiveRes = { ok: true };
-    const archiveData = { ok: true };
-    const saveRes = { ok: true };
-    const saveData = { ok: true };
+        const saveData = await saveRes.json();
 
-    if (!archiveRes.ok || !saveData.ok) {
-        throw new Error('Server returned not-ok');
+        if (!saveRes.ok || !saveData.ok) {
+          throw new Error(saveData.error || 'Server rejected the quiz.');
+        }
+
+        // 5. Success Cleanup
+        saveTodayQuiz(draft); // Update local backup
+        addToArchive(draft.questions); // Update local archive
+        clearDraftQuiz(); 
+        clearAllLocks();
+    
+        setStatus('✓ Quiz published for ' + todayStr() + ' and saved to server! Emails are being sent.', 'success');
+
+      } catch(e) {
+        setStatus('⚠ FAILED to save to server (' + e.message + '). Draft preserved — please try again.', 'error');
+        console.error('[Publish] Server error:', e);
+      }
     }
-
-    // Only clear THESE three lines AFTER server confirms success
-    clearDraftQuiz();
-    clearAllLocks();
-    setStatus('✓ Quiz published for ' + todayStr() + ' and saved to server! Players can now play.', 'success');    
-
-  } catch(e) {
-    setStatus('⚠ Quiz saved locally but FAILED to save to server (' + e.message + '). Draft preserved — try publishing again.', 'error');
-    console.error('Server save failed:', e);
-  }
-}
-
-//FIXME AFTER TEST: Delete the four lines under  --- FAKE DATA FOR TESTING ---.  Remove the /* at the start and the */ after the saveData line.   Restore the setStatus line to the original message if you want the "Players can now play" text back. 
 
 async function previewEmail() {
   const panel = document.getElementById('email-preview-panel');
