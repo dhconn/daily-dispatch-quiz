@@ -5873,7 +5873,7 @@ async function toggleProspectPause() {
       body: JSON.stringify({ paused: !currentlyPaused })
     });
     const data = await res.json();
-    if (data.ok) { loadProspectPauseState(); }
+    if (data.ok) { updateProspectPauseUI(data.paused)(); }
   } catch(e) {
     alert('Failed to update prospect pause state: ' + e.message);
   }
