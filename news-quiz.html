@@ -1876,7 +1876,9 @@
               </div>
               <div id="msg-checkbox-list" style="max-height:200px;overflow-y:auto;border:1px solid var(--rule);padding:6px 10px;background:white;font-family:monospace;font-size:12px;"><p style="color:var(--muted);">Loading subscribers…</p></div>
             </div>
-            <div style="margin-bottom:12px;">
+              <div id="prospects-list-bulk" style="margin-top:10px; max-height:200px; overflow-y:auto; border:1px solid var(--rule); padding:6px 10px; background:white;">
+           </div>
+           <div style="margin-bottom:12px;">
               <div style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:6px;">SUBJECT</div>
               <input type="text" id="msg-subject-select" placeholder="e.g. A note from the editor" style="width:100%;font-family:monospace;font-size:13px;padding:8px 10px;border:1px solid var(--rule);background:white;color:var(--ink);outline:none;box-sizing:border-box;" />
             </div>
@@ -5864,20 +5866,23 @@ function updateProspectPauseUI(paused) {
 
 async function toggleProspectPause() {
   const btn = document.getElementById('prospect-pause-btn');
-  const currentlyPaused = btn.dataset.paused === 'true';
-  try {
-    const adminToken = lsGet('dnq_admin_token') || 'admin';
-    const res = await fetch('/api/prospect-pause', { // New endpoint
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
-      body: JSON.stringify({ paused: !currentlyPaused })
-    });
-    const data = await res.json();
-    if (data.ok) { updateProspectPauseUI(data.paused)(); }
-  } catch(e) {
-    alert('Failed to update prospect pause state: ' + e.message);
-  }
-}
+  if (!btn) return;
+     const currentlyPaused = btn.dataset.paused === 'true';
+     try {
+       const adminToken = lsGet('dnq_admin_token') || 'admin';
+       const res = await fetch('/api/prospect-pause', {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+         body: JSON.stringify({ paused: !currentlyPaused })
+       });
+       const data = await res.json();
+       if (data.ok) { 
+         updateProspectPauseUI(data.paused); 
+       }
+     } catch(e) {
+       alert('Failed to update prospect pause state: ' + e.message);
+     }
+   }
 
 async function loadPlayerList() {
   const el = document.getElementById('player-list');
