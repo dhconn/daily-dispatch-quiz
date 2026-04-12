@@ -1666,9 +1666,6 @@
           ⚙ Generate Questions
         </button>
 
-        <button class="btn-generate" id="gen-btn-sandbox" onclick="generateQuestions('sandbox')">
-          🧪 Sandbox Draft
-        </button>
       </div>
       <div id="rss-status" style="font-family:monospace,monospace;font-size:11px;color:var(--muted);margin-top:8px;"></div>
       <div class="status-msg" id="gen-status" style="white-space:pre-wrap;"></div>
@@ -1676,15 +1673,6 @@
         <span class="spinner spin">⚙</span>
         <p id="gen-progress-text">Fetching articles…</p>
       </div>
-
-      <div id="sandbox-story-picker" class="admin-section" style="display:none;">
-          <h3>Sandbox Story Selection</h3>
-            <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">
-                For Sandbox Draft only, select up to 6 stories to use for question generation.
-                If none are selected, sandbox will use the automatic story pool.
-        </div>
-        <div id="sandbox-story-list"></div>
-</div>
 
       <!-- Raw API response debug panel -->
       <div id="raw-debug" style="display:none;margin-top:16px;background:#f0f0f0;border:1px solid #ccc;padding:12px;">
@@ -4143,146 +4131,6 @@ function clearAllLocks() {
 }
 
 function buildPromptSandbox(ctx) {
-  const {
-    storyPacketsText,
-    archiveQuestionList,
-    archiveSlugList,
-    todayKey
-  } = ctx;
-
-  return `
-You are writing a Baltimore local news quiz for ${todayKey}.
-
-Write exactly 6 multiple-choice questions:
-- Q1-Q3 = easy
-- Q4-Q5 = medium
-- Q6 = hard
-
-Use only the supplied local stories.
-
-EDITORIAL PRIORITY:
-Choose stories that feel worth talking about with a friend after reading the news.
-Prefer:
-- major local decisions
-- policy changes
-- public impacts
-- development or redevelopment
-- education, transit, housing, business, courts, government, culture, labor, health, or community change
-- notable actions by important local people or institutions
-- conflicts, reversals, approvals, openings, shutdowns, settlements, appointments, or public controversies
-
-AVOID BORING STORY CHOICES:
-Do not use a story if it is mainly:
-- a routine crash, fire, or isolated incident with no broader significance
-- a routine game result or ordinary sports recap
-- a routine staffing change or resignation unless it has unusual statewide or major local importance
-- a generic event listing or low-stakes feature
-- a story whose only memorable fact is where something happened
-
-CORE RULE:
-Each question must be based on the MAIN TAKEAWAY of the story, not a stray detail.
-
-Good anchors:
-- what changed
-- what decision was made
-- what goal was pursued
-- what outcome occurred
-- what conflict or problem drove the story
-- what notable action a person or institution took
-
-Bad anchors:
-- a minor location detail
-- a colorful quote
-- an exact number that is not the real point
-- a procedural step
-- a fact a normal reader would not remember later
-
-DO NOT ASK ABOUT:
-- what the story "means," "suggests," or "implies"
-- the author's interpretation
-- minor procedural details
-- throwaway quotes
-- a detail a normal reader would not remember
-
-NUMBERS RULE:
-Dollar amounts, percentages, attendance counts, and dates may appear in the story, but should usually NOT be the thing being asked about unless that number is truly the central news.
-
-GOOD EXAMPLE:
-Story: County executive found $9.3 million for schools to avoid larger class sizes.
-Good question: What goal did the county executive pursue in finding extra school funding?
-Bad question: How much money was added?
-
-ARCHIVE RULE:
-Do not repeat or closely paraphrase any blocked, archived, or recently used question.
-If a story topic overlaps with an archived topic, choose a different story.
-
-ONE EVENT RULE:
-Only one question per distinct news event.
-
-DISTRACTOR RULE:
-All four answers must be plausible and in the same category as the correct answer.
-Do not use joke answers.
-Do not make the correct answer noticeably longer or more specific than the others.
-
-STYLE RULE:
-Questions must be concrete and factual.
-Prefer:
-- What did X announce?
-- What change was approved?
-- What goal did X pursue?
-- What problem triggered X?
-- What did officials decide?
-- What will happen next?
-- What is changing for residents?
-- Which project or proposal did X support?
-
-Avoid vague phrasing like:
-- What does this say about...
-- What is the meaning of...
-- What does this imply...
-- What does this suggest...
-
-QUALITY CHECK BEFORE FINALIZING:
-For each candidate question, ask:
-1. Is this about the most interesting or meaningful part of the story?
-2. Would a normal local news reader remember this fact an hour later?
-3. Is this story more quiz-worthy than a routine accident, routine sports result, or ordinary personnel move?
-If any answer is no, choose a better story or rewrite the question.
-
-OUTPUT:
-Return valid JSON only in this format:
-
-{
-  "coreFacts": [
-    "one sentence main takeaway for Q1 source",
-    "one sentence main takeaway for Q2 source",
-    "one sentence main takeaway for Q3 source",
-    "one sentence main takeaway for Q4 source",
-    "one sentence main takeaway for Q5 source",
-    "one sentence main takeaway for Q6 source"
-  ],
-  "questions": [
-    {
-      "question": "text",
-      "options": ["A", "B", "C", "D"],
-      "correctIndex": 0,
-      "explanation": "brief explanation",
-      "sourceUrl": "https://...",
-      "difficulty": "easy"
-    }
-  ]
-}
-
-RECENT QUESTION ARCHIVE:
-${archiveQuestionList || '(none)'}
-
-RECENT TOPIC SLUGS:
-${archiveSlugList || '(none)'}
-
-STORIES:
-${storyPacketsText}
-`.trim();
-}
 
 async function generateQuestions(mode = 'production') {
   const urls = document.getElementById('urls-input').value.trim();
@@ -4295,18 +4143,15 @@ async function generateQuestions(mode = 'production') {
   }
 
   const genBtn = document.getElementById('gen-btn');
-  const sandboxBtn = document.getElementById('gen-btn-sandbox');
 
   if (genBtn) genBtn.disabled = true;
-  if (sandboxBtn) sandboxBtn.disabled = true;
 
   document.getElementById('gen-overlay').classList.add('show');
   document.getElementById('preview-section').style.display = 'none';
   document.getElementById('raw-debug').style.display = 'none';
   setStatus('', '');
 
-  const modeLabel = mode === 'sandbox' ? 'sandbox draft' : 'draft';
-  setStatus(`Generating ${modeLabel}...`, 'success');
+     setStatus(`Generating draft...`, 'success');
 
   // Article URLs = hand-picked specific articles (one-time, not saved)
   // Feed URLs = RSS/site URLs saved in the feeds box
@@ -4521,11 +4366,7 @@ const screenController = new AbortController();
         rssContent = acceptedBlocks.join('\n\n---\n\n');
         console.log(`[PreScreen] RSS content filtered to ${acceptedBlocks.length} articles after dupe removal`);
 
-        const picker = document.getElementById('sandbox-story-picker');
-        const list = document.getElementById('sandbox-story-list');
-
         if (picker && list) {
-          picker.style.display = (mode === 'sandbox') ? 'block' : 'none';
           list.innerHTML = '';
 
           acceptedBlocks.forEach((block, idx) => {
@@ -4616,32 +4457,8 @@ const screenController = new AbortController();
 
   let prompt;
     try {
-      prompt = (mode === 'sandbox')
-        ? (() => {
-            const checked = Array.from(document.querySelectorAll('.sandbox-story-checkbox:checked'))
-              .map(cb => parseInt(cb.value, 10))
-              .filter(i => !isNaN(i));
 
-            let selectedText;
-
-            if (checked.length > 0) {
-              const selectedBlocks = checked
-                .filter(i => i >= 0 && i < sandboxAcceptedBlocks.length)
-                .map(i => sandboxAcceptedBlocks[i]);
-
-              selectedText = selectedBlocks.join('\n\n---\n\n');
-            } else {
-              selectedText = rssContent;
-            }
-
-            return buildPromptSandbox({
-              storyPacketsText: selectedText,
-              archiveQuestionList: allArchiveQuestions.join('\n'),
-              archiveSlugList: allArchiveSlugs.join('\n'),
-              todayKey: todayStr()
-            });
-          })()
-        : buildPromptProduction(urlList, articleUrlList, manualText, archiveNote, rssContent, isFeedMode, allArchiveUrls, allArchiveSlugs);
+    prompt = buildPromptProduction(urlList, articleUrlList, manualText, archiveNote, rssContent, isFeedMode, allArchiveUrls, allArchiveSlugs);
     } catch(err) {
     console.error('[Prompt build failed]', err);
     setStatus('Quiz generation failed while building prompt: ' + err.message, 'error');
@@ -4790,8 +4607,7 @@ const screenController = new AbortController();
     console.error(err);
   } finally {
     if (genBtn) genBtn.disabled = false;
-    if (sandboxBtn) sandboxBtn.disabled = false;
-    document.getElementById('gen-overlay').classList.remove('show');
+      document.getElementById('gen-overlay').classList.remove('show');
   }
 }
 
@@ -5250,7 +5066,6 @@ function showDraftPreview(questions) {
           '<input type="number" min="1" max="11" style="width:44px;font-size:12px;padding:2px 4px;border:1px solid var(--border);border-radius:3px;" ' +
             'placeholder="' + (i+1) + '" onchange="reorderQuestion(' + i + ', parseInt(this.value)-1, this)">' +
           '<button onclick="toggleLock(' + i + ')" title="Lock this question so Generate skips it" style="background:none;border:1px solid ' + (getLockedQuestions().has(i) ? 'var(--green);color:var(--green)' : '#888;color:#888') + ';border-radius:3px;padding:2px 8px;font-size:11px;cursor:pointer;font-family:inherit;">' + (getLockedQuestions().has(i) ? '🔒 Locked' : '🔓 Lock') + '</button>' +
-          '<button onclick="blockQuestionTopic(' + i + ')" title="Block this topic from being regenerated" style="background:none;border:1px solid #888;color:#888;border-radius:3px;padding:2px 8px;font-size:11px;cursor:pointer;font-family:inherit;">🚫 Block</button>' +
           '<button onclick="replaceQuestion(' + i + ')" title="Replace with a new question" style="background:none;border:1px solid var(--gold);color:var(--gold,#b8860b);border-radius:3px;padding:2px 8px;font-size:11px;cursor:pointer;font-family:inherit;">↺ Replace</button>' +
           '<button onclick="deleteQuestion(' + i + ')" title="Delete this question" style="background:none;border:1px solid var(--red);color:var(--red);border-radius:3px;padding:2px 8px;font-size:11px;cursor:pointer;font-family:inherit;">✕ Delete</button>' +
         '</span>' +
@@ -5441,8 +5256,7 @@ async function replaceQuestion(idx) {
     const newQ = JSON.parse(clean);
     newQ.difficulty = difficulty;
 
-    draft.questions[idx] = newQ;
-    // Block the replaced question's topic
+  // Block the old question's topic before overwriting
       const oldQ = draft.questions[idx];
       if (oldQ) {
         const list = getTopicBlocklist();
@@ -5451,19 +5265,13 @@ async function replaceQuestion(idx) {
         if (oldQ.sourceUrl && !list.includes(oldQ.sourceUrl)) list.push(oldQ.sourceUrl);
         await saveTopicBlocklist(list);
       }
-
       draft.questions[idx] = newQ;
       saveDraftQuiz(draft);
       showDraftPreview(draft.questions);
-      setStatus('Question ' + (idx + 1) + ' replaced and old topic blocked!', 'success');
-    saveDraftQuiz(draft);
-    showDraftPreview(draft.questions);
-    setStatus('Question ' + (idx + 1) + ' replaced!', 'success');
-  } catch(e) {
-    setStatus('Replacement failed — try again. (' + e.message + ')', 'error');
+      setStatus('Question ' + (idx + 1) + ' replaced and old topic blocked.', 'success');  } catch(e) {
+      setStatus('Replacement failed — try again. (' + e.message + ')', 'error');
+    }
   }
-}
-
 
 function reorderQuestion(fromIdx, toIdx, inputEl) {
   const draft = getDraftQuiz();
