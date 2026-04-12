@@ -2090,10 +2090,6 @@ async function loadProspects() {
           </tr>`).join('')}
       </table>`;
 
-      // 5. Update both locations if they are on the screen
-    const listEl = document.getElementById('prospects-list');
-    const listElBulk = document.getElementById('prospects-list-bulk');
-
     if (listEl) listEl.innerHTML = tableHtml;
     if (listElBulk) listElBulk.innerHTML = tableHtml;
 
