@@ -1876,6 +1876,7 @@
               </div>
               <div id="msg-checkbox-list" style="max-height:200px;overflow-y:auto;border:1px solid var(--rule);padding:6px 10px;background:white;font-family:monospace;font-size:12px;"><p style="color:var(--muted);">Loading subscribers…</p></div>
             </div>
+              <div id="msg-status-prospect" style="font-family:monospace;font-size:11px;margin-top:8px;color:var(--muted);"></div>
               <div id="prospects-list-bulk" style="margin-top:10px; max-height:200px; overflow-y:auto; border:1px solid var(--rule); padding:6px 10px; background:white;">
            </div>
            <div style="margin-bottom:12px;">
@@ -2049,15 +2050,26 @@ async function loadProspects() {
     const countEl = document.getElementById('prospects-count');
     if (countEl) countEl.textContent = '(' + active.length + ' active)';
 
+    // 1. Identify BOTH list locations
     const listEl = document.getElementById('prospects-list');
-    if (!listEl) return;
+    const listElBulk = document.getElementById('prospects-list-bulk');
+    
+    // 2. Only quit if NEITHER exists
+    if (!listEl && !listElBulk) return;
+
+    // 3. Handle the empty state for both
     if (!active.length) {
-      listEl.innerHTML = '<p style="color:var(--muted);">No prospects yet. Import a CSV above.</p>';
+      const emptyMsg = '<p style="color:var(--muted);">No prospects yet. Import a CSV above.</p>';
+      if (listEl) listEl.innerHTML = emptyMsg;
+      if (listElBulk) listElBulk.innerHTML = emptyMsg;
       return;
     }
-    listEl.innerHTML = `
+
+// 4. Create the table HTML string with checkboxes for selection
+    const tableHtml = `
       <table style="width:100%;border-collapse:collapse;">
         <tr style="border-bottom:1px solid var(--rule);color:var(--muted);">
+          <th style="width:30px;padding:4px 8px;"></th>
           <th style="text-align:left;padding:4px 8px;font-weight:600;">Name</th>
           <th style="text-align:left;padding:4px 8px;font-weight:600;">Email</th>
           <th style="text-align:left;padding:4px 8px;font-weight:600;">Added</th>
@@ -2065,6 +2077,8 @@ async function loadProspects() {
         </tr>
         ${active.map(p => `
           <tr style="border-bottom:1px solid #f0ebe0;">
+            <td style="padding:4px 8px;">
+    <input type="checkbox" class="msg-cb" name="msg-prospect" value="${escHtml(p.email)}" onchange="updateMsgSelectedCount()" style="cursor:pointer;">            </td>
             <td style="padding:4px 8px;">${escHtml(p.name || '—')}</td>
             <td style="padding:4px 8px;">${escHtml(p.email)}</td>
             <td style="padding:4px 8px;">${p.addedAt ? p.addedAt.slice(0,10) : '—'}</td>
@@ -2076,9 +2090,17 @@ async function loadProspects() {
             </td>
           </tr>`).join('')}
       </table>`;
+
+    // 5. Update both locations if they are on the screen
+    if (listEl) listEl.innerHTML = tableHtml;
+    if (listElBulk) listElBulk.innerHTML = tableHtml;
+
   } catch(e) {
     const listEl = document.getElementById('prospects-list');
-    if (listEl) listEl.innerHTML = '<p style="color:var(--muted);">Could not load prospects.</p>';
+    const listElBulk = document.getElementById('prospects-list-bulk');
+    const errorMsg = '<p style="color:var(--muted);">Could not load prospects.</p>';
+    if (listEl) listEl.innerHTML = errorMsg;
+    if (listElBulk) listElBulk.innerHTML = errorMsg;
   }
 }
 
