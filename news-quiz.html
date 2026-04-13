@@ -4142,7 +4142,7 @@ async function refreshAdminPreviews() {
         const pts = POINTS[diff] || '';
         const diffLabel = diff ? diff.charAt(0).toUpperCase() + diff.slice(1) : '';
         const diffBadge = diffLabel ? `<span style="font-family:monospace;font-size:10px;letter-spacing:1px;padding:1px 6px;border:1px solid var(--muted);border-radius:2px;color:var(--muted);margin-left:6px;">${diffLabel.toUpperCase()}${pts ? ' · ' + pts + ' pts' : ''}</span>` : '';
-        return `<div class="q-review-card" style="cursor:pointer;" onclick="console.log('clicked published question', '${todayStr()}', ${i});         const starBtn = `<button onclick="event.stopPropagation(); toggleStarQuestion(${i}, this)" data-question="${escHtml(q.question)}" data-answer="${escHtml(q.options && q.options[q.correctIndex] ? q.options[q.correctIndex] : '')}" data-url="${escHtml(q.sourceUrl||'')}" style="float:right;background:none;border:none;cursor:pointer;font-size:14px;padding:0 4px;line-height:1;" title="Star as example question">⭐</button>`;
+        const starBtn = `<button onclick="event.stopPropagation(); toggleStarQuestion(${i}, this)" data-question="${escHtml(q.question)}" data-answer="${escHtml(q.options && q.options[q.correctIndex] ? q.options[q.correctIndex] : '')}" data-url="${escHtml(q.sourceUrl||'')}" style="float:right;background:none;border:none;cursor:pointer;font-size:14px;padding:0 4px;line-height:1;" title="Star as example question">⭐</button>`;
         return `<div class="q-review-card" style="cursor:pointer;" onclick="console.log('clicked published question', '${todayStr()}', ${i}); jumpToArchiveQuestion('${todayStr()}', ${i})" title="View full question & answers in archive"><div class="q-meta"><span>Q${i+1}${diffBadge}</span>${starBtn}</div><div class="q-preview">${escHtml(q.question)}${srcLink}</div></div>`;
 
       }).join('');
@@ -4718,7 +4718,8 @@ const screenController = new AbortController();
     } else if (!document.getElementById('gen-status').classList.contains('error')) {
       const weakCount = weakQuestions.length;
       const retryNote = weakCount >= 2 ? ` (${weakCount} questions auto-refined)` : weakCount === 1 ? ` (1 question flagged — review Q${weakQuestions[0].index+1})` : '';
-      setStatus(`✓ ${questions.length} questions generated for ${modeLabel}${retryNote}. Review below, then publish.`, 'success');
+      setStatus(`✓ ${questions.length} questions generated${retryNote}. Review below, then publish.`, 'success');
+    ');
     }
 
     if (questions.length > 0) {
