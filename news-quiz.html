@@ -4170,7 +4170,7 @@ async function loadEditorNotes() {
 }
 async function saveEditorNotes() {
   const notes = (document.getElementById('editor-notes-input') || {}).value || '';
-  const adminToken = localStorage.getItem('adminToken') || '';
+  const adminToken = lsGet('dnq_admin_token') || 'admin';
   try {
     const res = await fetch('/api/editor-notes', {
       method: 'POST',
@@ -4214,7 +4214,7 @@ async function toggleStarQuestion(idx, btn) {
   const q = btn.getAttribute('data-question');
   const a = btn.getAttribute('data-answer');
   const u = btn.getAttribute('data-url');
-  const adminToken = localStorage.getItem('adminToken') || '';
+  const adminToken = lsGet('dnq_admin_token') || 'admin';
   try {
     const res = await fetch('/api/starred-questions', {
       method: 'POST',
@@ -4229,7 +4229,7 @@ async function toggleStarQuestion(idx, btn) {
   } catch(e) { console.warn('[StarredQ] toggle failed', e); }
 }
 async function removeStarredQuestion(question) {
-  const adminToken = localStorage.getItem('adminToken') || '';
+  const adminToken = lsGet('dnq_admin_token') || 'admin';
   try {
     const res = await fetch('/api/starred-questions', {
       method: 'POST',
