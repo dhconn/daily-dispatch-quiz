@@ -1,0 +1,67 @@
+<style>
+  :root {
+    --ink: #1a1008;
+    --paper: #f5f0e8;
+    --gold-light: #f0c040;
+  }
+
+  /* This container is sized to represent a high-res 4:4 or 4:3 print area */
+  .mug-print-area {
+    width: 600px; 
+    height: 600px; 
+    background: var(--ink); /* Change to #ffffff if you want a white mug background */
+    color: var(--paper);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 50px;
+    box-sizing: border-box;
+  }
+
+  .logo-city {
+    font-family: 'Courier Prime', monospace;
+    font-size: 28px; /* Bolder for print visibility */
+    letter-spacing: 14px;
+    text-transform: uppercase;
+    color: var(--gold-light);
+    margin-bottom: 15px;
+    font-weight: 700;
+  }
+
+  .logo-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 90px; 
+    font-weight: 900;
+    line-height: 1.0;
+    margin: 0;
+  }
+
+  .logo-title span {
+    color: var(--gold-light);
+    display: block; 
+    margin-top: 5px;
+  }
+
+  .logo-tagline {
+    font-family: 'Courier Prime', monospace;
+    font-size: 16px;
+    letter-spacing: 3px;
+    color: rgba(255,255,255,0.8); /* Increased opacity for printing */
+    margin-top: 35px;
+    border-top: 3px solid var(--gold-light);
+    padding-top: 15px;
+    width: 80%; /* Keeps the line contained */
+    font-weight: 700;
+  }
+</style>
+
+<div class="mug-print-area">
+  <div class="logo-city">Baltimore</div>
+  <h1 class="logo-title">
+    The Daily<br>
+    <span>Dispatch Quiz</span>
+  </h1>
+  <div class="logo-tagline">LOCAL NEWS • DAILY QUESTIONS<br>COMMUNITY KNOWLEDGE</div>
+</div>

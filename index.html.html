@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily News IQ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background: radial-gradient(circle at top left, #1e3a8a, #0f172a); min-height: 100vh; color: white; font-family: sans-serif; }
+        .glass { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 1.5rem; }
+        .btn-option { transition: all 0.2s; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(255, 255, 255, 0.03); }
+        .btn-option:hover { background: #3b82f6; transform: translateY(-2px); border-color: #60a5fa; }
+    </style>
+</head>
+<body class="flex items-center justify-center p-4">
+
+    <div id="game-container" class="glass w-full max-w-lg p-8 shadow-2xl">
+        <div class="flex justify-between items-center mb-8">
+            <h1 class="text-2xl font-bold tracking-tight">Daily <span class="text-blue-400">News IQ</span></h1>
+            <div class="text-right">
+                <p class="text-xs text-blue-300 uppercase font-bold">Score</p>
+                <p id="score" class="text-xl font-mono">000</p>
+            </div>
+        </div>
+
+        <div id="quiz-section">
+            <div class="mb-6">
+                <span id="level-badge" class="bg-blue-600 text-[10px] px-2 py-1 rounded-full uppercase font-bold tracking-widest">Level 1</span>
+                <p id="question-text" class="text-lg mt-4 leading-relaxed font-medium">Loading today's headlines...</p>
+            </div>
+
+            <div id="options-grid" class="grid gap-3">
+                </div>
+        </div>
+
+        <div id="admin-panel" class="hidden mt-10 pt-6 border-t border-white/10">
+            <h2 class="text-sm font-bold text-gray-400 mb-4 uppercase">Admin: Add News URL</h2>
+            <div class="flex gap-2">
+                <input type="text" id="url-input" placeholder="https://news-site.com/article" class="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm w-full outline-none focus:border-blue-500">
+                <button onclick="simulateAI()" class="bg-blue-600 px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-500">Generate</button>
+            </div>
+        </div>
+        
+        <button onclick="toggleAdmin()" class="mt-8 text-[10px] text-gray-500 hover:text-white uppercase tracking-widest block mx-auto">Toggle Admin Mode</button>
+    </div>
+
+    <script>
+        // Mock Data (In a real app, this comes from your database)
+        let questions = [
+            { q: "Which tech giant recently announced a new AI model for weather prediction?", a: ["Google", "Apple", "Microsoft", "Meta"], correct: 0, points: 100 },
+            { q: "Global markets rallied today following a surprise report on what?", a: ["Oil Reserves", "Inflation Rates", "Tech Exports", "Gold Prices"], correct: 1, points: 200 }
+        ];
+
+        let currentIdx = 0;
+        let totalScore = 0;
+
+        function loadQuestion() {
+            const q = questions[currentIdx];
+            document.getElementById('question-text').innerText = q.q;
+            document.getElementById('level-badge').innerText = `Level ${currentIdx + 1}`;
+            
+            const grid = document.getElementById('options-grid');
+            grid.innerHTML = '';
+            
+            q.a.forEach((opt, i) => {
+                const btn = document.createElement('button');
+                btn.className = "btn-option w-full text-left p-4 rounded-xl text-sm font-medium";
+                btn.innerText = opt;
+                btn.onclick = () => checkAnswer(i);
+                grid.appendChild(btn);
+            });
+        }
+
+        function checkAnswer(idx) {
+            if (idx === questions[currentIdx].correct) {
+                totalScore += questions[currentIdx].points;
+                document.getElementById('score').innerText = totalScore.toString().padStart(3, '0');
+                alert("Correct! + " + questions[currentIdx].points + " points");
+            } else {
+                alert("Wrong! The correct answer was " + questions[currentIdx].a[questions[currentIdx].correct]);
+            }
+            
+            currentIdx++;
+            if (currentIdx < questions.length) {
+                loadQuestion();
+            } else {
+                document.getElementById('quiz-section').innerHTML = `<div class="text-center py-10"><h2 class="text-2xl font-bold">Quiz Complete!</h2><p class="text-gray-400 mt-2">Final Score: ${totalScore}</p><button onclick="location.reload()" class="mt-6 bg-blue-600 px-6 py-3 rounded-xl font-bold">Play Again</button></div>`;
+            }
+        }
+
+        function toggleAdmin() {
+            const admin = document.getElementById('admin-panel');
+            admin.classList.toggle('hidden');
+        }
+
+        function simulateAI() {
+            const url = document.getElementById('url-input').value;
+            if(!url) return alert("Enter a URL first!");
+            alert("AI is reading the article... (In production, this triggers a Netlify Function)");
+            setTimeout(() => {
+                alert("New question added to the bank based on: " + url);
+            }, 1000);
+        }
+
+        loadQuestion();
+    </script>
+</body>
+</html>
