@@ -4603,7 +4603,18 @@ const screenController = new AbortController();
   let prompt;
     try {
 
-    prompt = buildPromptProduction(urlList, articleUrlList, manualText, archiveNote, rssContent, isFeedMode, allArchiveUrls, allArchiveSlugs);
+  prompt = buildPromptProduction(
+    urlList,
+    articleUrlList,
+    manualText,
+    archiveNote,
+    rssContent,
+    isFeedMode,
+    allArchiveUrls,
+    allArchiveSlugs,
+    editorNotes,
+    starredExamples
+  );
     } catch(err) {
     console.error('[Prompt build failed]', err);
     setStatus('Quiz generation failed while building prompt: ' + err.message, 'error');
@@ -4776,7 +4787,7 @@ function showRawDebug(text) {
   } catch(e) {}
 }
 
-function buildPromptProduction(urlList, articleUrlList, manualText, archiveNote, rssContent, isFeedMode, allArchiveUrls, allArchiveSlugs) {
+function buildPromptProduction(urlList, articleUrlList, manualText, archiveNote, rssContent, isFeedMode, allArchiveUrls, allArchiveSlugs, editorNotes, starredExamples) {
   allArchiveUrls = allArchiveUrls || [];
   allArchiveSlugs = allArchiveSlugs || [];
   const manualBlock = manualText
