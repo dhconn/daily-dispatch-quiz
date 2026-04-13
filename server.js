@@ -1288,7 +1288,7 @@ app.post('/api/quiz', async (req, res) => {
             )
           : baseHtml;
         return {
-          from: 'Editor @ Daily Dispatch Quiz <editor@dailydispatchquiz.com>',
+          from: process.env.FROM_EMAIL || 'David @ Daily Dispatch Quiz <david@dailydispatchquiz.com>',
           reply_to: 'dhconn@gmail.com',
           to: [sub.email],
           subject,
@@ -1322,7 +1322,7 @@ app.post('/api/quiz', async (req, res) => {
         const html = baseHtml.replace('<!--SUBSCRIBE_INSERT_POINT-->', subscribeBtn);
 
         return {
-          from: 'Editor @ Daily Dispatch Quiz <editor@dailydispatchquiz.com>',
+          from: process.env.FROM_EMAIL || 'David @ Daily Dispatch Quiz <david@dailydispatchquiz.com>',
           reply_to: 'dhconn@gmail.com',
           to: [p.email],
           subject,
@@ -1423,7 +1423,7 @@ async function sendEmail(to, subject, html) {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) { console.log('Email skipped: RESEND_API_KEY not set.'); return false; }
   const body = JSON.stringify({
-    from: 'Editor @ Daily Dispatch Quiz <editor@dailydispatchquiz.com>',
+    from: process.env.FROM_EMAIL || 'David @ Daily Dispatch Quiz <david@dailydispatchquiz.com>',
     reply_to: 'dhconn@gmail.com',
     to: [to], subject, html
   });
@@ -1530,7 +1530,7 @@ app.post('/api/admin/message/bulk', async (req, res) => {
   const emails = targets.map(t => {
     const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(t.email)}`;
     return {
-      from: 'Editor @ Daily Dispatch Quiz <editor@dailydispatchquiz.com>',
+      from: process.env.FROM_EMAIL || 'David @ Daily Dispatch Quiz <david@dailydispatchquiz.com>',
       reply_to: 'dhconn@gmail.com',
       to: [t.email],
       subject,
@@ -1773,7 +1773,7 @@ async function sendStreakNudges() {
   const emails = nudgeTargets.map(({ email, name, streak }) => {
     const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(email)}`;
     return {
-      from: 'Editor @ Daily Dispatch Quiz <editor@dailydispatchquiz.com>',
+      from: process.env.FROM_EMAIL || 'David @ Daily Dispatch Quiz <david@dailydispatchquiz.com>',
       reply_to: 'dhconn@gmail.com',
       to: [email],
       subject: `Your ${streak}-day streak is on the line`,
