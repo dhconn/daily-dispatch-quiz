@@ -1050,6 +1050,48 @@ app.post('/api/blocklist', async (req, res) => {
   res.json({ ok: true, blocklist: data.topicBlocklist });
 });
 
+// ── GET /api/editor-notes — fetch editor notes ───────────────
+app.get('/api/editor-notes', async (req, res) => {
+  const data = await readData();
+  res.json({ notes: data.editorNotes || '' });
+});
+// ── POST /api/editor-notes — save editor notes ────────────────
+app.post('/api/editor-notes', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  const data = await readData();
+  data.editorNotes = typeof req.body.notes === 'string' ? req.body.notes : '';
+  await writeData(data);
+  console.log('[Admin] Editor notes updated (' + data.editorNotes.length + ' chars)');
+  res.json({ ok: true, notes: data.editorNotes });
+});
+// ── GET /api/starred-questions — fetch starred example questions ──
+app.get('/api/starred-questions', async (req, res) => {
+  const data = await readData();
+  res.json({ questions: data.starredQuestions || [] });
+});
+// ── POST /api/starred-questions — save a starred question ────────
+app.post('/api/starred-questions', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  const data = await readData();
+  if (!Array.isArray(data.starredQuestions)) data.starredQuestions = [];
+  const { question, correctAnswer, sourceUrl, action } = req.body;
+  if (action === 'remove') {
+    data.starredQuestions = data.starredQuestions.filter(q => q.question !== question);
+    console.log('[Admin] Starred question removed');
+  } else {
+    // Avoid duplicates
+    if (!data.starredQuestions.find(q => q.question === question)) {
+      data.starredQuestions.push({ question, correctAnswer: correctAnswer || '', sourceUrl: sourceUrl || '' });
+      console.log('[Admin] Starred question added. Total: ' + data.starredQuestions.length);
+    }
+  }
+  await writeData(data);
+  res.json({ ok: true, questions: data.starredQuestions });
+});
+
+
 // ── GET /api/email-pause — get current pause state ──────────
 app.get('/api/email-pause', async (req, res) => {
   const data = await readData();
