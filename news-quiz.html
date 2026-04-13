@@ -4719,7 +4719,6 @@ const screenController = new AbortController();
       const weakCount = weakQuestions.length;
       const retryNote = weakCount >= 2 ? ` (${weakCount} questions auto-refined)` : weakCount === 1 ? ` (1 question flagged — review Q${weakQuestions[0].index+1})` : '';
       setStatus(`✓ ${questions.length} questions generated${retryNote}. Review below, then publish.`, 'success');
-    ');
     }
 
     if (questions.length > 0) {
