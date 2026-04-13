@@ -1,0 +1,8 @@
+# Ignore archive folders
+Dispatch images/
+Old news_quiz files/
+Old server.js files/
+
+# Ignore system files
+.DS_Store
+Thumbs.db
