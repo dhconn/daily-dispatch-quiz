@@ -1778,6 +1778,28 @@
       </details>
     </div>
 
+    <div class="admin-collapsible" style="margin-top:20px;" id="anc-editor-notes">
+      <details>
+        <summary>
+          <span class="summary-left">Editor Notes <span id="editor-notes-status" style="font-family:monospace;font-size:12px;color:var(--muted);font-weight:400;letter-spacing:0;text-transform:none;"></span></span>
+          <span class="summary-arrow">▸</span>
+        </summary>
+        <div class="collapsible-body">
+          <p style="font-size:12px;color:var(--muted);font-family:monospace;margin-bottom:10px;">Notes about question patterns you want Claude to avoid or improve. These are injected automatically every time you generate questions.</p>
+          <textarea id="editor-notes-input" style="width:100%;box-sizing:border-box;font-family:monospace;font-size:12px;padding:8px;border:1px solid var(--rule);border-radius:2px;background:var(--white,#fff);color:var(--ink);resize:vertical;min-height:100px;" placeholder="e.g. Avoid questions about dollar amounts — ask about decisions instead. School board questions tend to be too procedural — focus on outcomes."></textarea>
+          <div style="margin-top:8px;display:flex;align-items:center;gap:10px;">
+            <button onclick="saveEditorNotes()" style="font-family:monospace;font-size:11px;padding:5px 14px;cursor:pointer;border-radius:2px;border:1px solid var(--ink);color:var(--ink);background:none;">Save Notes</button>
+            <span id="editor-notes-saved-msg" style="font-family:monospace;font-size:11px;color:var(--green);display:none;">Saved ✓</span>
+          </div>
+          <div style="margin-top:16px;">
+            <p style="font-family:monospace;font-size:12px;color:var(--muted);margin-bottom:6px;">Starred example questions <span id="starred-count" style="color:var(--ink);"></span></p>
+            <div id="starred-questions-list"><p style="font-family:monospace;font-size:12px;color:var(--muted);">No starred questions yet. Use the ⭐ button on Today's Published Quiz to add examples.</p></div>
+          </div>
+        </div>
+      </details>
+    </div>
+
+
     <div class="admin-collapsible" style="margin-top:20px;" id="anc-blocked">
       <details>
         <summary>
@@ -3656,6 +3678,8 @@ async function showAdminScreen() {
   loadPlayerList();
   loadEmailPauseState();
   loadTopicBlocklist();
+  loadEditorNotes();
+  loadStarredQuestions();
   loadMsgSubscribers();
   loadMsgProspects();
   loadProspects();
@@ -4118,7 +4142,9 @@ async function refreshAdminPreviews() {
         const pts = POINTS[diff] || '';
         const diffLabel = diff ? diff.charAt(0).toUpperCase() + diff.slice(1) : '';
         const diffBadge = diffLabel ? `<span style="font-family:monospace;font-size:10px;letter-spacing:1px;padding:1px 6px;border:1px solid var(--muted);border-radius:2px;color:var(--muted);margin-left:6px;">${diffLabel.toUpperCase()}${pts ? ' · ' + pts + ' pts' : ''}</span>` : '';
-        return `<div class="q-review-card" style="cursor:pointer;" onclick="console.log('clicked published question', '${todayStr()}', ${i}); jumpToArchiveQuestion('${todayStr()}', ${i})" title="View full question & answers in archive"><div class="q-meta"><span>Q${i+1}${diffBadge}</span></div><div class="q-preview">${escHtml(q.question)}${srcLink}</div></div>`;
+        return `<div class="q-review-card" style="cursor:pointer;" onclick="console.log('clicked published question', '${todayStr()}', ${i});         const starBtn = `<button onclick="event.stopPropagation(); toggleStarQuestion(${i}, this)" data-question="${escHtml(q.question)}" data-answer="${escHtml(q.options && q.options[q.correctIndex] ? q.options[q.correctIndex] : '')}" data-url="${escHtml(q.sourceUrl||'')}" style="float:right;background:none;border:none;cursor:pointer;font-size:14px;padding:0 4px;line-height:1;" title="Star as example question">⭐</button>`;
+        return `<div class="q-review-card" style="cursor:pointer;" onclick="console.log('clicked published question', '${todayStr()}', ${i}); jumpToArchiveQuestion('${todayStr()}', ${i})" title="View full question & answers in archive"><div class="q-meta"><span>Q${i+1}${diffBadge}</span>${starBtn}</div><div class="q-preview">${escHtml(q.question)}${srcLink}</div></div>`;
+
       }).join('');
   } else {
     document.getElementById('published-preview').innerHTML = `<p style="font-size:13px;color:var(--muted);font-style:italic;">No quiz published today.</p>`;
@@ -4129,6 +4155,89 @@ async function refreshAdminPreviews() {
   if (draft && draft.questions) {
     showDraftPreview(draft.questions);
   }
+}
+
+// ── Editor Notes ─────────────────────────────────────────────
+async function loadEditorNotes() {
+  try {
+    const res = await fetch('/api/editor-notes');
+    const data = await res.json();
+    const ta = document.getElementById('editor-notes-input');
+    if (ta) ta.value = data.notes || '';
+    const statusEl = document.getElementById('editor-notes-status');
+    if (statusEl) statusEl.textContent = data.notes ? '(active)' : '';
+  } catch(e) { console.warn('[EditorNotes] load failed', e); }
+}
+async function saveEditorNotes() {
+  const notes = (document.getElementById('editor-notes-input') || {}).value || '';
+  const adminToken = localStorage.getItem('adminToken') || '';
+  try {
+    const res = await fetch('/api/editor-notes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+      body: JSON.stringify({ notes })
+    });
+    if (res.ok) {
+      const msgEl = document.getElementById('editor-notes-saved-msg');
+      if (msgEl) { msgEl.style.display = 'inline'; setTimeout(() => { msgEl.style.display = 'none'; }, 2000); }
+      const statusEl = document.getElementById('editor-notes-status');
+      if (statusEl) statusEl.textContent = notes ? '(active)' : '';
+    }
+  } catch(e) { console.warn('[EditorNotes] save failed', e); }
+}
+// ── Starred Questions ─────────────────────────────────────────
+async function loadStarredQuestions() {
+  try {
+    const res = await fetch('/api/starred-questions');
+    const data = await res.json();
+    renderStarredList(data.questions || []);
+  } catch(e) { console.warn('[StarredQ] load failed', e); }
+}
+function renderStarredList(questions) {
+  const el = document.getElementById('starred-questions-list');
+  const countEl = document.getElementById('starred-count');
+  if (countEl) countEl.textContent = questions.length ? `(${questions.length})` : '';
+  if (!el) return;
+  if (!questions.length) {
+    el.innerHTML = '<p style="font-family:monospace;font-size:12px;color:var(--muted);">No starred questions yet. Use the ⭐ button on Today\'s Published Quiz to add examples.</p>';
+    return;
+  }
+  el.innerHTML = questions.map((q, i) =>
+    `<div style="margin-bottom:8px;padding:8px;border:1px solid var(--rule);border-radius:2px;font-family:monospace;font-size:12px;">
+      <div style="margin-bottom:3px;">${escHtml(q.question)}</div>
+      <div style="color:var(--green);">✓ ${escHtml(q.correctAnswer)}</div>
+      <button onclick="removeStarredQuestion('${escHtml(q.question).replace(/'/g,'&#39;')}')" style="margin-top:4px;background:none;border:1px solid var(--muted);border-radius:2px;font-family:monospace;font-size:10px;padding:2px 7px;color:var(--muted);cursor:pointer;">Remove</button>
+    </div>`
+  ).join('');
+}
+async function toggleStarQuestion(idx, btn) {
+  const q = btn.getAttribute('data-question');
+  const a = btn.getAttribute('data-answer');
+  const u = btn.getAttribute('data-url');
+  const adminToken = localStorage.getItem('adminToken') || '';
+  try {
+    const res = await fetch('/api/starred-questions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+      body: JSON.stringify({ question: q, correctAnswer: a, sourceUrl: u })
+    });
+    if (res.ok) {
+      btn.style.opacity = '0.4';
+      btn.title = 'Already starred';
+      await loadStarredQuestions();
+    }
+  } catch(e) { console.warn('[StarredQ] toggle failed', e); }
+}
+async function removeStarredQuestion(question) {
+  const adminToken = localStorage.getItem('adminToken') || '';
+  try {
+    const res = await fetch('/api/starred-questions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+      body: JSON.stringify({ question, action: 'remove' })
+    });
+    if (res.ok) await loadStarredQuestions();
+  } catch(e) { console.warn('[StarredQ] remove failed', e); }
 }
 
 function setStatus(msg, type) {
@@ -4201,6 +4310,20 @@ async function generateQuestions(mode = 'production') {
   const archiveNote = allArchiveQuestions.length > 0
     ? `Do NOT generate questions about these previously used topics: ${allArchiveQuestions.slice(-30).join(' | ')}`
     : '';
+
+  // Fetch editor notes and starred examples for prompt injection
+  let editorNotes = '';
+  try {
+    const notesRes = await fetch('/api/editor-notes');
+    const notesData = await notesRes.json();
+    editorNotes = notesData.notes || '';
+  } catch(e) { console.warn('[EditorNotes] fetch failed during generation', e); }
+  let starredExamples = [];
+  try {
+    const starRes = await fetch('/api/starred-questions');
+    const starData = await starRes.json();
+    starredExamples = starData.questions || [];
+  } catch(e) { console.warn('[StarredQ] fetch failed during generation', e); }
 
   // Always fetch RSS cache. If specific articles are provided, they go first;
   // RSS articles are used only to fill remaining slots up to 11.
@@ -4788,6 +4911,10 @@ function buildPromptProduction(urlList, articleUrlList, manualText, archiveNote,
     (specificArticlesBlock ? specificArticlesBlock + '\n\n' : '') +
     (manualBlock ? manualBlock + '\n\n' : '') +
     (fallback ? fallback + '\n\n' : '') +
+
+    (editorNotes ? 'EDITOR FEEDBACK — the editor has noted these patterns from recent quizzes. Follow these instructions carefully:\n' + editorNotes + '\n\n' : '') +
+    (starredExamples.length > 0 ? 'EXAMPLES OF STRONG QUESTIONS — model your questions after these in terms of style and approach:\n' + starredExamples.map((q, i) => `Example ${i+1}: "${q.question}"\nCorrect answer: "${q.correctAnswer}"\nWhy it works: concrete, outcome-focused, answerable from the headline`).join('\n\n') + '\n\n' : '') +
+
     (archiveNote ? 'PREVIOUSLY USED TOPICS — do not repeat these:\n' + archiveNote + '\n\n' : '') +
     (getTopicBlocklist().length > 0 ? 'BLOCKED TOPICS — the editor has explicitly blocked these topics from today\'s quiz. Do not generate any questions about these subjects under any circumstances:\n' + getTopicBlocklist().filter(t => !t.startsWith('http')).map(t => '- ' + t).join('\n') + (getTopicBlocklist().some(t => t.startsWith('http')) ? '\n\nBLOCKED URLS — do not use these source articles:\n' + getTopicBlocklist().filter(t => t.startsWith('http')).map(t => '- ' + t).join('\n') : '') + '\n\n' : '') +
     (allArchiveUrls.length > 0 ? 'PREVIOUSLY USED SOURCE URLS — do not generate questions from these exact URLs, even if the article appears in the RSS feed today:\n' + allArchiveUrls.slice(-30).join('\n') + '\n\n' : '') +
