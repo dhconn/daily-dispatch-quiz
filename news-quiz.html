@@ -2061,7 +2061,7 @@
 async function loadProspects() {
   loadProspectPauseState();
   try {
-    const adminToken = lsGet('dnq_admin_token') || 'admin';
+    const adminToken = ADMIN_PASSWORD;
     const res = await fetch('/api/prospects', {
       headers: { 'x-admin-token': adminToken }
     });
@@ -2148,7 +2148,7 @@ async function importProspects() {
 
   statusEl.textContent = 'Importing…';
   try {
-  const adminToken = lsGet('dnq_admin_token') || 'admin';
+  const adminToken = ADMIN_PASSWORD;
   const res = await fetch('/api/prospects', {
     method: 'POST',
     headers: {
@@ -2174,7 +2174,7 @@ async function importProspects() {
 async function removeProspect(email) {
   if (!confirm('Remove ' + email + ' from prospects?')) return;
   try {
-    const adminToken = lsGet('dnq_admin_token') || 'admin';
+    const adminToken = ADMIN_PASSWORD;
     await fetch('/api/prospects/' + encodeURIComponent(email), {
       method: 'DELETE',
       headers: { 'x-admin-token': adminToken }
@@ -2186,7 +2186,7 @@ async function removeProspect(email) {
 async function clearAllProspects() {
   if (!confirm('Remove all prospects? This cannot be undone.')) return;
   try {
-    const adminToken = lsGet('dnq_admin_token') || 'admin';
+    const adminToken = ADMIN_PASSWORD;
     await fetch('/api/prospects', {
       method: 'DELETE',
       headers: { 'x-admin-token': adminToken }
@@ -4171,7 +4171,7 @@ async function loadEditorNotes() {
 }
 async function saveEditorNotes() {
   const notes = (document.getElementById('editor-notes-input') || {}).value || '';
-  const adminToken = lsGet('dnq_admin_token') || 'admin';
+  const adminToken = ADMIN_PASSWORD;
   try {
     const res = await fetch('/api/editor-notes', {
       method: 'POST',
@@ -4215,7 +4215,7 @@ async function toggleStarQuestion(idx, btn) {
   const q = btn.getAttribute('data-question');
   const a = btn.getAttribute('data-answer');
   const u = btn.getAttribute('data-url');
-  const adminToken = lsGet('dnq_admin_token') || 'admin';
+  const adminToken = ADMIN_PASSWORD;
   try {
     const res = await fetch('/api/starred-questions', {
       method: 'POST',
@@ -4233,7 +4233,7 @@ async function toggleStarQuestion(idx, btn) {
   } catch(e) { console.warn('[StarredQ] toggle failed', e); }
 }
 async function removeStarredQuestion(question) {
-  const adminToken = lsGet('dnq_admin_token') || 'admin';
+  const adminToken = ADMIN_PASSWORD;
   try {
     const res = await fetch('/api/starred-questions', {
       method: 'POST',
@@ -5273,7 +5273,7 @@ function getTopicBlocklist() {
 }
 
 async function saveTopicBlocklist(list) {
-  const adminToken = lsGet('dnq_admin_token') || 'admin';
+  const adminToken = ADMIN_PASSWORD;
   try {
     await fetch('/api/blocklist', {
       method: 'POST',
@@ -5512,7 +5512,7 @@ async function publishQuestions() {
 
       // 2. Prepare data
       draft.publishDate = todayStr();
-      const adminToken = lsGet('dnq_admin_token') || 'admin';
+      const adminToken = ADMIN_PASSWORD;
 
       try {
         // 3. Save to Archive
@@ -5609,7 +5609,7 @@ async function saveTeasers() {
   ).join('');
   const wrappedHtml = `<div style="margin:0 0 28px;padding:20px;background:#fff;border:1px solid #e0d8cc;text-align:left;"><div style="font-family:monospace;font-size:10px;letter-spacing:2px;color:#999;margin-bottom:12px;">TODAY'S TOPICS INCLUDE…</div>${teaserHtml}</div>`;
   try {
-    const adminToken = lsGet('dnq_admin_token') || 'admin';
+    const adminToken = ADMIN_PASSWORD;
     const res = await fetch('/api/teaser-cache', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
@@ -5984,7 +5984,7 @@ async function toggleEmailPause() {
   const btn = document.getElementById('email-pause-btn');
   const currentlyPaused = btn.dataset.paused === 'true';
   try {
-    const adminToken = lsGet('dnq_admin_token') || 'admin';
+    const adminToken = ADMIN_PASSWORD;
     const res = await fetch('/api/email-pause', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
@@ -6031,7 +6031,7 @@ async function toggleProspectPause() {
   if (!btn) return;
      const currentlyPaused = btn.dataset.paused === 'true';
      try {
-       const adminToken = lsGet('dnq_admin_token') || 'admin';
+       const adminToken = ADMIN_PASSWORD;
        const res = await fetch('/api/prospect-pause', {
          method: 'POST',
          headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
@@ -6068,7 +6068,7 @@ async function loadPlayerList() {
 async function deletePlayer(playerKey) {
   if (!confirm('Delete player "' + playerKey + '" from the leaderboard? This cannot be undone.')) return;
   try {
-    const adminToken = lsGet('dnq_admin_token') || 'admin';
+    const adminToken = ADMIN_PASSWORD;
     const res = await fetch('/api/scores/' + encodeURIComponent(playerKey), {
       method: 'DELETE',
       headers: { 'x-admin-token': adminToken }
@@ -6109,7 +6109,7 @@ async function loadAdminStats() {
     const progressRes = await fetch('/api/progress?date=' + today);
     const progress = progressRes.ok ? await progressRes.json() : {};
 
-    const adminToken = lsGet('dnq_admin_token') || 'admin';
+    const adminToken = ADMIN_PASSWORD;
 
     let excludedMap = {};
     try {
@@ -6464,7 +6464,7 @@ async function toggleStatsExclusion(playerKey, excluded) {
   }
 
   try {
-    const adminToken = lsGet('dnq_admin_token') || 'admin';
+    const adminToken = ADMIN_PASSWORD;
     const res = await fetch('/api/admin/stats-exclusions', {
       method: 'POST',
       headers: {
@@ -6653,7 +6653,7 @@ async function sendSelectedMessage() {
   showMsgStatus('Sending to ' + recipients.length + ' selected player' + (recipients.length !== 1 ? 's' : '') + '…', true);
 
   try {
-    const adminToken = lsGet('dnq_admin_token') || 'admin';
+    const adminToken = ADMIN_PASSWORD;
     const res = await fetch('/api/admin/message/bulk', {
       method: 'POST',
       headers: {
@@ -6689,7 +6689,7 @@ async function loadMsgProspects() {
       }
 
       try {
-        const adminToken = lsGet('dnq_admin_token') || 'admin';
+        const adminToken = ADMIN_PASSWORD;
         const res = await fetch('/api/prospects', {
           headers: { 'x-admin-token': adminToken }
         });
@@ -6764,7 +6764,7 @@ async function sendBulkProspectMessage() {
   document.getElementById('msg-status-prospect').textContent = `Sending to ${active.length} prospects…`;
 
   try {
-    const adminToken = lsGet('dnq_admin_token') || 'admin';
+    const adminToken = ADMIN_PASSWORD;
     const res = await fetch('/api/admin/message/bulk', {
       method: 'POST',
       headers: {
@@ -6801,7 +6801,7 @@ async function sendBulkMessage() {
   if (!confirm('Send this message to all ' + msgSubscriberList.length + ' active subscribers?')) return;
   showMsgStatus('Sending to ' + msgSubscriberList.length + ' subscribers…', true);
   try {
-    const adminToken = lsGet('dnq_admin_token') || 'admin';
+    const adminToken = ADMIN_PASSWORD;
     const res = await fetch('/api/admin/message/bulk', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
@@ -6850,7 +6850,7 @@ async function sendSelectedProspectMessage() {
     `Sending to ${recipients.length} selected prospects…`;
 
   try {
-    const adminToken = lsGet('dnq_admin_token') || 'admin';
+    const adminToken = ADMIN_PASSWORD;
     const res = await fetch('/api/admin/message/bulk', {
       method: 'POST',
       headers: {
