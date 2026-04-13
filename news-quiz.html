@@ -3563,6 +3563,7 @@ async function finishQuiz() {
 // ═══════════════════════════════════════════════════════
 let currentLbTab = 'alltime';
 let previousScreen = 'screen-register';
+let starredQuestionTexts = new Set();
 
 function showLeaderboard() {
   currentLbTab = 'today';
@@ -4222,10 +4223,13 @@ async function toggleStarQuestion(idx, btn) {
       body: JSON.stringify({ question: q, correctAnswer: a, sourceUrl: u })
     });
     if (res.ok) {
-      btn.style.opacity = '0.4';
+      btn.textContent = '★';
       btn.title = 'Already starred';
+      btn.style.color = 'var(--gold)';
+      btn.style.opacity = '1';
+      starredQuestionTexts.add((q || '').trim());
       await loadStarredQuestions();
-    }
+}
   } catch(e) { console.warn('[StarredQ] toggle failed', e); }
 }
 async function removeStarredQuestion(question) {
