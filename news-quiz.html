@@ -4432,7 +4432,7 @@ async function generateQuestions(mode = 'production') {
       const blocks = rssContent.split('---').map(b => b.trim()).filter(Boolean);
       const headlines = blocks.map((b, i) => {
         const m = b.match(/HEADLINE: (.+)/);
-        const u = b.match(/URL: (.+)/);
+        const u = b.match(/ARTICLE_URL: (.+)/);
         return `${i}: ${m ? m[1].trim() : '(no headline)'} | ${u ? u[1].trim() : ''}`;
       }).join('\n');
 
