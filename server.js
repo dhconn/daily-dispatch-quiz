@@ -418,32 +418,43 @@ app.post('/api/answers', async (req, res) => {
   if (!data.dist) data.dist = {};
   if (!data.dist[date]) data.dist[date] = {};
 
-  // Server-side validation loop
-  answers.forEach(({ qIdx, chosenIndex }) => {
-    if (qIdx === 'completion') return;
-    
-    const question = quiz.questions[qIdx];
-    if (!question) return;
+// Server-side validation loop
+answers.forEach(({ qIdx, chosenIndex, correct }) => {
+  if (qIdx === 'completion') return;
 
-    // Validate: Is the chosen index actually the correct one?
-    const isActuallyCorrect = (chosenIndex === question.correctIndex);
-    
-    const k = 'q' + qIdx;
-    if (!data.dist[date][k]) data.dist[date][k] = { correct: 0, wrong: 0 };
-    
-    if (isActuallyCorrect) data.dist[date][k].correct++;
-    else data.dist[date][k].wrong++;
+  const question = quiz.questions[qIdx];
+  if (!question) return;
 
-    // Update per-player tracking if applicable
-    if (playerName && playerName.trim()) {
-      const key = playerName.trim().toLowerCase();
-      if (!data.dist[date].players) data.dist[date].players = {};
-      if (!data.dist[date].players[key]) {
-        data.dist[date].players[key] = { displayName: playerName.trim(), answers: {} };
-      }
-      data.dist[date].players[key].answers[k] = isActuallyCorrect;
+  let isActuallyCorrect;
+
+  // New client payload: { qIdx, correct }
+  if (typeof correct === 'boolean') {
+    isActuallyCorrect = correct;
+  }
+  // Legacy payload: { qIdx, chosenIndex }
+  else if (typeof chosenIndex === 'number') {
+    isActuallyCorrect = (chosenIndex === question.correctIndex);
+  }
+  // Unknown payload shape: skip
+  else {
+    return;
+  }
+
+  const k = 'q' + qIdx;
+  if (!data.dist[date][k]) data.dist[date][k] = { correct: 0, wrong: 0 };
+
+  if (isActuallyCorrect) data.dist[date][k].correct++;
+  else data.dist[date][k].wrong++;
+
+  if (playerName && playerName.trim()) {
+    const key = playerName.trim().toLowerCase();
+    if (!data.dist[date].players) data.dist[date].players = {};
+    if (!data.dist[date].players[key]) {
+      data.dist[date].players[key] = { displayName: playerName.trim(), answers: {} };
     }
-  });
+    data.dist[date].players[key].answers[k] = isActuallyCorrect;
+  }
+});
 
   // Keep existing cleanup logic for old distribution data
   const cutoff = new Date();
