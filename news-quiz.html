@@ -3528,36 +3528,48 @@ async function finishQuiz() {
 
   document.getElementById('dist-table').innerHTML = '<div class="breakdown-header" style="margin-top:24px;">How Others Did</div><div style="font-size:13px;color:var(--muted);padding:8px 0;">Loading…</div>';
 
-  // Fetch community distribution from server
-  fetch('/api/answers?date=' + state.todayKey)
-    .then(r => r.json())
-    .then(dist2 => {
-      const totalPlayers = dist2['q0'] ? (dist2['q0'].correct + dist2['q0'].wrong) : 0;
-      let distHtml = '<div class="breakdown-header" style="margin-top:24px;">How Others Did</div>';
-      if (totalPlayers < 2) {
-        distHtml += '<div style="font-size:13px;color:var(--muted);padding:8px 0;">Be the first! Distribution appears once more players have finished.</div>';
-      } else {
-        distHtml += `<div style="font-size:12px;color:var(--muted);padding:4px 16px 8px;">Based on ${totalPlayers} player${totalPlayers === 1 ? '' : 's'} today</div>`;
-        quizQuestions.forEach((q, i) => {
-          const k = 'q' + i;
-          const d = dist2[k] || { correct: 0, wrong: 0 };
-          const total = d.correct + d.wrong;
-          const pct = total ? Math.round(d.correct / total * 100) : 0;
-          const isBonus = i === 5;
-          const label = isBonus ? 'BONUS' : ('Q' + (i + 1));
-          distHtml += `<div class="dist-row">
-            <span class="dist-label">${label}</span>
-            <div class="dist-bar-wrap"><div class="dist-bar" style="width:${pct}%"></div></div>
-            <span class="dist-pct">${pct}%</span>
-          </div>`;
+   // Fetch community distribution from canonical progress
+fetch('/api/progress?date=' + state.todayKey)
+  .then(r => r.json())
+  .then(progress => {
+    const players = Object.values(progress || {});
+    const totalPlayers = players.length;
+
+    let distHtml = '<div class="breakdown-header" style="margin-top:24px;">How Others Did</div>';
+
+    if (totalPlayers < 2) {
+      distHtml += '<div style="font-size:13px;color:var(--muted);padding:8px 0;">Be the first! Distribution appears once more players have played.</div>';
+    } else {
+      distHtml += `<div style="font-size:12px;color:var(--muted);padding:4px 16px 8px;">Based on ${totalPlayers} player${totalPlayers === 1 ? '' : 's'} today</div>`;
+
+      for (let i = 0; i <= 5; i++) {
+        let attempts = 0;
+        let correct = 0;
+
+        players.forEach(p => {
+          const a = p.answers && p.answers['q' + i];
+          if (a !== undefined) {
+            attempts++;
+            if (typeof a === 'object' && a.correct === true) correct++;
+          }
         });
+
+        const pct = attempts ? Math.round((correct / attempts) * 100) : 0;
+        const label = i === 5 ? 'BONUS' : ('Q' + (i + 1));
+
+        distHtml += `<div class="dist-row">
+          <span class="dist-label">${label}</span>
+          <div class="dist-bar-wrap"><div class="dist-bar" style="width:${pct}%"></div></div>
+          <span class="dist-pct">${pct}%</span>
+        </div>`;
       }
-      document.getElementById('dist-table').innerHTML = distHtml;
-    })
-    .catch(() => {
-      document.getElementById('dist-table').innerHTML = '';
-    });
-}
+    }
+
+    document.getElementById('dist-table').innerHTML = distHtml;
+  })
+  .catch(() => {
+    document.getElementById('dist-table').innerHTML = '';
+  });
 
 // ═══════════════════════════════════════════════════════
 //  LEADERBOARD
