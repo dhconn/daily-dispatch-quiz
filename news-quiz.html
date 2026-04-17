@@ -2228,20 +2228,20 @@ let state = {
   todayKey: todayStr()
 };
 
-function postAnswerDist(date, qIdx, idx) { // Changed 'correct' to 'idx'
-    if (archiveMode) return;
-    fetch('/api/answers', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        date, 
-        answers: [{ qIdx, chosenIndex: idx }], // Changed 'correct' to 'chosenIndex'
-        playerName: state.playerName || '' 
-      })
-    }).catch(err => {
-      console.error('postAnswerDist failed:', err);
-    });
-  }
+function postAnswerDist(date, qIdx, correct) {
+  if (archiveMode) return;
+  fetch('/api/answers', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ 
+      date, 
+      answers: [{ qIdx, correct }], 
+      playerName: state.playerName || '' 
+    })
+  }).catch(err => {
+    console.error('postAnswerDist failed:', err);
+  });
+}
 
 function computeProgressScore(answers, completed) {
   const base = Object.values(answers || {}).reduce((sum, a) => {
@@ -2999,7 +2999,7 @@ function selectAnswer(idx) {
   }
 
     if (!state.isReplay) {
-       postAnswerDist(state.todayKey, state.currentQ, idx);
+       postAnswerDist(state.todayKey, state.currentQ, isCorrect);
        queueProgressSave();
     }
   document.getElementById('live-score').textContent = state.sessionScore;
