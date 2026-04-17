@@ -4143,8 +4143,8 @@ async function refreshAdminPreviews() {
         const pts = POINTS[diff] || '';
         const diffLabel = diff ? diff.charAt(0).toUpperCase() + diff.slice(1) : '';
         const diffBadge = diffLabel ? `<span style="font-family:monospace;font-size:10px;letter-spacing:1px;padding:1px 6px;border:1px solid var(--muted);border-radius:2px;color:var(--muted);margin-left:6px;">${diffLabel.toUpperCase()}${pts ? ' · ' + pts + ' pts' : ''}</span>` : '';
-        const starBtn = `<button onclick="event.stopPropagation(); toggleStarQuestion(${i}, this)" data-question="${escHtml(q.question)}" data-answer="${escHtml(q.options && q.options[q.correctIndex] ? q.options[q.correctIndex] : '')}" data-url="${escHtml(q.sourceUrl||'')}" style="float:right;background:none;border:none;cursor:pointer;font-size:14px;padding:0 4px;line-height:1;" title="Star as example question">⭐</button>`;
-        return `<div class="q-review-card" style="cursor:pointer;" onclick="console.log('clicked published question', '${todayStr()}', ${i}); jumpToArchiveQuestion('${todayStr()}', ${i})" title="View full question & answers in archive"><div class="q-meta"><span>Q${i+1}${diffBadge}</span>${starBtn}</div><div class="q-preview">${escHtml(q.question)}${srcLink}</div></div>`;
+        const isStarred = starredQuestionTexts.has((q.question||'').trim());
+        const starBtn = `<button onclick="event.stopPropagation(); toggleStarQuestion(${i}, this)" data-question="${escHtml(q.question)}" data-answer="${escHtml(q.options && q.options[q.correctIndex] ? q.options[q.correctIndex] : '')}" data-url="${escHtml(q.sourceUrl||'')}" style="float:right;background:none;border:none;cursor:pointer;font-size:18px;padding:0 4px;line-height:1;color:${isStarred ? 'var(--gold)' : 'var(--muted)'};" title="${isStarred ? 'Already starred' : 'Star as example question'}">${isStarred ? '★' : '☆'}</button>`;        return `<div class="q-review-card" style="cursor:pointer;" onclick="console.log('clicked published question', '${todayStr()}', ${i}); jumpToArchiveQuestion('${todayStr()}', ${i})" title="View full question & answers in archive"><div class="q-meta"><span>Q${i+1}${diffBadge}</span>${starBtn}</div><div class="q-preview">${escHtml(q.question)}${srcLink}</div></div>`;
 
       }).join('');
   } else {
@@ -4226,7 +4226,7 @@ async function toggleStarQuestion(idx, btn) {
       btn.textContent = '★';
       btn.title = 'Already starred';
       btn.style.color = 'var(--gold)';
-      btn.style.opacity = '1';
+      btn.style.fontSize = '18px';
       starredQuestionTexts.add((q || '').trim());
       await loadStarredQuestions();
 }
