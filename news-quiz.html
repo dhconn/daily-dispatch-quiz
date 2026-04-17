@@ -4349,8 +4349,8 @@ ${siteUrl}`;
 
       // Compute stats
       const scoredAnswers = state.answers.filter(a => a.qIdx !== 'completion');
-      const total = state.answers.length;
-      const correct = state.answers.filter(a => a.correct).length;
+      const total = scoredAnswers.length;
+      const correct = scoredAnswers.filter(a => a.correct).length;
       const pct = total ? Math.round(correct / total * 100) : 0;
 
       // Get rank
