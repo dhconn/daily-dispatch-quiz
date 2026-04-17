@@ -2999,7 +2999,7 @@ function selectAnswer(idx) {
   }
 
     if (!state.isReplay) {
-       postAnswerDist(state.todayKey, state.currentQ, isCorrect);
+       postAnswerDist(state.todayKey, state.currentQ, Correct);
        queueProgressSave();
     }
   document.getElementById('live-score').textContent = state.sessionScore;
@@ -3295,7 +3295,7 @@ function selectBonus(idx) {
       state.sessionScore += pts;
       state.answers.push({ qIdx: 5, chosen: idx, correct, pts });
       if (!state.isReplay) {
-          postAnswerDist(state.todayKey, 5, idx);
+          postAnswerDist(state.todayKey, 5, correct);
       }
 
   // Style
