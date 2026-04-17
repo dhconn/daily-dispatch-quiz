@@ -503,6 +503,68 @@ app.get('/api/answers', async (req, res) => {
   res.json(rebuilt);
 });
 
+app.post('/api/admin/rebuild-dist-from-progress', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  const { date } = req.body || {};
+  if (!date) return res.status(400).json({ error: 'date required' });
+
+  try {
+    const data = await readData();
+
+    const allProgress = (await getKey('progress')) || {};
+    const dayProgress = allProgress[date] || {};
+
+    const rebuilt = {};
+
+    for (const [playerKey, p] of Object.entries(dayProgress)) {
+      const answers = p.answers || {};
+
+      for (const [qKey, answerObj] of Object.entries(answers)) {
+        if (!/^q\d+$/.test(qKey)) continue;
+
+        const wasCorrect =
+          typeof answerObj === 'object' ? !!answerObj.correct : !!answerObj;
+
+        if (!rebuilt[qKey]) rebuilt[qKey] = { correct: 0, wrong: 0 };
+        if (wasCorrect) rebuilt[qKey].correct++;
+        else rebuilt[qKey].wrong++;
+      }
+
+      rebuilt.players ||= {};
+      rebuilt.players[playerKey] = {
+        displayName: p.displayName || playerKey,
+        answers: Object.fromEntries(
+          Object.entries(answers)
+            .filter(([qKey]) => /^q\d+$/.test(qKey))
+            .map(([qKey, answerObj]) => [
+              qKey,
+              typeof answerObj === 'object' ? !!answerObj.correct : !!answerObj
+            ])
+        )
+      };
+    }
+
+    if (!data.dist) data.dist = {};
+    data.dist[date] = rebuilt;
+
+    await writeData(data);
+
+    res.json({
+      ok: true,
+      date,
+      playerCount: Object.keys(rebuilt.players || {}).length,
+      questionKeys: Object.keys(rebuilt).filter(k => k !== 'players')
+    });
+  } catch (e) {
+    console.error('[rebuild-dist-from-progress] error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── Quiz start tracking ───────────────────────────────────────
 // Records when a player starts the quiz — used for completion rate.
 // POST /api/quiz-start  { date }
