@@ -2229,6 +2229,7 @@ let state = {
 };
 
 function postAnswerDist(date, qIdx, correct) {
+  console.log('[postAnswerDist called]', { date, qIdx, correct, archiveMode, playerName: state.playerName });
   if (archiveMode) return;
   fetch('/api/answers', {
     method: 'POST',
