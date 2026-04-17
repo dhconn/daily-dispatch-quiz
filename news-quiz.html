@@ -3000,7 +3000,7 @@ function selectAnswer(idx) {
   }
 
     if (!state.isReplay) {
-       postAnswerDist(state.todayKey, state.currentQ, Correct);
+       postAnswerDist(state.todayKey, state.currentQ, correct);
        queueProgressSave();
     }
   document.getElementById('live-score').textContent = state.sessionScore;
