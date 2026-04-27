@@ -2219,9 +2219,9 @@
       <div id="pwa-install-banner">
         <div class="pwa-kicker">Add to Home Screen</div>
         <div class="pwa-title">Make this feel like an app</div>
-        <img id="pwa-icon-preview" src="/images/icon-192.png" alt="Daily Dispatch Quiz app icon">
-        <div class="pwa-copy" id="pwa-copy-text">Tap the icon above or click the button below to install Daily Dispatch Quiz on your phone.</div>
-        <button id="pwa-install-btn" class="btn-primary" onclick="installDailyDispatchApp()" style="margin-top:4px;">Install App &#9658;</button>
+        <div class="pwa-copy" id="pwa-copy-text">Tap the icon to install Daily Dispatch Quiz on your phone.</div>
+        <img id="pwa-icon-preview" src="/images/icon-192.png" alt="Tap to install Daily Dispatch Quiz" onclick="installDailyDispatchApp()" style="cursor:pointer;">
+        <div id="pwa-ios-caption" style="display:none;font-family:'Courier Prime',monospace;font-size:11px;color:var(--muted);margin-top:6px;letter-spacing:1px;">THIS IS WHAT IT WILL LOOK LIKE ON YOUR HOME SCREEN</div>
         <div id="pwa-ios-help" style="display:none;">Tap the <strong>Share</strong> button in your browser, then tap <strong>Add to Home Screen</strong> — and look for this icon on your phone.</div>
       </div>
       <div class="results-banner">
@@ -7933,11 +7933,13 @@ async function registerPlayer() {
     if (!banner) return;
 
     if (_isIos()) {
-      // iOS: show Share instructions, hide install button
+      // iOS: show Share instructions and caption, hide Android copy
       banner.style.display = 'block';
       if (iosHelp)    iosHelp.style.display = 'block';
       if (installBtn) installBtn.style.display = 'none';
       if (copyText)   copyText.style.display = 'none';
+      const iosCaption = document.getElementById('pwa-ios-caption');
+      if (iosCaption) iosCaption.style.display = 'block';
     } else if (_pwaInstallPrompt) {
       // Android / desktop Chrome: show install button
       banner.style.display = 'block';
