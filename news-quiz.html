@@ -7,6 +7,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>The Daily Dispatch Quiz</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#1a1008">
+<link rel="apple-touch-icon" href="/images/icon-192.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link
     href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Source+Serif+4:ital,wght@0,300;0,400;0,600;1,400&family=Courier+Prime:wght@400;700&display=swap"
@@ -1081,6 +1084,56 @@
       flex-wrap: wrap;
       margin-top: 24px;
     }
+    /* ─── PWA INSTALL PROMPT ─── */
+    #pwa-install-banner {
+      display: none;
+      margin: 16px 0 20px;
+      padding: 22px 18px 24px;
+      background: var(--cream);
+      border: 2px solid var(--ink);
+      box-shadow: 3px 3px 0 var(--ink);
+      text-align: center;
+    }
+    #pwa-install-banner .pwa-kicker {
+      font-family: 'Courier Prime', monospace;
+      font-size: 13px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+    #pwa-install-banner .pwa-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--ink);
+      margin-bottom: 10px;
+    }
+    #pwa-install-banner .pwa-copy {
+      font-size: 17px;
+      color: var(--muted);
+      line-height: 1.5;
+      max-width: 460px;
+      margin: 0 auto 16px;
+    }
+    #pwa-icon-preview {
+      display: block;
+      width: 80px;
+      height: 80px;
+      border-radius: 16px;
+      margin: 0 auto 14px;
+      box-shadow: 2px 2px 8px rgba(0,0,0,0.2);
+    }
+    #pwa-ios-help {
+      font-family: 'Courier Prime', monospace;
+      font-size: 14px;
+      color: var(--ink);
+      line-height: 1.7;
+      margin-top: 12px;
+      padding: 12px 14px;
+      background: white;
+      border: 1px solid var(--rule);
+    }
 
     /* ─── LEADERBOARD ─── */
     #screen-leaderboard {
@@ -2136,6 +2189,26 @@
     <div id="screen-results" class="screen">
       <div class="edition-rule">Final Score</div>
       <h2>That's a Wrap.</h2>
+      <div id="pwa-install-banner">
+        <div class="pwa-kicker">Add to Home Screen</div>
+        <div class="pwa-title">Make this feel like an app</div>
+        <div class="pwa-copy" id="pwa-copy-text">Tap the icon to install Daily Dispatch Quiz on your phone.</div>
+        <img id="pwa-icon-preview" src="/images/icon-192.png" alt="Tap to install Daily Dispatch Quiz" onclick="installDailyDispatchApp()" style="cursor:pointer;">
+        <div id="pwa-ios-caption" style="display:none;font-family:'Courier Prime',monospace;font-size:11px;color:var(--muted);margin-top:6px;letter-spacing:1px;">THIS IS WHAT IT WILL LOOK LIKE ON YOUR HOME SCREEN</div>
+        <div id="pwa-ios-help" style="display:none;">Tap the <strong>Share</strong> button in your browser, then tap <strong>Add to Home Screen</strong> — and look for this icon on your phone.</div>
+        <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--rule);text-align:left;">
+          <div style="font-family:'Courier Prime',monospace;font-size:10px;letter-spacing:2px;color:var(--muted);margin-bottom:8px;">WANT TOMORROW'S QUIZ?</div>
+          <p style="font-size:15px;margin:0 0 12px;line-height:1.5;">Get tomorrow's quiz delivered to your inbox — with today's answers included.</p>
+          <div id="results-sub-form">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <input id="results-sub-email" type="email" placeholder="your@email.com" style="flex:1;min-width:180px;font-family:serif;font-size:14px;padding:9px 12px;border:1px solid #ccc;box-sizing:border-box;">
+              <button onclick="submitResultsSubscribe()" style="font-family:'Courier Prime',monospace;font-size:12px;letter-spacing:1px;padding:9px 20px;background:var(--ink);color:var(--paper);border:none;cursor:pointer;white-space:nowrap;">Submit &#9658;</button>
+            </div>
+            <div id="results-sub-status" style="font-family:monospace;font-size:12px;margin-top:8px;display:none;"></div>
+          </div>
+          <div id="results-sub-done" style="display:none;font-family:'Courier Prime',monospace;font-size:13px;color:var(--green);padding:4px 0;">✓ You're in. See you tomorrow.</div>
+        </div>
+      </div>
       <div class="results-banner">
         <div class="today-score" id="result-today-score">0</div>
         <div class="today-label">Today's Points</div>
@@ -2159,28 +2232,6 @@
       <div id="dist-table"></div>
       <div id="results-streak-nudge"
         style="display:none;margin:20px 0 0;padding:14px 16px;background:var(--ink);color:var(--paper);text-align:center;font-family:'Courier Prime',monospace;letter-spacing:1px;line-height:1.7;">
-      </div>
-
-      <div id="results-subscribe-cta"
-        style="margin:28px 0 8px;padding:20px;background:white;border:1px solid var(--rule);text-align:left;">
-        <div
-          style="font-family:'Courier Prime',monospace;font-size:10px;letter-spacing:2px;color:var(--muted);margin-bottom:10px;">
-          WANT TOMORROW'S QUIZ?</div>
-        <p style="font-size:15px;margin:0 0 14px;line-height:1.5;">Get tomorrow's quiz delivered to your inbox — with
-          today's answers included.</p>
-        <div id="results-sub-form">
-          <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <input id="results-sub-email" type="email" placeholder="your@email.com"
-              style="flex:1;min-width:180px;font-family:serif;font-size:14px;padding:9px 12px;border:1px solid #ccc;box-sizing:border-box;">
-            <button onclick="submitResultsSubscribe()"
-              style="font-family:'Courier Prime',monospace;font-size:12px;letter-spacing:1px;padding:9px 20px;background:var(--ink);color:var(--paper);border:none;cursor:pointer;white-space:nowrap;">Email
-              Me the Quiz ▸</button>
-          </div>
-          <div id="results-sub-status" style="font-family:monospace;font-size:12px;margin-top:8px;display:none;"></div>
-        </div>
-        <div id="results-sub-done"
-          style="display:none;font-family:'Courier Prime',monospace;font-size:13px;color:var(--green);padding:4px 0;">✓
-          You're in. See you tomorrow.</div>
       </div>
 
       <div id="share-section"
@@ -3595,7 +3646,14 @@ ${siteUrl}`;
       }
     }
 
-    async function registerPlayer() {
+    
+// ── PWA session detection ────────────────────────────────────────────────
+function isPwaSession() {
+  return window.matchMedia('(display-mode: standalone)').matches ||
+         window.navigator.standalone === true ||
+         new URLSearchParams(window.location.search).get('source') === 'pwa';
+}
+async function registerPlayer() {
       const name = document.getElementById('player-input').value.trim();
       const errEl = document.getElementById('reg-error');
       if (!name) { errEl.textContent = 'Please enter a name or pseudonym.'; errEl.style.display = 'block'; return; }
@@ -3616,6 +3674,15 @@ ${siteUrl}`;
       state.playerName = name;
       lsSet('dnq_current_player', name);
       getOrCreatePlayer(name);
+
+      // Log PWA session to server
+      if (isPwaSession()) {
+        fetch('/api/pwa-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ playerName: name, date: todayStr() })
+        }).catch(() => {});
+      }
 
       // // Server is authoritative — always fetch today's quiz from server first
       let quiz = null;
@@ -6998,6 +7065,8 @@ ${siteUrl}`;
           return keys.length ? (Math.max(...keys) + 1) : 0;
         });
 
+        const pwaCount = players.filter(p => !!p.pwaSession).length;
+
         const avgQReached = reachedVals.length
           ? (reachedVals.reduce((a, b) => a + b, 0) / reachedVals.length).toFixed(1)
           : '—';
@@ -7137,7 +7206,7 @@ ${siteUrl}`;
                 : '';
 
               rowsHtml += `<tr>
-      <td style="padding:4px 8px 4px 0;font-weight:600;">${escHtml(displayName)}</td>
+      <td style="padding:4px 8px 4px 0;font-weight:600;">${escHtml(displayName)}${p.pwaSession ? ' <span title="Playing via installed app" style="font-size:12px;">📱</span>' : ''}</td>
       ${qCells}
       <td style="padding:4px 8px;text-align:center;color:${completedColor};font-family:monospace;">${completedCell}</td>
       <td style="padding:4px 0 4px 8px;text-align:right;font-family:monospace;">${scoreVal}</td>
@@ -7241,6 +7310,10 @@ ${siteUrl}`;
         <div style="background:white;border:1px solid var(--rule);padding:12px;text-align:center;">
           <div style="font-size:22px;font-weight:bold;color:var(--ink);">${starts}</div>
           <div style="font-size:10px;letter-spacing:1px;color:var(--muted);margin-top:2px;">STARTED</div>
+        </div>
+        <div style="background:white;border:1px solid var(--rule);padding:12px;text-align:center;">
+          <div style="font-size:22px;font-weight:bold;color:var(--ink);">${pwaCount}</div>
+          <div style="font-size:10px;letter-spacing:1px;color:var(--muted);margin-top:2px;">VIA APP 📱</div>
         </div>
         <div style="background:white;border:1px solid var(--rule);padding:12px;text-align:center;">
           <div style="font-size:22px;font-weight:bold;color:var(--ink);">${completions}</div>
@@ -7733,6 +7806,68 @@ ${siteUrl}`;
     }
 
   </script>
+
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js')
+        .then(() => console.log('[PWA] SW registered'))
+        .catch(err => console.warn('[PWA] SW failed', err));
+    });
+  }
+
+  let _pwaInstallPrompt = null;
+
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    _pwaInstallPrompt = e;
+  });
+
+  function _isIos() {
+    const ua = navigator.userAgent;
+    return (/iphone|ipad|ipod/i.test(ua) && !window.MSStream) ||
+           (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  }
+
+  function _isInStandaloneMode() {
+    return window.matchMedia('(display-mode: standalone)').matches ||
+           window.navigator.standalone === true;
+  }
+
+  function checkPwaPrompt() {
+    if (_isInStandaloneMode()) return;
+    const banner     = document.getElementById('pwa-install-banner');
+    const iosHelp    = document.getElementById('pwa-ios-help');
+    const iosCaption = document.getElementById('pwa-ios-caption');
+    const copyText   = document.getElementById('pwa-copy-text');
+    const iconEl     = document.getElementById('pwa-icon-preview');
+    if (!banner) return;
+
+    if (_isIos()) {
+      banner.style.display = 'block';
+      if (iosHelp)    iosHelp.style.display = 'block';
+      if (iosCaption) iosCaption.style.display = 'block';
+      if (copyText)   copyText.style.display = 'none';
+      if (iconEl)     iconEl.style.cursor = 'default';
+    } else if (_pwaInstallPrompt) {
+      banner.style.display = 'block';
+      if (iosHelp)    iosHelp.style.display = 'none';
+      if (iosCaption) iosCaption.style.display = 'none';
+      if (copyText)   copyText.style.display = 'block';
+    }
+  }
+
+  async function installDailyDispatchApp() {
+    if (!_pwaInstallPrompt) return;
+    _pwaInstallPrompt.prompt();
+    const { outcome } = await _pwaInstallPrompt.userChoice;
+    console.log('[PWA] outcome:', outcome);
+    _pwaInstallPrompt = null;
+    const banner = document.getElementById('pwa-install-banner');
+    if (banner) banner.style.display = 'none';
+  }
+</script>
+
 </body>
 
 </html>
