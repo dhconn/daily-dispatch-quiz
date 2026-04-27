@@ -10,18 +10,6 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json({ limit: '2mb' }));
 app.use('/images', express.static(path.join(__dirname, 'public', 'images')));
-
-app.get('/manifest.webmanifest', (req, res, next) => {
-  res.type('application/manifest+json');
-  next();
-});
-
-app.get('/sw.js', (req, res, next) => {
-  res.setHeader('Cache-Control', 'no-cache');
-  res.type('application/javascript');
-  next();
-});
-
 app.use(express.static(path.dirname(__filename), {
   setHeaders: (res, filePath) => {
     if (filePath.endsWith('.html')) {
@@ -1420,6 +1408,27 @@ app.post('/api/claude', async (req, res) => {
   });
   proxyReq.write(body);
   proxyReq.end();
+});
+
+
+// ── POST /api/pwa-session — log that a player launched via installed PWA ──
+app.post('/api/pwa-session', async (req, res) => {
+  const { playerName, date } = req.body || {};
+  if (!playerName || !date) return res.status(400).json({ error: 'playerName and date required' });
+  try {
+    const key = playerName.toLowerCase().trim();
+    const allProgress = (await getKey('progress')) || {};
+    if (!allProgress[date]) allProgress[date] = {};
+    if (!allProgress[date][key]) allProgress[date][key] = {};
+    allProgress[date][key].pwaSession = true;
+    allProgress[date][key].displayName = playerName.trim();
+    await setKey('progress', allProgress);
+    console.log(`[PWA] Session logged: ${playerName} on ${date}`);
+    res.json({ ok: true });
+  } catch(e) {
+    console.error('[PWA] session log error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // ── Start ─────────────────────────────────────────────────────

@@ -2,7 +2,7 @@
   "name": "The Daily Dispatch Quiz",
   "short_name": "Dispatch Quiz",
   "description": "A daily Baltimore local news quiz.",
-  "start_url": "/news-quiz.html",
+  "start_url": "/news-quiz.html?source=pwa",
   "scope": "/",
   "display": "standalone",
   "background_color": "#1a1008",
