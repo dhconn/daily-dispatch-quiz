@@ -10,6 +10,18 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json({ limit: '2mb' }));
 app.use('/images', express.static(path.join(__dirname, 'public', 'images')));
+
+app.get('/manifest.webmanifest', (req, res, next) => {
+  res.type('application/manifest+json');
+  next();
+});
+
+app.get('/sw.js', (req, res, next) => {
+  res.setHeader('Cache-Control', 'no-cache');
+  res.type('application/javascript');
+  next();
+});
+
 app.use(express.static(path.dirname(__filename), {
   setHeaders: (res, filePath) => {
     if (filePath.endsWith('.html')) {
