@@ -7150,6 +7150,8 @@ async function registerPlayer() {
           return keys.length ? (Math.max(...keys) + 1) : 0;
         });
 
+        const pwaCount = players.filter(p => !!p.pwaSession).length;
+
         const avgQReached = reachedVals.length
           ? (reachedVals.reduce((a, b) => a + b, 0) / reachedVals.length).toFixed(1)
           : '—';
