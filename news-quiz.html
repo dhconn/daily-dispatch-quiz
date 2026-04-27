@@ -4407,6 +4407,7 @@ async function registerPlayer() {
         }
       }
       showScreen('screen-results');
+  if (typeof checkPwaPrompt === 'function') checkPwaPrompt();
 
       // Hide subscribe CTA if player already subscribed this session or previously
       const alreadySubscribed = lsGet('dnq_subscribed');
