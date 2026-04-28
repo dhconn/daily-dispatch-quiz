@@ -4,9 +4,16 @@ const https = require('https');
 const http = require('http');
 const { Pool } = require('pg')
 const path = require('path');
+const webpush = require('web-push');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+webpush.setVapidDetails(
+  'mailto:dhconn@gmail.com',
+  process.env.VAPID_PUBLIC_KEY,
+  process.env.VAPID_PRIVATE_KEY
+);
 
 app.use(express.json({ limit: '2mb' }));
 app.use('/images', express.static(path.join(__dirname, 'public', 'images')));
@@ -1344,6 +1351,7 @@ app.post('/api/quiz', async (req, res) => {
       await sendEmailBatch(prospectEmails);
       sentAnyEmails = true;
     }
+    await sendPushNotifications(date);
     if (sentAnyEmails) {
       freshData.emailSentDates = [...(freshData.emailSentDates || []), date].slice(-30);
       await writeData(freshData);
@@ -1429,6 +1437,59 @@ app.post('/api/pwa-session', async (req, res) => {
     console.error('[PWA] session log error:', e.message);
     res.status(500).json({ error: e.message });
   }
+});
+
+// ── GET /api/push-vapid-key — send public key to frontend ────
+app.get('/api/push-vapid-key', (req, res) => {
+  res.json({ publicKey: process.env.VAPID_PUBLIC_KEY || '' });
+});
+
+// ── POST /api/push-subscribe — store a push subscription ─────
+app.post('/api/push-subscribe', async (req, res) => {
+  const { playerName, subscription } = req.body || {};
+  if (!subscription || !subscription.endpoint) {
+    return res.status(400).json({ error: 'subscription required' });
+  }
+  try {
+    const subs = (await getKey('pushSubscriptions')) || {};
+    const key = Buffer.from(subscription.endpoint).toString('base64').slice(-40);
+    subs[key] = {
+      subscription,
+      playerName: (playerName || '').trim(),
+      addedAt: new Date().toISOString()
+    };
+    await setKey('pushSubscriptions', subs);
+    console.log(`[Push] Subscription stored for "${playerName || 'unknown'}" — total: ${Object.keys(subs).length}`);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[Push] subscribe error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── POST /api/push-unsubscribe — remove a push subscription ──
+app.post('/api/push-unsubscribe', async (req, res) => {
+  const { endpoint } = req.body || {};
+  if (!endpoint) return res.status(400).json({ error: 'endpoint required' });
+  try {
+    const subs = (await getKey('pushSubscriptions')) || {};
+    const key = Buffer.from(endpoint).toString('base64').slice(-40);
+    delete subs[key];
+    await setKey('pushSubscriptions', subs);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── GET /api/push-stats — admin: how many push subscribers ───
+app.get('/api/push-stats', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  const subs = (await getKey('pushSubscriptions')) || {};
+  res.json({ count: Object.keys(subs).length });
 });
 
 // ── Start ─────────────────────────────────────────────────────
