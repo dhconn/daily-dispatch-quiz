@@ -4060,23 +4060,20 @@ ${siteUrl}`;
     function advanceQuestion() {
       state.currentQ++;
       window.scrollTo(0, 0);
+
       const regularCount = Math.min(quizQuestions.length - 1, 5);
-      if (state.currentQ === 4 && !lsGet('dnq_subscribed') && !archiveMode) {
-        // Show subscribe prompt after Q3 for non-subscribers
-        showSubscribeInterstitial();
-      } else if (state.currentQ < regularCount) {
-        // Update progress dot
+
+      if (state.currentQ < regularCount) {
         const pd = document.getElementById('pd-' + state.currentQ);
         if (pd) pd.className = 'progress-dot current';
         renderQuestion();
       } else {
         startBonusRound();
       }
-    }
-
+   }
     // ═══════════════════════════════════════════════════════
     //  INTERSTITIAL
-    // ═══════════════════════════════════════════════════════
+    // ══════════════════════════════
     
     function showInterstitial() {
       document.getElementById('interstitial-score').textContent = state.sessionScore;
