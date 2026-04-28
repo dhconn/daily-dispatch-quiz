@@ -1134,6 +1134,16 @@
       background: white;
       border: 1px solid var(--rule);
     }
+    @keyframes bannerFlash {
+      0%   { border-color: var(--ink); box-shadow: 3px 3px 0 var(--ink); }
+      25%  { border-color: var(--gold-light); box-shadow: 3px 3px 0 var(--gold-light), 0 0 18px rgba(240,192,64,0.5); }
+      50%  { border-color: var(--ink); box-shadow: 3px 3px 0 var(--ink); }
+      75%  { border-color: var(--gold-light); box-shadow: 3px 3px 0 var(--gold-light), 0 0 18px rgba(240,192,64,0.5); }
+      100% { border-color: var(--ink); box-shadow: 3px 3px 0 var(--ink); }
+    }
+    #pwa-install-banner.flash {
+      animation: bannerFlash 1.2s ease-in-out;
+    }
 
     /* ─── LEADERBOARD ─── */
     #screen-leaderboard {
@@ -7846,12 +7856,14 @@ async function registerPlayer() {
 
     if (_isIos()) {
       banner.style.display = 'block';
+      setTimeout(() => { banner.classList.add('flash'); setTimeout(() => banner.classList.remove('flash'), 1300); }, 400);
       if (iosHelp)    iosHelp.style.display = 'block';
       if (iosCaption) iosCaption.style.display = 'block';
       if (copyText)   copyText.style.display = 'none';
       if (iconEl)     iconEl.style.cursor = 'default';
     } else if (_pwaInstallPrompt) {
       banner.style.display = 'block';
+      setTimeout(() => { banner.classList.add('flash'); setTimeout(() => banner.classList.remove('flash'), 1300); }, 400);
       if (iosHelp)    iosHelp.style.display = 'none';
       if (iosCaption) iosCaption.style.display = 'none';
       if (copyText)   copyText.style.display = 'block';
