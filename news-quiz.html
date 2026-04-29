@@ -3741,6 +3741,12 @@ ${siteUrl}`;
       }
 
       const introKey = 'dnq_seen_intro_' + pkey;
+      // Also treat as returning player if they have any server-side scores
+      const scoresRes = await fetch('/api/scores');
+      const scoresData = await scoresRes.json().catch(() => ({}));
+      const hasServerHistory = !!(scoresData.scores && scoresData.scores[pkey] && scoresData.scores[pkey].allTime > 0);
+      if (hasServerHistory) lsSet(introKey, '1');
+
       if (!lsGet(introKey) && !resumed) {
         window._pendingQuiz = quiz;
         window._pendingQuizOptions = { resumed };
@@ -3830,7 +3836,6 @@ ${siteUrl}`;
       for (let i = 0; i < 5; i++) {
         const cls = i === 0 ? 'current' : '';
         html += `<div class="progress-dot ${cls}" id="pd-${i}">${i + 1}</div>`;
-        if (i === 2) html += `<span class="progress-separator">·</span>`;
       }
       html += `<span class="progress-separator">◆</span>`;
       html += `<div class="progress-dot bonus" id="pd-5">★</div>`;
