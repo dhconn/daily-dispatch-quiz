@@ -6,6 +6,11 @@
     href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+CiAgPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiBmaWxsPSIjMWExYTFhIi8+CiAgPHJlY3QgeD0iNCIgeT0iNiIgd2lkdGg9IjI0IiBoZWlnaHQ9IjIiIGZpbGw9IndoaXRlIi8+CiAgPHJlY3QgeD0iNCIgeT0iMTAiIHdpZHRoPSIyNCIgaGVpZ2h0PSIxIiBmaWxsPSJ3aGl0ZSIgb3BhY2l0eT0iMC41Ii8+CiAgPHRleHQgeD0iMTYiIHk9IjI2IiBmb250LWZhbWlseT0iR2VvcmdpYSxzZXJpZiIgZm9udC1zaXplPSIxOCIgZm9udC13ZWlnaHQ9ImJvbGQiIAogICAgICAgIGZpbGw9IndoaXRlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5EPC90ZXh0Pgo8L3N2Zz4=">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="DDQ">
+  <link rel="apple-touch-icon" href="/images/icon-192.png">
   <title>The Daily Dispatch Quiz</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link
@@ -1999,6 +2004,26 @@
         now…</p>
       <div id="interstitial-countdown"
         style="font-family:'Playfair Display',serif;font-size:28px;color:var(--gold);margin-bottom:24px;">3</div>
+    </div>
+
+    <!-- PWA INSTALL BANNER -->
+    <div id="pwa-install-banner" style="display:none;margin:20px 0;padding:18px 20px;background:var(--ink);color:var(--paper);border-top:3px solid var(--gold);position:relative;">
+      <div style="font-family:'Courier Prime',monospace;font-size:10px;letter-spacing:2px;color:var(--gold-light);margin-bottom:6px;">DAILY DISPATCH QUIZ</div>
+      <div style="font-family:'Playfair Display',serif;font-size:18px;font-weight:700;margin-bottom:8px;">Add to your home screen</div>
+      <div id="pwa-copy-text" style="font-size:13px;color:#c8b89a;margin-bottom:14px;">Get one-tap access and daily notifications — no app store required.</div>
+      <div id="pwa-ios-help" style="display:none;font-size:13px;color:#c8b89a;margin-bottom:14px;">
+        Tap <strong>Share</strong> then <strong>"Add to Home Screen"</strong> to install.
+      </div>
+      <div id="pwa-ios-caption" style="display:none;font-size:11px;font-family:monospace;color:var(--muted);margin-bottom:10px;">iOS: use Safari's share button ↑</div>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <img id="pwa-icon-preview" src="/images/icon-192.png" style="width:48px;height:48px;border-radius:10px;cursor:pointer;" onclick="triggerPwaInstall()">
+        <div>
+          <div id="pwa-install-btn-wrap">
+            <button onclick="triggerPwaInstall()" style="font-family:'Courier Prime',monospace;font-size:12px;letter-spacing:1px;padding:9px 20px;background:var(--gold);color:var(--ink);border:none;cursor:pointer;font-weight:700;">Install App ▸</button>
+          </div>
+        </div>
+      </div>
+      <button onclick="document.getElementById('pwa-install-banner').style.display='none'" style="position:absolute;top:10px;right:12px;background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;line-height:1;">✕</button>
     </div>
 
     <!-- RESUME OVERLAY -->
@@ -7736,6 +7761,73 @@ ${siteUrl}`;
     }
 
   </script>
+
+<script>
+  // ── PWA install prompt ────────────────────────────────────
+  let _pwaInstallPrompt = null;
+
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    _pwaInstallPrompt = e;
+  });
+
+  function _isInStandaloneMode() {
+    return (
+      window.matchMedia('(display-mode: standalone)').matches ||
+      window.navigator.standalone === true
+    );
+  }
+
+  function _isIos() {
+    return /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+  }
+
+  function checkPwaPrompt() {
+    if (_isInStandaloneMode()) {
+      // Already installed — silently try to subscribe to push
+      subscribeToPush();
+      return;
+    }
+    const banner     = document.getElementById('pwa-install-banner');
+    const iosHelp    = document.getElementById('pwa-ios-help');
+    const iosCaption = document.getElementById('pwa-ios-caption');
+    const copyText   = document.getElementById('pwa-copy-text');
+    const iconEl     = document.getElementById('pwa-icon-preview');
+    if (!banner) return;
+    if (_isIos()) {
+      banner.style.display = 'block';
+      setTimeout(() => { banner.classList.add('flash'); setTimeout(() => banner.classList.remove('flash'), 1300); }, 400);
+      if (iosHelp)    iosHelp.style.display    = 'block';
+      if (iosCaption) iosCaption.style.display = 'block';
+      if (copyText)   copyText.style.display   = 'none';
+      if (iconEl)     iconEl.style.cursor      = 'default';
+    } else if (_pwaInstallPrompt) {
+      banner.style.display = 'block';
+      setTimeout(() => { banner.classList.add('flash'); setTimeout(() => banner.classList.remove('flash'), 1300); }, 400);
+      if (iosHelp)    iosHelp.style.display    = 'none';
+      if (iosCaption) iosCaption.style.display = 'none';
+      if (copyText)   copyText.style.display   = 'block';
+    }
+  }
+
+  function triggerPwaInstall() {
+    if (!_pwaInstallPrompt) return;
+    _pwaInstallPrompt.prompt();
+    _pwaInstallPrompt.userChoice.then(choice => {
+      if (choice.outcome === 'accepted') {
+        document.getElementById('pwa-install-banner').style.display = 'none';
+      }
+      _pwaInstallPrompt = null;
+    });
+  }
+
+  // Register service worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(err => {
+      console.warn('[SW] Registration failed:', err);
+    });
+  }
+</script>
 
 <script>
 function _urlBase64ToUint8Array(base64String) {
