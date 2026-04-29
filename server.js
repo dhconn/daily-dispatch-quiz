@@ -9,11 +9,15 @@ const webpush = require('web-push');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-webpush.setVapidDetails(
-  'mailto:dhconn@gmail.com',
-  process.env.VAPID_PUBLIC_KEY,
-  process.env.VAPID_PRIVATE_KEY
-);
+if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(
+    'mailto:dhconn@gmail.com',
+    process.env.VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY
+  );
+} else {
+  console.warn('[Push] VAPID keys not set — push notifications disabled.');
+}
 
 app.use(express.json({ limit: '2mb' }));
 app.use('/images', express.static(path.join(__dirname, 'public', 'images')));
@@ -1491,6 +1495,59 @@ app.get('/api/push-stats', async (req, res) => {
   const subs = (await getKey('pushSubscriptions')) || {};
   res.json({ count: Object.keys(subs).length });
 });
+
+// ── Send Web Push notifications to all subscribed devices ────
+async function sendPushNotifications(date) {
+  if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
+    console.log('[Push] VAPID keys not set — skipping push notifications.');
+    return;
+  }
+
+  const subs = (await getKey('pushSubscriptions')) || {};
+  const entries = Object.entries(subs);
+  if (!entries.length) {
+    console.log('[Push] No push subscribers — skipping.');
+    return;
+  }
+
+  const payload = JSON.stringify({
+    title: 'Daily Dispatch Quiz',
+    body: "Today's quiz is live — can you beat yesterday's score?",
+    icon: '/images/icon-192.png',
+    badge: '/images/icon-192.png',
+    url: '/'
+  });
+
+  console.log(`[Push] Sending to ${entries.length} subscriber(s)…`);
+  let sent = 0, failed = 0, expired = 0;
+  const toRemove = [];
+
+  await Promise.allSettled(
+    entries.map(async ([key, record]) => {
+      try {
+        await webpush.sendNotification(record.subscription, payload);
+        sent++;
+      } catch (e) {
+        if (e.statusCode === 410 || e.statusCode === 404) {
+          toRemove.push(key);
+          expired++;
+          console.log(`[Push] Expired subscription removed: ${record.playerName || key}`);
+        } else {
+          failed++;
+          console.warn(`[Push] Failed for "${record.playerName}": ${e.message}`);
+        }
+      }
+    })
+  );
+
+  if (toRemove.length) {
+    const freshSubs = (await getKey('pushSubscriptions')) || {};
+    toRemove.forEach(k => delete freshSubs[k]);
+    await setKey('pushSubscriptions', freshSubs);
+  }
+
+  console.log(`[Push] Done — sent: ${sent}, failed: ${failed}, expired/removed: ${expired}`);
+}
 
 // ── Start ─────────────────────────────────────────────────────
 initDb().then(() => {
