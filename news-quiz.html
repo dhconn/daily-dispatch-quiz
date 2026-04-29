@@ -3741,6 +3741,12 @@ ${siteUrl}`;
       }
 
       const introKey = 'dnq_seen_intro_' + pkey;
+      // Also treat as returning player if they have any server-side scores
+      const scoresRes = await fetch('/api/scores');
+      const scoresData = await scoresRes.json().catch(() => ({}));
+      const hasServerHistory = !!(scoresData.scores && scoresData.scores[pkey] && scoresData.scores[pkey].allTime > 0);
+      if (hasServerHistory) lsSet(introKey, '1');
+
       if (!lsGet(introKey) && !resumed) {
         window._pendingQuiz = quiz;
         window._pendingQuizOptions = { resumed };
@@ -3830,7 +3836,6 @@ ${siteUrl}`;
       for (let i = 0; i < 5; i++) {
         const cls = i === 0 ? 'current' : '';
         html += `<div class="progress-dot ${cls}" id="pd-${i}">${i + 1}</div>`;
-        if (i === 2) html += `<span class="progress-separator">·</span>`;
       }
       html += `<span class="progress-separator">◆</span>`;
       html += `<div class="progress-dot bonus" id="pd-5">★</div>`;
@@ -6276,6 +6281,18 @@ ${siteUrl}`;
         return;
       }
 
+      // Block the old question's topic BEFORE generating replacement
+      // so Claude won't pick the same article or topic again
+      const oldQ = draft.questions[idx];
+      if (oldQ) {
+        const list = getTopicBlocklist();
+        const topic = oldQ.question.slice(0, 120).replace(/"/g, '');
+        if (!list.includes(topic)) list.push(topic);
+        if (oldQ.sourceUrl && !list.includes(oldQ.sourceUrl)) list.push(oldQ.sourceUrl);
+        await saveTopicBlocklist(list);
+        console.log('[Replace] Blocked before generation:', topic.slice(0, 60));
+      }
+
       const prompt = 'You are writing ONE replacement question for a Baltimore local news quiz.\n\n' +
         'ALREADY USED TOPICS — do not repeat these:\n' + usedHeadlines.join('\n') + '\n\n' +
         (getTopicBlocklist().length > 0 ? 'BLOCKED TOPICS — do not generate questions about any of these subjects under any circumstances:\n' + getTopicBlocklist().filter(t => !t.startsWith('http')).map(t => '- ' + t).join('\n') + (getTopicBlocklist().some(t => t.startsWith('http')) ? '\n\nBLOCKED URLS — do not use these source articles:\n' + getTopicBlocklist().filter(t => t.startsWith('http')).map(t => '- ' + t).join('\n') : '') + '\n\n' : '') +
@@ -6304,15 +6321,6 @@ ${siteUrl}`;
         const newQ = JSON.parse(clean);
         newQ.difficulty = difficulty;
 
-        // Block the old question's topic before overwriting
-        const oldQ = draft.questions[idx];
-        if (oldQ) {
-          const list = getTopicBlocklist();
-          const topic = oldQ.question.slice(0, 120).replace(/"/g, '');
-          if (!list.includes(topic)) list.push(topic);
-          if (oldQ.sourceUrl && !list.includes(oldQ.sourceUrl)) list.push(oldQ.sourceUrl);
-          await saveTopicBlocklist(list);
-        }
         draft.questions[idx] = newQ;
         saveDraftQuiz(draft);
         showDraftPreview(draft.questions);
