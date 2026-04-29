@@ -5179,7 +5179,7 @@ ${siteUrl}`;
       const articleUrlList = articleUrls ? articleUrls.split('\n').map(u => u.trim()).filter(u => u.startsWith('http')) : [];
       const urlList = urls ? urls.split('\n').map(u => u.trim()).filter(u => u.startsWith('http')) : [];
       // Fetch server-side archive (authoritative, works across devices/sessions)
-      let serverArchiveUrls = [], serverArchiveQuestions = [], serverArchiveSlugs = [];
+      let serverArchiveUrls = [], serverArchiveQuestions = [], serverArchiveSlugs = [], serverArchiveSummaries = [];
       try {
         // Use /api/archive/full which derives archive directly from published quizzes
         // This is more reliable than the client-side slug system
@@ -5192,7 +5192,8 @@ ${siteUrl}`;
           serverArchiveUrls = archData.urls || [];
           serverArchiveQuestions = archData.questions || [];
           serverArchiveSlugs = archData.slugs || [];
-          console.log('[Archive/full] Loaded', serverArchiveQuestions.length, 'questions,', serverArchiveUrls.length, 'URLs from published quizzes');
+          serverArchiveSummaries = archData.summaries || [];
+          console.log('[Archive/full] Loaded', serverArchiveQuestions.length, 'questions,', serverArchiveUrls.length, 'URLs,', serverArchiveSummaries.length, 'summaries from published quizzes');
         }
       } catch (e) { console.warn('[Archive] fetch failed or timed out, using localStorage fallback'); }
       // Merge with localStorage fallback (covers current session before first publish)
@@ -5200,8 +5201,9 @@ ${siteUrl}`;
       const allArchiveQuestions = [...new Set([...serverArchiveQuestions, ...getArchive()])];
       const allArchiveSlugs = [...new Set([...serverArchiveSlugs, ...getArchiveSlugs()])];
 
+      const allArchiveSummaries = [...new Set([...serverArchiveSummaries])];
       const archiveNote = allArchiveQuestions.length > 0
-        ? `STRICT DEDUPLICATION — these questions have been used in recent quizzes. Do NOT generate questions about ANY of these topics, even from a different article or angle:\n${allArchiveQuestions.slice(-60).map((q, i) => `${i+1}. ${q}`).join('\n')}`
+        ? `STRICT DEDUPLICATION — these topics have been covered in recent quizzes. Do NOT generate questions about ANY of these events, people, or decisions — even from a different article, outlet, or angle. If a new article covers the same real-world event as one listed below, skip it entirely:\n${allArchiveSummaries.length ? allArchiveSummaries.slice(-60).map((s, i) => `${i+1}. ${s}`).join('\n') : allArchiveQuestions.slice(-60).map((q, i) => `${i+1}. ${q}`).join('\n')}`
         : '';
 
       // Fetch editor notes and starred examples for prompt injection
@@ -5328,12 +5330,16 @@ ${siteUrl}`;
           // Use already-fetched server archive URLs (fetched above, no second request needed)
           const recentUrls = allArchiveUrls.length > 0 ? allArchiveUrls : getArchiveUrls();
 
+          const recentSummaryNote = allArchiveSummaries.length > 0
+              ? 'RECENTLY COVERED EVENTS (REJECT any article covering the same real-world event as these, even from a different outlet):\n' + allArchiveSummaries.slice(-30).map(s => '- ' + s).join('\n') + '\n\n'
+              : '';
           const recentUrlNote = recentUrls.length > 0
             ? 'ALREADY USED THIS WEEK (REJECT these URLs and any article covering the same topic):\n' + recentUrls.join('\n') + '\n\n'
             : '';
 
           const screenPrompt = 'You are an editor screening articles for a Baltimore local news quiz. ' +
             'For each article below, decide if it is suitable for a quiz question.\n\n' +
+            recentSummaryNote +
             recentUrlNote +
             'REJECT only if clearly one of these:\n' +
             '- Weather forecast or routine temperature update\n' +
