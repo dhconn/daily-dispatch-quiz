@@ -833,8 +833,7 @@ app.post('/api/admin/stats-exclusions', async (req, res) => {
 // ── Archive (used article URLs + question text) ───────────────
 
 // ── GET /api/archive/full — derive rich archive from published quizzes ──
-// Returns full question texts, source URLs, and topic slugs from last 14 days
-// This is more reliable than the client-side slug system
+// Returns full question texts, source URLs, explanations and topic slugs from last 14 days
 app.get('/api/archive/full', async (req, res) => {
   try {
     const data = await readData();
@@ -844,6 +843,7 @@ app.get('/api/archive/full', async (req, res) => {
     const questions = [];
     const urls = [];
     const slugs = [];
+    const summaries = []; // question + explanation combined for richer dedup
 
     for (const date of dates) {
       const quiz = quizzes[date];
@@ -851,6 +851,11 @@ app.get('/api/archive/full', async (req, res) => {
       for (const q of quiz.questions) {
         if (q.question && !questions.includes(q.question)) questions.push(q.question);
         if (q.sourceUrl && !urls.includes(q.sourceUrl)) urls.push(q.sourceUrl);
+        // Combined summary includes key entities from the explanation
+        if (q.question && q.explanation) {
+          const summary = q.question + ' — ' + q.explanation.slice(0, 120);
+          summaries.push(summary);
+        }
       }
     }
 
@@ -859,7 +864,7 @@ app.get('/api/archive/full', async (req, res) => {
     (data.archiveUrls || []).forEach(u => { if (!urls.includes(u)) urls.push(u); });
     (data.archiveSlugs || []).forEach(s => { if (!slugs.includes(s)) slugs.push(s); });
 
-    res.json({ questions, urls, slugs, count: questions.length });
+    res.json({ questions, urls, slugs, summaries, count: questions.length });
   } catch (e) {
     console.error('[Archive/full] error:', e.message);
     res.status(500).json({ error: e.message });
