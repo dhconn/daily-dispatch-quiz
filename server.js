@@ -831,6 +831,41 @@ app.post('/api/admin/stats-exclusions', async (req, res) => {
 });
 
 // ── Archive (used article URLs + question text) ───────────────
+
+// ── GET /api/archive/full — derive rich archive from published quizzes ──
+// Returns full question texts, source URLs, and topic slugs from last 14 days
+// This is more reliable than the client-side slug system
+app.get('/api/archive/full', async (req, res) => {
+  try {
+    const data = await readData();
+    const quizzes = data.quizzes || {};
+    const dates = Object.keys(quizzes).sort();
+
+    const questions = [];
+    const urls = [];
+    const slugs = [];
+
+    for (const date of dates) {
+      const quiz = quizzes[date];
+      if (!quiz || !quiz.questions) continue;
+      for (const q of quiz.questions) {
+        if (q.question && !questions.includes(q.question)) questions.push(q.question);
+        if (q.sourceUrl && !urls.includes(q.sourceUrl)) urls.push(q.sourceUrl);
+      }
+    }
+
+    // Also include manually stored archive items
+    (data.archiveQuestions || []).forEach(q => { if (!questions.includes(q)) questions.push(q); });
+    (data.archiveUrls || []).forEach(u => { if (!urls.includes(u)) urls.push(u); });
+    (data.archiveSlugs || []).forEach(s => { if (!slugs.includes(s)) slugs.push(s); });
+
+    res.json({ questions, urls, slugs, count: questions.length });
+  } catch (e) {
+    console.error('[Archive/full] error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/api/archive', async (req, res) => {
   const data = await readData();
   res.json({ urls: data.archiveUrls || [], questions: data.archiveQuestions || [], slugs: data.archiveSlugs || [] });
