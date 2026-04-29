@@ -3741,12 +3741,6 @@ ${siteUrl}`;
       }
 
       const introKey = 'dnq_seen_intro_' + pkey;
-      // Also treat as returning player if they have any server-side scores
-      const scoresRes = await fetch('/api/scores');
-      const scoresData = await scoresRes.json().catch(() => ({}));
-      const hasServerHistory = !!(scoresData.scores && scoresData.scores[pkey] && scoresData.scores[pkey].allTime > 0);
-      if (hasServerHistory) lsSet(introKey, '1');
-
       if (!lsGet(introKey) && !resumed) {
         window._pendingQuiz = quiz;
         window._pendingQuizOptions = { resumed };
@@ -3836,6 +3830,7 @@ ${siteUrl}`;
       for (let i = 0; i < 5; i++) {
         const cls = i === 0 ? 'current' : '';
         html += `<div class="progress-dot ${cls}" id="pd-${i}">${i + 1}</div>`;
+        if (i === 2) html += `<span class="progress-separator">·</span>`;
       }
       html += `<span class="progress-separator">◆</span>`;
       html += `<div class="progress-dot bonus" id="pd-5">★</div>`;
@@ -5181,15 +5176,18 @@ ${siteUrl}`;
       // Fetch server-side archive (authoritative, works across devices/sessions)
       let serverArchiveUrls = [], serverArchiveQuestions = [], serverArchiveSlugs = [];
       try {
+        // Use /api/archive/full which derives archive directly from published quizzes
+        // This is more reliable than the client-side slug system
         const archRes = await Promise.race([
-          fetch('/api/archive'),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000))
+          fetch('/api/archive/full'),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
         ]);
         if (archRes.ok) {
           const archData = await archRes.json();
           serverArchiveUrls = archData.urls || [];
           serverArchiveQuestions = archData.questions || [];
           serverArchiveSlugs = archData.slugs || [];
+          console.log('[Archive/full] Loaded', serverArchiveQuestions.length, 'questions,', serverArchiveUrls.length, 'URLs from published quizzes');
         }
       } catch (e) { console.warn('[Archive] fetch failed or timed out, using localStorage fallback'); }
       // Merge with localStorage fallback (covers current session before first publish)
@@ -5198,7 +5196,7 @@ ${siteUrl}`;
       const allArchiveSlugs = [...new Set([...serverArchiveSlugs, ...getArchiveSlugs()])];
 
       const archiveNote = allArchiveQuestions.length > 0
-        ? `Do NOT generate questions about these previously used topics: ${allArchiveQuestions.slice(-30).join(' | ')}`
+        ? `STRICT DEDUPLICATION — these questions have been used in recent quizzes. Do NOT generate questions about ANY of these topics, even from a different article or angle:\n${allArchiveQuestions.slice(-60).map((q, i) => `${i+1}. ${q}`).join('\n')}`
         : '';
 
       // Fetch editor notes and starred examples for prompt injection
