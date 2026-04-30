@@ -3741,6 +3741,12 @@ ${siteUrl}`;
       }
 
       const introKey = 'dnq_seen_intro_' + pkey;
+      // Also treat as returning player if they have any server-side scores
+      const scoresRes = await fetch('/api/scores');
+      const scoresData = await scoresRes.json().catch(() => ({}));
+      const hasServerHistory = !!(scoresData.scores && scoresData.scores[pkey] && scoresData.scores[pkey].allTime > 0);
+      if (hasServerHistory) lsSet(introKey, '1');
+
       if (!lsGet(introKey) && !resumed) {
         window._pendingQuiz = quiz;
         window._pendingQuizOptions = { resumed };
@@ -3830,7 +3836,6 @@ ${siteUrl}`;
       for (let i = 0; i < 5; i++) {
         const cls = i === 0 ? 'current' : '';
         html += `<div class="progress-dot ${cls}" id="pd-${i}">${i + 1}</div>`;
-        if (i === 2) html += `<span class="progress-separator">·</span>`;
       }
       html += `<span class="progress-separator">◆</span>`;
       html += `<div class="progress-dot bonus" id="pd-5">★</div>`;
@@ -5087,8 +5092,14 @@ ${siteUrl}`;
       el.innerHTML = questions.map((q, i) =>
         `<div style="margin-bottom:8px;padding:8px;border:1px solid var(--rule);border-radius:2px;font-family:monospace;font-size:12px;">
       <div style="margin-bottom:3px;">${escHtml(q.question)}</div>
-      <div style="color:var(--green);">✓ ${escHtml(q.correctAnswer)}</div>
-      <button onclick="removeStarredQuestion('${escHtml(q.question).replace(/'/g, '&#39;')}')" style="margin-top:4px;background:none;border:1px solid var(--muted);border-radius:2px;font-family:monospace;font-size:10px;padding:2px 7px;color:var(--muted);cursor:pointer;">Remove</button>
+      <div style="color:var(--green);margin-bottom:4px;">✓ ${escHtml(q.correctAnswer)}</div>
+      <div style="margin-bottom:4px;">
+        <div style="font-size:10px;letter-spacing:1px;color:var(--muted);margin-bottom:3px;">WHY IT WORKS</div>
+        <textarea id="starred-note-${i}" style="width:100%;font-family:monospace;font-size:11px;padding:4px 6px;border:1px solid #ccc;border-radius:2px;resize:vertical;min-height:40px;box-sizing:border-box;">${escHtml(q.note || '')}</textarea>
+        <button onclick="saveStarredNote(${i})" style="margin-top:3px;background:none;border:1px solid var(--ink);border-radius:2px;font-family:monospace;font-size:10px;padding:2px 7px;color:var(--ink);cursor:pointer;">Save Note</button>
+        <span id="starred-note-status-${i}" style="font-family:monospace;font-size:10px;color:var(--green);margin-left:6px;"></span>
+      </div>
+      <button onclick="removeStarredQuestion('${escHtml(q.question).replace(/'/g, '&#39;')}')" style="background:none;border:1px solid var(--muted);border-radius:2px;font-family:monospace;font-size:10px;padding:2px 7px;color:var(--muted);cursor:pointer;">Remove</button>
     </div>`
       ).join('');
     }
@@ -5101,7 +5112,7 @@ ${siteUrl}`;
         const res = await fetch('/api/starred-questions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
-          body: JSON.stringify({ question: q, correctAnswer: a, sourceUrl: u })
+          body: JSON.stringify({ question: q, correctAnswer: a, sourceUrl: u, note: '' })
         });
         if (res.ok) {
           btn.textContent = '★';
@@ -5113,6 +5124,29 @@ ${siteUrl}`;
         }
       } catch (e) { console.warn('[StarredQ] toggle failed', e); }
     }
+
+  async function saveStarredNote(idx) {
+     const statusEl = document.getElementById('starred-note-status-' + idx);
+     const ta = document.getElementById('starred-note-' + idx);
+     if (!ta) return;
+     const note = ta.value.trim();
+     const adminToken = lsGet('dnq_admin_token') || 'admin';
+     try {
+       const res = await fetch('/api/starred-questions');
+       const data = await res.json();
+       const questions = data.questions || [];
+       if (!questions[idx]) return;
+       const q = questions[idx];
+       const saveRes = await fetch('/api/starred-questions', {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+         body: JSON.stringify({ question: q.question, correctAnswer: q.correctAnswer, sourceUrl: q.sourceUrl, note, action: 'update' })
+       });
+       if (saveRes.ok) {
+         if (statusEl) { statusEl.textContent = '✓ Saved'; setTimeout(() => { statusEl.textContent = ''; }, 2000); }
+       }
+     } catch (e) { if (statusEl) statusEl.textContent = '✗ Failed'; }
+   }
     async function removeStarredQuestion(question) {
       const adminToken = lsGet('dnq_admin_token') || 'admin';
       try {
@@ -5174,17 +5208,21 @@ ${siteUrl}`;
       const articleUrlList = articleUrls ? articleUrls.split('\n').map(u => u.trim()).filter(u => u.startsWith('http')) : [];
       const urlList = urls ? urls.split('\n').map(u => u.trim()).filter(u => u.startsWith('http')) : [];
       // Fetch server-side archive (authoritative, works across devices/sessions)
-      let serverArchiveUrls = [], serverArchiveQuestions = [], serverArchiveSlugs = [];
+      let serverArchiveUrls = [], serverArchiveQuestions = [], serverArchiveSlugs = [], serverArchiveSummaries = [];
       try {
+        // Use /api/archive/full which derives archive directly from published quizzes
+        // This is more reliable than the client-side slug system
         const archRes = await Promise.race([
-          fetch('/api/archive'),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000))
+          fetch('/api/archive/full'),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
         ]);
         if (archRes.ok) {
           const archData = await archRes.json();
           serverArchiveUrls = archData.urls || [];
           serverArchiveQuestions = archData.questions || [];
           serverArchiveSlugs = archData.slugs || [];
+          serverArchiveSummaries = archData.summaries || [];
+          console.log('[Archive/full] Loaded', serverArchiveQuestions.length, 'questions,', serverArchiveUrls.length, 'URLs,', serverArchiveSummaries.length, 'summaries from published quizzes');
         }
       } catch (e) { console.warn('[Archive] fetch failed or timed out, using localStorage fallback'); }
       // Merge with localStorage fallback (covers current session before first publish)
@@ -5192,8 +5230,9 @@ ${siteUrl}`;
       const allArchiveQuestions = [...new Set([...serverArchiveQuestions, ...getArchive()])];
       const allArchiveSlugs = [...new Set([...serverArchiveSlugs, ...getArchiveSlugs()])];
 
+      const allArchiveSummaries = [...new Set([...serverArchiveSummaries])];
       const archiveNote = allArchiveQuestions.length > 0
-        ? `Do NOT generate questions about these previously used topics: ${allArchiveQuestions.slice(-30).join(' | ')}`
+        ? `STRICT DEDUPLICATION — these topics have been covered in recent quizzes. Do NOT generate questions about ANY of these events, people, or decisions — even from a different article, outlet, or angle. If a new article covers the same real-world event as one listed below, skip it entirely:\n${allArchiveSummaries.length ? allArchiveSummaries.slice(-60).map((s, i) => `${i+1}. ${s}`).join('\n') : allArchiveQuestions.slice(-60).map((q, i) => `${i+1}. ${q}`).join('\n')}`
         : '';
 
       // Fetch editor notes and starred examples for prompt injection
@@ -5320,12 +5359,16 @@ ${siteUrl}`;
           // Use already-fetched server archive URLs (fetched above, no second request needed)
           const recentUrls = allArchiveUrls.length > 0 ? allArchiveUrls : getArchiveUrls();
 
+          const recentSummaryNote = allArchiveSummaries.length > 0
+              ? 'RECENTLY COVERED EVENTS (REJECT any article covering the same real-world event as these, even from a different outlet):\n' + allArchiveSummaries.slice(-30).map(s => '- ' + s).join('\n') + '\n\n'
+              : '';
           const recentUrlNote = recentUrls.length > 0
             ? 'ALREADY USED THIS WEEK (REJECT these URLs and any article covering the same topic):\n' + recentUrls.join('\n') + '\n\n'
             : '';
 
           const screenPrompt = 'You are an editor screening articles for a Baltimore local news quiz. ' +
             'For each article below, decide if it is suitable for a quiz question.\n\n' +
+            recentSummaryNote +
             recentUrlNote +
             'REJECT only if clearly one of these:\n' +
             '- Weather forecast or routine temperature update\n' +
@@ -5809,7 +5852,7 @@ ${siteUrl}`;
         (fallback ? fallback + '\n\n' : '') +
 
         (editorNotes ? 'EDITOR FEEDBACK — the editor has noted these patterns from recent quizzes. Follow these instructions carefully:\n' + editorNotes + '\n\n' : '') +
-        (starredExamples.length > 0 ? 'EXAMPLES OF STRONG QUESTIONS — model your questions after these in terms of style and approach:\n' + starredExamples.map((q, i) => `Example ${i + 1}: "${q.question}"\nCorrect answer: "${q.correctAnswer}"\nWhy it works: concrete, outcome-focused, answerable from the headline`).join('\n\n') + '\n\n' : '') +
+        (starredExamples.length > 0 ? 'EXAMPLES OF STRONG QUESTIONS — model your questions after these in terms of style and approach:\n' + starredExamples.map((q, i) => `Example ${i+1}: "${q.question}"\nCorrect answer: "${q.correctAnswer}"\nWhy it works: ${q.note || 'concrete, outcome-focused, answerable from the headline'}`).join('\n\n')
 
         (archiveNote ? 'PREVIOUSLY USED TOPICS — do not repeat these:\n' + archiveNote + '\n\n' : '') +
         (getTopicBlocklist().length > 0 ? 'BLOCKED TOPICS — the editor has explicitly blocked these topics from today\'s quiz. Do not generate any questions about these subjects under any circumstances:\n' + getTopicBlocklist().filter(t => !t.startsWith('http')).map(t => '- ' + t).join('\n') + (getTopicBlocklist().some(t => t.startsWith('http')) ? '\n\nBLOCKED URLS — do not use these source articles:\n' + getTopicBlocklist().filter(t => t.startsWith('http')).map(t => '- ' + t).join('\n') : '') + '\n\n' : '') +
@@ -5880,6 +5923,7 @@ ${siteUrl}`;
         '  * If the correct answer is a NUMBER or AMOUNT, wrong answers should be other plausible numbers in the same range\n' +
         '  * If the correct answer is an ORGANIZATION or AGENCY, wrong answers should be other real organizations\n' +
         '- Never use obviously unrelated, impossible, or humorous distractors. All four options should feel realistic to someone who follows Baltimore news.\n' +
+        '- BALTIMORE WIT (optional, use sparingly): For at most 2 questions per quiz, you may include ONE lightly humorous wrong answer - it could be humorous because it is unexpected but clearly not a viable answer, such as including the Empire State Building as a possible answer for a question about a Baltimore or Maryland building, or it could be something a Baltimore reader would immediately recognize as wrong but smile at. Examples: a wrong answer that blames the Orioles bullpen, references the Preakness Stakes, invokes Old Bay seasoning, or makes a gentle nod to a beloved Baltimore landmark, celebrity or quirk. The humor should feel like a witty local newspaper editor, not a comedian. Never make the correct answer or the question itself a punchline, and avoid making fun of individuals or institutions. Occasionally you may also phrase a question with a light touch - a gentle pun or wry framing - but only when it fits naturally and never at the expense of clarity. When in doubt, keep it straight.\\n' +
         '- LENGTH GIVEAWAY: Do not make the correct answer noticeably longer, more detailed, or more specific than the other options. All four options should be similar in length and grammatical form. Readers often guess the longest option — avoid this.\n' +
         '- For harder questions (Q4–Q6), use "Near-Miss" distractors: mention other real Baltimore entities or places that are currently in the news to make the choice less obvious.\n\n' +
         '- CORE FACT STEP: Before writing each question, identify the central news fact of the story in one sentence. This must describe the main event or development reported — what actually happened. Only generate a question based on that core fact.\n' +
@@ -6273,6 +6317,18 @@ ${siteUrl}`;
         return;
       }
 
+      // Block the old question's topic BEFORE generating replacement
+      // so Claude won't pick the same article or topic again
+      const oldQ = draft.questions[idx];
+      if (oldQ) {
+        const list = getTopicBlocklist();
+        const topic = oldQ.question.slice(0, 120).replace(/"/g, '');
+        if (!list.includes(topic)) list.push(topic);
+        if (oldQ.sourceUrl && !list.includes(oldQ.sourceUrl)) list.push(oldQ.sourceUrl);
+        await saveTopicBlocklist(list);
+        console.log('[Replace] Blocked before generation:', topic.slice(0, 60));
+      }
+
       const prompt = 'You are writing ONE replacement question for a Baltimore local news quiz.\n\n' +
         'ALREADY USED TOPICS — do not repeat these:\n' + usedHeadlines.join('\n') + '\n\n' +
         (getTopicBlocklist().length > 0 ? 'BLOCKED TOPICS — do not generate questions about any of these subjects under any circumstances:\n' + getTopicBlocklist().filter(t => !t.startsWith('http')).map(t => '- ' + t).join('\n') + (getTopicBlocklist().some(t => t.startsWith('http')) ? '\n\nBLOCKED URLS — do not use these source articles:\n' + getTopicBlocklist().filter(t => t.startsWith('http')).map(t => '- ' + t).join('\n') : '') + '\n\n' : '') +
@@ -6301,15 +6357,6 @@ ${siteUrl}`;
         const newQ = JSON.parse(clean);
         newQ.difficulty = difficulty;
 
-        // Block the old question's topic before overwriting
-        const oldQ = draft.questions[idx];
-        if (oldQ) {
-          const list = getTopicBlocklist();
-          const topic = oldQ.question.slice(0, 120).replace(/"/g, '');
-          if (!list.includes(topic)) list.push(topic);
-          if (oldQ.sourceUrl && !list.includes(oldQ.sourceUrl)) list.push(oldQ.sourceUrl);
-          await saveTopicBlocklist(list);
-        }
         draft.questions[idx] = newQ;
         saveDraftQuiz(draft);
         showDraftPreview(draft.questions);
