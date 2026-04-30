@@ -1143,10 +1143,16 @@ app.post('/api/starred-questions', async (req, res) => {
   if (action === 'remove') {
     data.starredQuestions = data.starredQuestions.filter(q => q.question !== question);
     console.log('[Admin] Starred question removed');
+  } else if (action === 'update') {
+    const existing = data.starredQuestions.find(q => q.question === question);
+    if (existing) {
+      existing.note = typeof req.body.note === 'string' ? req.body.note : '';
+      console.log('[Admin] Starred question note updated');
+    }
   } else {
     // Avoid duplicates
     if (!data.starredQuestions.find(q => q.question === question)) {
-      data.starredQuestions.push({ question, correctAnswer: correctAnswer || '', sourceUrl: sourceUrl || '' });
+      data.starredQuestions.push({ question, correctAnswer: correctAnswer || '', sourceUrl: sourceUrl || '', note: '' });
       console.log('[Admin] Starred question added. Total: ' + data.starredQuestions.length);
     }
   }
