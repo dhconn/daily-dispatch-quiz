@@ -5095,13 +5095,18 @@ ${siteUrl}`;
       <div style="color:var(--green);margin-bottom:4px;">✓ ${escHtml(q.correctAnswer)}</div>
       <div style="margin-bottom:4px;">
         <div style="font-size:10px;letter-spacing:1px;color:var(--muted);margin-bottom:3px;">WHY IT WORKS</div>
-        <textarea id="starred-note-${i}" style="width:100%;font-family:monospace;font-size:11px;padding:4px 6px;border:1px solid #ccc;border-radius:2px;resize:vertical;min-height:40px;box-sizing:border-box;">${escHtml(q.note || '')}</textarea>
+        <textarea id="starred-note-${i}" style="width:100%;font-family:monospace;font-size:11px;padding:4px 6px;border:1px solid #ccc;border-radius:2px;resize:vertical;min-height:40px;box-sizing:border-box;"></textarea>
         <button onclick="saveStarredNote(${i})" style="margin-top:3px;background:none;border:1px solid var(--ink);border-radius:2px;font-family:monospace;font-size:10px;padding:2px 7px;color:var(--ink);cursor:pointer;">Save Note</button>
         <span id="starred-note-status-${i}" style="font-family:monospace;font-size:10px;color:var(--green);margin-left:6px;"></span>
       </div>
       <button onclick="removeStarredQuestion('${escHtml(q.question).replace(/'/g, '&#39;')}')" style="background:none;border:1px solid var(--muted);border-radius:2px;font-family:monospace;font-size:10px;padding:2px 7px;color:var(--muted);cursor:pointer;">Remove</button>
     </div>`
       ).join('');
+      // Populate note textareas after innerHTML is set
+      questions.forEach((q, i) => {
+        const ta = document.getElementById('starred-note-' + i);
+        if (ta) ta.value = q.note || '';
+      });
     }
     async function toggleStarQuestion(idx, btn) {
       const q = btn.getAttribute('data-question');
