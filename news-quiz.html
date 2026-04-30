@@ -5857,7 +5857,7 @@ ${siteUrl}`;
         (fallback ? fallback + '\n\n' : '') +
 
         (editorNotes ? 'EDITOR FEEDBACK — the editor has noted these patterns from recent quizzes. Follow these instructions carefully:\n' + editorNotes + '\n\n' : '') +
-        (starredExamples.length > 0 ? 'EXAMPLES OF STRONG QUESTIONS — model your questions after these in terms of style and approach:\n' + starredExamples.map((q, i) => `Example ${i+1}: "${q.question}"\nCorrect answer: "${q.correctAnswer}"\nWhy it works: ${q.note || 'concrete, outcome-focused, answerable from the headline'}`).join('\n\n')
+        (starredExamples.length > 0 ? 'EXAMPLES OF STRONG QUESTIONS — model your questions after these in terms of style and approach:\n' + starredExamples.map((q, i) => `Example ${i+1}: "${q.question}"\nCorrect answer: "${q.correctAnswer}"\nWhy it works: ${q.note || 'concrete, outcome-focused, answerable from the headline'}`).join('\n\n') + '\n\n' : '') +
 
         (archiveNote ? 'PREVIOUSLY USED TOPICS — do not repeat these:\n' + archiveNote + '\n\n' : '') +
         (getTopicBlocklist().length > 0 ? 'BLOCKED TOPICS — the editor has explicitly blocked these topics from today\'s quiz. Do not generate any questions about these subjects under any circumstances:\n' + getTopicBlocklist().filter(t => !t.startsWith('http')).map(t => '- ' + t).join('\n') + (getTopicBlocklist().some(t => t.startsWith('http')) ? '\n\nBLOCKED URLS — do not use these source articles:\n' + getTopicBlocklist().filter(t => t.startsWith('http')).map(t => '- ' + t).join('\n') : '') + '\n\n' : '') +
