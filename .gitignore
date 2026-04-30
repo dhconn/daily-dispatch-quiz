@@ -3,6 +3,7 @@ Dispatch images/
 Old news_quiz files/
 Old server.js files/
 node_modules/
+.env
 
 # Ignore system files
 .DS_Store
