@@ -4,9 +4,20 @@ const https = require('https');
 const http = require('http');
 const { Pool } = require('pg')
 const path = require('path');
+const webpush = require('web-push');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(
+    'mailto:dhconn@gmail.com',
+    process.env.VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY
+  );
+} else {
+  console.warn('[Push] VAPID keys not set — push notifications disabled.');
+}
 
 app.use(express.json({ limit: '2mb' }));
 app.use('/images', express.static(path.join(__dirname, 'public', 'images')));
@@ -418,32 +429,43 @@ app.post('/api/answers', async (req, res) => {
   if (!data.dist) data.dist = {};
   if (!data.dist[date]) data.dist[date] = {};
 
-  // Server-side validation loop
-  answers.forEach(({ qIdx, chosenIndex }) => {
-    if (qIdx === 'completion') return;
-    
-    const question = quiz.questions[qIdx];
-    if (!question) return;
+// Server-side validation loop
+answers.forEach(({ qIdx, chosenIndex, correct }) => {
+  if (qIdx === 'completion') return;
 
-    // Validate: Is the chosen index actually the correct one?
-    const isActuallyCorrect = (chosenIndex === question.correctIndex);
-    
-    const k = 'q' + qIdx;
-    if (!data.dist[date][k]) data.dist[date][k] = { correct: 0, wrong: 0 };
-    
-    if (isActuallyCorrect) data.dist[date][k].correct++;
-    else data.dist[date][k].wrong++;
+  const question = quiz.questions[qIdx];
+  if (!question) return;
 
-    // Update per-player tracking if applicable
-    if (playerName && playerName.trim()) {
-      const key = playerName.trim().toLowerCase();
-      if (!data.dist[date].players) data.dist[date].players = {};
-      if (!data.dist[date].players[key]) {
-        data.dist[date].players[key] = { displayName: playerName.trim(), answers: {} };
-      }
-      data.dist[date].players[key].answers[k] = isActuallyCorrect;
+  let isActuallyCorrect;
+
+  // New client payload: { qIdx, correct }
+  if (typeof correct === 'boolean') {
+    isActuallyCorrect = correct;
+  }
+  // Legacy payload: { qIdx, chosenIndex }
+  else if (typeof chosenIndex === 'number') {
+    isActuallyCorrect = (chosenIndex === question.correctIndex);
+  }
+  // Unknown payload shape: skip
+  else {
+    return;
+  }
+
+  const k = 'q' + qIdx;
+  if (!data.dist[date][k]) data.dist[date][k] = { correct: 0, wrong: 0 };
+
+  if (isActuallyCorrect) data.dist[date][k].correct++;
+  else data.dist[date][k].wrong++;
+
+  if (playerName && playerName.trim()) {
+    const key = playerName.trim().toLowerCase();
+    if (!data.dist[date].players) data.dist[date].players = {};
+    if (!data.dist[date].players[key]) {
+      data.dist[date].players[key] = { displayName: playerName.trim(), answers: {} };
     }
-  });
+    data.dist[date].players[key].answers[k] = isActuallyCorrect;
+  }
+});
 
   // Keep existing cleanup logic for old distribution data
   const cutoff = new Date();
@@ -809,6 +831,46 @@ app.post('/api/admin/stats-exclusions', async (req, res) => {
 });
 
 // ── Archive (used article URLs + question text) ───────────────
+
+// ── GET /api/archive/full — derive rich archive from published quizzes ──
+// Returns full question texts, source URLs, explanations and topic slugs from last 14 days
+app.get('/api/archive/full', async (req, res) => {
+  try {
+    const data = await readData();
+    const quizzes = data.quizzes || {};
+    const dates = Object.keys(quizzes).sort();
+
+    const questions = [];
+    const urls = [];
+    const slugs = [];
+    const summaries = []; // question + explanation combined for richer dedup
+
+    for (const date of dates) {
+      const quiz = quizzes[date];
+      if (!quiz || !quiz.questions) continue;
+      for (const q of quiz.questions) {
+        if (q.question && !questions.includes(q.question)) questions.push(q.question);
+        if (q.sourceUrl && !urls.includes(q.sourceUrl)) urls.push(q.sourceUrl);
+        // Combined summary includes key entities from the explanation
+        if (q.question && q.explanation) {
+          const summary = q.question + ' — ' + q.explanation.slice(0, 120);
+          summaries.push(summary);
+        }
+      }
+    }
+
+    // Also include manually stored archive items
+    (data.archiveQuestions || []).forEach(q => { if (!questions.includes(q)) questions.push(q); });
+    (data.archiveUrls || []).forEach(u => { if (!urls.includes(u)) urls.push(u); });
+    (data.archiveSlugs || []).forEach(s => { if (!slugs.includes(s)) slugs.push(s); });
+
+    res.json({ questions, urls, slugs, summaries, count: questions.length });
+  } catch (e) {
+    console.error('[Archive/full] error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/api/archive', async (req, res) => {
   const data = await readData();
   res.json({ urls: data.archiveUrls || [], questions: data.archiveQuestions || [], slugs: data.archiveSlugs || [] });
@@ -1333,6 +1395,7 @@ app.post('/api/quiz', async (req, res) => {
       await sendEmailBatch(prospectEmails);
       sentAnyEmails = true;
     }
+    await sendPushNotifications(date);
     if (sentAnyEmails) {
       freshData.emailSentDates = [...(freshData.emailSentDates || []), date].slice(-30);
       await writeData(freshData);
@@ -1398,6 +1461,133 @@ app.post('/api/claude', async (req, res) => {
   proxyReq.write(body);
   proxyReq.end();
 });
+
+
+// ── POST /api/pwa-session — log that a player launched via installed PWA ──
+app.post('/api/pwa-session', async (req, res) => {
+  const { playerName, date } = req.body || {};
+  if (!playerName || !date) return res.status(400).json({ error: 'playerName and date required' });
+  try {
+    const key = playerName.toLowerCase().trim();
+    const allProgress = (await getKey('progress')) || {};
+    if (!allProgress[date]) allProgress[date] = {};
+    if (!allProgress[date][key]) allProgress[date][key] = {};
+    allProgress[date][key].pwaSession = true;
+    allProgress[date][key].displayName = playerName.trim();
+    await setKey('progress', allProgress);
+    console.log(`[PWA] Session logged: ${playerName} on ${date}`);
+    res.json({ ok: true });
+  } catch(e) {
+    console.error('[PWA] session log error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── GET /api/push-vapid-key — send public key to frontend ────
+app.get('/api/push-vapid-key', (req, res) => {
+  res.json({ publicKey: process.env.VAPID_PUBLIC_KEY || '' });
+});
+
+// ── POST /api/push-subscribe — store a push subscription ─────
+app.post('/api/push-subscribe', async (req, res) => {
+  const { playerName, subscription } = req.body || {};
+  if (!subscription || !subscription.endpoint) {
+    return res.status(400).json({ error: 'subscription required' });
+  }
+  try {
+    const subs = (await getKey('pushSubscriptions')) || {};
+    const key = Buffer.from(subscription.endpoint).toString('base64').slice(-40);
+    subs[key] = {
+      subscription,
+      playerName: (playerName || '').trim(),
+      addedAt: new Date().toISOString()
+    };
+    await setKey('pushSubscriptions', subs);
+    console.log(`[Push] Subscription stored for "${playerName || 'unknown'}" — total: ${Object.keys(subs).length}`);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[Push] subscribe error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── POST /api/push-unsubscribe — remove a push subscription ──
+app.post('/api/push-unsubscribe', async (req, res) => {
+  const { endpoint } = req.body || {};
+  if (!endpoint) return res.status(400).json({ error: 'endpoint required' });
+  try {
+    const subs = (await getKey('pushSubscriptions')) || {};
+    const key = Buffer.from(endpoint).toString('base64').slice(-40);
+    delete subs[key];
+    await setKey('pushSubscriptions', subs);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── GET /api/push-stats — admin: how many push subscribers ───
+app.get('/api/push-stats', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  const subs = (await getKey('pushSubscriptions')) || {};
+  res.json({ count: Object.keys(subs).length });
+});
+
+// ── Send Web Push notifications to all subscribed devices ────
+async function sendPushNotifications(date) {
+  if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
+    console.log('[Push] VAPID keys not set — skipping push notifications.');
+    return;
+  }
+
+  const subs = (await getKey('pushSubscriptions')) || {};
+  const entries = Object.entries(subs);
+  if (!entries.length) {
+    console.log('[Push] No push subscribers — skipping.');
+    return;
+  }
+
+  const payload = JSON.stringify({
+    title: 'Daily Dispatch Quiz',
+    body: "Today's quiz is live — can you beat yesterday's score?",
+    icon: '/images/icon-192.png',
+    badge: '/images/icon-192.png',
+    url: '/'
+  });
+
+  console.log(`[Push] Sending to ${entries.length} subscriber(s)…`);
+  let sent = 0, failed = 0, expired = 0;
+  const toRemove = [];
+
+  await Promise.allSettled(
+    entries.map(async ([key, record]) => {
+      try {
+        await webpush.sendNotification(record.subscription, payload);
+        sent++;
+      } catch (e) {
+        if (e.statusCode === 410 || e.statusCode === 404) {
+          toRemove.push(key);
+          expired++;
+          console.log(`[Push] Expired subscription removed: ${record.playerName || key}`);
+        } else {
+          failed++;
+          console.warn(`[Push] Failed for "${record.playerName}": ${e.message}`);
+        }
+      }
+    })
+  );
+
+  if (toRemove.length) {
+    const freshSubs = (await getKey('pushSubscriptions')) || {};
+    toRemove.forEach(k => delete freshSubs[k]);
+    await setKey('pushSubscriptions', freshSubs);
+  }
+
+  console.log(`[Push] Done — sent: ${sent}, failed: ${failed}, expired/removed: ${expired}`);
+}
 
 // ── Start ─────────────────────────────────────────────────────
 initDb().then(() => {
