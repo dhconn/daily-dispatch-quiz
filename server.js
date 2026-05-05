@@ -660,7 +660,7 @@ app.post('/api/progress', async (req, res) => {
 
     // Keep only last 2 days of progress
     const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - 2);
+    cutoffDate.setDate(cutoffDate.getDate() - 60);
     Object.keys(allProgress).forEach(d => {
       if (new Date(d + 'T12:00:00') < cutoffDate) delete allProgress[d];
     });
@@ -675,6 +675,31 @@ app.post('/api/progress', async (req, res) => {
     });
 
     await setKey('progress', allProgress);
+
+    // ── Mirror to scores for leaderboard ───────────────────
+    try {
+      const scoresData = await readData();
+      if (!scoresData.scores) scoresData.scores = {};
+      if (!scoresData.scores[key]) {
+        scoresData.scores[key] = {
+          displayName: playerName.trim(),
+          allTime: 0,
+          dailyScores: {}
+        };
+      }
+      const prev = scoresData.scores[key].dailyScores[date] || 0;
+      if (validatedScore > prev) {
+        scoresData.scores[key].dailyScores[date] = validatedScore;
+        scoresData.scores[key].allTime = Object.values(
+          scoresData.scores[key].dailyScores
+        ).reduce((a, b) => a + b, 0);
+        scoresData.scores[key].displayName = playerName.trim();
+        await writeData(scoresData);
+      }
+    } catch (e) {
+      console.warn('[progress] scores mirror failed (non-fatal):', e.message);
+    }
+
     res.json({ ok: true, validatedScore });
   } catch (e) {
     console.error('[progress] POST error:', e.message);
@@ -701,7 +726,7 @@ app.post('/api/scores', async (req, res) => {
     return res.status(400).json({ error: 'playerName, date, and score required' });
   }
 
-  try {
+try {
     const data = await readData();
     if (!data.scores) data.scores = {};
 
@@ -735,6 +760,26 @@ app.post('/api/scores', async (req, res) => {
       newScore: score,
       allTime: data.scores[key].allTime
     });
+
+    // ── Mirror to progress for single source of truth ──────
+    try {
+      const allProgress = (await getKey('progress')) || {};
+      if (!allProgress[date]) allProgress[date] = {};
+      if (!allProgress[date][key]) {
+        allProgress[date][key] = {
+          score,
+          completed: false,
+          answers: {},
+          currentQ: 0,
+          displayName: playerName.trim(),
+          synthetic: true,
+          updatedAt: new Date().toISOString()
+        };
+        await setKey('progress', allProgress);
+      }
+    } catch (e) {
+      console.warn('[scores] progress mirror failed (non-fatal):', e.message);
+    }
 
     res.json({ ok: true });
 
@@ -772,6 +817,44 @@ app.get('/api/scores', async (req, res) => {
     res.json({ scores: filteredScores });
   } catch (e) {
     console.error('[scores] GET error', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── GET /api/admin/migrate-progress — one-time migration ─────
+app.get('/api/admin/migrate-progress', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  try {
+    const data = await readData();
+    const scores = data.scores || {};
+    const allProgress = (await getKey('progress')) || {};
+    let created = 0;
+
+    for (const [playerKey, player] of Object.entries(scores)) {
+      for (const [date, score] of Object.entries(player.dailyScores || {})) {
+        if (!allProgress[date]) allProgress[date] = {};
+        if (!allProgress[date][playerKey]) {
+          allProgress[date][playerKey] = {
+            score,
+            completed: true,
+            answers: {},
+            currentQ: 5,
+            displayName: player.displayName || playerKey,
+            synthetic: true,
+            updatedAt: new Date().toISOString()
+          };
+          created++;
+        }
+      }
+    }
+
+    await setKey('progress', allProgress);
+    console.log(`[Migration] Created ${created} synthetic progress records`);
+    res.json({ ok: true, created });
+  } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
