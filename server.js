@@ -674,6 +674,23 @@ app.post('/api/progress', async (req, res) => {
       answerCount: Object.keys(progress.answers || {}).length
     });
 
+    // Prune detailed answer data from records older than 2 days
+    const pruneDate = new Date();
+    pruneDate.setDate(pruneDate.getDate() - 2);
+    Object.entries(allProgress).forEach(([d, players]) => {
+      if (new Date(d + 'T12:00:00') < pruneDate) {
+        Object.keys(players).forEach(pk => {
+          const p = players[pk];
+          players[pk] = {
+            score: p.score,
+            completed: p.completed,
+            displayName: p.displayName,
+            synthetic: p.synthetic || false
+          };
+        });
+      }
+    });
+
     await setKey('progress', allProgress);
 
     // ── Mirror to scores for leaderboard ───────────────────
