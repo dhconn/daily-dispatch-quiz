@@ -7156,7 +7156,7 @@ ${siteUrl}`;
             if (p.synthetic) {
               qCells = '<td colspan="6" style="padding:4px 8px;text-align:center;color:var(--muted);font-family:monospace;font-size:11px;">— historical record —</td>';
             } else {
-            for (let i = 0; i <= 5; i++) {
+              for (let i = 0; i <= 5; i++) {
               const a = p.answers && p.answers['q' + i];
               let cell = '—';
               let color = 'var(--muted)';
@@ -7183,10 +7183,10 @@ ${siteUrl}`;
 
                 qCells += `<td style="padding:4px 8px;text-align:left;color:${color};font-family:monospace;">${cell}${tooltip}</td>`;
               }
-            } // end for loop
+              } // end for loop
             } // end else (non-synthetic)
 
-              const completedCell = p.completed ? '✓' : '—';
+            const completedCell = p.completed ? '✓' : '—';
               const completedColor = p.completed ? 'var(--green)' : 'var(--muted)';
               const DIFF_PTS = { easy: 10, medium: 20, hard: 30, bonus: 50 };
               let scoreVal = 0;
