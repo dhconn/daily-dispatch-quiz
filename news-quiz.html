@@ -7152,14 +7152,17 @@ ${siteUrl}`;
             .forEach(([playerKey, p]) => {
               const displayName = p.displayName || playerKey;
 
-              let qCells = '';
-              for (let i = 0; i <= 5; i++) {
-                const a = p.answers && p.answers['q' + i];
-                let cell = '—';
-                let color = 'var(--muted)';
-                let tooltip = '';
+            let qCells = '';
+            if (p.synthetic) {
+              qCells = '<td colspan="6" style="padding:4px 8px;text-align:center;color:var(--muted);font-family:monospace;font-size:11px;">— historical record —</td>';
+            } else {
+            for (let i = 0; i <= 5; i++) {
+              const a = p.answers && p.answers['q' + i];
+              let cell = '—';
+              let color = 'var(--muted)';
+              let tooltip = '';
 
-                if (a !== undefined) {
+              if (a !== undefined) {
                   const correct = typeof a === 'object' ? a.correct : null;
                   const chosenIdx = typeof a === 'object' ? a.chosen : a;
                   cell = correct ? '✓' : '✗';
@@ -7180,6 +7183,8 @@ ${siteUrl}`;
 
                 qCells += `<td style="padding:4px 8px;text-align:left;color:${color};font-family:monospace;">${cell}${tooltip}</td>`;
               }
+            } // end for loop
+            } // end else (non-synthetic)
 
               const completedCell = p.completed ? '✓' : '—';
               const completedColor = p.completed ? 'var(--green)' : 'var(--muted)';
