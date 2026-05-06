@@ -4469,6 +4469,25 @@ ${siteUrl}`;
       const el = document.getElementById('lb-content');
       if (el) el.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px;font-family:monospace;font-size:12px;">Loading…</div>';
 
+    const today = todayStr();
+    const monthPrefix = today.slice(0, 7);
+
+    let rows = [];
+
+    if (tab === 'today') {
+      try {
+        const res = await fetch('/api/progress?date=' + today);
+        const progress = await res.json();
+
+        rows = Object.entries(progress || {}).map(([key, p]) => ({
+          name: p.displayName || key,
+          score: Number(p.score) || 0,
+          isMe: key === state.playerName.toLowerCase().trim()
+        }));
+      } catch (e) {
+        rows = [];
+      }
+    } else {
       let players = {};
       try {
         const res = await fetch('/api/scores');
@@ -4476,26 +4495,24 @@ ${siteUrl}`;
         if (data.scores) players = data.scores;
       } catch (e) { }
 
-      const today = todayStr();
-      const monthPrefix = today.slice(0, 7); // "2026-04"
-
-      let rows = Object.entries(players).map(([key, p]) => {
+      rows = Object.entries(players).map(([key, p]) => {
         let score = 0;
-        if (tab === 'today') {
-          score = (p.dailyScores || {})[today] || 0;
-        } else if (tab === 'monthly') {
+
+        if (tab === 'monthly') {
           score = Object.entries(p.dailyScores || {})
             .filter(([date]) => date.startsWith(monthPrefix))
             .reduce((sum, [, val]) => sum + val, 0);
         } else {
           score = p.allTime || 0;
         }
+
         return {
           name: p.displayName || key,
           score,
           isMe: key === state.playerName.toLowerCase().trim()
         };
       });
+    }
 
       rows.sort((a, b) => b.score - a.score);
       if (tab !== 'alltime') rows = rows.filter(r => r.score > 0);
