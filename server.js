@@ -760,7 +760,7 @@ try {
 
     // Always overwrite with latest score
     const prev = data.scores[key].dailyScores[date] || 0;
-    data.scores[key].dailyScores[date] = Math.max(prev, score);
+    data.scores[key].dailyScores[date] = score;
 
     // Recompute all-time
     data.scores[key].allTime = Object.values(
