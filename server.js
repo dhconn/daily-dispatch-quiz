@@ -655,7 +655,8 @@ app.post('/api/progress', async (req, res) => {
       ...progress,
       displayName: playerName.trim(),
       updatedAt: new Date().toISOString(),
-      score: validatedScore
+      score: validatedScore,
+      synthetic: false
     };
 
     // Keep only last 2 days of progress
