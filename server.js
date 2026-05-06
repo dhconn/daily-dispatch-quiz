@@ -698,6 +698,7 @@ app.post('/api/progress', async (req, res) => {
     try {
       const scoresData = await readData();
       if (!scoresData.scores) scoresData.scores = {};
+
       if (!scoresData.scores[key]) {
         scoresData.scores[key] = {
           displayName: playerName.trim(),
@@ -706,7 +707,8 @@ app.post('/api/progress', async (req, res) => {
         };
       }
       const prev = scoresData.scores[key].dailyScores[date] || 0;
-      if (validatedScore > prev) {
+
+      if (progress.completed || validatedScore >= prev) {
         scoresData.scores[key].dailyScores[date] = validatedScore;
         scoresData.scores[key].allTime = Object.values(
           scoresData.scores[key].dailyScores
