@@ -7153,14 +7153,14 @@ ${siteUrl}`;
               const displayName = p.displayName || playerKey;
 
             let qCells = '';
-            if (p.synthetic) {
+            if (p.synthetic && !(p.answers && Object.keys(p.answers).length)) {              
               qCells = '<td colspan="6" style="padding:4px 8px;text-align:center;color:var(--muted);font-family:monospace;font-size:11px;">— historical record —</td>';
             } else {
               for (let i = 0; i <= 5; i++) {
-              const a = p.answers && p.answers['q' + i];
-              let cell = '—';
-              let color = 'var(--muted)';
-              let tooltip = '';
+                const a = p.answers && p.answers['q' + i];
+                let cell = '—';
+                let color = 'var(--muted)';
+                let tooltip = '';
 
               if (a !== undefined) {
                   const correct = typeof a === 'object' ? a.correct : null;
