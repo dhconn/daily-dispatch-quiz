@@ -1419,9 +1419,9 @@ app.post('/api/quiz', async (req, res) => {
         Thursday:  "Think you know today's Baltimore news?",
         Friday:    "Friday - I'm in love, with the Daily Dispatch News Quiz",
         Saturday:  "A very special Saturday Dispatch News Quiz is live",
-        Sunday:    "Happy Mother's Day ... from the Daily Dispatch Team!"
+        Sunday:    "It's Sunday - relax and play the (90-second) Balt. News Quiz"
       };
-      const subject = subjects[dow] || `Today's Very Special Mother's Day Baltimore Daily Dispatch Quiz is live — ${date}`;
+      const subject = subjects[dow] || `Today's Baltimore Daily Dispatch Quiz is live — ${date}`;
 
       let teaserHtml;
       if (freshData.cachedTeaserHtml && freshData.cachedTeaserDate === date) {
