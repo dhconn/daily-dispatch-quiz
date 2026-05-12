@@ -1148,7 +1148,7 @@ function buildTeaserHtml(teasers) {
 function buildEmailHtmlWithQ1(siteUrl, date, subscriberName, teaserHtml, unsubUrl, q1, token) {
   const optLetters = ['A', 'B', 'C', 'D'];
   const answerButtons = (q1.options || []).map((opt, i) => {
-    const url = `${siteUrl}/?q1=${i}&tok=${token}`;
+    const url = `${siteUrl}/news-quiz.html?q1=${i}&tok=${token}`;
     return `<a href="${url}" style="display:block;margin-bottom:10px;padding:14px 16px;background:white;border:2px solid #2c1f0e;text-decoration:none;color:#1a1008;font-family:Georgia,serif;font-size:15px;text-align:left;">
       <span style="font-family:'Courier New',monospace;font-weight:700;font-size:13px;color:#6b5f4e;margin-right:10px;">${optLetters[i]}.</span>${opt}
     </a>`;
