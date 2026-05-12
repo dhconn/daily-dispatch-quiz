@@ -1165,7 +1165,6 @@ function buildEmailHtmlWithQ1(siteUrl, date, subscriberName, teaserHtml, unsubUr
     <div style="padding:32px 24px;background:#f5f0e8;">
       <p style="font-size:18px;margin:0 0 8px;">Hi${subscriberName ? ' ' + subscriberName : ''},</p>
       <p style="font-size:16px;color:#444;margin:0 0 24px;">Tap your answer to today's first question — then see if you're right:</p>
-      ${teaserHtml}
       <div style="background:white;border:2px solid #1a1008;padding:20px 20px 10px;margin-bottom:20px;box-shadow:4px 4px 0 #1a1008;">
         <div style="font-family:monospace;font-size:11px;letter-spacing:2px;color:#6b5f4e;margin-bottom:12px;">QUESTION 1 OF 5 · STARTER</div>
         <div style="font-size:19px;line-height:1.5;color:#1a1008;font-weight:400;margin-bottom:16px;">${q1.question}</div>
@@ -1573,11 +1572,14 @@ app.post('/api/quiz', async (req, res) => {
 
     if (activeProspects.length > 0) {
       console.log(`[Prospects] Sending quiz email to ${activeProspects.length} prospect(s)…`);
+
+      const q1 = quiz.questions && quiz.questions[0];
       const updatedProspects = [];
+
       const prospectEmails = activeProspects.map(p => {
-        const subscribeUrl = `${siteUrl}/subscribe?email=${encodeURIComponent(p.email)}&name=${encodeURIComponent(p.name || '')}`;
-        const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(p.email)}`;
-        const playerKey = (p.name || '').toLowerCase().trim();
+      const subscribeUrl = `${siteUrl}/subscribe?email=${encodeURIComponent(p.email)}&name=${encodeURIComponent(p.name || '')}`;
+      const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(p.email)}`;
+      const playerKey = (p.name || '').toLowerCase().trim();
 
         // Assign A/B group if not yet assigned
         if (!p.abGroup) p.abGroup = Math.random() < 0.5 ? 'A' : 'B';
