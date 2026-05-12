@@ -1573,7 +1573,7 @@ app.post('/api/quiz', async (req, res) => {
 
     if (activeProspects.length > 0) {
       console.log(`[Prospects] Sending quiz email to ${activeProspects.length} prospect(s)…`);
-
+      const updatedProspects = [];
       const prospectEmails = activeProspects.map(p => {
         const subscribeUrl = `${siteUrl}/subscribe?email=${encodeURIComponent(p.email)}&name=${encodeURIComponent(p.name || '')}`;
         const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(p.email)}`;
@@ -1581,7 +1581,7 @@ app.post('/api/quiz', async (req, res) => {
 
         // Assign A/B group if not yet assigned
         if (!p.abGroup) p.abGroup = Math.random() < 0.5 ? 'A' : 'B';
-
+        updatedProspects.push(p);
         let baseHtml;
         if (p.abGroup === 'B' && q1) {
           const token = Buffer.from(p.email + date + Math.random()).toString('base64')
@@ -1618,10 +1618,26 @@ app.post('/api/quiz', async (req, res) => {
         };
       });
 
-      // Save final token state including prospect tokens
-      await setKey('emailTokens', tokens);
-      await sendEmailBatch(prospectEmails);
-      sentAnyEmails = true;
+    // Save final token state including prospect tokens
+    await setKey('emailTokens', tokens);
+
+    // Save prospect abGroup assignments
+    const prospectData = await readData();
+
+    if (prospectData.prospects) {
+       updatedProspects.forEach(p => {
+        const key = (p.email || '').toLowerCase().trim();
+
+        if (prospectData.prospects[key]) {
+          prospectData.prospects[key].abGroup = p.abGroup;
+       }
+     });
+
+     await writeData(prospectData);
+  }
+
+  await sendEmailBatch(prospectEmails);
+  sentAnyEmails = true;
     }
     await sendPushNotifications(date);
     if (sentAnyEmails) {
