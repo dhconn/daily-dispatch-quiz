@@ -3459,6 +3459,16 @@
     //  INIT
     // ═══════════════════════════════════════════════════════
     document.addEventListener('DOMContentLoaded', () => {
+      // ── Email Q1 token handling ──────────────────────────────
+      const _urlParams = new URLSearchParams(window.location.search);
+      const _emailQ1Answer = _urlParams.get('q1');
+      const _emailToken = _urlParams.get('tok');
+      if (_emailQ1Answer !== null && _emailToken) {
+        window._emailQ1Answer = parseInt(_emailQ1Answer, 10);
+        window._emailToken = _emailToken;
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+
       // Ensure archive banner is hidden on fresh load
       const bannerEl = document.getElementById('archive-banner');
       if (bannerEl) bannerEl.style.display = 'none';
@@ -3643,6 +3653,28 @@ ${siteUrl}`;
       lsSet('dnq_current_player', name);
       getOrCreatePlayer(name);
 
+      // ── Validate email token if arriving from email link ─────
+      if (window._emailToken) {
+        try {
+          const tokRes = await fetch('/api/email-token/validate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: window._emailToken, date: state.todayKey })
+          });
+          const tokData = await tokRes.json();
+          if (!tokData.valid) {
+            // Invalid, expired, or already used — clear and proceed normally
+            window._emailToken = null;
+            window._emailQ1Answer = null;
+          }
+          // If valid, token stays set and will be consumed in startQuiz
+        } catch (e) {
+          console.warn('[EmailToken] validation failed:', e.message);
+          window._emailToken = null;
+          window._emailQ1Answer = null;
+        }
+      }
+
       // // Server is authoritative — always fetch today's quiz from server first
       let quiz = null;
       let quizDate = todayStr();
@@ -3826,6 +3858,22 @@ ${siteUrl}`;
       renderQuestion();
       if (resumed) {
         showResumeOverlay();
+      }
+
+      // ── Auto-answer Q1 if arriving from email link ───────────
+      if (!resumed && window._emailQ1Answer !== null && window._emailQ1Answer !== undefined && state.currentQ === 0) {
+        const q1AnswerIdx = window._emailQ1Answer;
+        window._emailQ1Answer = null;
+        if (window._emailToken) {
+          // Mark token used and log the click event
+          fetch('/api/email-token/use', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: window._emailToken, date: state.todayKey })
+          }).catch(() => {});
+          window._emailToken = null;
+        }
+        setTimeout(() => selectAnswer(q1AnswerIdx), 600);
       }
     }
 
@@ -7343,7 +7391,48 @@ ${siteUrl}`;
           }
         });
 
-        el.innerHTML = `
+        // Load A/B stats
+        let abHtml = '';
+        try {
+          const adminToken = lsGet('dnq_admin_token') || 'admin';
+          const abRes = await fetch('/api/email-ab-stats?date=' + today, {
+            headers: { 'x-admin-token': adminToken }
+          });
+          if (abRes.ok) {
+            const abData = await abRes.json();
+            const g = abData.groups;
+            const pct = (n, d) => d > 0 ? Math.round(n / d * 100) + '%' : '—';
+            abHtml = `
+              <div style="margin-bottom:16px;padding:12px 14px;border:1px solid var(--rule);background:white;">
+                <div style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:10px;">EMAIL A/B TEST · ${today}</div>
+                <table style="width:100%;border-collapse:collapse;font-size:12px;font-family:monospace;">
+                  <tr style="border-bottom:1px solid var(--rule);">
+                    <th style="text-align:left;padding:4px 8px 4px 0;color:var(--muted);">GROUP</th>
+                    <th style="text-align:right;padding:4px 8px;color:var(--muted);">SENT</th>
+                    <th style="text-align:right;padding:4px 8px;color:var(--muted);">CLICKED</th>
+                    <th style="text-align:right;padding:4px 8px;color:var(--muted);">COMPLETED</th>
+                    <th style="text-align:right;padding:4px 0 4px 8px;color:var(--muted);">CONV %</th>
+                  </tr>
+                  <tr>
+                    <td style="padding:4px 8px 4px 0;">A — Standard</td>
+                    <td style="text-align:right;padding:4px 8px;">${g.A.sent}</td>
+                    <td style="text-align:right;padding:4px 8px;">${g.A.started}</td>
+                    <td style="text-align:right;padding:4px 8px;">${g.A.completed}</td>
+                    <td style="text-align:right;padding:4px 0 4px 8px;color:var(--ink);font-weight:bold;">${pct(g.A.completed, g.A.sent)}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:4px 8px 4px 0;">B — Teaser Q1</td>
+                    <td style="text-align:right;padding:4px 8px;">${g.B.sent}</td>
+                    <td style="text-align:right;padding:4px 8px;">${g.B.started}</td>
+                    <td style="text-align:right;padding:4px 8px;">${g.B.completed}</td>
+                    <td style="text-align:right;padding:4px 0 4px 8px;color:${g.B.completed / Math.max(g.B.sent,1) > g.A.completed / Math.max(g.A.sent,1) ? 'var(--green)' : 'var(--ink)'};font-weight:bold;">${pct(g.B.completed, g.B.sent)}</td>
+                  </tr>
+                </table>
+              </div>`;
+          }
+        } catch (e) { }
+
+        el.innerHTML = abHtml + `
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:16px;">
         <div style="background:white;border:1px solid var(--rule);padding:12px;text-align:center;">
           <div style="font-size:22px;font-weight:bold;color:var(--ink);">${starts}</div>

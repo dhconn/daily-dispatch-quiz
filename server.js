@@ -781,6 +781,15 @@ try {
       allTime: data.scores[key].allTime
     });
 
+   // Log completion event for A/B analytics (only on final score post)
+    const subData = await readData();
+    const subRecord = subData.subscribers && Object.values(subData.subscribers).find(s =>
+      (s.name || '').toLowerCase().trim() === key
+    );
+    if (subRecord && subRecord.abGroup) {
+      logEmailEvent('quiz_completed', subRecord.email, date, { group: subRecord.abGroup, score });
+    }
+
     // ── Mirror to progress for single source of truth ──────
     try {
       const allProgress = (await getKey('progress')) || {};
@@ -1136,6 +1145,41 @@ function buildTeaserHtml(teasers) {
     </div>`;
 }
 
+function buildEmailHtmlWithQ1(siteUrl, date, subscriberName, teaserHtml, unsubUrl, q1, token) {
+  const optLetters = ['A', 'B', 'C', 'D'];
+  const answerButtons = (q1.options || []).map((opt, i) => {
+    const url = `${siteUrl}/?q1=${i}&tok=${token}`;
+    return `<a href="${url}" style="display:block;margin-bottom:10px;padding:14px 16px;background:white;border:2px solid #2c1f0e;text-decoration:none;color:#1a1008;font-family:Georgia,serif;font-size:15px;text-align:left;">
+      <span style="font-family:'Courier New',monospace;font-weight:700;font-size:13px;color:#6b5f4e;margin-right:10px;">${optLetters[i]}.</span>${opt}
+    </a>`;
+  }).join('');
+
+  return `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1008;">
+    <a href="${siteUrl}" style="display:block;text-decoration:none;color:inherit;">
+    <div style="background:#1a1008;color:#f5f0e8;text-align:center;padding:24px;">
+      <div style="font-family:monospace;font-size:11px;letter-spacing:3px;color:#f0c040;margin-bottom:6px;">BALTIMORE · DAILY DISPATCH</div>
+      <div style="font-size:28px;font-weight:bold;">The Daily Dispatch Quiz</div>
+      <div style="font-family:monospace;font-size:10px;letter-spacing:2px;color:#aaa;margin-top:6px;">${date}</div>
+    </div>
+    </a>
+    <div style="padding:32px 24px;background:#f5f0e8;">
+      <p style="font-size:18px;margin:0 0 8px;">Hi${subscriberName ? ' ' + subscriberName : ''},</p>
+      <p style="font-size:16px;color:#444;margin:0 0 24px;">Tap your answer to today's first question — then see if you're right:</p>
+      ${teaserHtml}
+      <div style="background:white;border:2px solid #1a1008;padding:20px 20px 10px;margin-bottom:20px;box-shadow:4px 4px 0 #1a1008;">
+        <div style="font-family:monospace;font-size:11px;letter-spacing:2px;color:#6b5f4e;margin-bottom:12px;">QUESTION 1 OF 5 · STARTER</div>
+        <div style="font-size:19px;line-height:1.5;color:#1a1008;font-weight:400;margin-bottom:16px;">${q1.question}</div>
+        ${answerButtons}
+      </div>
+      <p style="font-size:13px;color:#6b5f4e;text-align:center;margin:0 0 20px;font-family:monospace;letter-spacing:1px;">TAP AN ANSWER ABOVE TO PLAY TODAY'S QUIZ</p>
+<!--SUBSCRIBE_INSERT_POINT-->
+    </div>
+    <div style="padding:16px 24px;text-align:center;font-size:11px;color:#999;font-family:monospace;border-top:1px solid #e0d8cc;">
+      <a href="${unsubUrl}" style="color:#999;">Unsubscribe</a>
+    </div>
+  </div>`;
+}
+
 function buildEmailHtml(siteUrl, date, subscriberName, teaserHtml, unsubUrl) {
   return `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1008;">
     <a href="${siteUrl}" style="display:block;text-decoration:none;color:inherit;">
@@ -1447,18 +1491,56 @@ app.post('/api/quiz', async (req, res) => {
       const yesterdayProgress = (await getKey('progress') || {})[yesterday] || {};
       const yesterdayQuiz = (freshData.quizzes || {})[yesterday] || null;
 
+// Load and purge email tokens
+      const tokens = (await getKey('emailTokens')) || {};
+      const tokenCutoff = new Date();
+      tokenCutoff.setDate(tokenCutoff.getDate() - 2);
+      Object.keys(tokens).forEach(t => {
+        if (new Date(tokens[t].date + 'T12:00:00') < tokenCutoff) delete tokens[t];
+      });
+
+      const q1 = quiz.questions && quiz.questions[0];
+
+      // Assign A/B groups and build emails
+      const updatedSubscribers = [];
       const emails = subscribers.map(sub => {
+        // Assign A/B group if not yet assigned
+        if (!sub.abGroup) sub.abGroup = Math.random() < 0.5 ? 'A' : 'B';
+        updatedSubscribers.push(sub);
+
         const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(sub.email)}`;
         const playerKey = (sub.name || '').toLowerCase().trim();
         const playerProgress = yesterdayProgress[playerKey] || null;
         const resultsHtml = buildResultsHtml(playerProgress, yesterdayQuiz);
-        const baseHtml = buildEmailHtml(siteUrl, date, sub.name, teaserHtml, unsubUrl);
+
+        let baseHtml;
+        if (sub.abGroup === 'B' && q1) {
+          // Group B: teaser email with Q1 embedded
+          const token = Buffer.from(sub.email + date + Math.random()).toString('base64')
+            .replace(/[^a-zA-Z0-9]/g, '').slice(0, 32);
+          tokens[token] = {
+            email: sub.email,
+            playerKey,
+            displayName: sub.name || '',
+            date,
+            group: 'B',
+            usedAt: null
+          };
+          baseHtml = buildEmailHtmlWithQ1(siteUrl, date, sub.name, teaserHtml, unsubUrl, q1, token);
+          logEmailEvent('email_sent', sub.email, date, { group: 'B' });
+        } else {
+          // Group A: standard email
+          baseHtml = buildEmailHtml(siteUrl, date, sub.name, teaserHtml, unsubUrl);
+          logEmailEvent('email_sent', sub.email, date, { group: 'A' });
+        }
+
         const html = resultsHtml
           ? baseHtml.replace(
               '<p style="font-size:18px;margin:0 0 8px;">Hi',
               resultsHtml + '<p style="font-size:18px;margin:0 0 8px;">Hi'
             )
           : baseHtml;
+
         return {
           from: process.env.FROM_EMAIL || 'David @ Daily Dispatch Quiz <david@dailydispatchquiz.com>',
           reply_to: 'dhconn@gmail.com',
@@ -1467,6 +1549,19 @@ app.post('/api/quiz', async (req, res) => {
           html
         };
       });
+
+      // Save updated tokens and subscriber abGroup assignments
+      await setKey('emailTokens', tokens);
+      const subData = await readData();
+      if (subData.subscribers) {
+        updatedSubscribers.forEach(sub => {
+          if (subData.subscribers[sub.email]) {
+            subData.subscribers[sub.email].abGroup = sub.abGroup;
+          }
+        });
+        await writeData(subData);
+      }
+
       await sendEmailBatch(emails);
       sentAnyEmails = true;
     }
@@ -1482,9 +1577,30 @@ app.post('/api/quiz', async (req, res) => {
       const prospectEmails = activeProspects.map(p => {
         const subscribeUrl = `${siteUrl}/subscribe?email=${encodeURIComponent(p.email)}&name=${encodeURIComponent(p.name || '')}`;
         const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(p.email)}`;
-        const baseHtml = buildEmailHtml(siteUrl, date, p.name, teaserHtml, unsubUrl);
+        const playerKey = (p.name || '').toLowerCase().trim();
 
-        // Inject subscribe button before the unsubscribe footer
+        // Assign A/B group if not yet assigned
+        if (!p.abGroup) p.abGroup = Math.random() < 0.5 ? 'A' : 'B';
+
+        let baseHtml;
+        if (p.abGroup === 'B' && q1) {
+          const token = Buffer.from(p.email + date + Math.random()).toString('base64')
+            .replace(/[^a-zA-Z0-9]/g, '').slice(0, 32);
+          tokens[token] = {
+            email: p.email,
+            playerKey,
+            displayName: p.name || '',
+            date,
+            group: 'B',
+            usedAt: null
+          };
+          baseHtml = buildEmailHtmlWithQ1(siteUrl, date, p.name, teaserHtml, unsubUrl, q1, token);
+          logEmailEvent('email_sent', p.email, date, { group: 'B' });
+        } else {
+          baseHtml = buildEmailHtml(siteUrl, date, p.name, teaserHtml, unsubUrl);
+          logEmailEvent('email_sent', p.email, date, { group: 'A' });
+        }
+
         const subscribeBtn = `
           <div style="padding:20px 24px;text-align:center;background:#f5f0e8;border-top:1px solid #e0d8cc;">
             <p style="font-family:monospace;font-size:11px;letter-spacing:1px;color:#6b5f4e;margin-bottom:12px;">GET THIS AUTOMATICALLY EVERY MORNING</p>
@@ -1501,6 +1617,9 @@ app.post('/api/quiz', async (req, res) => {
           html
         };
       });
+
+      // Save final token state including prospect tokens
+      await setKey('emailTokens', tokens);
       await sendEmailBatch(prospectEmails);
       sentAnyEmails = true;
     }
@@ -1588,6 +1707,73 @@ app.post('/api/pwa-session', async (req, res) => {
     res.json({ ok: true });
   } catch(e) {
     console.error('[PWA] session log error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Email quiz tokens ─────────────────────────────────────────
+// Stored as emailTokens = { token: { email, playerKey, date, usedAt } }
+
+app.post('/api/email-token/validate', async (req, res) => {
+  const { token, date } = req.body || {};
+  if (!token || !date) return res.status(400).json({ error: 'token and date required' });
+  try {
+    const tokens = (await getKey('emailTokens')) || {};
+    const record = tokens[token];
+    if (!record) return res.json({ valid: false, reason: 'invalid' });
+    if (record.date !== date) return res.json({ valid: false, reason: 'wrong_date' });
+    if (record.usedAt) return res.json({ valid: false, reason: 'already_used', playerKey: record.playerKey });
+    res.json({ valid: true, email: record.email, playerKey: record.playerKey, displayName: record.displayName });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/email-token/use', async (req, res) => {
+  const { token, date } = req.body || {};
+  if (!token || !date) return res.status(400).json({ error: 'token and date required' });
+  try {
+    const tokens = (await getKey('emailTokens')) || {};
+    if (!tokens[token]) return res.status(404).json({ error: 'token not found' });
+    tokens[token].usedAt = new Date().toISOString();
+    await setKey('emailTokens', tokens);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Email event logging ───────────────────────────────────────
+async function logEmailEvent(event, email, date, meta = {}) {
+  try {
+    const key = 'emailEvents_' + date;
+    const events = (await getKey(key)) || [];
+    events.push({ event, email, date, ts: new Date().toISOString(), ...meta });
+    await setKey(key, events);
+  } catch (e) {
+    console.warn('[EmailEvent] log failed:', e.message);
+  }
+}
+
+// ── GET /api/email-ab-stats — A/B results for admin panel ────
+app.get('/api/email-ab-stats', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  const { date } = req.query;
+  if (!date) return res.status(400).json({ error: 'date required' });
+  try {
+    const key = 'emailEvents_' + date;
+    const events = (await getKey(key)) || [];
+    const groups = { A: { sent: 0, started: 0, completed: 0 }, B: { sent: 0, started: 0, completed: 0 } };
+    events.forEach(e => {
+      const g = e.group;
+      if (!g || !groups[g]) return;
+      if (e.event === 'email_sent') groups[g].sent++;
+      if (e.event === 'q1_click') groups[g].started++;
+      if (e.event === 'quiz_completed') groups[g].completed++;
+    });
+    res.json({ date, groups });
+  } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
