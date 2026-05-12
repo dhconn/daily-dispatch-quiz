@@ -3467,6 +3467,47 @@
         window._emailQ1Answer = parseInt(_emailQ1Answer, 10);
         window._emailToken = _emailToken;
         window.history.replaceState({}, '', window.location.pathname);
+
+        setTimeout(async () => {
+          try {
+            const tokRes = await fetch('/api/email-token/validate', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                token: window._emailToken,
+                date: todayStr()
+              })
+            });
+
+            const tokData = await tokRes.json();
+
+            if (!tokData.valid) {
+              window._emailQ1Answer = null;
+              window._emailToken = null;
+              return;
+            }
+
+            const displayName =
+              (tokData.displayName || tokData.playerKey || tokData.email || 'Player')
+                .split('@')[0]
+                .trim();
+
+            const nameEl = document.getElementById('player-input');
+            const emailEl = document.getElementById('email-input');
+
+            if (nameEl) nameEl.value = displayName;
+            if (emailEl && tokData.email) emailEl.value = tokData.email;
+
+            state.playerName = displayName;
+            lsSet('dnq_current_player', displayName);
+
+            registerPlayer();
+          } catch (e) {
+            console.warn('[EmailToken] launch validation failed:', e.message);
+            window._emailQ1Answer = null;
+            window._emailToken = null;
+          }
+        }, 250);
       }
 
       // Ensure archive banner is hidden on fresh load
