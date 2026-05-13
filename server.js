@@ -1510,7 +1510,8 @@ app.post('/api/quiz', async (req, res) => {
 
       // Assign A/B groups and build emails
       const updatedSubscribers = [];
-      const emails = subscribers.map(sub => {
+      const emails = [];
+      for (const sub of subscribers) {
         // Assign A/B group if not yet assigned
         if (!sub.abGroup) sub.abGroup = Math.random() < 0.5 ? 'A' : 'B';
         updatedSubscribers.push(sub);
@@ -1534,11 +1535,11 @@ app.post('/api/quiz', async (req, res) => {
             usedAt: null
           };
           baseHtml = buildEmailHtmlWithQ1(siteUrl, date, sub.name, teaserHtml, unsubUrl, q1, token);
-          logEmailEvent('email_sent', sub.email, date, { group: 'B' });
+          await logEmailEvent('email_sent', sub.email, date, { group: 'B' });
         } else {
           // Group A: standard email
           baseHtml = buildEmailHtml(siteUrl, date, sub.name, teaserHtml, unsubUrl);
-          logEmailEvent('email_sent', sub.email, date, { group: 'A' });
+          await logEmailEvent('email_sent', sub.email, date, { group: 'A' });
         }
 
         const html = resultsHtml
@@ -1548,14 +1549,14 @@ app.post('/api/quiz', async (req, res) => {
             )
           : baseHtml;
 
-        return {
+        emails.push({
           from: process.env.FROM_EMAIL || 'David @ Daily Dispatch Quiz <david@dailydispatchquiz.com>',
           reply_to: 'dhconn@gmail.com',
           to: [sub.email],
           subject,
           html
-        };
-      });
+        });
+      }
 
       // Save updated tokens and subscriber abGroup assignments
       await setKey('emailTokens', tokens);
@@ -1585,14 +1586,16 @@ app.post('/api/quiz', async (req, res) => {
       const q1 = quiz.questions && quiz.questions[0];
       const updatedProspects = [];
 
-      const prospectEmails = activeProspects.map(p => {
-      const subscribeUrl = `${siteUrl}/subscribe?email=${encodeURIComponent(p.email)}&name=${encodeURIComponent(p.name || '')}`;
-      const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(p.email)}`;
-      const playerKey = (p.name || '').toLowerCase().trim();
+const prospectEmails = [];
+      for (const p of activeProspects) {
+        const subscribeUrl = `${siteUrl}/subscribe?email=${encodeURIComponent(p.email)}&name=${encodeURIComponent(p.name || '')}`;
+        const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(p.email)}`;
+        const playerKey = (p.name || '').toLowerCase().trim();
 
         // Assign A/B group if not yet assigned
         if (!p.abGroup) p.abGroup = Math.random() < 0.5 ? 'A' : 'B';
         updatedProspects.push(p);
+
         let baseHtml;
         if (p.abGroup === 'B' && q1) {
           const token = Buffer.from(p.email + date + Math.random()).toString('base64')
@@ -1606,10 +1609,10 @@ app.post('/api/quiz', async (req, res) => {
             usedAt: null
           };
           baseHtml = buildEmailHtmlWithQ1(siteUrl, date, p.name, teaserHtml, unsubUrl, q1, token);
-          logEmailEvent('email_sent', p.email, date, { group: 'B' });
+          await logEmailEvent('email_sent', p.email, date, { group: 'B' });
         } else {
           baseHtml = buildEmailHtml(siteUrl, date, p.name, teaserHtml, unsubUrl);
-          logEmailEvent('email_sent', p.email, date, { group: 'A' });
+          await logEmailEvent('email_sent', p.email, date, { group: 'A' });
         }
 
         const subscribeBtn = `
@@ -1620,14 +1623,14 @@ app.post('/api/quiz', async (req, res) => {
 
         const html = baseHtml.replace('<!--SUBSCRIBE_INSERT_POINT-->', subscribeBtn);
 
-        return {
+        prospectEmails.push({
           from: process.env.FROM_EMAIL || 'David @ Daily Dispatch Quiz <david@dailydispatchquiz.com>',
           reply_to: 'dhconn@gmail.com',
           to: [p.email],
           subject,
           html
-        };
-      });
+        });
+      }
 
     // Save final token state including prospect tokens
     await setKey('emailTokens', tokens);
