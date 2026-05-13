@@ -661,7 +661,7 @@ app.post('/api/progress', async (req, res) => {
 
     // Keep only last 2 days of progress
     const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - 3);
+    cutoffDate.setDate(cutoffDate.getDate() - 5);
     Object.keys(allProgress).forEach(d => {
       if (new Date(d + 'T12:00:00') < cutoffDate) delete allProgress[d];
     });
