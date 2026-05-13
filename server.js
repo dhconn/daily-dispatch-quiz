@@ -1745,8 +1745,8 @@ app.post('/api/email-token/validate', async (req, res) => {
     const record = tokens[token];
     if (!record) return res.json({ valid: false, reason: 'invalid' });
     if (record.date !== date) return res.json({ valid: false, reason: 'wrong_date' });
-    if (record.usedAt) return res.json({ valid: false, reason: 'already_used', playerKey: record.playerKey });
-    res.json({ valid: true, email: record.email, playerKey: record.playerKey, displayName: record.displayName });
+    if (record.usedAt) return res.json({ valid: true, email: record.email, playerKey: record.playerKey, displayName: record.displayName, alreadyUsed: true });
+    res.json({ valid: true, email: record.email, playerKey: record.playerKey, displayName: record.displayName, alreadyUsed: false });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
