@@ -741,6 +741,8 @@ app.post('/api/scores', async (req, res) => {
     ts: new Date().toISOString()
   });
 
+  const { completed: isCompleted } = req.body;
+
   if (!playerName || !date || typeof score !== 'number') {
     console.error('[scores] bad request', req.body);
     return res.status(400).json({ error: 'playerName, date, and score required' });
@@ -781,13 +783,15 @@ try {
       allTime: data.scores[key].allTime
     });
 
-   // Log completion event for A/B analytics (only on final score post)
-    const subData = await readData();
-    const subRecord = subData.subscribers && Object.values(subData.subscribers).find(s =>
-      (s.name || '').toLowerCase().trim() === key
-    );
-    if (subRecord && subRecord.abGroup) {
-      logEmailEvent('quiz_completed', subRecord.email, date, { group: subRecord.abGroup, score });
+   // Log completion event for A/B analytics — only on final score post from finishQuiz
+    if (isCompleted) {
+      const subData = await readData();
+      const subRecord = subData.subscribers && Object.values(subData.subscribers).find(s =>
+        (s.name || '').toLowerCase().trim() === key
+      );
+      if (subRecord && subRecord.abGroup) {
+        logEmailEvent('quiz_completed', subRecord.email, date, { group: subRecord.abGroup, score });
+      }
     }
 
     // ── Mirror to progress for single source of truth ──────

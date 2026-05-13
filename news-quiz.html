@@ -4370,7 +4370,8 @@ ${siteUrl}`;
             body: JSON.stringify({
               playerName: state.playerName,
               date: state.todayKey,
-              score: state.sessionScore
+              score: state.sessionScore,
+              completed: true
             })
           });
         } catch (e) { }
@@ -4566,17 +4567,27 @@ ${siteUrl}`;
 
     if (tab === 'today') {
       try {
-        const res = await fetch('/api/progress?date=' + today);
-        const progress = await res.json();
+        const adminToken = lsGet('dnq_admin_token') || 'admin';
+        const [progressRes, exclRes] = await Promise.all([
+          fetch('/api/progress?date=' + today),
+          fetch('/api/admin/stats-exclusions?date=' + today, {
+            headers: { 'x-admin-token': adminToken }
+          })
+        ]);
+        const progress = await progressRes.json();
+        const exclData = exclRes.ok ? await exclRes.json() : {};
+        const excludedMap = exclData.excluded || {};
 
-        rows = Object.entries(progress || {}).map(([key, p]) => ({
-          name: p.displayName || key,
-          score: Number(p.score) || 0,
-          isMe: key === state.playerName.toLowerCase().trim()
-        }));
-      } catch (e) {
-        rows = [];
-      }
+        rows = Object.entries(progress || {})
+          .filter(([key]) => !excludedMap[key])
+          .map(([key, p]) => ({
+            name: p.displayName || key,
+            score: Number(p.score) || 0,
+            isMe: key === state.playerName.toLowerCase().trim()
+         }));
+     } catch (e) {
+       rows = [];
+     }
     } else {
       let players = {};
       try {
