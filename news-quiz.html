@@ -3486,6 +3486,7 @@
               window._emailToken = null;
               return;
             }
+            window._emailTokenAlreadyUsed = !!tokData.alreadyUsed;
 
             const displayName =
               (tokData.displayName || tokData.playerKey || tokData.email || 'Player')
@@ -3905,15 +3906,15 @@ ${siteUrl}`;
       if (!resumed && window._emailQ1Answer !== null && window._emailQ1Answer !== undefined && state.currentQ === 0) {
         const q1AnswerIdx = window._emailQ1Answer;
         window._emailQ1Answer = null;
-        if (window._emailToken) {
-          // Mark token used and log the click event
+        if (window._emailToken && !window._emailTokenAlreadyUsed) {
+          // Mark token used and log the click event — only on first use
           fetch('/api/email-token/use', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ token: window._emailToken, date: state.todayKey })
           }).catch(() => {});
-          window._emailToken = null;
         }
+        window._emailToken = null;
         setTimeout(() => selectAnswer(q1AnswerIdx), 600);
       }
     }
