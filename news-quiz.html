@@ -2749,6 +2749,8 @@
               <button id="msg-tab-bulk" onclick="switchMsgTab('bulk')"
                 style="flex:1;font-family:monospace;font-size:11px;letter-spacing:1px;padding:9px 0;cursor:pointer;background:var(--paper);border:none;border-left:1px solid var(--rule);color:var(--muted);">ALL
                 SUBSCRIBERS</button>
+              <button id="msg-tab-prospects" onclick="switchMsgTab('prospects')"
+                style="flex:1;font-family:monospace;font-size:11px;letter-spacing:1px;padding:9px 0;cursor:pointer;background:var(--paper);border:none;border-left:1px solid var(--rule);color:var(--muted);">PROSPECTS</button>
             </div>
             <div id="msg-panel-select">
               <div style="margin-bottom:10px;">
@@ -2826,77 +2828,24 @@
               <button class="btn-secondary" onclick="sendBulkMessage()" style="font-size:11px;letter-spacing:1px;">SEND
                 TO ALL SUBSCRIBERS ▸</button>
             </div>
+            <div id="msg-panel-prospects" style="display:none;">
+              <div id="msg-prospects-count"
+                style="font-family:monospace;font-size:11px;color:var(--muted);margin-bottom:12px;letter-spacing:1px;">
+                Loading prospect count…</div>
+              <div style="margin-bottom:12px;">
+                <div style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:6px;">SUBJECT</div>
+                <input type="text" id="msg-subject-prospects" placeholder="e.g. A note from the editor"
+                  style="width:100%;font-family:monospace;font-size:13px;padding:8px 10px;border:1px solid var(--rule);background:white;color:var(--ink);outline:none;box-sizing:border-box;" />
+              </div>
+              <div style="margin-bottom:12px;">
+                <div style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:6px;">MESSAGE</div>
+                <textarea id="msg-body-prospects" placeholder="Write your message here…"
+                  style="width:100%;font-family:monospace;font-size:13px;padding:8px 10px;border:1px solid var(--rule);background:white;color:var(--ink);outline:none;min-height:120px;resize:vertical;box-sizing:border-box;"></textarea>
+              </div>
+              <button class="btn-secondary" onclick="sendProspectsMessage()" style="font-size:11px;letter-spacing:1px;">SEND TO ALL PROSPECTS ▸</button>
+            </div>
             <div id="msg-status"
               style="display:none;margin-top:12px;font-family:monospace;font-size:12px;padding:8px 12px;"></div>
-          </div>
-        </details>
-      </div>
-
-      <div class="admin-collapsible" style="margin-top:20px;" id="anc-prospect-message">
-        <details>
-          <summary>Message Prospects</summary>
-          <div style="margin-top:16px;">
-
-            <!-- SEND TO ALL -->
-            <div style="margin-bottom:16px;">
-              <div
-                style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:6px;">
-                SEND TO ALL PROSPECTS
-              </div>
-
-              <input id="msg-subject-prospect-bulk" type="text" placeholder="Subject line"
-                style="width:100%;padding:10px;border:1px solid var(--rule);margin-bottom:8px;font-family:inherit;font-size:14px;">
-
-              <textarea id="msg-body-prospect-bulk" placeholder="Write your message..."
-                style="width:100%;min-height:120px;padding:10px;border:1px solid var(--rule);font-family:inherit;font-size:14px;"></textarea>
-
-              <div style="margin-top:6px;">
-                <button type="button" onclick="insertImageTag('msg-body-prospect-bulk')"
-                  style="font-family:monospace;font-size:10px;letter-spacing:1px;padding:4px 10px;border:1px solid var(--muted);background:none;color:var(--muted);cursor:pointer;">
-                  INSERT IMAGE
-                </button>
-              </div>
-
-              <div style="margin-top:8px;">
-                <button class="btn-primary" onclick="sendBulkProspectMessage()">Send to All Prospects</button>
-              </div>
-            </div>
-
-            <!-- SEND TO SELECTED -->
-            <div style="margin-top:20px;border-top:1px solid var(--rule);padding-top:16px;">
-              <div
-                style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:6px;">
-                SEND TO SELECTED PROSPECTS
-              </div>
-
-              <input id="msg-subject-prospect-select" type="text" placeholder="Subject line"
-                style="width:100%;padding:10px;border:1px solid var(--rule);margin-bottom:8px;font-family:inherit;font-size:14px;">
-
-              <textarea id="msg-body-prospect-select" placeholder="Write your message..."
-                style="width:100%;min-height:120px;padding:10px;border:1px solid var(--rule);font-family:inherit;font-size:14px;"></textarea>
-
-              <div style="margin-top:6px;">
-                <button type="button" onclick="insertImageTag('msg-body-prospect-select')"
-                  style="font-family:monospace;font-size:10px;letter-spacing:1px;padding:4px 10px;border:1px solid var(--muted);background:none;color:var(--muted);cursor:pointer;">
-                  INSERT IMAGE
-                </button>
-              </div>
-
-              <div id="prospect-msg-list"
-                style="margin-top:12px;max-height:220px;overflow-y:auto;border:1px solid var(--rule);padding:8px;background:white;">
-                <p style="color:var(--muted);">Loading…</p>
-              </div>
-
-              <div style="margin-top:10px;display:flex;gap:10px;">
-                <button class="btn-secondary" onclick="toggleAllProspectMsg(true)">Select All</button>
-                <button class="btn-secondary" onclick="toggleAllProspectMsg(false)">Clear</button>
-                <button class="btn-primary" onclick="sendSelectedProspectMessage()">Send to Selected</button>
-              </div>
-            </div>
-
-            <div id="msg-status-prospect"
-              style="margin-top:12px;font-family:monospace;font-size:12px;color:var(--muted);"></div>
-
           </div>
         </details>
       </div>
@@ -7545,6 +7494,28 @@ ${siteUrl}`;
       }
     }
 
+    async function removeSubscriber(email) {
+      if (!confirm('Permanently remove ' + email + ' from subscribers? This cannot be undone.')) return;
+      try {
+        const res = await fetch('/api/subscribers/' + encodeURIComponent(email), {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ active: false })
+        });
+        if (!res.ok) throw new Error('Server error');
+        // Also remove from scores/display entirely by deleting the record
+        const adminToken = lsGet('dnq_admin_token') || 'admin';
+        await fetch('/api/subscribers/' + encodeURIComponent(email), {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ active: false, removed: true })
+        });
+        loadSubscribers();
+      } catch (e) {
+        alert('Could not remove subscriber: ' + e.message);
+      }
+    }
+    
     async function toggleSubscriber(email, active) {
       try {
         const res = await fetch('/api/subscribers/' + encodeURIComponent(email), {
@@ -7618,6 +7589,7 @@ ${siteUrl}`;
           <th style="text-align:left;padding:4px 8px;font-weight:600;">Name</th>
           <th style="text-align:left;padding:4px 8px;font-weight:600;">Subscribed</th>
           <th style="text-align:left;padding:4px 8px;font-weight:600;">Status</th>
+          <th style="text-align:left;padding:4px 8px;font-weight:600;">Group</th>
           <th style="padding:4px 8px;"></th>
         </tr>
         ${subscribers.map(s => `
@@ -7626,10 +7598,15 @@ ${siteUrl}`;
             <td style="padding:4px 8px;">${s.name || '—'}</td>
             <td style="padding:4px 8px;">${s.subscribedAt ? s.subscribedAt.slice(0, 10) : '—'}</td>
             <td style="padding:4px 8px;color:${s.active ? 'var(--green)' : 'var(--muted)'};">${s.active ? 'Active' : 'Paused'}</td>
-            <td style="padding:4px 8px;">
+            <td style="padding:4px 8px;font-family:monospace;font-size:11px;color:var(--muted);">${s.abGroup || '—'}</td>
+            <td style="padding:4px 8px;display:flex;gap:6px;">
               <button onclick="toggleSubscriber('${s.email}', ${!s.active})"
                 style="font-family:monospace;font-size:10px;padding:2px 8px;cursor:pointer;border-radius:2px;letter-spacing:1px;background:none;border:1px solid ${s.active ? 'var(--muted)' : 'var(--green)'}; color:${s.active ? 'var(--muted)' : 'var(--green)'};">
                 ${s.active ? 'PAUSE' : 'RESTORE'}
+              </button>
+              <button onclick="removeSubscriber('${s.email}')"
+                style="font-family:monospace;font-size:10px;padding:2px 8px;cursor:pointer;border-radius:2px;letter-spacing:1px;background:none;border:1px solid var(--red);color:var(--red);">
+                REMOVE
               </button>
             </td>
           </tr>
@@ -7712,17 +7689,35 @@ ${siteUrl}`;
     function msgSelectNone() { document.querySelectorAll('.msg-cb').forEach(cb => cb.checked = false); updateMsgSelectedCount(); }
 
     function switchMsgTab(tab) {
-      const s = document.getElementById('msg-panel-select'), b = document.getElementById('msg-panel-bulk');
-      const ts = document.getElementById('msg-tab-select'), tb = document.getElementById('msg-tab-bulk');
+      const s = document.getElementById('msg-panel-select');
+      const b = document.getElementById('msg-panel-bulk');
+      const p = document.getElementById('msg-panel-prospects');
+      const ts = document.getElementById('msg-tab-select');
+      const tb = document.getElementById('msg-tab-bulk');
+      const tp = document.getElementById('msg-tab-prospects');
+
+      s.style.display = 'none'; b.style.display = 'none'; p.style.display = 'none';
+      [ts, tb, tp].forEach(t => { t.style.background = 'var(--paper)'; t.style.color = 'var(--muted)'; });
+
       if (tab === 'select') {
-        s.style.display = 'block'; b.style.display = 'none';
+        s.style.display = 'block';
         ts.style.background = 'var(--ink)'; ts.style.color = 'var(--paper)';
-        tb.style.background = 'var(--paper)'; tb.style.color = 'var(--muted)';
         loadMsgProspects();
-      } else {
-        s.style.display = 'none'; b.style.display = 'block';
+      } else if (tab === 'bulk') {
+        b.style.display = 'block';
         tb.style.background = 'var(--ink)'; tb.style.color = 'var(--paper)';
-        ts.style.background = 'var(--paper)'; ts.style.color = 'var(--muted)';
+      } else if (tab === 'prospects') {
+        p.style.display = 'block';
+        tp.style.background = 'var(--ink)'; tp.style.color = 'var(--paper)';
+        const count = document.getElementById('msg-prospects-count');
+        if (count) {
+          fetch('/api/prospects', { headers: { 'x-admin-token': lsGet('dnq_admin_token') || 'admin' } })
+            .then(r => r.json())
+            .then(d => {
+              const n = (d.prospects || []).filter(p => p.active !== false).length;
+              count.textContent = n + ' active prospect' + (n !== 1 ? 's' : '') + ' will receive this message';
+            }).catch(() => { count.textContent = 'Could not load prospect count.'; });
+        }
       }
       document.getElementById('msg-status').style.display = 'none';
     }
@@ -7891,6 +7886,37 @@ ${siteUrl}`;
           `Sent ${json.sent || 0} prospect emails${json.failed ? ` (${json.failed} failed)` : ''}.`;
       } catch (e) {
         document.getElementById('msg-status-prospect').textContent = 'Send failed.';
+      }
+    }
+
+    async function sendProspectsMessage() {
+      const subject = document.getElementById('msg-subject-prospects').value.trim();
+      const body = document.getElementById('msg-body-prospects').value.trim();
+      if (!subject) { showMsgStatus('Please enter a subject line.', false); return; }
+      if (!body) { showMsgStatus('Please write a message.', false); return; }
+      const adminToken = lsGet('dnq_admin_token') || 'admin';
+      const prospectsRes = await fetch('/api/prospects', { headers: { 'x-admin-token': adminToken } });
+      const prospectsData = await prospectsRes.json();
+      const count = (prospectsData.prospects || []).filter(p => p.active !== false).length;
+      if (!count) { showMsgStatus('No active prospects to message.', false); return; }
+      if (!confirm('Send this message to all ' + count + ' active prospects?')) return;
+      showMsgStatus('Sending to ' + count + ' prospects…', true);
+      try {
+        const res = await fetch('/api/admin/message/bulk', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+          body: JSON.stringify({ subject, body, audience: 'prospects' })
+        });
+        const json = await res.json();
+        if (json.ok) {
+          showMsgStatus('✓ ' + json.message, true);
+          document.getElementById('msg-subject-prospects').value = '';
+          document.getElementById('msg-body-prospects').value = '';
+        } else {
+          showMsgStatus('✗ ' + (json.error || 'Send failed'), false);
+        }
+      } catch (e) {
+        showMsgStatus('✗ Error: ' + e.message, false);
       }
     }
 
