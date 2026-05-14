@@ -1802,6 +1802,50 @@ app.get('/api/email-ab-stats', async (req, res) => {
   }
 });
 
+// ── POST /api/quiz/test-email — send test B email to admin ───
+app.post('/api/quiz/test-email', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+
+  const siteUrl = process.env.SITE_URL || 'https://dailydispatchquiz.com';
+  const testEmail = process.env.ADMIN_TEST_EMAIL || 'dhconn@gmail.com';
+  const date = easternToday();
+
+  try {
+    const data = await readData();
+    const quiz = data.quizzes && data.quizzes[date];
+    if (!quiz) return res.status(404).json({ error: 'No quiz published for today' });
+
+    const q1 = quiz.questions && quiz.questions[0];
+    if (!q1) return res.status(404).json({ error: 'No questions in today\'s quiz' });
+
+    // Generate a test token
+    const tokens = (await getKey('emailTokens')) || {};
+    const token = Buffer.from(testEmail + date + Math.random()).toString('base64')
+      .replace(/[^a-zA-Z0-9]/g, '').slice(0, 32);
+    tokens[token] = {
+      email: testEmail,
+      playerKey: 'player',
+      displayName: 'Player',
+      date,
+      group: 'B',
+      usedAt: null
+    };
+    await setKey('emailTokens', tokens);
+
+    const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(testEmail)}`;
+    const teaserHtml = data.cachedTeaserHtml || '';
+    const html = buildEmailHtmlWithQ1(siteUrl, date, 'Player', teaserHtml, unsubUrl, q1, token);
+
+    await sendEmail(testEmail, `[TEST] Today's Daily Dispatch Quiz — ${date}`, html);
+    console.log(`[TestEmail] Sent B email to ${testEmail}`);
+    res.json({ ok: true, sentTo: testEmail });
+  } catch (e) {
+    console.error('[TestEmail] error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── GET /api/push-vapid-key — send public key to frontend ────
 app.get('/api/push-vapid-key', (req, res) => {
   res.json({ publicKey: process.env.VAPID_PUBLIC_KEY || '' });

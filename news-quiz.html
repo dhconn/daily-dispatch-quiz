@@ -2580,6 +2580,10 @@
         <div id="published-preview">
           <p style="font-size:13px;color:var(--muted);font-style:italic;">No quiz published today.</p>
         </div>
+        <div style="margin-top:12px;display:flex;align-items:center;gap:12px;">
+          <button onclick="sendTestEmail()" style="font-family:monospace;font-size:11px;letter-spacing:1px;padding:6px 16px;background:none;border:1px solid var(--blue);color:var(--blue);cursor:pointer;border-radius:2px;">📧 Send Test Email</button>
+          <span id="test-email-status" style="font-family:monospace;font-size:11px;color:var(--muted);"></span>
+        </div>
       </div>
 
       <div class="admin-collapsible" style="margin-top:20px;" id="anc-community">
@@ -7514,6 +7518,31 @@ ${siteUrl}`;
       } catch (e) {
         alert('Could not remove subscriber: ' + e.message);
       }
+    }
+
+    async function sendTestEmail() {
+      const statusEl = document.getElementById('test-email-status');
+      statusEl.textContent = 'Sending…';
+      statusEl.style.color = 'var(--muted)';
+      try {
+        const adminToken = lsGet('dnq_admin_token') || 'admin';
+        const res = await fetch('/api/quiz/test-email', {
+          method: 'POST',
+          headers: { 'x-admin-token': adminToken }
+        });
+        const data = await res.json();
+        if (data.ok) {
+          statusEl.textContent = '✓ Test email sent to ' + data.sentTo;
+          statusEl.style.color = 'var(--green)';
+        } else {
+          statusEl.textContent = '✗ ' + (data.error || 'Send failed');
+          statusEl.style.color = 'var(--red)';
+        }
+      } catch (e) {
+        statusEl.textContent = '✗ Error: ' + e.message;
+        statusEl.style.color = 'var(--red)';
+      }
+      setTimeout(() => { statusEl.textContent = ''; }, 5000);
     }
     
     async function toggleSubscriber(email, active) {
