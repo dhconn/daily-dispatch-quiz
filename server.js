@@ -1162,23 +1162,20 @@ function buildEmailHtmlWithQ1(siteUrl, date, subscriberName, teaserHtml, unsubUr
     </div>`;
 }).join('');
 
-  return `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1008;">
-    <a href="${siteUrl}" style="display:block;text-decoration:none;color:inherit;">
+return `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1008;">
     <div style="background:#1a1008;color:#f5f0e8;text-align:center;padding:24px;">
       <div style="font-family:monospace;font-size:11px;letter-spacing:3px;color:#f0c040;margin-bottom:6px;">BALTIMORE · DAILY DISPATCH</div>
       <div style="font-size:28px;font-weight:bold;">The Daily Dispatch Quiz</div>
       <div style="font-family:monospace;font-size:10px;letter-spacing:2px;color:#aaa;margin-top:6px;">${date}</div>
     </div>
-    </a>
     <div style="padding:32px 24px;background:#f5f0e8;">
-      <p style="font-size:18px;margin:0 0 8px;">Hi${subscriberName ? ' ' + subscriberName : ''},</p>
-      <p style="font-size:16px;color:#444;margin:0 0 24px;">Tap your answer to today's first question — then see if you're right:</p>
+      <p style="font-size:18px;margin:0 0 24px;">Hi${subscriberName ? ' ' + subscriberName : ''} — start today's quiz by clicking your answer here:</p>
       <div style="background:white;border:2px solid #1a1008;padding:20px 20px 10px;margin-bottom:20px;box-shadow:4px 4px 0 #1a1008;">
         <div style="font-family:monospace;font-size:11px;letter-spacing:2px;color:#6b5f4e;margin-bottom:12px;">QUESTION 1 OF 5 · STARTER</div>
         <div style="font-size:19px;line-height:1.5;color:#1a1008;font-weight:400;margin-bottom:16px;">${q1.question}</div>
         ${answerButtons}
       </div>
-      <p style="font-size:13px;color:#6b5f4e;text-align:center;margin:0 0 20px;font-family:monospace;letter-spacing:1px;">TAP AN ANSWER ABOVE TO PLAY TODAY'S QUIZ</p>
+<!--YESTERDAY_INSERT_POINT-->
 <!--SUBSCRIBE_INSERT_POINT-->
     </div>
     <div style="padding:16px 24px;text-align:center;font-size:11px;color:#999;font-family:monospace;border-top:1px solid #e0d8cc;">
@@ -1543,11 +1540,8 @@ app.post('/api/quiz', async (req, res) => {
         }
 
         const html = resultsHtml
-          ? baseHtml.replace(
-              '<p style="font-size:18px;margin:0 0 8px;">Hi',
-              resultsHtml + '<p style="font-size:18px;margin:0 0 8px;">Hi'
-            )
-          : baseHtml;
+          ? baseHtml.replace('<!--YESTERDAY_INSERT_POINT-->', resultsHtml)
+          : baseHtml.replace('<!--YESTERDAY_INSERT_POINT-->', '');
 
         emails.push({
           from: process.env.FROM_EMAIL || 'David @ Daily Dispatch Quiz <david@dailydispatchquiz.com>',
