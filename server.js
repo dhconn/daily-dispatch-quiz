@@ -1187,9 +1187,9 @@ return `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;colo
   </div>`;
 }
 
-function buildEmailHtml(siteUrl, date, subscriberName, teaserHtml, unsubUrl) {
+function buildEmailHtml(siteUrl, date, subscriberName, teaserHtml, unsubUrl, trackingToken) {
   return `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1008;">
-    <a href="${siteUrl}" style="display:block;text-decoration:none;color:inherit;">
+    <a href="${siteUrl}/news-quiz.html${trackingToken ? '?tok=' + encodeURIComponent(trackingToken) + '&group=A' : ''}" style="display:block;text-decoration:none;color:inherit;">
     <div style="background:#1a1008;color:#f5f0e8;text-align:center;padding:24px;">
       <div style="font-family:monospace;font-size:11px;letter-spacing:3px;color:#f0c040;margin-bottom:6px;">BALTIMORE · DAILY DISPATCH</div>
       <div style="font-size:28px;font-weight:bold;">The Daily Dispatch Quiz</div>
@@ -1201,7 +1201,7 @@ function buildEmailHtml(siteUrl, date, subscriberName, teaserHtml, unsubUrl) {
       <p style="font-size:16px;color:#444;margin:0 0 8px;">6 questions. 90 seconds.</p>
       <p style="font-size:16px;color:#444;margin:0 0 24px;">How closely are you following the news?</p>
       ${teaserHtml}
-      <a href="${siteUrl}" style="display:inline-block;background:#1a1008;color:#f5f0e8;padding:16px 36px;font-family:monospace;font-size:13px;letter-spacing:2px;text-decoration:none;text-transform:uppercase;">Play Today's Quiz ▸</a>
+      <a href="${siteUrl}/news-quiz.html${trackingToken ? '?tok=' + encodeURIComponent(trackingToken) + '&group=A' : ''}" style="display:inline-block;background:#1a1008;color:#f5f0e8;padding:16px 36px;font-family:monospace;font-size:13px;letter-spacing:2px;text-decoration:none;text-transform:uppercase;">Play Today's Quiz ▸</a>
 
 <!--SUBSCRIBE_INSERT_POINT-->
     </div>
@@ -1537,8 +1537,18 @@ app.post('/api/quiz', async (req, res) => {
           baseHtml = buildEmailHtmlWithQ1(siteUrl, date, sub.name, teaserHtml, unsubUrl, q1, token);
           await logEmailEvent('email_sent', sub.email, date, { group: 'B' });
         } else {
-          // Group A: standard email
-          baseHtml = buildEmailHtml(siteUrl, date, sub.name, teaserHtml, unsubUrl);
+          // Group A: standard email with click tracking token
+          const tokenA = Buffer.from(sub.email + date + Math.random()).toString('base64')
+            .replace(/[^a-zA-Z0-9]/g, '').slice(0, 32);
+          tokens[tokenA] = {
+            email: sub.email,
+            playerKey,
+            displayName: sub.name || '',
+            date,
+            group: 'A',
+            usedAt: null
+          };
+          baseHtml = buildEmailHtml(siteUrl, date, sub.name, teaserHtml, unsubUrl, tokenA);
           await logEmailEvent('email_sent', sub.email, date, { group: 'A' });
         }
 
@@ -1608,7 +1618,17 @@ const prospectEmails = [];
           baseHtml = buildEmailHtmlWithQ1(siteUrl, date, p.name, teaserHtml, unsubUrl, q1, token);
           await logEmailEvent('email_sent', p.email, date, { group: 'B' });
         } else {
-          baseHtml = buildEmailHtml(siteUrl, date, p.name, teaserHtml, unsubUrl);
+          const tokenA = Buffer.from(p.email + date + Math.random()).toString('base64')
+            .replace(/[^a-zA-Z0-9]/g, '').slice(0, 32);
+          tokens[tokenA] = {
+            email: p.email,
+            playerKey,
+            displayName: p.name || '',
+            date,
+            group: 'A',
+            usedAt: null
+          };
+          baseHtml = buildEmailHtml(siteUrl, date, p.name, teaserHtml, unsubUrl, tokenA);
           await logEmailEvent('email_sent', p.email, date, { group: 'A' });
         }
 

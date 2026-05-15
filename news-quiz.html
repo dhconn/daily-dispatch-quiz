@@ -3416,7 +3416,19 @@
       const _urlParams = new URLSearchParams(window.location.search);
       const _emailQ1Answer = _urlParams.get('q1');
       const _emailToken = _urlParams.get('tok');
-      if (_emailQ1Answer !== null && _emailToken) {
+      const _emailGroup = _urlParams.get('group');
+
+      // Group A click tracking — token present but no Q1 answer
+      if (_emailToken && _emailGroup === 'A') {
+        window.history.replaceState({}, '', window.location.pathname);
+        fetch('/api/email-token/use', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: _emailToken, date: todayStr() })
+        }).catch(() => {});
+      }
+
+      if (_emailQ1Answer !== null && _emailToken && _emailGroup !== 'A') {
         window._emailQ1Answer = parseInt(_emailQ1Answer, 10);
         window._emailToken = _emailToken;
         window.history.replaceState({}, '', window.location.pathname);
@@ -7544,7 +7556,7 @@ ${siteUrl}`;
       }
       setTimeout(() => { statusEl.textContent = ''; }, 5000);
     }
-    
+
     async function toggleSubscriber(email, active) {
       try {
         const res = await fetch('/api/subscribers/' + encodeURIComponent(email), {
