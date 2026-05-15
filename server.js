@@ -1175,6 +1175,9 @@ return `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;colo
         <div style="font-size:19px;line-height:1.5;color:#1a1008;font-weight:400;margin-bottom:16px;">${q1.question}</div>
         ${answerButtons}
       </div>
+      <p style="text-align:center;margin:12px 0 20px;font-family:monospace;font-size:11px;letter-spacing:1px;color:#6b5f4e;">
+        — or — <a href="${siteUrl}" style="color:#1a1008;font-weight:700;">go straight to today's quiz →</a>
+      </p>
 <!--YESTERDAY_INSERT_POINT-->
 <!--SUBSCRIBE_INSERT_POINT-->
     </div>
@@ -1759,8 +1762,14 @@ app.post('/api/email-token/use', async (req, res) => {
   try {
     const tokens = (await getKey('emailTokens')) || {};
     if (!tokens[token]) return res.status(404).json({ error: 'token not found' });
+    const record = tokens[token];
+    const alreadyUsed = !!record.usedAt;
     tokens[token].usedAt = new Date().toISOString();
     await setKey('emailTokens', tokens);
+    // Log q1_click only on first use
+    if (!alreadyUsed && record.group) {
+      await logEmailEvent('q1_click', record.email, date, { group: record.group });
+    }
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
