@@ -1831,7 +1831,7 @@ app.get('/api/email-ab-stats', async (req, res) => {
   }
 });
 
-// ── POST /api/quiz/test-email — send test B email to admin ───
+// ── POST /api/quiz/test-email — send test email to admin, respecting abGroup ───
 app.post('/api/quiz/test-email', async (req, res) => {
   const adminToken = process.env.ADMIN_TOKEN || 'admin';
   if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
@@ -1848,27 +1848,38 @@ app.post('/api/quiz/test-email', async (req, res) => {
     const q1 = quiz.questions && quiz.questions[0];
     if (!q1) return res.status(404).json({ error: 'No questions in today\'s quiz' });
 
-    // Generate a test token
+    // Look up abGroup from subscriber record
+    const subRecord = data.subscribers && data.subscribers[testEmail];
+    const group = (subRecord && subRecord.abGroup) || 'B';
+    const displayName = (subRecord && subRecord.name) || 'Player';
+    const playerKey = displayName.toLowerCase().trim();
+
     const tokens = (await getKey('emailTokens')) || {};
     const token = Buffer.from(testEmail + date + Math.random()).toString('base64')
       .replace(/[^a-zA-Z0-9]/g, '').slice(0, 32);
     tokens[token] = {
       email: testEmail,
-      playerKey: 'player',
-      displayName: 'Player',
+      playerKey,
+      displayName,
       date,
-      group: 'B',
+      group,
       usedAt: null
     };
     await setKey('emailTokens', tokens);
 
     const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(testEmail)}`;
     const teaserHtml = data.cachedTeaserHtml || '';
-    const html = buildEmailHtmlWithQ1(siteUrl, date, 'Player', teaserHtml, unsubUrl, q1, token);
 
-    await sendEmail(testEmail, `[TEST] Today's Daily Dispatch Quiz — ${date}`, html);
-    console.log(`[TestEmail] Sent B email to ${testEmail}`);
-    res.json({ ok: true, sentTo: testEmail });
+    let html;
+    if (group === 'B') {
+      html = buildEmailHtmlWithQ1(siteUrl, date, displayName, teaserHtml, unsubUrl, q1, token);
+    } else {
+      html = buildEmailHtml(siteUrl, date, displayName, teaserHtml, unsubUrl, token);
+    }
+
+    await sendEmail(testEmail, `[TEST - Group ${group}] Today's Daily Dispatch Quiz — ${date}`, html);
+    console.log(`[TestEmail] Sent Group ${group} email to ${testEmail}`);
+    res.json({ ok: true, sentTo: testEmail, group });
   } catch (e) {
     console.error('[TestEmail] error:', e.message);
     res.status(500).json({ error: e.message });
