@@ -1799,10 +1799,13 @@ app.post('/api/email-token/use', async (req, res) => {
 // ── Email event logging ───────────────────────────────────────
 async function logEmailEvent(event, email, date, meta = {}) {
   try {
-    const key = 'emailEvents_' + date;
-    const events = (await getKey(key)) || [];
+const events = (await getKey('emailEvents')) || [];
     events.push({ event, email, date, ts: new Date().toISOString(), ...meta });
-    await setKey(key, events);
+    // Keep only last 30 days
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 30);
+    const pruned = events.filter(e => new Date(e.date + 'T12:00:00') >= cutoff);
+    await setKey('emailEvents', pruned);
   } catch (e) {
     console.warn('[EmailEvent] log failed:', e.message);
   }
@@ -1815,8 +1818,8 @@ app.get('/api/email-ab-stats', async (req, res) => {
   const { date } = req.query;
   if (!date) return res.status(400).json({ error: 'date required' });
   try {
-    const key = 'emailEvents_' + date;
-    const events = (await getKey(key)) || [];
+    const allEvents = (await getKey('emailEvents')) || [];
+    const events = allEvents.filter(e => e.date === date);
     const groups = { A: { sent: 0, started: 0, completed: 0 }, B: { sent: 0, started: 0, completed: 0 } };
     events.forEach(e => {
       const g = e.group;
