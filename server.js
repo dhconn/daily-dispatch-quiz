@@ -794,6 +794,33 @@ try {
       }
     }
 
+    // ── Increment referral playCount ──────────────────────────
+    try {
+      const allData = await readData();
+      for (const sub of Object.values(allData.subscribers || {})) {
+        if (!sub.referrals) continue;
+        const ref = sub.referrals.find(r =>
+          r.email === key || (r.name && r.name.toLowerCase().trim() === key)
+        );
+        if (ref) {
+          if (!ref.playCount) ref.playCount = 0;
+          ref.playCount++;
+          await writeData(allData);
+          console.log(`[Referral] ${key} play count: ${ref.playCount} — referred by ${sub.email}`);
+          // Check if this referrer just hit 3 confirmed referrals
+          if (!sub.mugWon) {
+            const confirmed = sub.referrals.filter(r => r.playCount >= 3 && r.hasSubscribed).length;
+            if (confirmed >= 3) {
+              console.log(`[Referral] 🏆 ${sub.email} is now MUG ELIGIBLE`);
+            }
+          }
+          break;
+        }
+      }
+    } catch (e) {
+      console.warn('[Referral] playCount update failed (non-fatal):', e.message);
+    }
+
     // ── Mirror to progress for single source of truth ──────
     try {
       const allProgress = (await getKey('progress')) || {};
@@ -1018,8 +1045,35 @@ app.post('/api/archive', async (req, res) => {
 // ── Subscribers ───────────────────────────────────────────────
 // Stored as data.subscribers = { email: { name, subscribedAt, active } }
 
+// ── POST /api/referral — record a referral when a new player registers ──
+app.post('/api/referral', async (req, res) => {
+  const { referralCode, newPlayerEmail, newPlayerName } = req.body || {};
+  if (!referralCode) return res.status(400).json({ error: 'referralCode required' });
+  try {
+    const data = await readData();
+    const referrer = Object.values(data.subscribers || {}).find(s => s.referralCode === referralCode);
+    if (!referrer) return res.status(404).json({ error: 'Invalid referral code' });
+    if (newPlayerEmail && newPlayerEmail === referrer.email) return res.json({ ok: true, selfReferral: true });
+    if (!referrer.referrals) referrer.referrals = [];
+    const alreadyReferred = referrer.referrals.some(r => r.email === newPlayerEmail);
+    if (alreadyReferred) return res.json({ ok: true, alreadyRecorded: true });
+    referrer.referrals.push({
+      email: newPlayerEmail || '',
+      name: newPlayerName || '',
+      referredAt: new Date().toISOString(),
+      playCount: 0,
+      hasSubscribed: false
+    });
+    await writeData(data);
+    console.log(`[Referral] ${referrer.email} referred ${newPlayerEmail}`);
+    res.json({ ok: true, referralCount: referrer.referrals.length });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.post('/api/subscribe', async (req, res) => {
-  const { name, email } = req.body;
+  const { name, email, referralCode } = req.body;
   if (!email || !email.includes('@')) return res.status(400).json({ error: 'Valid email required.' });
   const data = await readData();
   if (!data.subscribers) data.subscribers = {};
@@ -1031,6 +1085,25 @@ app.post('/api/subscribe', async (req, res) => {
     active: true
   };
   await writeData(data);
+
+  // ── Mark referral as subscribed if this person was referred ──
+  try {
+    if (referralCode) {
+      const refData = await readData();
+      const referrer = Object.values(refData.subscribers || {}).find(s => s.referralCode === referralCode);
+      if (referrer && referrer.referrals) {
+        const ref = referrer.referrals.find(r => r.email === key);
+        if (ref && !ref.hasSubscribed) {
+          ref.hasSubscribed = true;
+          await writeData(refData);
+          console.log(`[Referral] Marked ${key} as subscribed — referred by ${referrer.email}`);
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('[Referral] hasSubscribed update failed (non-fatal):', e.message);
+  }
+
   res.json({ ok: true });
 });
 
@@ -1056,6 +1129,17 @@ app.get('/api/unsubscribe', async (req, res) => {
 function easternToday() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
 }
+
+// ── GET /api/monthly-winners — return recent monthly winners ──
+app.get('/api/monthly-winners', async (req, res) => {
+  try {
+    const data = await readData();
+    const winners = (data.monthlyWinners || []).slice(-3); // last 3 months
+    res.json({ winners });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
 // ── GET /api/quiz/latest — always return the most recently published quiz ──
 app.get('/api/quiz/latest', async (req, res) => {
@@ -1175,9 +1259,10 @@ return `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;colo
         <div style="font-size:19px;line-height:1.5;color:#1a1008;font-weight:400;margin-bottom:16px;">${q1.question}</div>
         ${answerButtons}
       </div>
-      <p style="text-align:center;margin:12px 0 20px;font-family:monospace;font-size:11px;letter-spacing:1px;color:#6b5f4e;">
+      <p style="text-align:center;margin:12px 0 8px;font-family:monospace;font-size:11px;letter-spacing:1px;color:#6b5f4e;">
         — or — <a href="${siteUrl}" style="color:#1a1008;font-weight:700;">go straight to today's quiz →</a>
       </p>
+      <p style="font-family:monospace;font-size:11px;color:#6b5f4e;margin:0 0 20px;letter-spacing:1px;text-align:center;">☕ Refer 3 friends who subscribe &amp; play — win a mug. Details after you play.</p>
 <!--YESTERDAY_INSERT_POINT-->
 <!--SUBSCRIBE_INSERT_POINT-->
     </div>
@@ -1202,6 +1287,7 @@ function buildEmailHtml(siteUrl, date, subscriberName, teaserHtml, unsubUrl, tra
       <p style="font-size:16px;color:#444;margin:0 0 24px;">How closely are you following the news?</p>
       ${teaserHtml}
       <a href="${siteUrl}/news-quiz.html${trackingToken ? '?tok=' + encodeURIComponent(trackingToken) + '&group=A' : ''}" style="display:inline-block;background:#1a1008;color:#f5f0e8;padding:16px 36px;font-family:monospace;font-size:13px;letter-spacing:2px;text-decoration:none;text-transform:uppercase;">Play Today's Quiz ▸</a>
+      <p style="font-family:monospace;font-size:11px;color:#6b5f4e;margin:16px 0 0;letter-spacing:1px;">☕ Refer 3 friends who subscribe &amp; play — win a mug. Details after you play.</p>
 
 <!--SUBSCRIBE_INSERT_POINT-->
     </div>
@@ -1412,6 +1498,28 @@ app.get('/api/quiz/archive', async (req, res) => {
     .reverse()
     .slice(0, 7);
   res.json({ dates });
+});
+
+// ── GET /api/referral-code — get or create a referral code for a subscriber ──
+app.get('/api/referral-code', async (req, res) => {
+  const { email } = req.query;
+  if (!email) return res.status(400).json({ error: 'email required' });
+  try {
+    const data = await readData();
+    if (!data.subscribers || !data.subscribers[email]) {
+      return res.status(404).json({ error: 'Subscriber not found' });
+    }
+    const sub = data.subscribers[email];
+    if (!sub.referralCode) {
+      sub.referralCode = Buffer.from(email + Math.random()).toString('base64')
+        .replace(/[^a-zA-Z0-9]/g, '').slice(0, 10);
+      await writeData(data);
+    }
+    const confirmed = (sub.referrals || []).filter(r => r.playCount >= 3 && r.hasSubscribed).length;
+    res.json({ ok: true, referralCode: sub.referralCode, confirmedReferrals: confirmed, mugWon: !!sub.mugWon });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // ── GET /api/subscribers — return subscriber list for admin ───
@@ -1889,6 +1997,57 @@ app.post('/api/quiz/test-email', async (req, res) => {
   }
 });
 
+// ── GET /api/admin/referrals — referral stats for admin panel ──
+app.get('/api/admin/referrals', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const data = await readData();
+    const results = [];
+    for (const sub of Object.values(data.subscribers || {})) {
+      if (!sub.referrals || !sub.referrals.length) continue;
+      const confirmed = sub.referrals.filter(r => r.playCount >= 3 && r.hasSubscribed).length;
+      results.push({
+        email: sub.email,
+        name: sub.name || '',
+        referralCode: sub.referralCode || '',
+        totalReferrals: sub.referrals.length,
+        confirmedReferrals: confirmed,
+        mugEligible: confirmed >= 3 && !sub.mugWon,
+        mugWon: !!sub.mugWon,
+        mugWonAt: sub.mugWonAt || null,
+        referrals: sub.referrals
+      });
+    }
+    results.sort((a, b) => b.confirmedReferrals - a.confirmedReferrals);
+    res.json({ ok: true, referrers: results });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── POST /api/admin/award-mug — mark a player as having won a mug ──
+app.post('/api/admin/award-mug', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  const { email, reason } = req.body || {};
+  if (!email) return res.status(400).json({ error: 'email required' });
+  try {
+    const data = await readData();
+    if (!data.subscribers || !data.subscribers[email]) {
+      return res.status(404).json({ error: 'Subscriber not found' });
+    }
+    data.subscribers[email].mugWon = true;
+    data.subscribers[email].mugWonAt = new Date().toISOString();
+    data.subscribers[email].mugWonReason = reason || 'manual';
+    await writeData(data);
+    console.log(`[Mug] Awarded to ${email} — reason: ${reason || 'manual'}`);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── GET /api/push-vapid-key — send public key to frontend ────
 app.get('/api/push-vapid-key', (req, res) => {
   res.json({ publicKey: process.env.VAPID_PUBLIC_KEY || '' });
@@ -2009,6 +2168,7 @@ initDb().then(() => {
   setTimeout(fetchAndCacheRSS, 5000);
   scheduleNextRefresh();
   scheduleStreakNudge();
+  scheduleMonthlyWinner();
 }).catch(err => {
   console.error('DB init failed:', err.message);
   process.exit(1);
@@ -2401,6 +2561,154 @@ async function sendStreakNudges() {
   });
   await sendEmailBatch(emails);
   console.log(`[StreakNudge] Done — nudged ${emails.length} player(s).`);
+}
+
+// ── Monthly leaderboard winner — runs on 1st of each month ───
+async function announceMonthlyWinner() {
+  const now = new Date();
+  const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const monthPrefix = prevMonth.toISOString().slice(0, 7); // YYYY-MM
+  const monthName = prevMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+  console.log(`[MonthlyWinner] Checking ${monthName} leaderboard…`);
+
+  try {
+    const data = await readData();
+    const scores = data.scores || {};
+    const siteUrl = process.env.SITE_URL || 'https://dailydispatchquiz.com';
+
+    // Build monthly leaderboard — subscribers only, no prior mug winners
+    const entries = [];
+    for (const [playerKey, player] of Object.entries(scores)) {
+      const monthlyScore = Object.entries(player.dailyScores || {})
+        .filter(([date]) => date.startsWith(monthPrefix))
+        .reduce((sum, [, s]) => sum + s, 0);
+      if (monthlyScore === 0) continue;
+
+      // Find matching subscriber
+      const sub = Object.values(data.subscribers || {}).find(s =>
+        s.active && (s.name || '').toLowerCase().trim() === playerKey
+      );
+      if (!sub) continue; // not a subscriber — ineligible
+      if (sub.mugWon) continue; // already won a mug
+
+      entries.push({ playerKey, displayName: player.displayName || playerKey, monthlyScore, email: sub.email, name: sub.name });
+    }
+
+    if (!entries.length) {
+      console.log(`[MonthlyWinner] No eligible subscribers found for ${monthName}.`);
+      return;
+    }
+
+    // Sort by score, allow ties
+    entries.sort((a, b) => b.monthlyScore - a.monthlyScore);
+    const topScore = entries[0].monthlyScore;
+    const winners = entries.filter(e => e.monthlyScore === topScore);
+
+    // Award mug to winner(s)
+    for (const winner of winners) {
+      data.subscribers[winner.email].mugWon = true;
+      data.subscribers[winner.email].mugWonAt = new Date().toISOString();
+      data.subscribers[winner.email].mugWonReason = `monthly_${monthPrefix}`;
+      console.log(`[MonthlyWinner] 🏆 ${winner.displayName} (${winner.email}) — ${winner.monthlyScore} pts`);
+    }
+
+    // Store winner for leaderboard display
+    if (!data.monthlyWinners) data.monthlyWinners = [];
+    for (const winner of winners) {
+      data.monthlyWinners.push({
+        month: monthPrefix,
+        monthName,
+        playerName: winner.displayName,
+        score: winner.monthlyScore,
+        announcedAt: new Date().toISOString()
+      });
+    }
+    await writeData(data);
+
+    // Send winner email(s)
+    for (const winner of winners) {
+      const winnerHtml = `
+        <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1008;">
+          <div style="background:#1a1008;color:#f5f0e8;text-align:center;padding:24px;">
+            <div style="font-family:monospace;font-size:11px;letter-spacing:3px;color:#f0c040;margin-bottom:6px;">BALTIMORE · DAILY DISPATCH</div>
+            <div style="font-size:28px;font-weight:bold;">The Daily Dispatch Quiz</div>
+          </div>
+          <div style="padding:32px 24px;background:#f5f0e8;text-align:center;">
+            <div style="font-size:48px;margin-bottom:12px;">🏆</div>
+            <p style="font-family:'Playfair Display',Georgia,serif;font-size:24px;font-weight:700;margin:0 0 10px;">${winner.displayName} wins the ${monthName} mug!</p>
+            <p style="font-size:15px;color:#6b5f4e;margin:0 0 24px;line-height:1.7;">
+              You finished ${monthName} at the top of the Daily Dispatch Quiz leaderboard with <strong>${winner.monthlyScore} points</strong>.<br><br>
+              Your prize: a Daily Dispatch Quiz coffee mug, on us.<br><br>
+              Just reply to this email with your mailing address and we'll get it shipped to you.
+            </p>
+            <img src="${siteUrl}/images/mug.png" alt="Daily Dispatch Quiz Mug" style="width:200px;height:auto;margin:0 auto 24px;display:block;">
+            <a href="${siteUrl}" style="display:inline-block;background:#1a1008;color:#f5f0e8;padding:16px 36px;font-family:monospace;font-size:13px;letter-spacing:2px;text-decoration:none;text-transform:uppercase;">Play Today's Quiz ▸</a>
+          </div>
+          <div style="padding:16px 24px;text-align:center;font-size:11px;color:#999;font-family:monospace;border-top:1px solid #e0d8cc;">
+            <a href="${siteUrl}/api/unsubscribe?email=${encodeURIComponent(winner.email)}" style="color:#999;">Unsubscribe</a>
+          </div>
+        </div>`;
+      await sendEmail(winner.email, `🏆 You won the ${monthName} Daily Dispatch Quiz mug!`, winnerHtml);
+    }
+
+    // Send announcement to all subscribers and prospects
+    const winnerNames = winners.map(w => w.displayName).join(' and ');
+    const announcementHtml = `
+      <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1008;">
+        <div style="background:#1a1008;color:#f5f0e8;text-align:center;padding:24px;">
+          <div style="font-family:monospace;font-size:11px;letter-spacing:3px;color:#f0c040;margin-bottom:6px;">BALTIMORE · DAILY DISPATCH</div>
+          <div style="font-size:28px;font-weight:bold;">The Daily Dispatch Quiz</div>
+        </div>
+        <div style="padding:32px 24px;background:#f5f0e8;text-align:center;">
+          <div style="font-size:48px;margin-bottom:12px;">🏆</div>
+          <p style="font-family:'Playfair Display',Georgia,serif;font-size:24px;font-weight:700;margin:0 0 10px;">${monthName} Champion${winners.length > 1 ? 's' : ''}</p>
+          <p style="font-size:20px;font-weight:700;color:#b8860b;margin:0 0 16px;">${winnerNames}</p>
+          <p style="font-size:15px;color:#6b5f4e;margin:0 0 24px;line-height:1.7;">
+            ${winnerNames} topped the ${monthName} leaderboard with <strong>${topScore} points</strong> and ${winners.length > 1 ? 'are' : 'is'} receiving a Daily Dispatch Quiz mug.<br><br>
+            Think you can beat them in ${new Date().toLocaleDateString('en-US', { month: 'long' })}? Play every day to climb the leaderboard.
+          </p>
+          <img src="${siteUrl}/images/mug.png" alt="Daily Dispatch Quiz Mug" style="width:160px;height:auto;margin:0 auto 24px;display:block;">
+          <a href="${siteUrl}" style="display:inline-block;background:#1a1008;color:#f5f0e8;padding:16px 36px;font-family:monospace;font-size:13px;letter-spacing:2px;text-decoration:none;text-transform:uppercase;">Play Today's Quiz ▸</a>
+        </div>
+        <div style="padding:16px 24px;text-align:center;font-size:11px;color:#999;font-family:monospace;border-top:1px solid #e0d8cc;">
+          Daily Dispatch Quiz · Baltimore
+        </div>
+      </div>`;
+
+    const allRecipients = [
+      ...Object.values(data.subscribers || {}).filter(s => s.active && !winners.find(w => w.email === s.email)),
+      ...Object.values(data.prospects || {}).filter(p => p.active !== false)
+    ];
+
+    const announcementEmails = allRecipients.map(r => ({
+      from: process.env.FROM_EMAIL || 'David @ Daily Dispatch Quiz <david@dailydispatchquiz.com>',
+      reply_to: 'dhconn@gmail.com',
+      to: [r.email],
+      subject: `🏆 ${monthName} Quiz Champion: ${winnerNames}`,
+      html: announcementHtml
+    }));
+
+    await sendEmailBatch(announcementEmails);
+    console.log(`[MonthlyWinner] Announcement sent to ${announcementEmails.length} recipients.`);
+
+  } catch (e) {
+    console.error('[MonthlyWinner] error:', e.message);
+  }
+}
+
+function scheduleMonthlyWinner() {
+  const now = new Date();
+  const eastern = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+  // Run at 9am Eastern on the 1st of each month
+  const next = new Date(eastern.getFullYear(), eastern.getMonth() + 1, 1, 9, 0, 0, 0);
+  const utcNext = new Date(next.toLocaleString('en-US', { timeZone: 'UTC' }));
+  const msUntil = utcNext - now;
+  console.log(`[MonthlyWinner] Next check in ${Math.round(msUntil / 3600000)} hours (1st of next month, 9am Eastern).`);
+  setTimeout(() => {
+    announceMonthlyWinner();
+    scheduleMonthlyWinner();
+  }, msUntil);
 }
 
 function scheduleStreakNudge() {
