@@ -2196,6 +2196,48 @@
 
     <!-- RESULTS -->
     <div id="screen-results" class="screen">
+
+      <!-- Monthly winner banner -->
+      <div id="monthly-winner-banner" style="display:none;margin:0 0 16px;padding:12px 16px;background:var(--ink);color:var(--gold-light);text-align:center;font-family:'Courier Prime',monospace;font-size:13px;letter-spacing:1px;">
+        <span id="monthly-winner-text"></span>
+      </div>
+
+      <!-- Referral section -->
+      <div id="referral-section" style="display:none;margin:0 0 20px;padding:20px;background:white;border:1px solid var(--rule);text-align:left;">
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px;">
+          <img src="/images/mug.png" alt="DDQ Mug" style="width:72px;height:auto;flex-shrink:0;">
+          <div>
+            <div style="font-family:'Courier Prime',monospace;font-size:15px;font-weight:700;letter-spacing:1px;color:var(--ink);margin-bottom:8px;">WIN A DAILY DISPATCH QUIZ MUG</div>
+            <p style="font-size:15px;margin:0 0 4px;line-height:1.5;font-weight:600;">Two ways to win:</p>
+            <p style="font-size:13px;color:var(--muted);margin:0 0 4px;line-height:1.5;">☕ <strong>Refer 3 friends</strong> who subscribe and play 3 times.</p>
+            <p style="font-size:13px;color:var(--muted);margin:0;line-height:1.5;">🏆 <strong>Top the monthly leaderboard</strong> — winner announced on the 1st.</p>
+          </div>
+        </div>
+        <!-- Referral link for subscribers -->
+        <div id="referral-link-wrap">
+          <p style="font-size:13px;margin:0 0 10px;line-height:1.5;">Share your personal referral link:</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+            <input id="referral-link" type="text" readonly
+              style="flex:1;min-width:200px;font-family:monospace;font-size:12px;padding:8px 10px;border:1px solid var(--rule);background:var(--cream);color:var(--ink);">
+            <button onclick="copyReferralLink()"
+              style="font-family:'Courier Prime',monospace;font-size:11px;letter-spacing:1px;padding:8px 16px;background:var(--ink);color:var(--paper);border:none;cursor:pointer;white-space:nowrap;">Copy Link</button>
+          </div>
+          <div id="referral-copy-confirm" style="font-family:monospace;font-size:11px;color:var(--green);min-height:14px;"></div>
+          <div id="referral-count" style="font-family:monospace;font-size:11px;color:var(--muted);margin-top:6px;"></div>
+        </div>
+        <!-- Subscribe nudge for non-subscribers -->
+        <div id="referral-subscribe-nudge" style="display:none;margin-top:10px;padding:12px;background:var(--cream);border:1px solid var(--rule);text-align:center;">
+          <p style="font-family:'Courier Prime',monospace;font-size:12px;color:var(--ink);margin:0 0 10px;letter-spacing:1px;">SUBSCRIBE TO GET YOUR REFERRAL LINK</p>
+          <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+            <input id="referral-sub-email" type="email" placeholder="your@email.com"
+              style="flex:1;min-width:180px;max-width:240px;font-family:serif;font-size:14px;padding:8px 10px;border:1px solid #ccc;box-sizing:border-box;">
+            <button onclick="submitReferralSubscribe()"
+              style="font-family:'Courier Prime',monospace;font-size:11px;letter-spacing:1px;padding:8px 16px;background:var(--ink);color:var(--paper);border:none;cursor:pointer;white-space:nowrap;">Subscribe ▸</button>
+          </div>
+          <div id="referral-sub-status" style="font-family:monospace;font-size:11px;margin-top:8px;min-height:16px;color:var(--green);"></div>
+        </div>
+      </div>
+
       <div class="edition-rule">Final Score</div>
       <h2>That's a Wrap.</h2>
       <div class="results-banner">
@@ -2243,47 +2285,6 @@
         <div id="results-sub-done"
           style="display:none;font-family:'Courier Prime',monospace;font-size:13px;color:var(--green);padding:4px 0;">✓
           You're in. See you tomorrow.</div>
-      </div>
-
-      <!-- Monthly winner banner -->
-      <div id="monthly-winner-banner" style="display:none;margin:20px 0;padding:12px 16px;background:var(--ink);color:var(--gold-light);text-align:center;font-family:'Courier Prime',monospace;font-size:13px;letter-spacing:1px;">
-        <span id="monthly-winner-text"></span>
-      </div>
-
-      <!-- Referral section -->
-      <div id="referral-section" style="display:none;margin:20px 0;padding:20px;background:white;border:1px solid var(--rule);text-align:left;">
-        <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px;">
-          <img src="/images/mug.png" alt="DDQ Mug" style="width:72px;height:auto;flex-shrink:0;">
-          <div>
-            <div style="font-family:'Courier Prime',monospace;font-size:10px;letter-spacing:2px;color:var(--muted);margin-bottom:6px;">WIN A DAILY DISPATCH QUIZ MUG</div>
-            <p style="font-size:15px;margin:0 0 4px;line-height:1.5;font-weight:600;">Two ways to win:</p>
-            <p style="font-size:13px;color:var(--muted);margin:0 0 4px;line-height:1.5;">☕ <strong>Refer 3 friends</strong> who subscribe and play 3 times.</p>
-            <p style="font-size:13px;color:var(--muted);margin:0;line-height:1.5;">🏆 <strong>Top the monthly leaderboard</strong> — winner announced on the 1st.</p>
-          </div>
-        </div>
-        <!-- Referral link for subscribers -->
-        <div id="referral-link-wrap">
-          <p style="font-size:13px;margin:0 0 10px;line-height:1.5;">Share your personal referral link:</p>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
-            <input id="referral-link" type="text" readonly
-              style="flex:1;min-width:200px;font-family:monospace;font-size:12px;padding:8px 10px;border:1px solid var(--rule);background:var(--cream);color:var(--ink);">
-            <button onclick="copyReferralLink()"
-              style="font-family:'Courier Prime',monospace;font-size:11px;letter-spacing:1px;padding:8px 16px;background:var(--ink);color:var(--paper);border:none;cursor:pointer;white-space:nowrap;">Copy Link</button>
-          </div>
-          <div id="referral-copy-confirm" style="font-family:monospace;font-size:11px;color:var(--green);min-height:14px;"></div>
-          <div id="referral-count" style="font-family:monospace;font-size:11px;color:var(--muted);margin-top:6px;"></div>
-        </div>
-        <!-- Subscribe nudge for non-subscribers -->
-        <div id="referral-subscribe-nudge" style="display:none;margin-top:10px;padding:12px;background:var(--cream);border:1px solid var(--rule);text-align:center;">
-          <p style="font-family:'Courier Prime',monospace;font-size:12px;color:var(--ink);margin:0 0 10px;letter-spacing:1px;">SUBSCRIBE TO GET YOUR REFERRAL LINK</p>
-          <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
-            <input id="referral-sub-email" type="email" placeholder="your@email.com"
-              style="flex:1;min-width:180px;max-width:240px;font-family:serif;font-size:14px;padding:8px 10px;border:1px solid #ccc;box-sizing:border-box;">
-            <button onclick="submitReferralSubscribe()"
-              style="font-family:'Courier Prime',monospace;font-size:11px;letter-spacing:1px;padding:8px 16px;background:var(--ink);color:var(--paper);border:none;cursor:pointer;white-space:nowrap;">Subscribe ▸</button>
-          </div>
-          <div id="referral-sub-status" style="font-family:monospace;font-size:11px;margin-top:8px;min-height:16px;color:var(--green);"></div>
-        </div>
       </div>
 
       <div id="share-section"
