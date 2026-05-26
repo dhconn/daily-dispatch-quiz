@@ -3812,57 +3812,71 @@ ${siteUrl}`;
     }
 
     async function submitReferralSubscribe() {
-      const emailEl = document.getElementById('referral-sub-email');
-      const statusEl = document.getElementById('referral-sub-status');
-      const email = emailEl ? emailEl.value.trim() : '';
-      if (!email || !email.includes('@')) { if (statusEl) statusEl.textContent = 'Please enter a valid email.'; return; }
-      if (statusEl) statusEl.textContent = 'Subscribing…';
-      try {
-        const storedRef = lsGet('dnq_referral_code');
-        const res = await fetch('/api/subscribe', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: state.playerName || '', email, referralCode: storedRef || null })
-        });
-        const data = await res.json();
-        if (data.ok) {
-          lsSet('dnq_subscribed_email', email);
+  const emailEl = document.getElementById('referral-sub-email');
+  const statusEl = document.getElementById('referral-sub-status');
+  const email = emailEl ? emailEl.value.trim() : '';
 
-          const codeRes = await fetch('/api/referral-code?email=' + encodeURIComponent(email));
-          const codeData = await codeRes.json();
+  if (!email || !email.includes('@')) {
+    if (statusEl) statusEl.textContent = 'Please enter a valid email.';
+    return;
+  }
 
-          if (codeData.ok && codeData.referralCode) {
-            const refUrl =
-              window.location.origin + '/?ref=' + encodeURIComponent(codeData.referralCode);
+  if (statusEl) statusEl.textContent = 'Subscribing…';
 
-            const refLink = document.getElementById('referral-link');
-            const refLinkWrap = document.getElementById('referral-link-wrap');
-            const nudge = document.getElementById('referral-subscribe-nudge');
-            const refCount = document.getElementById('referral-count');
+  try {
+    const storedRef = lsGet('dnq_referral_code');
 
-            if (refLink) refLink.value = refUrl;
-            if (refLinkWrap) refLinkWrap.style.display = 'block';
-            if (nudge) nudge.style.display = 'none';
-            if (refCount) {
-              refCount.textContent =
-                'No referrals yet — share your link to get started.';
-            }
+    const res = await fetch('/api/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: state.playerName || '',
+        email,
+        referralCode: storedRef || null
+      })
+    });
 
-            if (statusEl) statusEl.textContent = '✓ Subscribed!';
-    
-          } else {   // ← THIS else now correctly belongs to codeData.ok
-            if (statusEl) {
-              statusEl.textContent =
-                '✓ Subscribed! Referral link is being created.';
-            }
-          }
+    const data = await res.json();
 
-        } else {
-          if (statusEl) {
-            statusEl.textContent = data.error || 'Something went wrong.';
-          }
+    if (data.ok) {
+      lsSet('dnq_subscribed_email', email);
+
+      const codeRes = await fetch('/api/referral-code?email=' + encodeURIComponent(email));
+      const codeData = await codeRes.json();
+
+      if (codeData.ok && codeData.referralCode) {
+        const refUrl =
+          window.location.origin + '/?ref=' + encodeURIComponent(codeData.referralCode);
+
+        const refLink = document.getElementById('referral-link');
+        const refLinkWrap = document.getElementById('referral-link-wrap');
+        const nudge = document.getElementById('referral-subscribe-nudge');
+        const refCount = document.getElementById('referral-count');
+
+        if (refLink) refLink.value = refUrl;
+        if (refLinkWrap) refLinkWrap.style.display = 'block';
+        if (nudge) nudge.style.display = 'none';
+        if (refCount) {
+          refCount.textContent = 'No referrals yet — share your link to get started.';
         }
+
+        if (statusEl) statusEl.textContent = '✓ Subscribed!';
+      } else {
+        if (statusEl) {
+          statusEl.textContent = '✓ Subscribed! Referral link is being created.';
+        }
+      }
+    } else {
+      if (statusEl) {
+        statusEl.textContent = data.error || 'Something went wrong.';
+      }
     }
+  } catch (e) {
+    if (statusEl) {
+      statusEl.textContent = 'Error: ' + e.message;
+    }
+  }
+}
 
     function copyShareText() {
       navigator.clipboard.writeText(buildShareText()).then(() => {
@@ -4605,8 +4619,7 @@ ${siteUrl}`;
       // Update bonus progress dot
       const pd = document.getElementById('pd-5');
       if (pd) pd.className = 'progress-dot bonus ' + (correct ? 'correct' : 'wrong');
-    }
-
+    
     // ═══════════════════════════════════════════════════════
     //  RESULTS
     // ═══════════════════════════════════════════════════════
