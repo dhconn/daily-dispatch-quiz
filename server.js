@@ -2048,6 +2048,59 @@ app.post('/api/admin/award-mug', async (req, res) => {
   }
 });
 
+// ── GET /api/quiz/schedule — get current scheduled publish ───
+app.get('/api/quiz/schedule', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const scheduled = await getKey('scheduledQuiz');
+    res.json({ scheduled: scheduled || null });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── POST /api/quiz/schedule — save a quiz for scheduled publish ──
+app.post('/api/quiz/schedule', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  const { date, quiz, scheduledFor } = req.body;
+  if (!date || !quiz || !scheduledFor) return res.status(400).json({ error: 'date, quiz, and scheduledFor required' });
+  try {
+    // Check if something is already scheduled
+    const existing = await getKey('scheduledQuiz');
+    if (existing) {
+      return res.status(409).json({
+        error: 'A quiz is already scheduled',
+        existing: { date: existing.date, scheduledFor: existing.scheduledFor }
+      });
+    }
+    await setKey('scheduledQuiz', {
+      date,
+      quiz,
+      scheduledFor, // ISO string in UTC
+      createdAt: new Date().toISOString()
+    });
+    console.log(`[Schedule] Quiz scheduled for ${scheduledFor} (date: ${date})`);
+    res.json({ ok: true, scheduledFor });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── DELETE /api/quiz/schedule — cancel a scheduled publish ───
+app.delete('/api/quiz/schedule', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  try {
+    await setKey('scheduledQuiz', null);
+    console.log('[Schedule] Scheduled publish cancelled');
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── GET /api/push-vapid-key — send public key to frontend ────
 app.get('/api/push-vapid-key', (req, res) => {
   res.json({ publicKey: process.env.VAPID_PUBLIC_KEY || '' });
@@ -2169,6 +2222,8 @@ initDb().then(() => {
   scheduleNextRefresh();
   scheduleStreakNudge();
   scheduleMonthlyWinner();
+  setInterval(checkScheduledPublish, 60000); // check every minute
+  checkScheduledPublish(); // check immediately on startup in case of server restart
 }).catch(err => {
   console.error('DB init failed:', err.message);
   process.exit(1);
@@ -2694,6 +2749,196 @@ async function announceMonthlyWinner() {
 
   } catch (e) {
     console.error('[MonthlyWinner] error:', e.message);
+  }
+}
+
+// ── Scheduled publish checker — runs every minute ─────────────
+async function checkScheduledPublish() {
+  try {
+    const scheduled = await getKey('scheduledQuiz');
+    if (!scheduled) return;
+    const now = new Date();
+    const scheduledFor = new Date(scheduled.scheduledFor);
+    if (now < scheduledFor) return; // not time yet
+
+    console.log(`[Schedule] Time to publish! Scheduled for ${scheduled.scheduledFor}`);
+
+    // Clear the schedule first to prevent double-firing
+    await setKey('scheduledQuiz', null);
+
+    const { date, quiz } = scheduled;
+    const data = await readData();
+    if (!data.quizzes) data.quizzes = {};
+    data.quizzes[date] = quiz;
+    const keys = Object.keys(data.quizzes).sort();
+    if (keys.length > 14) keys.slice(0, keys.length - 14).forEach(k => delete data.quizzes[k]);
+    await writeData(data);
+
+    const siteUrl = process.env.SITE_URL || 'https://dailydispatchquiz.com';
+    const freshData = await readData();
+
+    if (!freshData.emailSentDates) freshData.emailSentDates = [];
+    if (freshData.emailSentDates.includes(date)) {
+      console.log(`[Schedule] Already sent notifications for ${date} — skipping.`);
+      return;
+    }
+
+    const dow = new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' });
+    const subjects = {
+      Monday:    "Start off the week by climbing the Baltimore news Leaderboard",
+      Tuesday:   "Can you beat today's Baltimore news quiz?",
+      Wednesday: "6 questions about today's Baltimore headlines",
+      Thursday:  "Think you know today's Baltimore news?",
+      Friday:    "Friday - I'm in love, with the Daily Dispatch News Quiz",
+      Saturday:  "A very special Saturday Dispatch News Quiz is live",
+      Sunday:    "It's Sunday - relax and play the (90-second) Balt. News Quiz"
+    };
+    const subject = subjects[dow] || `Today's Baltimore Daily Dispatch Quiz is live — ${date}`;
+
+    let teaserHtml;
+    if (freshData.cachedTeaserHtml && freshData.cachedTeaserDate === date) {
+      console.log('[Schedule] Reusing cached teasers for', date);
+      teaserHtml = freshData.cachedTeaserHtml;
+    } else {
+      const teasers = await generateTeasers(quiz.questions || []);
+      teaserHtml = buildTeaserHtml(teasers);
+    }
+
+    let sentAnyEmails = false;
+
+    const subscribers = freshData.emailPaused ? [] : Object.values(freshData.subscribers || {}).filter(s => s.active);
+    if (subscribers.length > 0) {
+      const yd = new Date(date + 'T12:00:00');
+      yd.setDate(yd.getDate() - 1);
+      const yesterday = yd.toISOString().slice(0, 10);
+      const yesterdayProgress = (await getKey('progress') || {})[yesterday] || {};
+      const yesterdayQuiz = (freshData.quizzes || {})[yesterday] || null;
+
+      const tokens = (await getKey('emailTokens')) || {};
+      const tokenCutoff = new Date();
+      tokenCutoff.setDate(tokenCutoff.getDate() - 2);
+      Object.keys(tokens).forEach(t => {
+        if (new Date(tokens[t].date + 'T12:00:00') < tokenCutoff) delete tokens[t];
+      });
+
+      const q1 = quiz.questions && quiz.questions[0];
+      const updatedSubscribers = [];
+      const emails = [];
+
+      for (const sub of subscribers) {
+        if (!sub.abGroup) sub.abGroup = Math.random() < 0.5 ? 'A' : 'B';
+        updatedSubscribers.push(sub);
+
+        const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(sub.email)}`;
+        const playerKey = (sub.name || '').toLowerCase().trim();
+        const playerProgress = yesterdayProgress[playerKey] || null;
+        const resultsHtml = buildResultsHtml(playerProgress, yesterdayQuiz);
+
+        let baseHtml;
+        if (sub.abGroup === 'B' && q1) {
+          const token = Buffer.from(sub.email + date + Math.random()).toString('base64')
+            .replace(/[^a-zA-Z0-9]/g, '').slice(0, 32);
+          tokens[token] = { email: sub.email, playerKey, displayName: sub.name || '', date, group: 'B', usedAt: null };
+          baseHtml = buildEmailHtmlWithQ1(siteUrl, date, sub.name, teaserHtml, unsubUrl, q1, token);
+          await logEmailEvent('email_sent', sub.email, date, { group: 'B' });
+        } else {
+          const tokenA = Buffer.from(sub.email + date + Math.random()).toString('base64')
+            .replace(/[^a-zA-Z0-9]/g, '').slice(0, 32);
+          tokens[tokenA] = { email: sub.email, playerKey, displayName: sub.name || '', date, group: 'A', usedAt: null };
+          baseHtml = buildEmailHtml(siteUrl, date, sub.name, teaserHtml, unsubUrl, tokenA);
+          await logEmailEvent('email_sent', sub.email, date, { group: 'A' });
+        }
+
+        const html = resultsHtml
+          ? baseHtml.replace('<!--YESTERDAY_INSERT_POINT-->', resultsHtml)
+          : baseHtml.replace('<!--YESTERDAY_INSERT_POINT-->', '');
+
+        emails.push({
+          from: process.env.FROM_EMAIL || 'David @ Daily Dispatch Quiz <david@dailydispatchquiz.com>',
+          reply_to: 'dhconn@gmail.com',
+          to: [sub.email], subject, html
+        });
+      }
+
+      await setKey('emailTokens', tokens);
+      const subData = await readData();
+      if (subData.subscribers) {
+        updatedSubscribers.forEach(sub => {
+          if (subData.subscribers[sub.email]) subData.subscribers[sub.email].abGroup = sub.abGroup;
+        });
+        await writeData(subData);
+      }
+      await sendEmailBatch(emails);
+      sentAnyEmails = true;
+    }
+
+    const activeProspects = (freshData.emailPaused || freshData.prospectsPaused)
+      ? []
+      : Object.values(freshData.prospects || {}).filter(p => p.active !== false);
+
+    if (activeProspects.length > 0) {
+      const tokens = (await getKey('emailTokens')) || {};
+      const q1 = quiz.questions && quiz.questions[0];
+      const updatedProspects = [];
+      const prospectEmails = [];
+
+      for (const p of activeProspects) {
+        const subscribeUrl = `${siteUrl}/subscribe?email=${encodeURIComponent(p.email)}&name=${encodeURIComponent(p.name || '')}`;
+        const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(p.email)}`;
+        const playerKey = (p.name || '').toLowerCase().trim();
+        if (!p.abGroup) p.abGroup = Math.random() < 0.5 ? 'A' : 'B';
+        updatedProspects.push(p);
+
+        let baseHtml;
+        if (p.abGroup === 'B' && q1) {
+          const token = Buffer.from(p.email + date + Math.random()).toString('base64')
+            .replace(/[^a-zA-Z0-9]/g, '').slice(0, 32);
+          tokens[token] = { email: p.email, playerKey, displayName: p.name || '', date, group: 'B', usedAt: null };
+          baseHtml = buildEmailHtmlWithQ1(siteUrl, date, p.name, teaserHtml, unsubUrl, q1, token);
+          await logEmailEvent('email_sent', p.email, date, { group: 'B' });
+        } else {
+          const tokenA = Buffer.from(p.email + date + Math.random()).toString('base64')
+            .replace(/[^a-zA-Z0-9]/g, '').slice(0, 32);
+          tokens[tokenA] = { email: p.email, playerKey, displayName: p.name || '', date, group: 'A', usedAt: null };
+          baseHtml = buildEmailHtml(siteUrl, date, p.name, teaserHtml, unsubUrl, tokenA);
+          await logEmailEvent('email_sent', p.email, date, { group: 'A' });
+        }
+
+        const subscribeBtn = `
+          <div style="padding:20px 24px;text-align:center;background:#f5f0e8;border-top:1px solid #e0d8cc;">
+            <p style="font-family:monospace;font-size:11px;letter-spacing:1px;color:#6b5f4e;margin-bottom:12px;">GET THIS AUTOMATICALLY EVERY MORNING</p>
+            <a href="${subscribeUrl}" style="display:inline-block;background:#c0392b;color:white;padding:12px 28px;font-family:monospace;font-size:12px;letter-spacing:2px;text-decoration:none;text-transform:uppercase;">Subscribe Free &#9658;</a>
+          </div>`;
+
+        prospectEmails.push({
+          from: process.env.FROM_EMAIL || 'David @ Daily Dispatch Quiz <david@dailydispatchquiz.com>',
+          reply_to: 'dhconn@gmail.com',
+          to: [p.email], subject,
+          html: baseHtml.replace('<!--SUBSCRIBE_INSERT_POINT-->', subscribeBtn)
+        });
+      }
+
+      await setKey('emailTokens', tokens);
+      const prospectData = await readData();
+      if (prospectData.prospects) {
+        updatedProspects.forEach(p => {
+          const k = (p.email || '').toLowerCase().trim();
+          if (prospectData.prospects[k]) prospectData.prospects[k].abGroup = p.abGroup;
+        });
+        await writeData(prospectData);
+      }
+      await sendEmailBatch(prospectEmails);
+      sentAnyEmails = true;
+    }
+
+    await sendPushNotifications(date);
+    if (sentAnyEmails) {
+      freshData.emailSentDates = [...(freshData.emailSentDates || []), date].slice(-30);
+      await writeData(freshData);
+    }
+    console.log(`[Schedule] Publish complete for ${date}`);
+  } catch (e) {
+    console.error('[Schedule] checkScheduledPublish error:', e.message);
   }
 }
 
