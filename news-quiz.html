@@ -2019,7 +2019,7 @@
           </div>
         </div>
         <!-- Referral link for subscribers -->
-        <div id="referral-link-wrap">
+        <div id="referral-link-wrap" style="display:none;">
           <p style="font-size:13px;margin:0 0 10px;line-height:1.5;color:var(--muted);">Share your personal referral link — every sign-up counts toward your mug:</p>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
             <input id="referral-link" type="text" readonly
@@ -3853,14 +3853,15 @@ ${siteUrl}`;
         const nudge = document.getElementById('referral-subscribe-nudge');
         const refCount = document.getElementById('referral-count');
 
-        if (refLink) refLink.value = refUrl;
+        if (refLink) {
+          refLink.value = refUrl;        
+        }
         if (refLinkWrap) refLinkWrap.style.display = 'block';
         if (nudge) nudge.style.display = 'none';
+     
         if (refCount) {
-          refCount.textContent = 'No referrals yet — share your link to get started.';
+          refCount.textContent = '✓ Subscribed! No referrals yet — share your link to get started.';
         }
-
-        if (statusEl) statusEl.textContent = '✓ Subscribed!';
       } else {
         if (statusEl) {
           statusEl.textContent = '✓ Subscribed! Referral link is being created.';
