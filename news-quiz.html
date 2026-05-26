@@ -4783,7 +4783,8 @@ ${siteUrl}`;
         // Non-subscriber — show referral section with subscribe nudge
         if (refSection) refSection.style.display = 'block';
         if (refSubscribeNudge) refSubscribeNudge.style.display = 'block';
-        if (refLink) refLink.closest('div') && (refLink.closest('div').style.display = 'none');
+        const refLinkWrap = document.getElementById('referral-link-wrap');
+        if (refLinkWrap) refLinkWrap.style.display = 'none';
       }
 
       // ── Load monthly winner banner ────────────────────────────
