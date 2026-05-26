@@ -2694,6 +2694,16 @@
             <span class="summary-arrow">▸</span>
           </summary>
           <div class="collapsible-body">
+            <div style="margin-bottom:16px;padding:14px;background:white;border:1px solid var(--rule);">
+              <div style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--blue);margin-bottom:8px;font-weight:700;">NEW POST AS EDITOR</div>
+              <textarea id="editor-new-post-text" maxlength="500" placeholder="Write a message to the community…"
+                style="width:100%;font-family:serif;font-size:14px;padding:8px;border:1px solid #ccc;min-height:70px;resize:vertical;box-sizing:border-box;margin-bottom:8px;"></textarea>
+              <div style="display:flex;align-items:center;gap:10px;">
+                <button onclick="submitEditorPost()"
+                  style="font-family:monospace;font-size:11px;letter-spacing:1px;padding:6px 16px;background:var(--blue);color:white;border:none;cursor:pointer;">POST AS EDITOR ▸</button>
+                <span id="editor-post-status" style="font-family:monospace;font-size:11px;color:var(--muted);"></span>
+              </div>
+            </div>
             <div id="admin-posts-list">
               <p style="font-family:monospace;font-size:12px;color:var(--muted);">Loading posts…</p>
             </div>
@@ -8022,6 +8032,31 @@ ${siteUrl}`;
         await fetch('/api/quiz/schedule', { method: 'DELETE', headers: { 'x-admin-token': adminToken } });
         loadScheduleStatus();
       } catch (e) { /* non-fatal */ }
+    }
+
+async function submitEditorPost() {
+      const ta = document.getElementById('editor-new-post-text');
+      const statusEl = document.getElementById('editor-post-status');
+      const text = ta ? ta.value.trim() : '';
+      if (!text) { if (statusEl) statusEl.textContent = 'Please write something.'; return; }
+      if (statusEl) statusEl.textContent = 'Posting…';
+      try {
+        const res = await fetch('/api/posts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ playerName: 'Editor', text, isEditorReply: true })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          ta.value = '';
+          if (statusEl) { statusEl.textContent = '✓ Posted!'; setTimeout(() => statusEl.textContent = '', 3000); }
+          loadAdminPosts();
+        } else {
+          if (statusEl) statusEl.textContent = data.error || 'Post failed.';
+        }
+      } catch (e) {
+        if (statusEl) statusEl.textContent = 'Error: ' + e.message;
+      }
     }
 
     async function sendTestEmail() {
