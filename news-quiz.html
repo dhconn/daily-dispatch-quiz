@@ -2202,42 +2202,6 @@
         <span id="monthly-winner-text"></span>
       </div>
 
-      <!-- Referral section -->
-      <div id="referral-section" style="display:none;margin:0 0 20px;padding:20px;background:white;border:1px solid var(--rule);text-align:left;">
-        <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px;">
-          <img src="/images/mug.png" alt="DDQ Mug" style="width:72px;height:auto;flex-shrink:0;">
-          <div>
-            <div style="font-family:'Courier Prime',monospace;font-size:15px;font-weight:700;letter-spacing:1px;color:var(--ink);margin-bottom:8px;">WIN A DAILY DISPATCH QUIZ MUG</div>
-            <p style="font-size:15px;margin:0 0 4px;line-height:1.5;font-weight:600;">Two ways to win:</p>
-            <p style="font-size:13px;color:var(--muted);margin:0 0 4px;line-height:1.5;">☕ <strong>Refer 3 friends</strong> who subscribe and play 3 times.</p>
-            <p style="font-size:13px;color:var(--muted);margin:0;line-height:1.5;">🏆 <strong>Top the monthly leaderboard</strong> — winner announced on the 1st.</p>
-          </div>
-        </div>
-        <!-- Referral link for subscribers -->
-        <div id="referral-link-wrap">
-          <p style="font-size:13px;margin:0 0 10px;line-height:1.5;">Share your personal referral link:</p>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
-            <input id="referral-link" type="text" readonly
-              style="flex:1;min-width:200px;font-family:monospace;font-size:12px;padding:8px 10px;border:1px solid var(--rule);background:var(--cream);color:var(--ink);">
-            <button onclick="copyReferralLink()"
-              style="font-family:'Courier Prime',monospace;font-size:11px;letter-spacing:1px;padding:8px 16px;background:var(--ink);color:var(--paper);border:none;cursor:pointer;white-space:nowrap;">Copy Link</button>
-          </div>
-          <div id="referral-copy-confirm" style="font-family:monospace;font-size:11px;color:var(--green);min-height:14px;"></div>
-          <div id="referral-count" style="font-family:monospace;font-size:11px;color:var(--muted);margin-top:6px;"></div>
-        </div>
-        <!-- Subscribe nudge for non-subscribers -->
-        <div id="referral-subscribe-nudge" style="display:none;margin-top:10px;padding:12px;background:var(--cream);border:1px solid var(--rule);text-align:center;">
-          <p style="font-family:'Courier Prime',monospace;font-size:12px;color:var(--ink);margin:0 0 10px;letter-spacing:1px;">SUBSCRIBE TO GET YOUR REFERRAL LINK</p>
-          <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
-            <input id="referral-sub-email" type="email" placeholder="your@email.com"
-              style="flex:1;min-width:180px;max-width:240px;font-family:serif;font-size:14px;padding:8px 10px;border:1px solid #ccc;box-sizing:border-box;">
-            <button onclick="submitReferralSubscribe()"
-              style="font-family:'Courier Prime',monospace;font-size:11px;letter-spacing:1px;padding:8px 16px;background:var(--ink);color:var(--paper);border:none;cursor:pointer;white-space:nowrap;">Subscribe ▸</button>
-          </div>
-          <div id="referral-sub-status" style="font-family:monospace;font-size:11px;margin-top:8px;min-height:16px;color:var(--green);"></div>
-        </div>
-      </div>
-
       <div class="edition-rule">Final Score</div>
       <h2>That's a Wrap.</h2>
       <div class="results-banner">
@@ -2263,6 +2227,43 @@
       <div id="dist-table"></div>
       <div id="results-streak-nudge"
         style="display:none;margin:20px 0 0;padding:14px 16px;background:var(--ink);color:var(--paper);text-align:center;font-family:'Courier Prime',monospace;letter-spacing:1px;line-height:1.7;">
+      </div>
+
+      <!-- Referral section — shown after score so player sees their result first -->
+      <div id="referral-section" style="display:none;margin:24px 0 0;padding:20px;background:white;border:1px solid var(--rule);text-align:left;">
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;">
+          <img src="/images/mug.png" alt="DDQ Mug" style="width:110px;height:auto;flex-shrink:0;">
+          <div>
+            <div style="font-family:'Courier Prime',monospace;font-size:13px;font-weight:700;letter-spacing:1px;color:var(--ink);margin-bottom:8px;">WIN A DAILY DISPATCH QUIZ MUG</div>
+            <p style="font-size:14px;margin:0 0 6px;line-height:1.5;font-weight:600;">Two ways to win:</p>
+            <p style="font-size:13px;color:var(--muted);margin:0 0 4px;line-height:1.5;">☕ <strong>Refer 3 friends</strong> who subscribe and play 3 times.</p>
+            <p style="font-size:13px;color:var(--muted);margin:0;line-height:1.5;">🏆 <strong>Top the monthly leaderboard</strong> — winner announced on the 1st.</p>
+          </div>
+        </div>
+        <!-- Referral link for subscribers -->
+        <div id="referral-link-wrap">
+          <p style="font-size:13px;margin:0 0 10px;line-height:1.5;color:var(--muted);">Share your personal referral link — every sign-up counts toward your mug:</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+            <input id="referral-link" type="text" readonly
+              style="flex:1;min-width:200px;font-family:monospace;font-size:12px;padding:8px 10px;border:1px solid var(--rule);background:var(--cream);color:var(--ink);">
+            <button onclick="copyReferralLink()"
+              style="font-family:'Courier Prime',monospace;font-size:12px;letter-spacing:1px;padding:10px 22px;background:var(--gold,#c8a84b);color:var(--ink);border:none;cursor:pointer;white-space:nowrap;font-weight:700;">📋 Copy Link</button>
+          </div>
+          <div id="referral-copy-confirm" style="font-family:monospace;font-size:11px;color:var(--green);min-height:14px;"></div>
+          <div id="referral-count" style="font-family:monospace;font-size:11px;color:var(--muted);margin-top:6px;"></div>
+        </div>
+        <!-- Subscribe nudge for non-subscribers -->
+        <div id="referral-subscribe-nudge" style="display:none;margin-top:12px;padding:14px;background:var(--cream);border:1px solid var(--rule);text-align:center;">
+          <p style="font-family:'Courier Prime',monospace;font-size:12px;color:var(--ink);margin:0 0 4px;letter-spacing:1px;font-weight:700;">WANT TO WIN A MUG?</p>
+          <p style="font-size:13px;color:var(--muted);margin:0 0 12px;line-height:1.5;">Subscribe free to get your personal referral link.</p>
+          <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+            <input id="referral-sub-email" type="email" placeholder="your@email.com"
+              style="flex:1;min-width:180px;max-width:240px;font-family:serif;font-size:14px;padding:8px 10px;border:1px solid #ccc;box-sizing:border-box;">
+            <button onclick="submitReferralSubscribe()"
+              style="font-family:'Courier Prime',monospace;font-size:12px;letter-spacing:1px;padding:9px 20px;background:var(--ink);color:var(--paper);border:none;cursor:pointer;white-space:nowrap;">Subscribe Free ▸</button>
+          </div>
+          <div id="referral-sub-status" style="font-family:monospace;font-size:11px;margin-top:8px;min-height:16px;color:var(--green);"></div>
+        </div>
       </div>
 
       <div id="results-subscribe-cta"
@@ -2584,7 +2585,7 @@
         </div>
 
         <div class="admin-actions">
-          <button id="publish-btn" class="btn-generate" onclick="publishQuestions()">✓ Publish Today's Quiz</button>
+          <button class="btn-generate" onclick="publishQuestions()">✓ Publish Today's Quiz</button>
           <button class="btn-secondary" onclick="discardDraft()">✕ Discard Draft</button>
           <button class="btn-secondary" onclick="showAddQuestionForm()" id="add-q-btn"
             style="border-color:var(--green);color:var(--green);">+ Add Question</button>
@@ -2659,30 +2660,9 @@
         <div id="published-preview">
           <p style="font-size:13px;color:var(--muted);font-style:italic;">No quiz published today.</p>
         </div>
-        <div style="margin-top:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <div style="margin-top:12px;display:flex;align-items:center;gap:12px;">
           <button onclick="sendTestEmail()" style="font-family:monospace;font-size:11px;letter-spacing:1px;padding:6px 16px;background:none;border:1px solid var(--blue);color:var(--blue);cursor:pointer;border-radius:2px;">📧 Send Test Email</button>
           <span id="test-email-status" style="font-family:monospace;font-size:11px;color:var(--muted);"></span>
-        </div>
-        <div style="margin-top:16px;padding:14px;background:var(--cream);border:1px solid var(--rule);">
-          <div style="font-family:monospace;font-size:10px;letter-spacing:2px;color:var(--muted);margin-bottom:10px;">SCHEDULE PUBLISH</div>
-          <div id="schedule-status-bar" style="display:none;margin-bottom:10px;padding:10px 12px;background:white;border:1px solid var(--rule);font-family:monospace;font-size:12px;align-items:center;justify-content:space-between;gap:12px;">
-            <span id="schedule-status-text" style="color:var(--green);">⏱ Scheduled for <strong id="schedule-status-time"></strong></span>
-            <button onclick="cancelSchedule()" style="font-family:monospace;font-size:10px;letter-spacing:1px;padding:4px 10px;background:none;border:1px solid var(--red);color:var(--red);cursor:pointer;">Cancel</button>
-          </div>
-          <div id="schedule-picker-wrap" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-            <div>
-              <label style="font-family:monospace;font-size:10px;color:var(--muted);display:block;margin-bottom:4px;">DATE (EASTERN)</label>
-              <input type="date" id="schedule-date" style="font-family:monospace;font-size:12px;padding:6px 8px;border:1px solid var(--rule);background:white;color:var(--ink);">
-            </div>
-            <div>
-              <label style="font-family:monospace;font-size:10px;color:var(--muted);display:block;margin-bottom:4px;">TIME (EASTERN)</label>
-              <input type="time" id="schedule-time" style="font-family:monospace;font-size:12px;padding:6px 8px;border:1px solid var(--rule);background:white;color:var(--ink);">
-            </div>
-            <div style="padding-top:18px;">
-              <button onclick="schedulePublish()" style="font-family:monospace;font-size:11px;letter-spacing:1px;padding:7px 16px;background:var(--ink);color:var(--paper);border:none;cursor:pointer;">⏱ Schedule</button>
-            </div>
-          </div>
-          <div id="schedule-error" style="font-family:monospace;font-size:11px;color:var(--red);margin-top:8px;min-height:14px;"></div>
         </div>
       </div>
 
@@ -5030,7 +5010,6 @@ ${siteUrl}`;
       loadMsgProspects();
       loadProspects();
       loadReferrals();
-      loadScheduleStatus();
     }
 
     // ─── RSS cache helpers ───────────────────────────────────────────────────
@@ -6143,7 +6122,6 @@ ${siteUrl}`;
             urls: urlList,
             promptMode: mode
           });
-          window._currentDraftDate = todayStr();
 
           showDraftPreview(questions);
         } else {
@@ -6953,18 +6931,6 @@ ${siteUrl}`;
         clearAllLocks();
 
         setStatus('✓ Quiz published for ' + todayStr() + ' and saved to server! Emails are being sent.', 'success');
-
-        // Flash publish button green
-        const publishBtn = document.getElementById('publish-btn');
-        if (publishBtn) {
-          publishBtn.style.transition = 'background 0.2s, box-shadow 0.2s';
-          publishBtn.style.background = '#1a6b3c';
-          publishBtn.style.boxShadow = '0 0 16px 4px #2ecc71';
-          setTimeout(() => {
-            publishBtn.style.background = '';
-            publishBtn.style.boxShadow = '';
-          }, 1500);
-        }
 
       } catch (e) {
         setStatus('⚠ FAILED to save to server (' + e.message + '). Draft preserved — please try again.', 'error');
@@ -7921,107 +7887,6 @@ ${siteUrl}`;
       } catch (e) {
         alert('Could not remove subscriber: ' + e.message);
       }
-    }
-
-    async function loadScheduleStatus() {
-      try {
-        const adminToken = lsGet('dnq_admin_token') || 'admin';
-        const res = await fetch('/api/quiz/schedule', { headers: { 'x-admin-token': adminToken } });
-        const data = await res.json();
-        const bar = document.getElementById('schedule-status-bar');
-        const timeEl = document.getElementById('schedule-status-time');
-        const pickerWrap = document.getElementById('schedule-picker-wrap');
-        if (data.scheduled) {
-          const dt = new Date(data.scheduled.scheduledFor);
-          const eastern = dt.toLocaleString('en-US', {
-            timeZone: 'America/New_York',
-            month: 'short', day: 'numeric',
-            hour: 'numeric', minute: '2-digit',
-            hour12: true, timeZoneName: 'short'
-          });
-          if (timeEl) timeEl.textContent = eastern;
-          if (bar) { bar.style.display = 'flex'; }
-          if (pickerWrap) pickerWrap.style.opacity = '0.4';
-        } else {
-          if (bar) bar.style.display = 'none';
-          if (pickerWrap) pickerWrap.style.opacity = '1';
-        }
-      } catch (e) { /* non-fatal */ }
-    }
-
-    async function schedulePublish() {
-      const errorEl = document.getElementById('schedule-error');
-      const dateVal = document.getElementById('schedule-date').value;
-      const timeVal = document.getElementById('schedule-time').value;
-      if (!dateVal || !timeVal) {
-        errorEl.textContent = 'Please pick a date and time.'; return;
-      }
-      // Validate not more than 2 days out
-      const now = new Date();
-      const picked = new Date(dateVal + 'T' + timeVal);
-      const twoDaysOut = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
-      if (picked > twoDaysOut) {
-        errorEl.textContent = 'Cannot schedule more than 2 days out.'; return;
-      }
-      if (picked <= now) {
-        errorEl.textContent = 'Scheduled time must be in the future.'; return;
-      }
-      // Get the current draft quiz
-      const draft = getDraftQuiz();
-      const date = window._currentDraftDate || todayStr();
-      if (!draft || !draft.questions || !draft.questions.length) {
-        errorEl.textContent = 'No quiz draft found. Please generate a quiz first.'; return;
-      }
-      // Convert Eastern picker time to UTC
-      // Treat picked date+time as Eastern and find UTC equivalent
-      const easternStr = dateVal + 'T' + timeVal + ':00';
-      const tempDate = new Date(easternStr);
-      const easternOffset = new Date(tempDate.toLocaleString('en-US', { timeZone: 'America/New_York' })) - tempDate;
-      const scheduledForUTC = new Date(tempDate.getTime() - easternOffset).toISOString();
-
-      const adminToken = lsGet('dnq_admin_token') || 'admin';
-      errorEl.textContent = '';
-
-      try {
-        const res = await fetch('/api/quiz/schedule', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
-          body: JSON.stringify({ date, quiz: draft, scheduledFor: scheduledForUTC })
-        });
-        const data = await res.json();
-        if (data.ok) {
-          loadScheduleStatus();
-        } else if (res.status === 409) {
-          const existingDt = new Date(data.existing.scheduledFor).toLocaleString('en-US', {
-            timeZone: 'America/New_York', month: 'short', day: 'numeric',
-            hour: 'numeric', minute: '2-digit', hour12: true, timeZoneName: 'short'
-          });
-          if (confirm(`A quiz is already scheduled for ${existingDt}.\n\nReplace it with this one?`)) {
-            await fetch('/api/quiz/schedule', { method: 'DELETE', headers: { 'x-admin-token': adminToken } });
-            const res2 = await fetch('/api/quiz/schedule', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
-              body: JSON.stringify({ date, quiz: draft, scheduledFor: scheduledForUTC })
-            });
-            const data2 = await res2.json();
-            if (data2.ok) loadScheduleStatus();
-            else errorEl.textContent = data2.error || 'Failed to reschedule.';
-          }
-        } else {
-          errorEl.textContent = data.error || 'Failed to schedule.';
-        }
-      } catch (e) {
-        errorEl.textContent = 'Error: ' + e.message;
-      }
-    }
-
-    async function cancelSchedule() {
-      if (!confirm('Cancel the scheduled publish?')) return;
-      const adminToken = lsGet('dnq_admin_token') || 'admin';
-      try {
-        await fetch('/api/quiz/schedule', { method: 'DELETE', headers: { 'x-admin-token': adminToken } });
-        loadScheduleStatus();
-      } catch (e) { /* non-fatal */ }
     }
 
     async function sendTestEmail() {
