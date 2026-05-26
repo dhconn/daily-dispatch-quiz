@@ -3827,16 +3827,41 @@ ${siteUrl}`;
         const data = await res.json();
         if (data.ok) {
           lsSet('dnq_subscribed_email', email);
-          if (statusEl) statusEl.textContent = '✓ Subscribed! Refresh to see your referral link.';
-          if (emailEl) emailEl.style.display = 'none';
-          document.getElementById('referral-subscribe-nudge').querySelector('button').style.display = 'none';
+
+          const codeRes = await fetch('/api/referral-code?email=' + encodeURIComponent(email));
+          const codeData = await codeRes.json();
+
+          if (codeData.ok && codeData.referralCode) {
+            const refUrl =
+              window.location.origin + '/?ref=' + encodeURIComponent(codeData.referralCode);
+
+            const refLink = document.getElementById('referral-link');
+            const refLinkWrap = document.getElementById('referral-link-wrap');
+            const nudge = document.getElementById('referral-subscribe-nudge');
+            const refCount = document.getElementById('referral-count');
+
+            if (refLink) refLink.value = refUrl;
+            if (refLinkWrap) refLinkWrap.style.display = 'block';
+            if (nudge) nudge.style.display = 'none';
+            if (refCount) {
+              refCount.textContent =
+                'No referrals yet — share your link to get started.';
+            }
+
+            if (statusEl) statusEl.textContent = '✓ Subscribed!';
+    
+          } else {   // ← THIS else now correctly belongs to codeData.ok
+            if (statusEl) {
+              statusEl.textContent =
+                '✓ Subscribed! Referral link is being created.';
+            }
+          }
+
         } else {
-          if (statusEl) statusEl.textContent = data.error || 'Something went wrong.';
+          if (statusEl) {
+            statusEl.textContent = data.error || 'Something went wrong.';
+          }
         }
-      } catch (e) {
-        if (statusEl) statusEl.textContent = 'Error: ' + e.message;
-      }
-    }
 
     function copyShareText() {
       navigator.clipboard.writeText(buildShareText()).then(() => {
@@ -4559,15 +4584,21 @@ ${siteUrl}`;
         const sourceLink = q.sourceUrl
           ? `<a href="${escHtml(q.sourceUrl)}" target="_blank" rel="noopener" class="read-more-link" style="color:var(--bonus-gold);">Read the full story →</a>`
           : '';
+
         fb.innerHTML = `
-      <div class="bonus-feedback">
-        <div class="fb-headline">${correct ? '⭐ CORRECT — EXCEPTIONAL!' : '✗ NOT QUITE'}</div>
-        <div class="fb-text">${escHtml(q.explanation || '')}</div>
-        ${correct ? `<div class="pts-earned">+50 pts</div>` : ''}
-        ${sourceLink}
-      </div>
-      <button class="bonus-next-btn" onclick="finishQuiz()">View Final Results ▸</button>
-    `;
+          <div class="bonus-feedback">
+            <div class="fb-headline">${correct ? '⭐ CORRECT — EXCEPTIONAL!' : '✗ NOT QUITE'}</div>
+            <div class="fb-text">${escHtml(q.explanation || '')}</div>
+            ${correct ? `<div class="pts-earned">+50 pts</div>` : ''}
+            ${sourceLink}
+          </div>
+          <button class="bonus-next-btn" onclick="finishQuiz()">View Final Results ▸</button>
+        `;
+
+  setTimeout(() => {
+    finishQuiz();
+  }, 2000);
+}
       }
 
       // Update bonus progress dot
