@@ -2660,12 +2660,32 @@
         <div id="published-preview">
           <p style="font-size:13px;color:var(--muted);font-style:italic;">No quiz published today.</p>
         </div>
-        <div style="margin-top:12px;display:flex;align-items:center;gap:12px;">
+   <div style="margin-top:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
           <button onclick="sendTestEmail()" style="font-family:monospace;font-size:11px;letter-spacing:1px;padding:6px 16px;background:none;border:1px solid var(--blue);color:var(--blue);cursor:pointer;border-radius:2px;">📧 Send Test Email</button>
           <span id="test-email-status" style="font-family:monospace;font-size:11px;color:var(--muted);"></span>
         </div>
+        <div style="margin-top:16px;padding:14px;background:var(--cream);border:1px solid var(--rule);">
+          <div style="font-family:monospace;font-size:10px;letter-spacing:2px;color:var(--muted);margin-bottom:10px;">SCHEDULE PUBLISH</div>
+          <div id="schedule-status-bar" style="display:none;margin-bottom:10px;padding:10px 12px;background:white;border:1px solid var(--rule);font-family:monospace;font-size:12px;align-items:center;justify-content:space-between;gap:12px;">
+            <span id="schedule-status-text" style="color:var(--green);">⏱ Scheduled for <strong id="schedule-status-time"></strong></span>
+            <button onclick="cancelSchedule()" style="font-family:monospace;font-size:10px;letter-spacing:1px;padding:4px 10px;background:none;border:1px solid var(--red);color:var(--red);cursor:pointer;">Cancel</button>
+          </div>
+          <div id="schedule-picker-wrap" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <div>
+              <label style="font-family:monospace;font-size:10px;color:var(--muted);display:block;margin-bottom:4px;">DATE (EASTERN)</label>
+              <input type="date" id="schedule-date" style="font-family:monospace;font-size:12px;padding:6px 8px;border:1px solid var(--rule);background:white;color:var(--ink);">
+            </div>
+            <div>
+              <label style="font-family:monospace;font-size:10px;color:var(--muted);display:block;margin-bottom:4px;">TIME (EASTERN)</label>
+              <input type="time" id="schedule-time" style="font-family:monospace;font-size:12px;padding:6px 8px;border:1px solid var(--rule);background:white;color:var(--ink);">
+            </div>
+            <div style="padding-top:18px;">
+              <button onclick="schedulePublish()" style="font-family:monospace;font-size:11px;letter-spacing:1px;padding:7px 16px;background:var(--ink);color:var(--paper);border:none;cursor:pointer;">⏱ Schedule</button>
+            </div>
+          </div>
+          <div id="schedule-error" style="font-family:monospace;font-size:11px;color:var(--red);margin-top:8px;min-height:14px;"></div>
+        </div>
       </div>
-
       <div class="admin-collapsible" style="margin-top:20px;" id="anc-community">
         <details>
           <summary>
@@ -5067,6 +5087,7 @@ ${siteUrl}`;
       loadMsgProspects();
       loadProspects();
       loadReferrals();
+      loadScheduleStatus();
     }
 
     // ─── RSS cache helpers ───────────────────────────────────────────────────
@@ -6179,6 +6200,7 @@ ${siteUrl}`;
             urls: urlList,
             promptMode: mode
           });
+          window._currentDraftDate = todayStr();
 
           showDraftPreview(questions);
         } else {
