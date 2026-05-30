@@ -6206,6 +6206,7 @@ ${siteUrl}`;
         } else {
           // Even with 0 questions, show the preview section so admin can add manually
           document.getElementById('preview-section').style.display = 'block';
+          loadScheduleStatus();
           document.getElementById('q-preview-list').innerHTML = '<p style="font-family:monospace;font-size:13px;color:var(--muted);padding:8px 0;">No questions generated. Use "+ Add Question" to write them manually.</p>';
         }
 
