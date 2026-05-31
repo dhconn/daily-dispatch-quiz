@@ -1147,6 +1147,8 @@ app.get('/api/quiz/latest', async (req, res) => {
   if (!data.quizzes) return res.json({ quiz: null });
   const dates = Object.keys(data.quizzes).sort();
   if (dates.length === 0) return res.json({ quiz: null });
+  const scheduled = await getKey('scheduledQuiz');
+  if (scheduled) return res.json({ quiz: null, scheduled: true });
   const mostRecent = dates[dates.length - 1];
   res.json({ quiz: data.quizzes[mostRecent], date: mostRecent });
 });
