@@ -1803,8 +1803,12 @@ app.get('/api/quiz', async (req, res) => {
     return res.json({ quiz: data.quizzes[date], date });
   }
 
-  // Always fall back to most recently published quiz regardless of date
+ // Only fall back if the most recent quiz is today's date or earlier with no scheduled quiz pending
   const mostRecent = dates[dates.length - 1];
+  const scheduled = await getKey('scheduledQuiz');
+  if (scheduled) {
+    return res.json({ quiz: null, date: null });
+  }
   res.json({ quiz: data.quizzes[mostRecent], date: mostRecent, fallback: true });
 });
 
