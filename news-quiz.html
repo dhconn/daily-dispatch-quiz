@@ -4012,11 +4012,11 @@ ${siteUrl}`;
           quizDate = serverData.date || quiz.publishDate || todayStr();
           saveTodayQuiz(quiz);
         }
-        // If no exact match, fetch most recent (no date param = server returns latest)
+ // If no exact match, only fetch most recent if no scheduled quiz is pending
         if (!quiz) {
           const latestRes = await fetch('/api/quiz/latest');
           const latestData = await latestRes.json();
-          if (latestData.quiz && latestData.quiz.questions && latestData.quiz.questions.length >= 6) {
+          if (latestData.quiz && latestData.quiz.questions && latestData.quiz.questions.length >= 6 && !latestData.scheduled) {
             quiz = latestData.quiz;
             quizDate = latestData.date || quiz.publishDate || todayStr();
             saveTodayQuiz(quiz);
