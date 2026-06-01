@@ -2628,9 +2628,15 @@ async function sendStreakNudges() {
 async function announceMonthlyWinner() {
   const now = new Date();
   const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const monthPrefix = prevMonth.toISOString().slice(0, 7); // YYYY-MM
-  const monthName = prevMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-
+  const monthPrefix = prevMonth.toISOString().slice(0, 7);
+  
+  // Guard: never announce the same month twice
+  const alreadyAnnounced = await getKey('monthlyWinnerAnnounced_' + monthPrefix);
+  if (alreadyAnnounced) {
+    console.log(`[MonthlyWinner] Already announced for ${monthPrefix} — skipping.`);
+    return;
+  }
+  await setKey('monthlyWinnerAnnounced_' + monthPrefix, true);
   console.log(`[MonthlyWinner] Checking ${monthName} leaderboard…`);
 
   try {
