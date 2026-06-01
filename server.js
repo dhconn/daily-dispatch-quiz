@@ -41,41 +41,7 @@ app.use((req, res, next) => {
 
 // ── Postgres connection ───────────────────────────────────────
 
-// Waits for Postgres to accept TCP connections before creating the pool.
-// Handles startup race conditions where the app boots before Postgres is
-// fully ready on the private network.
-async function waitForPostgres(hostname, port, maxRetries = 10) {
-  const net = require('net');
-
-  for (let i = 0; i < maxRetries; i++) {
-    try {
-      await new Promise((resolve, reject) => {
-        const socket = net.createConnection({ host: hostname, port, timeout: 2000 });
-        socket.on('connect', () => {
-          socket.destroy();
-          resolve();
-        });
-        socket.on('error', reject);
-      });
-      console.log(`DB: Postgres is reachable on ${hostname}:${port}`);
-      return;
-    } catch (e) {
-      if (i < maxRetries - 1) {
-        console.log(`DB: Postgres not ready (attempt ${i + 1}/${maxRetries}), retrying in 1s...`);
-        await new Promise(r => setTimeout(r, 1000));
-      } else {
-        throw new Error(`Could not reach Postgres after ${maxRetries} attempts: ${e.message}`);
-      }
-    }
-  }
-}
-
 async function createPool() {
-  const url = new URL(process.env.DATABASE_URL);
-  const hostname = url.hostname;
-
-  await waitForPostgres(hostname, 5432);
-
   return new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false }
