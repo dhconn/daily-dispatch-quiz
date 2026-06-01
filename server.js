@@ -3,7 +3,6 @@ const express = require('express');
 const https = require('https');
 const http = require('http');
 const { Pool } = require('pg')
-const dns = require('dns').promises;
 const path = require('path');
 const webpush = require('web-push');
 
@@ -41,7 +40,6 @@ app.use((req, res, next) => {
 });
 
 // ── Postgres connection ───────────────────────────────────────
-// Force IPv4 resolution for Postgres connection to avoid ECONNREFUSED on IPv6
 
 // Waits for Postgres to accept TCP connections before creating the pool.
 // Handles startup race conditions where the app boots before Postgres is
@@ -76,19 +74,10 @@ async function createPool() {
   const url = new URL(process.env.DATABASE_URL);
   const hostname = url.hostname;
 
-  let address = hostname;
-  try {
-    ({ address } = await dns.lookup(hostname, { family: 4 }));
-    console.log(`DB: resolved ${hostname} → ${address} (IPv4)`);
-    url.hostname = address;
-  } catch (e) {
-    console.warn(`DB: failed to resolve ${hostname} to IPv4, using hostname as-is:`, e.message);
-  }
-
-  await waitForPostgres(address, 5432);
+  await waitForPostgres(hostname, 5432);
 
   return new Pool({
-    connectionString: url.toString(),
+    connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false }
   });
 }
