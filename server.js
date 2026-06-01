@@ -42,7 +42,8 @@ app.use((req, res, next) => {
 // ── Postgres connection ───────────────────────────────────────
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
+  ssl: { rejectUnauthorized: false },
+  family: 4
 });
 
 // ── Key-value store backed by Postgres ───────────────────────
