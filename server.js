@@ -40,10 +40,20 @@ app.use((req, res, next) => {
 });
 
 // ── Postgres connection ───────────────────────────────────────
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
-});
+
+async function createPool() {
+  return new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false },
+    connectionTimeoutMillis: 5000,
+    idleTimeoutMillis: 30000,
+    max: 20,
+    // Force IPv4 to avoid ECONNREFUSED on IPv6
+    family: 4
+  });
+}
+
+let pool;
 
 // ── Key-value store backed by Postgres ───────────────────────
 // Single table: store(key TEXT PRIMARY KEY, value JSONB)
@@ -2214,26 +2224,30 @@ async function sendPushNotifications(date) {
 }
 
 // ── Start ─────────────────────────────────────────────────────
-initDb().then(() => {
-  app.listen(PORT, () => {
-    console.log(`Daily Dispatch Quiz running on port ${PORT}`);
-    if (process.env.ANTHROPIC_API_KEY) {
-      console.log('✓ Using Anthropic API');
-    } else {
-      console.log('⚠ WARNING: ANTHROPIC_API_KEY is not set.');
-    }
-  });
-  // Fetch RSS after DB is ready
-  setTimeout(fetchAndCacheRSS, 5000);
-  scheduleNextRefresh();
-  scheduleStreakNudge();
+(async () => {
+  try {
+    pool = await createPool();
+    await initDb();
+    app.listen(PORT, () => {
+      console.log(`Daily Dispatch Quiz running on port ${PORT}`);
+      if (process.env.ANTHROPIC_API_KEY) {
+        console.log('✓ Using Anthropic API');
+      } else {
+        console.log('⚠ WARNING: ANTHROPIC_API_KEY is not set.');
+      }
+    });
+    // Fetch RSS after DB is ready
+    setTimeout(fetchAndCacheRSS, 5000);
+    scheduleNextRefresh();
+    scheduleStreakNudge();
     // scheduleMonthlyWinner(); // TEMPORARILY DISABLED
-  setInterval(checkScheduledPublish, 60000); // check every minute
-  checkScheduledPublish(); // check immediately on startup in case of server restart
-}).catch(err => {
-  console.error('DB init failed:', err.message);
-  process.exit(1);
-});
+    setInterval(checkScheduledPublish, 60000); // check every minute
+    checkScheduledPublish(); // check immediately on startup in case of server restart
+  } catch (err) {
+    console.error('DB init failed:', err.message);
+    process.exit(1);
+  }
+})();
 
 // ── Email helper (Resend) ─────────────────────────────────────
 // Single email send (used for unsubscribe confirmations etc.)
@@ -2628,18 +2642,20 @@ async function sendStreakNudges() {
 async function announceMonthlyWinner() {
   const now = new Date();
   const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const monthPrefix = prevMonth.toISOString().slice(0, 7);
-  
-  // Guard: never announce the same month twice
-  const alreadyAnnounced = await getKey('monthlyWinnerAnnounced_' + monthPrefix);
-  if (alreadyAnnounced) {
-    console.log(`[MonthlyWinner] Already announced for ${monthPrefix} — skipping.`);
-    return;
-  }
-  await setKey('monthlyWinnerAnnounced_' + monthPrefix, true);
+  const monthPrefix = prevMonth.toISOString().slice(0, 7); // YYYY-MM
+  const monthName = prevMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
   console.log(`[MonthlyWinner] Checking ${monthName} leaderboard…`);
 
   try {
+    // Guard: never announce the same month twice
+    const alreadyAnnounced = await getKey('monthlyWinnerAnnounced_' + monthPrefix);
+    if (alreadyAnnounced) {
+      console.log(`[MonthlyWinner] Already announced for ${monthPrefix} — skipping.`);
+      return;
+    }
+    await setKey('monthlyWinnerAnnounced_' + monthPrefix, true);
+
     const data = await readData();
     const scores = data.scores || {};
     const siteUrl = process.env.SITE_URL || 'https://dailydispatchquiz.com';
