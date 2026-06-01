@@ -2240,7 +2240,7 @@ async function sendPushNotifications(date) {
   setTimeout(fetchAndCacheRSS, 5000);
   scheduleNextRefresh();
   scheduleStreakNudge();
-  scheduleMonthlyWinner();
+  // scheduleMonthlyWinner(); // TEMPORARILY DISABLED
   setInterval(checkScheduledPublish, 60000); // check every minute
   checkScheduledPublish(); // check immediately on startup in case of server restart
 })();
