@@ -44,7 +44,12 @@ app.use((req, res, next) => {
 async function createPool() {
   return new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false }
+    ssl: { rejectUnauthorized: false },
+    connectionTimeoutMillis: 5000,
+    idleTimeoutMillis: 30000,
+    max: 20,
+    // Force IPv4 to avoid ECONNREFUSED on IPv6
+    family: 4
   });
 }
 
