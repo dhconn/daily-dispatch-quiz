@@ -2223,26 +2223,25 @@ async function sendPushNotifications(date) {
   try {
     pool = await createPool();
     await initDb();
+    app.listen(PORT, () => {
+      console.log(`Daily Dispatch Quiz running on port ${PORT}`);
+      if (process.env.ANTHROPIC_API_KEY) {
+        console.log('✓ Using Anthropic API');
+      } else {
+        console.log('⚠ WARNING: ANTHROPIC_API_KEY is not set.');
+      }
+    });
+    // Fetch RSS after DB is ready
+    setTimeout(fetchAndCacheRSS, 5000);
+    scheduleNextRefresh();
+    scheduleStreakNudge();
+    // scheduleMonthlyWinner(); // TEMPORARILY DISABLED
+    setInterval(checkScheduledPublish, 60000); // check every minute
+    checkScheduledPublish(); // check immediately on startup in case of server restart
   } catch (err) {
     console.error('DB init failed:', err.message);
     process.exit(1);
   }
-
-  app.listen(PORT, () => {
-    console.log(`Daily Dispatch Quiz running on port ${PORT}`);
-    if (process.env.ANTHROPIC_API_KEY) {
-      console.log('✓ Using Anthropic API');
-    } else {
-      console.log('⚠ WARNING: ANTHROPIC_API_KEY is not set.');
-    }
-  });
-  // Fetch RSS after DB is ready
-  setTimeout(fetchAndCacheRSS, 5000);
-  scheduleNextRefresh();
-  scheduleStreakNudge();
-  // scheduleMonthlyWinner(); // TEMPORARILY DISABLED
-  setInterval(checkScheduledPublish, 60000); // check every minute
-  checkScheduledPublish(); // check immediately on startup in case of server restart
 })();
 
 // ── Email helper (Resend) ─────────────────────────────────────
