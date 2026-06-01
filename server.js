@@ -3,6 +3,7 @@ const express = require('express');
 const https = require('https');
 const http = require('http');
 const { Pool } = require('pg')
+const dns = require('dns').promises;
 const path = require('path');
 const webpush = require('web-push');
 
@@ -40,11 +41,26 @@ app.use((req, res, next) => {
 });
 
 // ── Postgres connection ───────────────────────────────────────
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
-  family: 4
-});
+// Force IPv4 resolution for Postgres connection to avoid ECONNREFUSED on IPv6
+async function createPool() {
+  const url = new URL(process.env.DATABASE_URL);
+  const hostname = url.hostname;
+
+  try {
+    const { address } = await dns.lookup(hostname, { family: 4 });
+    console.log(`DB: resolved ${hostname} → ${address} (IPv4)`);
+    url.hostname = address;
+  } catch (e) {
+    console.warn(`DB: failed to resolve ${hostname} to IPv4, using hostname as-is:`, e.message);
+  }
+
+  return new Pool({
+    connectionString: url.toString(),
+    ssl: { rejectUnauthorized: false }
+  });
+}
+
+let pool;
 
 // ── Key-value store backed by Postgres ───────────────────────
 // Single table: store(key TEXT PRIMARY KEY, value JSONB)
@@ -2215,7 +2231,15 @@ async function sendPushNotifications(date) {
 }
 
 // ── Start ─────────────────────────────────────────────────────
-initDb().then(() => {
+(async () => {
+  try {
+    pool = await createPool();
+    await initDb();
+  } catch (err) {
+    console.error('DB init failed:', err.message);
+    process.exit(1);
+  }
+
   app.listen(PORT, () => {
     console.log(`Daily Dispatch Quiz running on port ${PORT}`);
     if (process.env.ANTHROPIC_API_KEY) {
@@ -2231,10 +2255,7 @@ initDb().then(() => {
   scheduleMonthlyWinner();
   setInterval(checkScheduledPublish, 60000); // check every minute
   checkScheduledPublish(); // check immediately on startup in case of server restart
-}).catch(err => {
-  console.error('DB init failed:', err.message);
-  process.exit(1);
-});
+})();
 
 // ── Email helper (Resend) ─────────────────────────────────────
 // Single email send (used for unsubscribe confirmations etc.)
