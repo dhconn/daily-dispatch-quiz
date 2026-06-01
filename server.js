@@ -2648,6 +2648,14 @@ async function announceMonthlyWinner() {
   console.log(`[MonthlyWinner] Checking ${monthName} leaderboard…`);
 
   try {
+    // Guard: never announce the same month twice
+    const alreadyAnnounced = await getKey('monthlyWinnerAnnounced_' + monthPrefix);
+    if (alreadyAnnounced) {
+      console.log(`[MonthlyWinner] Already announced for ${monthPrefix} — skipping.`);
+      return;
+    }
+    await setKey('monthlyWinnerAnnounced_' + monthPrefix, true);
+
     const data = await readData();
     const scores = data.scores || {};
     const siteUrl = process.env.SITE_URL || 'https://dailydispatchquiz.com';
