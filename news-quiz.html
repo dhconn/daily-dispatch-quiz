@@ -2012,7 +2012,7 @@
         <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;">
           <img src="/images/mug.png" alt="DDQ Mug" style="width:110px;height:auto;flex-shrink:0;">
           <div>
-            <div style="font-family:'Courier Prime',monospace;font-size:13px;font-weight:700;letter-spacing:1px;color:var(--ink);margin-bottom:8px;">COFFEE MUG MONTHLY CONTEST STARTS TODAY, JUNE 1!</div>
+            <div style="font-family:'Courier Prime',monospace;font-size:13px;font-weight:700;letter-spacing:1px;color:var(--ink);margin-bottom:8px;">COFFEE MUG MONTHLY CONTEST STARTED JUNE 1!</div>
             <p style="font-size:14px;margin:0 0 6px;line-height:1.5;font-weight:600;">Two ways to win:</p>
             <p style="font-size:13px;color:var(--muted);margin:0 0 4px;line-height:1.5;">☕ <strong>Refer 3 friends</strong> who subscribe and play 3 times.</p>
             <p style="font-size:13px;color:var(--muted);margin:0;line-height:1.5;">🏆 <strong>Top the monthly leaderboard</strong> — winner announced on the 1st.</p>
@@ -2591,6 +2591,7 @@
             style="border-color:var(--green);color:var(--green);">+ Add Question</button>
           <button class="btn-secondary" onclick="emergencySave()" style="border-color:var(--red);color:var(--red);"
             title="Save visible questions directly to server, bypassing draft">⚑ Emergency Save</button>
+          <button class="btn-secondary" onclick="saveDraftToServer()" style="border-color:var(--yellow);color:var(--yellow);" title="Save draft to server without publishing">💾 Save Draft</button>
         </div>
 
         <!-- Manual question entry form -->
@@ -7011,6 +7012,7 @@ ${siteUrl}`;
         clearAllLocks();
 
         setStatus('✓ Quiz published for ' + todayStr() + ' and saved to server! Emails are being sent.', 'success');
+        alert('✓ Quiz published for ' + todayStr() + '! Emails are being sent.');
 
       } catch (e) {
         setStatus('⚠ FAILED to save to server (' + e.message + '). Draft preserved — please try again.', 'error');
@@ -7118,6 +7120,39 @@ ${siteUrl}`;
         }
       } catch (e) {
         setStatus('⚑ Emergency save FAILED: ' + e.message, 'error');
+      }
+    }
+
+    async function saveDraftToServer() {
+      const cards = document.querySelectorAll('#q-preview-list .q-review-card');
+      if (!cards.length) { alert('No questions to save.'); return; }
+      const diffs = ['easy', 'easy', 'medium', 'medium', 'hard', 'bonus'];
+      const questions = Array.from(cards).map((card, i) => {
+        const question = card.querySelector('textarea').value;
+        const optionRows = card.querySelectorAll('.q-option-row input[type="text"]');
+        const options = Array.from(optionRows).slice(0, 4).map(o => o.value);
+        const correctRadio = card.querySelector('input[type="radio"]:checked');
+        const correctIndex = correctRadio ? parseInt(correctRadio.value) : 0;
+        const allTextInputs = card.querySelectorAll('input[type="text"]');
+        const nonOptionInputs = Array.from(allTextInputs).filter(el => !el.closest('.q-option-row'));
+        const explanation = nonOptionInputs[0]?.value || '';
+        const sourceUrl = nonOptionInputs[1]?.value || '';
+        return { question, options, correctIndex, explanation, sourceUrl, difficulty: diffs[i] };
+      });
+      try {
+        const res = await fetch('/api/draft', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-admin-token': lsGet('dnq_admin_token') || 'admin' },
+          body: JSON.stringify({ quiz: { questions, generatedAt: new Date().toISOString() } })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          setStatus('💾 Draft saved — resume on any device.', 'success');
+        } else {
+          setStatus('Draft save failed.', 'error');
+        }
+      } catch (e) {
+        setStatus('Draft save failed: ' + e.message, 'error');
       }
     }
 
