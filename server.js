@@ -2064,6 +2064,24 @@ app.post('/api/admin/award-mug', async (req, res) => {
   }
 });
 
+// ── GET /api/draft — load draft quiz ──
+app.get('/api/draft', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  const draft = await getKey('draftQuiz');
+  res.json({ ok: true, draft: draft || null });
+});
+
+// ── POST /api/draft — save draft quiz ──
+app.post('/api/draft', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  const { quiz } = req.body;
+  if (!quiz) return res.status(400).json({ error: 'quiz required' });
+  await setKey('draftQuiz', { ...quiz, savedAt: new Date().toISOString() });
+  res.json({ ok: true });
+});
+
 // ── GET /api/quiz/schedule — get current scheduled publish ───
 app.get('/api/quiz/schedule', async (req, res) => {
   const adminToken = process.env.ADMIN_TOKEN || 'admin';
