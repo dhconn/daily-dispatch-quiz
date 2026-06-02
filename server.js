@@ -2064,6 +2064,28 @@ app.post('/api/admin/award-mug', async (req, res) => {
   }
 });
 
+// ── POST /api/admin/fix-mug-winners — remove erroneous May 2026 mug winners ──
+app.post('/api/admin/fix-mug-winners', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const data = await readData();
+    const fixed = [];
+    for (const [email, sub] of Object.entries(data.subscribers || {})) {
+      if (sub.mugWonReason === 'monthly_2026-05') {
+        sub.mugWon = false;
+        sub.mugWonAt = null;
+        sub.mugWonReason = null;
+        fixed.push(email);
+      }
+    }
+    await writeData(data);
+    res.json({ ok: true, fixed });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── GET /api/quiz/schedule — get current scheduled publish ───
 app.get('/api/quiz/schedule', async (req, res) => {
   const adminToken = process.env.ADMIN_TOKEN || 'admin';
