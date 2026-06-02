@@ -2977,6 +2977,15 @@ function scheduleMonthlyWinner() {
   const next = new Date(eastern.getFullYear(), eastern.getMonth() + 1, 1, 9, 0, 0, 0);
   const utcNext = new Date(next.toLocaleString('en-US', { timeZone: 'UTC' }));
   const msUntil = utcNext - now;
+  if (msUntil < 0) {
+    // Already past this month's firing time — schedule for next month instead
+    const nextNext = new Date(eastern.getFullYear(), eastern.getMonth() + 2, 1, 9, 0, 0, 0);
+    const utcNextNext = new Date(nextNext.toLocaleString('en-US', { timeZone: 'UTC' }));
+    const msUntilNext = utcNextNext - now;
+    console.log(`[MonthlyWinner] Already past firing time — next check in ${Math.round(msUntilNext / 3600000)} hours.`);
+    setTimeout(() => { announceMonthlyWinner(); scheduleMonthlyWinner(); }, msUntilNext);
+    return;
+  }
   console.log(`[MonthlyWinner] Next check in ${Math.round(msUntil / 3600000)} hours (1st of next month, 9am Eastern).`);
   setTimeout(() => {
     announceMonthlyWinner();
