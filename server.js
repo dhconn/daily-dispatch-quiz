@@ -2663,6 +2663,8 @@ async function announceMonthlyWinner() {
   const monthPrefix = prevMonth.toISOString().slice(0, 7); // YYYY-MM
   const monthName = prevMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
+  console.log(`[MonthlyWinner] Auto-announce disabled — check leaderboard manually.`);
+  return;
   console.log(`[MonthlyWinner] Checking ${monthName} leaderboard…`);
 
   try {
