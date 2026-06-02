@@ -2364,7 +2364,7 @@
       <div class="lb-tabs">
         <div class="lb-tab active" onclick="showLbTab('today',this)">Today</div>
         <div class="lb-tab" onclick="showLbTab('monthly',this)">This Month</div>
-      </div>
+        <div class="lb-tab" onclick="showLbTab('lastmonth',this)">Last Month</div>      </div>
       <div style="text-align:right; margin-top:-8px; margin-bottom:12px;">
         <a href="#" onclick="showLbTab('alltime', null); return false;" style="font-family:'Courier Prime',monospace; font-size:11px; letter-spacing:1px;
           color:var(--muted); text-decoration:underline;">
@@ -2592,6 +2592,7 @@
           <button class="btn-secondary" onclick="emergencySave()" style="border-color:var(--red);color:var(--red);"
             title="Save visible questions directly to server, bypassing draft">⚑ Emergency Save</button>
           <button class="btn-secondary" onclick="saveDraftToServer()" style="border-color:var(--yellow);color:var(--yellow);" title="Save draft to server without publishing">💾 Save Draft</button>
+          <button class="btn-secondary" onclick="loadDraftFromServer()" style="border-color:var(--yellow);color:var(--yellow);" title="Load draft saved on another device">📂 Load Draft</button>
         </div>
 
         <!-- Manual question entry form -->
@@ -4986,9 +4987,18 @@ ${siteUrl}`;
       rows = Object.entries(players).map(([key, p]) => {
         let score = 0;
 
+        const lastMonthDate = new Date();
+        lastMonthDate.setDate(1);
+        lastMonthDate.setMonth(lastMonthDate.getMonth() - 1);
+        const lastMonthPrefix = lastMonthDate.toISOString().slice(0, 7);
+
         if (tab === 'monthly') {
           score = Object.entries(p.dailyScores || {})
             .filter(([date]) => date.startsWith(monthPrefix))
+            .reduce((sum, [, val]) => sum + val, 0);
+        } else if (tab === 'lastmonth') {
+          score = Object.entries(p.dailyScores || {})
+            .filter(([date]) => date.startsWith(lastMonthPrefix))
             .reduce((sum, [, val]) => sum + val, 0);
         } else {
           score = p.allTime || 0;
@@ -5009,8 +5019,15 @@ ${siteUrl}`;
 
       // Tab header label
       const monthLabel = new Date(monthPrefix + '-15').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      const lastMonthDate = new Date();
+      lastMonthDate.setDate(1);
+      lastMonthDate.setMonth(lastMonthDate.getMonth() - 1);
+      const lastMonthPrefix = lastMonthDate.toISOString().slice(0, 7);
+      const lastMonthLabel = new Date(lastMonthPrefix + '-15').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
       const tabLabel = tab === 'today' ? today
         : tab === 'monthly' ? monthLabel
+        : tab === 'lastmonth' ? lastMonthLabel
           : 'All-Time';
 
       let html = `
@@ -5021,7 +5038,7 @@ ${siteUrl}`;
     </div>
     <div style="font-family:'Courier Prime',monospace;font-size:11px;letter-spacing:2px;
                 color:var(--muted);text-transform:uppercase;margin-bottom:12px;">
-      ${tab === 'alltime' ? 'All-Time Standings' : tab === 'monthly' ? monthLabel + ' Standings' : 'Today · ' + today}
+      ${tab === 'alltime' ? 'All-Time Standings' : tab === 'monthly' ? monthLabel + ' Standings' : tab === 'lastmonth' ? lastMonthLabel + ' Standings' : 'Today · ' + today}
     </div>
     <table class="lb-table"><thead><tr>
       <th style="width:40px">Rank</th>
@@ -7155,6 +7172,26 @@ ${siteUrl}`;
         setStatus('Draft save failed: ' + e.message, 'error');
       }
     }
+    
+  async function loadDraftFromServer() {
+    if (!confirm('Load draft from server? This will replace your current draft.')) return;
+    try {
+      const res = await fetch('/api/draft', {
+        headers: { 'x-admin-token': lsGet('dnq_admin_token') || 'admin' }
+      });
+      const data = await res.json();
+      if (!data.ok || !data.draft) {
+        setStatus('No server draft found.', 'error');
+        return;
+      }
+      saveDraftQuiz(data.draft);
+      setStatus('📂 Draft loaded — rendering questions…', 'success');
+      showDraftPreview(data.draft.questions);
+    } catch (e) {
+      setStatus('Failed to load draft: ' + e.message, 'error');
+    }
+  }
+
 
     function discardDraft() {
       clearDraftQuiz();
