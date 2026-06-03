@@ -5455,21 +5455,56 @@ ${siteUrl}`;
     // ─── Saved news sites (server-side) ───────────────────────────────────────
     async function saveArticleUrls() {
       const val = document.getElementById('article-urls-input').value.trim();
-      lsSet('dnq_article_urls', val);
+      lsSet('dnq_article_urls', val); // keep local backup
       const msg = document.getElementById('article-urls-saved-msg');
       msg.style.display = 'inline';
-      setTimeout(() => { msg.style.display = 'none'; }, 2000);
+      msg.style.color = 'var(--muted)';
+      msg.textContent = 'Saving…';
+      try {
+        const adminToken = lsGet('dnq_admin_token') || 'admin';
+        const res = await fetch('/api/article-urls', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+          body: JSON.stringify({ articleUrls: val })
+        });
+        if (res.ok) {
+          msg.textContent = '✓ Saved!';
+          msg.style.color = 'var(--green)';
+        } else {
+          msg.textContent = '✗ Save failed';
+          msg.style.color = 'var(--red)';
+        }
+      } catch (e) {
+        msg.textContent = '✗ Save failed';
+        msg.style.color = 'var(--red)';
+      }
+      setTimeout(() => { msg.style.display = 'none'; }, 3000);
     }
-
+    
     function clearArticleUrls() {
       if (!confirm('Clear all saved article URLs?')) return;
       lsSet('dnq_article_urls', '');
       document.getElementById('article-urls-input').value = '';
     }
 
-    function loadArticleUrls() {
-      const saved = lsGet('dnq_article_urls') || '';
-      if (saved) document.getElementById('article-urls-input').value = saved;
+    async function loadArticleUrls() {
+      try {
+        const adminToken = lsGet('dnq_admin_token') || 'admin';
+        const res = await fetch('/api/article-urls', {
+          headers: { 'x-admin-token': adminToken }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.articleUrls) {
+            document.getElementById('article-urls-input').value = data.articleUrls;
+            lsSet('dnq_article_urls', data.articleUrls);
+            return;
+          }
+        }
+      } catch (e) { /* fall through */ }
+      // Fall back to localStorage
+      const local = lsGet('dnq_article_urls') || '';
+      if (local) document.getElementById('article-urls-input').value = local;
     }
 
     async function saveSites() {
