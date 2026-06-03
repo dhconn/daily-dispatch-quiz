@@ -427,6 +427,23 @@ app.get('/api/sites', async (req, res) => {
   res.json({ sites: data.sites || '' });
 });
 
+// ── GET /api/article-urls — load hand-picked article URLs ──
+app.get('/api/article-urls', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  const articleUrls = await getKey('articleUrls');
+  res.json({ articleUrls: articleUrls || '' });
+});
+
+// ── POST /api/article-urls — save hand-picked article URLs ──
+app.post('/api/article-urls', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  const { articleUrls } = req.body || {};
+  await setKey('articleUrls', articleUrls || '');
+  res.json({ ok: true });
+});
+
 // ── Answer distribution ──────────────────────────────────────
 app.post('/api/answers', async (req, res) => {
   const { date, answers, playerName } = req.body || {};
@@ -2851,8 +2868,8 @@ async function checkScheduledPublish() {
     // Clear the schedule first to prevent double-firing
     await setKey('scheduledQuiz', null);
 
-    const { date, quiz } = scheduled;
-    const data = await readData();
+    const { quiz } = scheduled;
+    const date = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });    const data = await readData();
     if (!data.quizzes) data.quizzes = {};
     data.quizzes[date] = quiz;
     const keys = Object.keys(data.quizzes).sort();
