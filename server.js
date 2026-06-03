@@ -2064,6 +2064,43 @@ app.post('/api/admin/award-mug', async (req, res) => {
   }
 });
 
+// ── POST /api/admin/sync-progress — sync scores into progress for a date ──
+app.post('/api/admin/sync-progress', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  const { date } = req.body || {};
+  if (!date) return res.status(400).json({ error: 'date required' });
+  try {
+    const data = await readData();
+    const quiz = data.quizzes && data.quizzes[date];
+    if (!quiz) return res.status(404).json({ error: 'Quiz not found for ' + date });
+    const scores = data.scores || {};
+    const allProgress = (await getKey('progress')) || {};
+    if (!allProgress[date]) allProgress[date] = {};
+    const synced = [];
+    for (const [key, player] of Object.entries(scores)) {
+      const dayScore = (player.dailyScores || {})[date];
+      if (!dayScore) continue;
+      const existing = allProgress[date][key] || {};
+      if (existing.synthetic) {
+        allProgress[date][key] = {
+          ...existing,
+          score: dayScore,
+          displayName: player.displayName || key,
+          updatedAt: new Date().toISOString(),
+          synthetic: false,
+          completed: dayScore >= 10
+        };
+        synced.push(key);
+      }
+    }
+    await setKey('progress', allProgress);
+    res.json({ ok: true, synced });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── GET /api/draft — load draft quiz ──
 app.get('/api/draft', async (req, res) => {
   const adminToken = process.env.ADMIN_TOKEN || 'admin';
