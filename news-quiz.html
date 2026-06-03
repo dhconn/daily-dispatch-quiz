@@ -5935,9 +5935,16 @@ ${siteUrl}`;
           // Use already-fetched server archive URLs (fetched above, no second request needed)
           const recentUrls = allArchiveUrls.length > 0 ? allArchiveUrls : getArchiveUrls();
 
+          const last12Summaries = allArchiveSummaries.slice(-12);
+          const olderSummaries = allArchiveSummaries.slice(-60, -12);
+
           const recentSummaryNote = allArchiveSummaries.length > 0
-              ? 'RECENTLY COVERED EVENTS (REJECT any article covering the same real-world event as these, even from a different outlet):\n' + allArchiveSummaries.slice(-30).map(s => '- ' + s).join('\n') + '\n\n'
-              : '';
+            ? 'CRITICAL — COVERED IN THE LAST 48 HOURS. You MUST reject ANY article touching these topics, even from a different outlet or angle. These are absolute blocks:\n' +
+              last12Summaries.map(s => '- ' + s).join('\n') + '\n\n' +
+              (olderSummaries.length > 0
+                ? 'ALSO COVERED RECENTLY (reject same-event articles):\n' + olderSummaries.map(s => '- ' + s).join('\n') + '\n\n'
+                : '')
+            : '';
           const recentUrlNote = recentUrls.length > 0
             ? 'ALREADY USED THIS WEEK (REJECT these URLs and any article covering the same topic):\n' + recentUrls.join('\n') + '\n\n'
             : '';
