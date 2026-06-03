@@ -1029,11 +1029,6 @@ app.get('/api/archive/full', async (req, res) => {
       }
     }
 
-    // Also include manually stored archive items
-    (data.archiveQuestions || []).forEach(q => { if (!questions.includes(q)) questions.push(q); });
-    (data.archiveUrls || []).forEach(u => { if (!urls.includes(u)) urls.push(u); });
-    (data.archiveSlugs || []).forEach(s => { if (!slugs.includes(s)) slugs.push(s); });
-
     res.json({ questions, urls, slugs, summaries, count: questions.length });
   } catch (e) {
     console.error('[Archive/full] error:', e.message);
