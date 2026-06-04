@@ -2552,6 +2552,10 @@
         </div>
       </div>
 
+      <div style="margin:0 0 12px;text-align:right;">
+        <button class="btn-secondary" onclick="loadDraftFromServer()" style="border-color:var(--yellow);color:var(--yellow);" title="Load draft saved on another device">📂 Load Draft</button>
+      </div>
+
       <div class="admin-section" id="preview-section" style="display:none;">
         <h3>Step 2 — Review Questions</h3>
         <div id="q-preview-list"></div>
@@ -2658,7 +2662,7 @@
       </div>
 
       <div class="admin-section" id="anc-published">
-        <h3>Today's Published Quiz</h3>
+        <h3 id="published-quiz-heading">Today's Published Quiz</h3>
         <div id="published-preview">
           <p style="font-size:13px;color:var(--muted);font-style:italic;">No quiz published today.</p>
         </div>
@@ -5570,11 +5574,15 @@ ${siteUrl}`;
 
       // Today's published — fetch from server to get correct article URLs
       let today = null;
+      let publishedDate = null;
       try {
         const todayRes = await fetch('/api/quiz?date=' + todayStr());
         if (todayRes.ok) {
           const todayData = await todayRes.json();
-          if (todayData.quiz && todayData.quiz.questions) today = todayData.quiz;
+          if (todayData.quiz && todayData.quiz.questions) {
+            today = todayData.quiz;
+            publishedDate = todayData.date || todayStr();
+          }
         }
         // Also check yesterday in case of UTC date rollover
         if (!today) {
@@ -5583,15 +5591,24 @@ ${siteUrl}`;
           const yestRes = await fetch('/api/quiz?date=' + yest);
           if (yestRes.ok) {
             const yestData = await yestRes.json();
-            if (yestData.quiz && yestData.quiz.questions) today = yestData.quiz;
+            if (yestData.quiz && yestData.quiz.questions) {
+              today = yestData.quiz;
+              publishedDate = yestData.date || yest;
+            }
           }
         }
       } catch (e) {
         today = getTodayQuiz(); // fallback to localStorage
       }
+      const publishedHeading = document.getElementById('published-quiz-heading');
+      if (publishedHeading) {
+        publishedHeading.textContent = (publishedDate && publishedDate !== todayStr())
+          ? `Published Quiz — ${publishedDate}`
+          : "Today's Published Quiz";
+      }
       if (today && today.questions) {
         document.getElementById('published-preview').innerHTML =
-          `<p style="color:var(--green);font-family:monospace;font-size:12px;margin-bottom:8px;">✓ ${today.questions.length} questions published for ${todayStr()}</p>` +
+          `<p style="color:var(--green);font-family:monospace;font-size:12px;margin-bottom:8px;">✓ ${today.questions.length} questions published for ${publishedDate || todayStr()}</p>` +
           today.questions.map((q, i) => {
             const srcLink = q.sourceUrl
               ? `<div style="font-size:11px;font-family:monospace;margin-top:5px;"><a href="${q.sourceUrl}" target="_blank" style="color:var(--muted);" onclick="event.stopPropagation()">↗ ${q.sourceUrl.replace(/^https?:\/\//, '').slice(0, 70)}${q.sourceUrl.length > 73 ? '…' : ''}</a></div>`
@@ -8176,12 +8193,33 @@ ${siteUrl}`;
     }
 
     async function cancelSchedule() {
-      if (!confirm('Cancel the scheduled publish?')) return;
+      if (!confirm('Cancel the scheduled publish? The questions will be restored to your draft.')) return;
       const adminToken = lsGet('dnq_admin_token') || 'admin';
       try {
+        // Fetch scheduled quiz before deleting so we can restore it
+        const schedRes = await fetch('/api/quiz/schedule', { headers: { 'x-admin-token': adminToken } });
+        const schedData = await schedRes.json();
+        const quiz = schedData.scheduled && schedData.scheduled.quiz;
+
+        if (quiz && quiz.questions && quiz.questions.length) {
+          saveDraftQuiz(quiz);
+          await fetch('/api/draft', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+            body: JSON.stringify({ quiz })
+          });
+          showDraftPreview(quiz.questions);
+        }
+
         await fetch('/api/quiz/schedule', { method: 'DELETE', headers: { 'x-admin-token': adminToken } });
         loadScheduleStatus();
-      } catch (e) { /* non-fatal */ }
+
+        if (quiz && quiz.questions && quiz.questions.length) {
+          setStatus('✓ Schedule cancelled — questions restored to draft.', 'success');
+        }
+      } catch (e) {
+        alert('Cancel failed: ' + e.message);
+      }
     }
 
 async function submitEditorPost() {
