@@ -4,6 +4,7 @@ Old news_quiz files/
 Old server.js files/
 node_modules/
 .env
+outreach-config.json
 
 # Ignore system files
 .DS_Store
