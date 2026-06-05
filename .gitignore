@@ -5,6 +5,8 @@ Old server.js files/
 node_modules/
 .env
 outreach-config.json
+outreach-today-cache.json
+outreach-last-run.txt
 
 # Ignore system files
 .DS_Store
