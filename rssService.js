@@ -81,6 +81,8 @@ const BALTIMORE_RSS_FEEDS = {
   'mytvbaltimore.com':          'https://foxbaltimore.com/rss',
   'cwbaltimore.com':            'https://www.wmar2news.com/rss',
   // Additional local sources
+  'marylandreporter.com':       'https://marylandreporter.com/feed',
+  'baltimore post-examiner':    'https://baltimorepostexaminer.com/feed/',
   'afro.com':                   'https://afro.com/feed/',
   'urbanleaguebaltimore.org':   'https://urbanleaguebaltimore.org/feed/',
   'baltimoremagazine.com':      'https://www.baltimoremagazine.com/feed/',
