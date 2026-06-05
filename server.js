@@ -2311,8 +2311,7 @@ async function sendPushNotifications(date) {
     setInterval(checkScheduledPublish, 60000); // check every minute
     checkScheduledPublish(); // check immediately on startup in case of server restart
   } catch (err) {
-    console.error('DB init failed:', err.message);
-    process.exit(1);
+console.error('DB init failed:', JSON.stringify(err));    process.exit(1);
   }
 })();
 
