@@ -5485,10 +5485,18 @@ ${siteUrl}`;
       setTimeout(() => { msg.style.display = 'none'; }, 3000);
     }
     
-    function clearArticleUrls() {
+    async function clearArticleUrls() {
       if (!confirm('Clear all saved article URLs?')) return;
       lsSet('dnq_article_urls', '');
       document.getElementById('article-urls-input').value = '';
+      try {
+        const adminToken = lsGet('dnq_admin_token') || 'admin';
+        await fetch('/api/article-urls', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+          body: JSON.stringify({ articleUrls: '' })
+        });
+      } catch (e) { /* non-fatal — local is already cleared */ }
     }
 
     async function loadArticleUrls() {
