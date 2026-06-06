@@ -2717,6 +2717,29 @@
         </details>
       </div>
 
+      <div class="admin-collapsible" style="margin-top:20px;" id="anc-community-message">
+        <details>
+          <summary>
+            <span class="summary-left">Email Community Message <span id="community-message-status"
+                style="font-family:monospace;font-size:12px;color:var(--muted);font-weight:400;letter-spacing:0;text-transform:none;"></span></span>
+            <span class="summary-arrow">▸</span>
+          </summary>
+          <div class="collapsible-body">
+            <p style="font-size:12px;color:var(--muted);font-family:monospace;margin-bottom:10px;">A personal note from the editor included in the daily email — shown to all subscribers and prospects. Appears between the quiz teasers and the play button. Only sent once per unique message; edit the text to trigger a fresh send. Leave blank to include nothing.</p>
+            <textarea id="community-message-input"
+              style="width:100%;box-sizing:border-box;font-family:serif;font-size:14px;padding:8px;border:1px solid var(--rule);border-radius:2px;background:var(--white,#fff);color:var(--ink);resize:vertical;min-height:80px;"
+              placeholder="e.g. We're adding a new weekly feature — stay tuned. Thanks for playing!"></textarea>
+            <div style="margin-top:8px;display:flex;align-items:center;gap:10px;">
+              <button onclick="saveCommunityMessage()"
+                style="font-family:monospace;font-size:11px;padding:5px 14px;cursor:pointer;border-radius:2px;border:1px solid var(--ink);color:var(--ink);background:none;">Save Message</button>
+              <span id="community-message-saved-msg"
+                style="font-family:monospace;font-size:11px;color:var(--green);display:none;">Saved ✓</span>
+            </div>
+            <div id="community-message-last-sent" style="margin-top:10px;font-family:monospace;font-size:11px;color:var(--muted);"></div>
+          </div>
+        </details>
+      </div>
+
       <div class="admin-collapsible" style="margin-top:20px;" id="anc-editor-notes">
         <details>
           <summary>
@@ -2834,6 +2857,32 @@
         <button class="btn-secondary"
           onclick="previousScreen='screen-admin';showScreen('screen-leaderboard');showLbTab('alltime',document.querySelector('.lb-tab'));"
           style="font-size:12px;padding:6px 16px;">View Leaderboard ▸</button>
+
+        <div style="margin-top:20px;padding:16px;background:white;border:1px solid var(--rule);">
+          <div style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--blue);margin-bottom:12px;font-weight:700;">MONTHLY WINNER ANNOUNCEMENT</div>
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+            <label style="font-family:monospace;font-size:11px;color:var(--muted);">Month:</label>
+            <select id="winner-month-select" style="font-family:monospace;font-size:12px;padding:4px 8px;border:1px solid var(--rule);background:var(--paper);color:var(--ink);"></select>
+            <button onclick="previewMonthlyWinner()" style="font-family:monospace;font-size:11px;letter-spacing:1px;padding:5px 12px;background:none;border:1px solid var(--muted);color:var(--muted);cursor:pointer;">Preview</button>
+          </div>
+          <div id="winner-preview" style="margin-bottom:12px;font-family:monospace;font-size:12px;color:var(--muted);min-height:18px;"></div>
+          <div id="winner-draft-section" style="display:none;">
+            <div style="margin-bottom:12px;">
+              <div style="font-family:monospace;font-size:10px;letter-spacing:1px;color:var(--muted);margin-bottom:4px;">PERSONAL EMAIL TO WINNER</div>
+              <p style="font-family:monospace;font-size:10px;color:var(--muted);margin:0 0 5px;">Sent only to the winner. Opens with their name and "wins the [Month] mug!" above this text.</p>
+              <textarea id="winner-message-input" style="width:100%;box-sizing:border-box;font-family:serif;font-size:13px;padding:8px;border:1px solid var(--rule);background:var(--paper);color:var(--ink);resize:vertical;min-height:90px;"></textarea>
+            </div>
+            <div style="margin-bottom:12px;">
+              <div style="font-family:monospace;font-size:10px;letter-spacing:1px;color:var(--muted);margin-bottom:4px;">ANNOUNCEMENT TO ALL SUBSCRIBERS &amp; PROSPECTS</div>
+              <p style="font-family:monospace;font-size:10px;color:var(--muted);margin:0 0 5px;">Sent to everyone. Opens with "[Month] Champion" and winner name(s) above this text.</p>
+              <textarea id="announcement-message-input" style="width:100%;box-sizing:border-box;font-family:serif;font-size:13px;padding:8px;border:1px solid var(--rule);background:var(--paper);color:var(--ink);resize:vertical;min-height:80px;"></textarea>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <button id="winner-announce-btn" onclick="announceMonthlyWinnerManual()" style="font-family:monospace;font-size:11px;letter-spacing:1px;padding:6px 16px;background:var(--ink);color:var(--paper);border:none;cursor:pointer;">Send Announcement ▸</button>
+              <span id="winner-announce-status" style="font-family:monospace;font-size:11px;color:var(--green);display:none;"></span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="admin-collapsible" style="margin-top:20px;" id="anc-players">
@@ -3109,6 +3158,103 @@
           </table>`;
       } catch (e) {
         el.innerHTML = '<p style="color:var(--red);font-family:monospace;font-size:12px;">Could not load referrals.</p>';
+      }
+    }
+
+    // ── Monthly Winner (manual) ───────────────────────────────────
+    function populateMonthSelect() {
+      const sel = document.getElementById('winner-month-select');
+      if (!sel) return;
+      sel.innerHTML = '';
+      const now = new Date();
+      for (let i = 1; i <= 6; i++) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const value = d.toISOString().slice(0, 7);
+        const label = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        const opt = document.createElement('option');
+        opt.value = value; opt.textContent = label;
+        if (i === 1) opt.selected = true;
+        sel.appendChild(opt);
+      }
+    }
+    async function previewMonthlyWinner() {
+      const sel = document.getElementById('winner-month-select');
+      const month = sel ? sel.value : '';
+      const previewEl = document.getElementById('winner-preview');
+      const draftSection = document.getElementById('winner-draft-section');
+      const announceBtn = document.getElementById('winner-announce-btn');
+      if (!previewEl) return;
+      previewEl.textContent = 'Loading…';
+      previewEl.style.color = 'var(--muted)';
+      if (draftSection) draftSection.style.display = 'none';
+      try {
+        const adminToken = lsGet('dnq_admin_token') || 'admin';
+        const res = await fetch(`/api/admin/monthly-winner-preview?month=${month}`, { headers: { 'x-admin-token': adminToken } });
+        const d = await res.json();
+        if (!res.ok) { previewEl.style.color = 'var(--red)'; previewEl.textContent = d.error || 'Error'; return; }
+        if (!d.winners || !d.winners.length) {
+          previewEl.style.color = 'var(--muted)';
+          previewEl.textContent = `No eligible winners found for ${d.monthName}.`;
+          return;
+        }
+        const names = d.winners.map(w => `${w.displayName} (${w.score} pts)`).join(', ');
+        previewEl.style.color = 'var(--ink)';
+        previewEl.innerHTML = d.alreadyAnnounced
+          ? `<span style="color:var(--muted);">Already announced.</span> Winner${d.winners.length > 1 ? 's' : ''}: ${names}`
+          : `Winner${d.winners.length > 1 ? 's' : ''}: ${names}`;
+
+        // Populate editable draft textareas
+        const winnerTa = document.getElementById('winner-message-input');
+        const announceTa = document.getElementById('announcement-message-input');
+        if (winnerTa) winnerTa.value = d.defaultWinnerMessage || '';
+        if (announceTa) announceTa.value = d.defaultAnnouncementMessage || '';
+
+        if (draftSection) draftSection.style.display = 'block';
+        if (announceBtn) {
+          announceBtn.textContent = d.alreadyAnnounced ? 'Re-send Announcement ▸' : 'Send Announcement ▸';
+          announceBtn.dataset.month = month;
+          announceBtn.dataset.force = d.alreadyAnnounced ? 'true' : '';
+        }
+      } catch (e) { previewEl.style.color = 'var(--red)'; previewEl.textContent = 'Error: ' + e.message; }
+    }
+    async function announceMonthlyWinnerManual() {
+      const btn = document.getElementById('winner-announce-btn');
+      const statusEl = document.getElementById('winner-announce-status');
+      const month = btn ? btn.dataset.month : '';
+      const force = btn ? btn.dataset.force === 'true' : false;
+      const winnerMessage = (document.getElementById('winner-message-input') || {}).value || '';
+      const announcementMessage = (document.getElementById('announcement-message-input') || {}).value || '';
+      const monthLabel = document.getElementById('winner-month-select')?.options[document.getElementById('winner-month-select')?.selectedIndex]?.text || month;
+      if (!confirm(`Send the ${monthLabel} winner announcement to all subscribers and prospects? This cannot be undone.`)) return;
+      if (btn) btn.disabled = true;
+      if (statusEl) { statusEl.style.display = 'inline'; statusEl.style.color = 'var(--muted)'; statusEl.textContent = 'Sending…'; }
+      try {
+        const adminToken = lsGet('dnq_admin_token') || 'admin';
+        const res = await fetch('/api/admin/announce-monthly-winner', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+          body: JSON.stringify({ month, force, winnerMessage, announcementMessage })
+        });
+        const d = await res.json();
+        if (d.ok) {
+          const names = d.winners.map(w => w.displayName).join(' & ');
+          statusEl.style.color = 'var(--green)';
+          statusEl.textContent = `✓ Sent to ${d.recipientCount} recipients. Winner: ${names}`;
+        } else if (d.alreadyAnnounced) {
+          statusEl.style.color = 'var(--muted)';
+          statusEl.textContent = 'Already announced. Edit text above and click Re-send if needed.';
+          if (btn) { btn.disabled = false; btn.textContent = 'Re-send Announcement ▸'; btn.dataset.force = 'true'; }
+        } else if (d.noWinners) {
+          statusEl.style.color = 'var(--red)';
+          statusEl.textContent = 'No eligible winners found.';
+        } else {
+          statusEl.style.color = 'var(--red)';
+          statusEl.textContent = 'Error: ' + (d.error || 'Unknown error');
+        }
+      } catch (e) {
+        if (statusEl) { statusEl.style.color = 'var(--red)'; statusEl.textContent = 'Error: ' + e.message; }
+      } finally {
+        if (btn && btn.disabled) btn.disabled = false;
       }
     }
 
@@ -5103,6 +5249,8 @@ ${siteUrl}`;
       loadPlayerList();
       loadEmailPauseState();
       loadTopicBlocklist();
+      populateMonthSelect();
+      loadCommunityMessage();
       loadEditorNotes();
       loadStarredQuestions();
       loadMsgSubscribers();
@@ -5668,6 +5816,47 @@ ${siteUrl}`;
         }
       } catch (e) { console.warn('[EditorNotes] save failed', e); }
     }
+    // ── Community Email Message ───────────────────────────────────
+    async function loadCommunityMessage() {
+      try {
+        const res = await fetch('/api/community-message');
+        const data = await res.json();
+        const ta = document.getElementById('community-message-input');
+        if (ta) ta.value = data.message || '';
+        const statusEl = document.getElementById('community-message-status');
+        if (statusEl) statusEl.textContent = data.message ? '(active)' : '';
+        const lastSentEl = document.getElementById('community-message-last-sent');
+        if (lastSentEl) {
+          if (data.lastSent) {
+            const alreadySent = data.message && data.message.trim() === data.lastSent.trim();
+            lastSentEl.textContent = alreadySent
+              ? 'Already sent — edit the text above to send again.'
+              : 'Last sent: “' + data.lastSent.slice(0, 80) + (data.lastSent.length > 80 ? '…' : '') + '”';
+          } else {
+            lastSentEl.textContent = '';
+          }
+        }
+      } catch (e) { console.warn('[CommunityMessage] load failed', e); }
+    }
+    async function saveCommunityMessage() {
+      const message = (document.getElementById('community-message-input') || {}).value || '';
+      const adminToken = lsGet('dnq_admin_token') || 'admin';
+      try {
+        const res = await fetch('/api/community-message', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+          body: JSON.stringify({ message })
+        });
+        if (res.ok) {
+          const msgEl = document.getElementById('community-message-saved-msg');
+          if (msgEl) { msgEl.style.display = 'inline'; setTimeout(() => { msgEl.style.display = 'none'; }, 2000); }
+          const statusEl = document.getElementById('community-message-status');
+          if (statusEl) statusEl.textContent = message ? '(active)' : '';
+          await loadCommunityMessage();
+        }
+      } catch (e) { console.warn('[CommunityMessage] save failed', e); }
+    }
+
     // ── Starred Questions ─────────────────────────────────────────
     async function loadStarredQuestions() {
       try {
