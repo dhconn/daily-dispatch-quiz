@@ -5995,10 +5995,14 @@ ${siteUrl}`;
             'EXTRA HINT: If an article URL contains \'headlines\' or \'roundup\' or \'digest\' in the path, it is almost certainly a multi-story summary — REJECT it.\n\n' +
             'ARTICLES:\n' + headlines + '\n\n' +
             'DUPLICATE DETECTION: After deciding accept/reject, also identify pairs of accepted articles that cover the same news event from different angles or outlets. Two articles are duplicates if a reader would say they are "about the same thing" — same incident, same decision, same person\'s action. Different takes on a developing story still count as duplicates.\n\n' +
+            'INTEREST RATING: For each accepted article, also rate how interesting it is to a general Baltimore-area reader (not a specialist). Use:\n' +
+            '3 = HIGH — a well-informed Baltimorean would mention this to a friend: major civic decision, significant development, compelling human story, notable public figure, clear community impact\n' +
+            '2 = MEDIUM — reasonably newsworthy but not especially compelling\n' +
+            '1 = LOW — accepted but dry: routine procedural item, minor agency update, niche topic most residents would not care about\n\n' +
             'Respond with ONLY a JSON object in this exact format (no explanation):\n' +
-            '{"accepted": [0,2,4,7,9], "duplicates": [[2,7],[4,9]]}\n' +
-            'If no duplicates found, return {"accepted": [0,2,4,7,9], "duplicates": []}\n' +
-            'The duplicates array contains pairs of indices from the accepted list that cover the same event. Only include each pair once.';
+            '{"accepted": [0,2,4,7,9], "duplicates": [[2,7],[4,9]], "interest": {"0": 3, "2": 2, "4": 1, "7": 3, "9": 2}}\n' +
+            'If no duplicates found, return "duplicates": []\n' +
+            'interest keys are the original article indices. Every accepted index must appear in interest.';
 
           const screenController = new AbortController();
           const screenTimer = setTimeout(() => screenController.abort(), 30000);
@@ -6024,9 +6028,10 @@ ${siteUrl}`;
             const clean = screenText.replace(/```json|```/g, '').trim();
             const parsed = JSON.parse(clean);
 
-            // Handle both old format (array) and new format (object with accepted/duplicates)
+            // Handle both old format (array) and new format (object with accepted/duplicates/interest)
             const acceptedIndices = Array.isArray(parsed) ? parsed : (parsed.accepted || []);
-            const duplicatePairs = Array.isArray(parsed) ? [] : (parsed.duplicates || []);
+            const duplicatePairs  = Array.isArray(parsed) ? [] : (parsed.duplicates || []);
+            const interestScores  = (!Array.isArray(parsed) && parsed.interest) ? parsed.interest : {};
 
             // Build set of duplicate indices to suppress — keep only the first of each pair
             const suppressedByDupe = new Set();
@@ -6040,9 +6045,16 @@ ${siteUrl}`;
 
             console.log(`[PreScreen] Accepted ${acceptedIndices.length} of ${blocks.length} articles. Duplicates suppressed: ${suppressedByDupe.size}`);
 
-            const acceptedBlocks = acceptedIndices
+            // Sort by interest score (3=high → 1=low) so the most compelling stories get enriched and used first
+            const sortedIndices = acceptedIndices
               .filter(i => i >= 0 && i < blocks.length && !suppressedByDupe.has(i))
-              .map(i => blocks[i]);
+              .sort((a, b) => (interestScores[String(b)] || 2) - (interestScores[String(a)] || 2));
+
+            if (Object.keys(interestScores).length) {
+              console.log('[PreScreen] Interest scores:', sortedIndices.map(i => `${i}→${interestScores[String(i)] || 2}`).join(', '));
+            }
+
+            const acceptedBlocks = sortedIndices.map(i => blocks[i]);
             sandboxAcceptedBlocks = acceptedBlocks.slice();
             rssContent = acceptedBlocks.join('\n\n---\n\n');
             console.log(`[PreScreen] RSS content filtered to ${acceptedBlocks.length} articles after dupe removal`);
@@ -6207,17 +6219,28 @@ ${siteUrl}`;
           console.warn(`[QualityFilter] ${weakQuestions.length} weak questions — triggering targeted retry`);
           document.getElementById('gen-progress-text').textContent = 'Refining ' + weakQuestions.length + ' questions…';
 
-          const weakDescriptions = weakQuestions.map(w =>
-            `Q${w.index + 1} ("${questions[w.index].question.slice(0, 60)}…") — issues: ${w.flags.join(', ')}`
-          ).join('\n');
+          // Build a URL→article-block map so we can pass the source article into the retry
+          const retryBlockMap = {};
+          (rssContent || '').split('---').map(b => b.trim()).filter(Boolean).forEach(block => {
+            const m = block.match(/ARTICLE_URL:\s*(.+)/);
+            if (m) retryBlockMap[m[1].trim()] = block;
+          });
+
+          const weakDescriptions = weakQuestions.map(w => {
+            const q = questions[w.index];
+            const articleBlock = retryBlockMap[q.sourceUrl] || '';
+            return `Q${w.index + 1} ("${q.question.slice(0, 60)}…") — issues: ${w.flags.join(', ')}` +
+              (articleBlock ? `\n\nSOURCE ARTICLE:\n${articleBlock}` : '');
+          }).join('\n\n---\n\n');
 
           const retryPrompt =
-            'The following questions from a Baltimore news quiz need to be replaced because they test incidental details rather than the main point of the story:\n\n' +
+            'The following questions from a Baltimore news quiz need to be replaced. Each question is shown with the issues found and the original source article.\n\n' +
             weakDescriptions + '\n\n' +
             'For each question listed above, write a replacement that:\n' +
-            '- Tests the central hook of the story (the fact a reader would remember when retelling it)\n' +
+            '- Tests the central hook of the story — the single fact a reader would remember when retelling it\n' +
             '- Uses no banned openings (What does this reveal/demonstrate/suggest/show)\n' +
             '- Avoids attendance figures, vehicle types, timing details, neighborhood-as-answer, publication references\n' +
+            '- Does NOT make an obscure person\'s name the correct answer — if naming a person, they must be publicly recognizable\n' +
             '- Keeps the same difficulty and sourceUrl as the original\n\n' +
             'Return ONLY a JSON array of replacement question objects (same schema as before), one per weak question listed. No preamble.';
 
@@ -6485,8 +6508,8 @@ ${siteUrl}`;
         '- Dollar amounts, durations, unit counts, vote tallies, dates, or times — unless the number IS the entire headline (e.g. a record-breaking figure everyone is talking about)\n\n' +
         'QUESTION DESIGN RULES:\n' +
         'Q1 (easy, 10pts): FACTUAL. Ask what happened, who decided, or what was announced. Answerable from the headline alone.\n' +
-        'Q2 (easy, 10pts): SPECIFIC DETAIL. A concrete fact requiring reading: a named person, org, place, or stated reason.\n' +
-        'GUARDRAIL for Q1+Q2: NEVER ask about exact dollar amounts, street addresses, specific years/dates, or minor officials. Test decisions, outcomes, roles, relationships.\n' +
+        'Q2 (easy, 10pts): DECISION OR ACTION. Ask what was decided, announced, approved, proposed, or done — or by which named organization or well-known public figure. Prefer "what" questions over "who" questions. If the correct answer is a person\'s name, that person must be publicly recognizable to a typical Baltimore news reader. NEVER write a question whose correct answer is the name of a minor official, agency staffer, or anyone a reader would have no way to recognize — reframe it around what they did or decided instead.\n' +
+        'GUARDRAIL for Q1+Q2: NEVER ask about exact dollar amounts, street addresses, specific years/dates, or minor officials. NEVER make an obscure person\'s name the correct answer — if the answer is an unknown name, rewrite the question around the action or decision.\n' +
         'BAD: How much does the city earn from the marina? GOOD: Why did Baltimore choose private management for the marina?\n' +
         'Q3 (medium, 20pts): CAUSE. Ask why something happened or what triggered a decision.\n' +
         'Q4 (medium, 20pts): EFFECT. Ask what this means for a specific group, institution, or situation.\n' +
@@ -6609,6 +6632,18 @@ ${siteUrl}`;
       const pubRefs = /(banner|fishbowl|sun|brew|matters|reporter|writer|journalist|according to)/i;
       if (pubRefs.test(text)) {
         flags.push('references publication or writer in question');
+      }
+
+      // All-proper-names options — signals "who is [obscure person]" pattern
+      if (q.options && q.options.length === 4) {
+        const looksLikeName = opt => {
+          const words = String(opt || '').trim().split(/s+/);
+          return words.length >= 2 && words.length <= 4 &&
+                 words.every(w => /^[A-Z][a-z]/.test(w));
+        };
+        if (q.options.every(looksLikeName)) {
+          flags.push('all four options are proper names — likely asks "who is [unknown person]"');
+        }
       }
 
       return { ok: flags.length === 0, flags };
