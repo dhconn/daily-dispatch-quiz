@@ -90,7 +90,7 @@ async function setKey(key, value) {
 // All callers that used await readData()/await writeData() now use async versions below.
 async function readData() {
   const keys = ['sites','rssCache','scores','dist','quizzes','archiveUrls',
-                 'archiveQuestions','archiveSlugs','posts','messages','subscribers','emailPaused','emailPausedSnapshot','topicBlocklist','cachedTeaserHtml','cachedTeaserDate','emailSentDates','prospects','prospectsPaused','statsExclusions','editorNotes','starredQuestions'];
+                 'archiveQuestions','archiveSlugs','posts','messages','subscribers','emailPaused','emailPausedSnapshot','topicBlocklist','cachedTeaserHtml','cachedTeaserDate','emailSentDates','prospects','prospectsPaused','statsExclusions','editorNotes','starredQuestions','communityMessage','communityMessageLastSent'];
   const data = {};
   await Promise.all(keys.map(async k => {
     const v = await getKey(k);
@@ -101,7 +101,7 @@ async function readData() {
 
 async function writeData(data) {
   const keys = ['sites','rssCache','scores','dist','quizzes','archiveUrls',
-                 'archiveQuestions','archiveSlugs','posts','messages','subscribers','emailPaused','emailPausedSnapshot','topicBlocklist','cachedTeaserHtml','cachedTeaserDate','emailSentDates','prospects','prospectsPaused','statsExclusions','editorNotes','starredQuestions'];
+                 'archiveQuestions','archiveSlugs','posts','messages','subscribers','emailPaused','emailPausedSnapshot','topicBlocklist','cachedTeaserHtml','cachedTeaserDate','emailSentDates','prospects','prospectsPaused','statsExclusions','editorNotes','starredQuestions','communityMessage','communityMessageLastSent'];
   await Promise.all(keys.map(async k => {
     if (data[k] === null) await setKey(k, null);
     else if (data[k] !== undefined) await setKey(k, data[k]);
@@ -1163,6 +1163,164 @@ app.get('/api/monthly-winners', async (req, res) => {
   }
 });
 
+// ── Monthly winner helper — shared by preview and announce ────
+async function getMonthlyWinnerCandidates(monthPrefix) {
+  const data = await readData();
+  const scores = data.scores || {};
+  const entries = [];
+  for (const [playerKey, player] of Object.entries(scores)) {
+    const monthlyScore = Object.entries(player.dailyScores || {})
+      .filter(([d]) => d.startsWith(monthPrefix))
+      .reduce((sum, [, s]) => sum + s, 0);
+    if (monthlyScore === 0) continue;
+    const sub = Object.values(data.subscribers || {}).find(s =>
+      s.active && (s.name || '').toLowerCase().trim() === playerKey
+    );
+    if (!sub || sub.mugWon) continue;
+    entries.push({ playerKey, displayName: player.displayName || playerKey, monthlyScore, email: sub.email });
+  }
+  entries.sort((a, b) => b.monthlyScore - a.monthlyScore);
+  const topScore = entries.length ? entries[0].monthlyScore : 0;
+  const winners = entries.filter(e => e.monthlyScore === topScore);
+  return { winners, topScore, data };
+}
+
+// ── GET /api/admin/monthly-winner-preview — see who would win without sending ──
+app.get('/api/admin/monthly-winner-preview', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const monthPrefix = req.query.month || (() => {
+      const prev = new Date(); prev.setDate(1); prev.setMonth(prev.getMonth() - 1);
+      return prev.toISOString().slice(0, 7);
+    })();
+    const monthName = new Date(monthPrefix + '-02').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    const alreadyAnnounced = !!(await getKey('monthlyWinnerAnnounced_' + monthPrefix));
+    const { winners, topScore } = await getMonthlyWinnerCandidates(monthPrefix);
+    const winnerNames = winners.map(w => w.displayName).join(' and ');
+    const currentMonth = new Date().toLocaleDateString('en-US', { month: 'long' });
+    const defaultWinnerMessage = winners.length
+      ? `You finished ${monthName} at the top of the Daily Dispatch Quiz leaderboard with ${topScore} points.\n\nYour prize: a Daily Dispatch Quiz coffee mug, on us.\n\nJust reply to this email with your mailing address and we'll get it shipped to you.`
+      : '';
+    const defaultAnnouncementMessage = winners.length
+      ? `${winnerNames} topped the ${monthName} leaderboard with ${topScore} points and ${winners.length > 1 ? 'are' : 'is'} receiving a Daily Dispatch Quiz mug.\n\nThink you can beat them in ${currentMonth}? Play every day to climb the leaderboard.`
+      : '';
+    res.json({ monthPrefix, monthName, topScore, alreadyAnnounced, defaultWinnerMessage, defaultAnnouncementMessage,
+      winners: winners.map(w => ({ displayName: w.displayName, email: w.email, score: w.monthlyScore })) });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── POST /api/admin/announce-monthly-winner — manual winner announcement ──
+app.post('/api/admin/announce-monthly-winner', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const { month, force, winnerMessage, announcementMessage } = req.body || {};
+    const monthPrefix = month || (() => {
+      const prev = new Date(); prev.setDate(1); prev.setMonth(prev.getMonth() - 1);
+      return prev.toISOString().slice(0, 7);
+    })();
+    const monthName = new Date(monthPrefix + '-02').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+    const alreadyAnnounced = await getKey('monthlyWinnerAnnounced_' + monthPrefix);
+    if (alreadyAnnounced && !force) {
+      return res.json({ ok: false, alreadyAnnounced: true, monthName });
+    }
+
+    // Write the guard before sending — prevents double-fire if anything goes wrong mid-send
+    await setKey('monthlyWinnerAnnounced_' + monthPrefix, true);
+
+    const { winners, topScore, data } = await getMonthlyWinnerCandidates(monthPrefix);
+    const siteUrl = process.env.SITE_URL || 'https://dailydispatchquiz.com';
+
+    if (!winners.length) {
+      return res.json({ ok: false, noWinners: true, monthName });
+    }
+
+    const winnerNames = winners.map(w => w.displayName).join(' and ');
+    const currentMonth = new Date().toLocaleDateString('en-US', { month: 'long' });
+
+    // Use provided text or fall back to defaults; escape HTML then convert newlines to <br>
+    const safeHtml = t => (t || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+    const winnerBodyHtml = safeHtml(winnerMessage || `You finished ${monthName} at the top of the Daily Dispatch Quiz leaderboard with ${topScore} points.\n\nYour prize: a Daily Dispatch Quiz coffee mug, on us.\n\nJust reply to this email with your mailing address and we'll get it shipped to you.`);
+    const announcementBodyHtml = safeHtml(announcementMessage || `${winnerNames} topped the ${monthName} leaderboard with ${topScore} points and ${winners.length > 1 ? 'are' : 'is'} receiving a Daily Dispatch Quiz mug.\n\nThink you can beat them in ${currentMonth}? Play every day to climb the leaderboard.`);
+
+    // Mark mug won
+    for (const winner of winners) {
+      if (data.subscribers[winner.email]) {
+        data.subscribers[winner.email].mugWon = true;
+        data.subscribers[winner.email].mugWonAt = new Date().toISOString();
+        data.subscribers[winner.email].mugWonReason = `monthly_${monthPrefix}`;
+      }
+    }
+    if (!data.monthlyWinners) data.monthlyWinners = [];
+    for (const winner of winners) {
+      data.monthlyWinners.push({ month: monthPrefix, monthName, playerName: winner.displayName, score: winner.monthlyScore, announcedAt: new Date().toISOString() });
+    }
+    await writeData(data);
+
+    // Winner email(s)
+    for (const winner of winners) {
+      const winnerHtml = `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1008;">
+        <div style="background:#1a1008;color:#f5f0e8;text-align:center;padding:24px;">
+          <div style="font-family:monospace;font-size:11px;letter-spacing:3px;color:#f0c040;margin-bottom:6px;">BALTIMORE · DAILY DISPATCH</div>
+          <div style="font-size:28px;font-weight:bold;">The Daily Dispatch Quiz</div>
+        </div>
+        <div style="padding:32px 24px;background:#f5f0e8;text-align:center;">
+          <div style="font-size:48px;margin-bottom:12px;">🏆</div>
+          <p style="font-family:Georgia,serif;font-size:24px;font-weight:700;margin:0 0 10px;">${winner.displayName} wins the ${monthName} mug!</p>
+          <p style="font-size:15px;color:#6b5f4e;margin:0 0 24px;line-height:1.7;">${winnerBodyHtml}</p>
+          <img src="${siteUrl}/images/mug.png" alt="Daily Dispatch Quiz Mug" style="width:200px;height:auto;margin:0 auto 24px;display:block;">
+          <a href="${siteUrl}" style="display:inline-block;background:#1a1008;color:#f5f0e8;padding:16px 36px;font-family:monospace;font-size:13px;letter-spacing:2px;text-decoration:none;text-transform:uppercase;">Play Today's Quiz ▸</a>
+        </div>
+        <div style="padding:16px 24px;text-align:center;font-size:11px;color:#999;font-family:monospace;border-top:1px solid #e0d8cc;">
+          <a href="${siteUrl}/api/unsubscribe?email=${encodeURIComponent(winner.email)}" style="color:#999;">Unsubscribe</a>
+        </div>
+      </div>`;
+      await sendEmail(winner.email, `🏆 You won the ${monthName} Daily Dispatch Quiz mug!`, winnerHtml);
+    }
+
+    // Announcement to all subscribers and prospects
+    const announcementHtml = `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1008;">
+      <div style="background:#1a1008;color:#f5f0e8;text-align:center;padding:24px;">
+        <div style="font-family:monospace;font-size:11px;letter-spacing:3px;color:#f0c040;margin-bottom:6px;">BALTIMORE · DAILY DISPATCH</div>
+        <div style="font-size:28px;font-weight:bold;">The Daily Dispatch Quiz</div>
+      </div>
+      <div style="padding:32px 24px;background:#f5f0e8;text-align:center;">
+        <div style="font-size:48px;margin-bottom:12px;">🏆</div>
+        <p style="font-family:Georgia,serif;font-size:24px;font-weight:700;margin:0 0 10px;">${monthName} Champion${winners.length > 1 ? 's' : ''}</p>
+        <p style="font-size:20px;font-weight:700;color:#b8860b;margin:0 0 16px;">${winnerNames}</p>
+        <p style="font-size:15px;color:#6b5f4e;margin:0 0 24px;line-height:1.7;">${announcementBodyHtml}</p>
+        <img src="${siteUrl}/images/mug.png" alt="Daily Dispatch Quiz Mug" style="width:160px;height:auto;margin:0 auto 24px;display:block;">
+        <a href="${siteUrl}" style="display:inline-block;background:#1a1008;color:#f5f0e8;padding:16px 36px;font-family:monospace;font-size:13px;letter-spacing:2px;text-decoration:none;text-transform:uppercase;">Play Today's Quiz ▸</a>
+      </div>
+      <div style="padding:16px 24px;text-align:center;font-size:11px;color:#999;font-family:monospace;border-top:1px solid #e0d8cc;">
+        Daily Dispatch Quiz · Baltimore
+      </div>
+    </div>`;
+
+    const allRecipients = [
+      ...Object.values(data.subscribers || {}).filter(s => s.active && !winners.find(w => w.email === s.email)),
+      ...Object.values(data.prospects || {}).filter(p => p.active !== false)
+    ];
+    const announcementEmails = allRecipients.map(r => ({
+      from: process.env.FROM_EMAIL || 'David @ Daily Dispatch Quiz <david@dailydispatchquiz.com>',
+      reply_to: 'dhconn@gmail.com',
+      to: [r.email],
+      subject: `🏆 ${monthName} Quiz Champion: ${winnerNames}`,
+      html: announcementHtml
+    }));
+    await sendEmailBatch(announcementEmails);
+
+    console.log(`[MonthlyWinner] Manual announcement sent for ${monthName} — ${winners.length} winner(s), ${announcementEmails.length} recipients.`);
+    res.json({ ok: true, monthName, recipientCount: announcementEmails.length,
+      winners: winners.map(w => ({ displayName: w.displayName, email: w.email, score: w.monthlyScore })) });
+  } catch (e) {
+    console.error('[MonthlyWinner] manual announce error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── GET /api/quiz/latest — always return the most recently published quiz ──
 app.get('/api/quiz/latest', async (req, res) => {
   const data = await readData();
@@ -1248,6 +1406,15 @@ Respond with ONLY a JSON array of 3 strings. No preamble, no markdown.`;
   });
 }
 
+function buildEditorMessageHtml(message) {
+  if (!message || !message.trim()) return '';
+  return `
+    <div style="margin:0 0 24px;padding:18px 20px;background:#fff8f0;border-left:4px solid #c0392b;text-align:left;">
+      <div style="font-family:monospace;font-size:10px;letter-spacing:2px;color:#c0392b;margin-bottom:10px;">&#128226; A NOTE FROM THE EDITOR:</div>
+      <div style="font-family:Georgia,serif;font-size:15px;line-height:1.6;color:#1a1008;">${message.trim().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>')}</div>
+    </div>`;
+}
+
 function buildTeaserHtml(teasers) {
   if (!teasers || teasers.length === 0) return '';
   return `
@@ -1287,6 +1454,7 @@ return `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;colo
         — or — <a href="${siteUrl}" style="color:#1a1008;font-weight:700;">go straight to today's quiz →</a>
       </p>
       <p style="font-family:monospace;font-size:11px;color:#6b5f4e;margin:0 0 20px;letter-spacing:1px;text-align:center;">☕ Refer 3 friends who subscribe &amp; play — win a mug. Details after you play.</p>
+<!--EDITOR_MESSAGE_INSERT_POINT-->
 <!--YESTERDAY_INSERT_POINT-->
 <!--SUBSCRIBE_INSERT_POINT-->
     </div>
@@ -1310,6 +1478,7 @@ function buildEmailHtml(siteUrl, date, subscriberName, teaserHtml, unsubUrl, tra
       <p style="font-size:16px;color:#444;margin:0 0 8px;">6 questions. 90 seconds.</p>
       <p style="font-size:16px;color:#444;margin:0 0 24px;">How closely are you following the news?</p>
       ${teaserHtml}
+<!--EDITOR_MESSAGE_INSERT_POINT-->
       <a href="${siteUrl}/news-quiz.html${trackingToken ? '?tok=' + encodeURIComponent(trackingToken) + '&group=A' : ''}" style="display:inline-block;background:#1a1008;color:#f5f0e8;padding:16px 36px;font-family:monospace;font-size:13px;letter-spacing:2px;text-decoration:none;text-transform:uppercase;">Play Today's Quiz ▸</a>
       <p style="font-family:monospace;font-size:11px;color:#6b5f4e;margin:16px 0 0;letter-spacing:1px;">☕ Refer 3 friends who subscribe &amp; play — win a mug. Details after you play.</p>
 
@@ -1392,6 +1561,22 @@ app.post('/api/editor-notes', async (req, res) => {
   console.log('[Admin] Editor notes updated (' + data.editorNotes.length + ' chars)');
   res.json({ ok: true, notes: data.editorNotes });
 });
+// ── GET /api/community-message — fetch community email message ───
+app.get('/api/community-message', async (req, res) => {
+  const data = await readData();
+  res.json({ message: data.communityMessage || '', lastSent: data.communityMessageLastSent || '' });
+});
+// ── POST /api/community-message — save community email message ───
+app.post('/api/community-message', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  const data = await readData();
+  data.communityMessage = typeof req.body.message === 'string' ? req.body.message.trim() : '';
+  await writeData(data);
+  console.log('[Admin] Community message updated (' + data.communityMessage.length + ' chars)');
+  res.json({ ok: true, message: data.communityMessage });
+});
+
 // ── GET /api/starred-questions — fetch starred example questions ──
 app.get('/api/starred-questions', async (req, res) => {
   const data = await readData();
@@ -1619,6 +1804,11 @@ app.post('/api/quiz', async (req, res) => {
 
     let sentAnyEmails = false;
 
+    const communityMessage = (freshData.communityMessage || '').trim();
+    const communityMessageLastSent = (freshData.communityMessageLastSent || '').trim();
+    const shouldIncludeEditorMessage = communityMessage.length > 0 && communityMessage !== communityMessageLastSent;
+    const editorMessageHtml = shouldIncludeEditorMessage ? buildEditorMessageHtml(communityMessage) : '';
+
     const subscribers = freshData.emailPaused ? [] : Object.values(freshData.subscribers || {}).filter(s => s.active);
     if (subscribers.length > 0) {
       console.log(`Email: Sending quiz notification to ${subscribers.length} subscribers…`);
@@ -1684,6 +1874,7 @@ app.post('/api/quiz', async (req, res) => {
           await logEmailEvent('email_sent', sub.email, date, { group: 'A' });
         }
 
+        baseHtml = baseHtml.replace('<!--EDITOR_MESSAGE_INSERT_POINT-->', editorMessageHtml);
         const html = resultsHtml
           ? baseHtml.replace('<!--YESTERDAY_INSERT_POINT-->', resultsHtml)
           : baseHtml.replace('<!--YESTERDAY_INSERT_POINT-->', '');
@@ -1764,6 +1955,7 @@ const prospectEmails = [];
           await logEmailEvent('email_sent', p.email, date, { group: 'A' });
         }
 
+        baseHtml = baseHtml.replace('<!--EDITOR_MESSAGE_INSERT_POINT-->', editorMessageHtml);
         const subscribeBtn = `
           <div style="padding:20px 24px;text-align:center;background:#f5f0e8;border-top:1px solid #e0d8cc;">
             <p style="font-family:monospace;font-size:11px;letter-spacing:1px;color:#6b5f4e;margin-bottom:12px;">GET THIS AUTOMATICALLY EVERY MORNING</p>
@@ -1805,6 +1997,7 @@ const prospectEmails = [];
     await sendPushNotifications(date);
     if (sentAnyEmails) {
       freshData.emailSentDates = [...(freshData.emailSentDates || []), date].slice(-30);
+      if (shouldIncludeEditorMessage) freshData.communityMessageLastSent = communityMessage;
       await writeData(freshData);
     }
   } else {
@@ -2902,6 +3095,11 @@ async function checkScheduledPublish() {
 
     let sentAnyEmails = false;
 
+    const communityMessage = (freshData.communityMessage || '').trim();
+    const communityMessageLastSent = (freshData.communityMessageLastSent || '').trim();
+    const shouldIncludeEditorMessage = communityMessage.length > 0 && communityMessage !== communityMessageLastSent;
+    const editorMessageHtml = shouldIncludeEditorMessage ? buildEditorMessageHtml(communityMessage) : '';
+
     const subscribers = freshData.emailPaused ? [] : Object.values(freshData.subscribers || {}).filter(s => s.active);
     if (subscribers.length > 0) {
       const yd = new Date(date + 'T12:00:00');
@@ -2945,6 +3143,7 @@ async function checkScheduledPublish() {
           await logEmailEvent('email_sent', sub.email, date, { group: 'A' });
         }
 
+        baseHtml = baseHtml.replace('<!--EDITOR_MESSAGE_INSERT_POINT-->', editorMessageHtml);
         const html = resultsHtml
           ? baseHtml.replace('<!--YESTERDAY_INSERT_POINT-->', resultsHtml)
           : baseHtml.replace('<!--YESTERDAY_INSERT_POINT-->', '');
@@ -3000,6 +3199,7 @@ async function checkScheduledPublish() {
           await logEmailEvent('email_sent', p.email, date, { group: 'A' });
         }
 
+        baseHtml = baseHtml.replace('<!--EDITOR_MESSAGE_INSERT_POINT-->', editorMessageHtml);
         const subscribeBtn = `
           <div style="padding:20px 24px;text-align:center;background:#f5f0e8;border-top:1px solid #e0d8cc;">
             <p style="font-family:monospace;font-size:11px;letter-spacing:1px;color:#6b5f4e;margin-bottom:12px;">GET THIS AUTOMATICALLY EVERY MORNING</p>
@@ -3030,6 +3230,7 @@ async function checkScheduledPublish() {
     await sendPushNotifications(date);
     if (sentAnyEmails) {
       freshData.emailSentDates = [...(freshData.emailSentDates || []), date].slice(-30);
+      if (shouldIncludeEditorMessage) freshData.communityMessageLastSent = communityMessage;
       await writeData(freshData);
     }
     console.log(`[Schedule] Publish complete for ${date}`);
