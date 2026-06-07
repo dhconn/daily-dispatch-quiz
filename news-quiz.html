@@ -3789,6 +3789,30 @@
       }
     }
 
+    async function submitNoQuizSubscribe() {
+      const emailEl = document.getElementById('no-quiz-sub-email');
+      const statusEl = document.getElementById('no-quiz-sub-status');
+      const email = emailEl ? emailEl.value.trim() : '';
+      if (!email) { if (statusEl) statusEl.textContent = 'Please enter your email.'; return; }
+      if (statusEl) statusEl.textContent = 'Subscribing…';
+      try {
+        const name = state.playerName || '';
+        const res = await fetch('/api/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, name }) });
+        const data = await res.json();
+        if (data.ok) {
+          const formEl = document.getElementById('no-quiz-sub-form');
+          if (formEl) formEl.style.display = 'none';
+          if (statusEl) statusEl.textContent = "✓ You're in — we'll email you when today's quiz is ready!";
+          lsSet('dnq_subscribed', '1');
+          lsSet('dnq_subscribed_email', email);
+        } else {
+          if (statusEl) statusEl.textContent = data.error || 'Something went wrong.';
+        }
+      } catch (e) {
+        if (statusEl) statusEl.textContent = 'Error: ' + e.message;
+      }
+    }
+
     function buildShareText() {
       const score = state.sessionScore;
       const maxScore = 10 + 10 + 20 + 20 + 30 + 50 + 10; // 150 with completion bonus
@@ -4056,10 +4080,25 @@ ${siteUrl}`;
         showScreen('screen-quiz');
         document.getElementById('quiz-player-name').textContent = name;
         document.getElementById('live-score').textContent = '0';
+        const _nqAlreadySub = lsGet('dnq_subscribed');
         document.getElementById('question-area').innerHTML = `
       <div class="no-quiz-card">
         <div class="big-text">📰</div>
-        <p>No quiz has been published for today yet. Check back soon!</p>
+        <p>Today's quiz isn't ready yet — check back soon!</p>
+        ${_nqAlreadySub ? `
+        <p style="margin-top:12px;font-size:13px;">You're already subscribed — we'll let you know when today's quiz is ready!</p>
+        ` : `
+        <div style="margin-top:20px;">
+          <p style="font-size:13px;margin:0 0 12px;line-height:1.5;">Want to be the first to know when it's ready?<br>Subscribe and we'll email you as soon as today's quiz goes live.</p>
+          <div id="no-quiz-sub-form" style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+            <input id="no-quiz-sub-email" type="email" placeholder="your@email.com"
+              style="flex:1;min-width:160px;max-width:240px;font-family:serif;font-size:14px;padding:8px 10px;border:1px solid #ccc;box-sizing:border-box;background:#fff;color:#1a1008;">
+            <button onclick="submitNoQuizSubscribe()"
+              style="font-family:'Courier Prime',monospace;font-size:12px;letter-spacing:1px;padding:8px 16px;background:var(--gold);color:var(--ink);border:none;cursor:pointer;white-space:nowrap;">Subscribe ▸</button>
+          </div>
+          <div id="no-quiz-sub-status" style="font-family:monospace;font-size:12px;margin-top:8px;min-height:16px;color:var(--muted);"></div>
+        </div>
+        `}
         <p style="margin-top:16px;"><button class="btn-secondary" onclick="showScreen('screen-register')">◂ Back</button></p>
       </div>`;
         buildProgressTrack([]);
