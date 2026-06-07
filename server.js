@@ -852,7 +852,7 @@ try {
     try {
       const allProgress = (await getKey('progress')) || {};
       if (!allProgress[date]) allProgress[date] = {};
-      if (!allProgress[date][key]) {
+      if (!allProgress[date][key] || (allProgress[date][key].synthetic && score > (allProgress[date][key].score || 0))) {
         allProgress[date][key] = {
           score,
           completed: false,
@@ -1100,6 +1100,9 @@ app.post('/api/subscribe', async (req, res) => {
   const data = await readData();
   if (!data.subscribers) data.subscribers = {};
   const key = email.toLowerCase().trim();
+
+  const isNew = !data.subscribers[key] || data.subscribers[key].active !== true;
+
   data.subscribers[key] = {
     name: (name || '').trim().slice(0, 40),
     email: key,
@@ -1126,7 +1129,14 @@ app.post('/api/subscribe', async (req, res) => {
     console.warn('[Referral] hasSubscribed update failed (non-fatal):', e.message);
   }
 
-  res.json({ ok: true });
+  // ── Send welcome email to new subscribers ──
+  if (isNew) {
+    const siteUrl = process.env.SITE_URL || 'https://dailydispatchquiz.com';
+    const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(key)}`;
+    sendWelcomeEmail(key, (name || '').trim(), siteUrl, unsubUrl);
+  }
+
+  res.json({ ok: true, alreadySubscribed: !isNew });
 });
 
 app.get('/api/unsubscribe', async (req, res) => {
@@ -2534,6 +2544,42 @@ async function sendEmail(to, subject, html) {
     req.write(body);
     req.end();
   });
+}
+
+function sendWelcomeEmail(email, name, siteUrl, unsubUrl) {
+  const greeting = name ? `Hi ${name}` : 'Hi there';
+  const html = `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1008;">
+    <div style="background:#1a1008;color:#f5f0e8;text-align:center;padding:24px;">
+      <div style="font-family:monospace;font-size:11px;letter-spacing:3px;color:#f0c040;margin-bottom:6px;">BALTIMORE · DAILY DISPATCH</div>
+      <div style="font-size:28px;font-weight:bold;">The Daily Dispatch Quiz</div>
+    </div>
+    <div style="padding:32px 24px;background:#f5f0e8;">
+      <p style="font-size:18px;margin:0 0 20px;">${greeting} — welcome aboard.</p>
+      <p style="font-size:15px;line-height:1.7;margin:0 0 16px;">You've just subscribed to the Daily Dispatch Quiz — a free, daily Baltimore local news quiz that takes about two minutes to play. Six questions, a leaderboard, and bragging rights. That's the whole deal.</p>
+      <p style="font-size:15px;line-height:1.7;margin:0 0 24px;">Each morning — usually before 9am — you'll get an email with a link straight to today's quiz. No fluff, just Baltimore news.</p>
+      <div style="background:white;border-left:4px solid #f0c040;padding:16px 20px;margin:0 0 24px;">
+        <p style="font-size:14px;line-height:1.7;margin:0;color:#444;"><strong>One small favor:</strong> If you don't hear from us tomorrow morning, peek in your junk or spam folder. If we're in there, give us a safe-sender mark — we promise we're not spam, just Baltimore news nerds who don't want you to miss out.</p>
+      </div>
+      <p style="font-size:15px;font-weight:700;margin:0 0 8px;">Two ways to win a mug ☕</p>
+      <p style="font-size:15px;line-height:1.7;margin:0 0 8px;">Yes, an actual mug. Yes, it's worth playing for.</p>
+      <p style="font-size:15px;line-height:1.7;margin:0 0 8px;">🏆 <strong>Finish the month at the top of the leaderboard.</strong> Play every day, score well — winner announced on the 1st.</p>
+      <p style="font-size:15px;line-height:1.7;margin:0 0 28px;">☕ <strong>Refer a friend who subscribes and plays three times.</strong> After you play today, look for your referral link at the top of the results page — you can share it anytime.</p>
+      <div style="text-align:center;margin-bottom:28px;">
+        <a href="${siteUrl}" style="display:inline-block;background:#1a1008;color:#f5f0e8;padding:16px 36px;font-family:monospace;font-size:13px;letter-spacing:2px;text-decoration:none;text-transform:uppercase;">Play Today's Quiz ▸</a>
+      </div>
+      <p style="font-size:15px;line-height:1.7;margin:0 0 4px;">See you in the leaderboard,</p>
+      <p style="font-size:15px;font-weight:700;margin:0 0 4px;">David</p>
+      <p style="font-family:monospace;font-size:11px;color:#6b5f4e;margin:0;">Editor, Daily Dispatch Quiz</p>
+    </div>
+    <div style="padding:16px 24px;text-align:center;font-size:11px;color:#999;font-family:monospace;border-top:1px solid #e0d8cc;">
+      <a href="${unsubUrl}" style="color:#999;">Unsubscribe</a>
+    </div>
+  </div>`;
+  sendEmail(email, 'Welcome to the Daily Dispatch Quiz! 🏆', html)
+    .then(ok => {
+      if (ok) console.log(`[Welcome] Sent welcome email to ${email}`);
+      else console.warn(`[Welcome] Failed to send welcome email to ${email}`);
+    });
 }
 
 // Batch email send — sends up to 100 emails per request, chunked with delay between batches

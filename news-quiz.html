@@ -2168,6 +2168,39 @@
       </div>
     </div>
 
+    <!-- SUBSCRIBE CONFIRM OVERLAY -->
+    <div id="subscribe-confirm-overlay" style="
+      display:none;
+      position:fixed;
+      inset:0;
+      z-index:3000;
+      background:rgba(26,16,8,0.85);
+      align-items:center;
+      justify-content:center;
+      pointer-events:auto;
+    " onclick="dismissSubscribeConfirm()">
+      <div style="
+        background:var(--paper);
+        color:var(--ink);
+        border-top:4px double var(--ink);
+        border-bottom:4px double var(--ink);
+        box-shadow:0 8px 24px rgba(0,0,0,0.4);
+        padding:28px 32px;
+        max-width:420px;
+        width:min(90vw,420px);
+        text-align:center;
+        position:relative;
+      " onclick="event.stopPropagation()">
+        <div style="font-family:'Courier Prime',monospace;font-size:10px;letter-spacing:3px;color:var(--muted);margin-bottom:14px;">DAILY DISPATCH QUIZ</div>
+        <div id="subscribe-confirm-message" style="font-size:15px;line-height:1.7;margin-bottom:22px;"></div>
+        <button onclick="dismissSubscribeConfirm()"
+          style="font-family:'Courier Prime',monospace;font-size:12px;letter-spacing:2px;padding:12px 28px;background:var(--ink);color:var(--paper);border:none;cursor:pointer;width:100%;">
+          Got it ▸
+        </button>
+        <div style="font-family:monospace;font-size:10px;color:var(--muted);margin-top:10px;">Tap anywhere to dismiss</div>
+      </div>
+    </div>
+
     <!-- FIRST-TIME PLAYER OVERLAY -->
     <div id="first-time-overlay" style="
   display:none;
@@ -3905,6 +3938,7 @@
           if (emailEl) emailEl.style.display = 'none';
           lsSet('dnq_subscribed', '1');
           document.getElementById('interstitial-sub-cta').querySelector('button') && (document.getElementById('interstitial-sub-cta').querySelector('button').style.display = 'none');
+          showSubscribeConfirmPopup(data.alreadySubscribed);
         } else {
           if (statusEl) statusEl.textContent = data.error || 'Something went wrong.';
         }
@@ -3927,6 +3961,7 @@
           if (statusEl) statusEl.textContent = "You're in. See you tomorrow!";
           if (emailEl) emailEl.value = '';
           lsSet('dnq_subscribed', '1');
+          showSubscribeConfirmPopup(data.alreadySubscribed);
         } else {
           if (statusEl) statusEl.textContent = data.error || 'Something went wrong.';
         }
@@ -3951,6 +3986,7 @@
           if (statusEl) statusEl.textContent = "✓ You're in — we'll email you when today's quiz is ready!";
           lsSet('dnq_subscribed', '1');
           lsSet('dnq_subscribed_email', email);
+          showSubscribeConfirmPopup(data.alreadySubscribed);
         } else {
           if (statusEl) statusEl.textContent = data.error || 'Something went wrong.';
         }
@@ -3982,6 +4018,23 @@ ${siteUrl}`;
     function dismissMugTease() {
       document.getElementById('mug-tease-overlay').style.display = 'none';
       proceedAfterMugTease(window._pendingMugQuiz, window._pendingMugOptions || {});
+    }
+
+    function showSubscribeConfirmPopup(alreadySubscribed) {
+      const overlay = document.getElementById('subscribe-confirm-overlay');
+      const msgEl = document.getElementById('subscribe-confirm-message');
+      if (!overlay || !msgEl) return;
+      if (alreadySubscribed) {
+        msgEl.innerHTML = `<strong>You're already subscribed!</strong><br><br>We'll keep sending you the quiz each morning. See you in the leaderboard!`;
+      } else {
+        msgEl.innerHTML = `<strong>Thanks for subscribing! 🎉</strong><br><br>Watch for a welcome email from us — it should arrive in the next minute or two.<br><br>If you don't see it, check your junk or spam folder and mark us as a safe sender so you don't miss tomorrow's quiz.`;
+      }
+      overlay.style.display = 'flex';
+    }
+
+    function dismissSubscribeConfirm() {
+      const overlay = document.getElementById('subscribe-confirm-overlay');
+      if (overlay) overlay.style.display = 'none';
     }
 
     function proceedAfterMugTease(quiz, { resumed } = {}) {
@@ -4036,6 +4089,7 @@ ${siteUrl}`;
 
     if (data.ok) {
       lsSet('dnq_subscribed_email', email);
+      showSubscribeConfirmPopup(data.alreadySubscribed);
 
       const codeRes = await fetch('/api/referral-code?email=' + encodeURIComponent(email));
       const codeData = await codeRes.json();
@@ -4106,6 +4160,7 @@ ${siteUrl}`;
           lsSet('dnq_subscribed', '1');
           document.getElementById('results-sub-form').style.display = 'none';
           document.getElementById('results-sub-done').style.display = 'block';
+          showSubscribeConfirmPopup(data.alreadySubscribed);
         } else {
           statusEl.textContent = data.error || 'Something went wrong. Please try again.';
           statusEl.style.color = 'var(--red)';
