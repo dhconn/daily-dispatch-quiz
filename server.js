@@ -1464,7 +1464,6 @@ return `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;colo
       <p style="text-align:center;margin:12px 0 8px;font-family:monospace;font-size:11px;letter-spacing:1px;color:#6b5f4e;">
         — or — <a href="${siteUrl}" style="color:#1a1008;font-weight:700;">go straight to today's quiz →</a>
       </p>
-      <p style="font-family:monospace;font-size:11px;color:#6b5f4e;margin:0 0 20px;letter-spacing:1px;text-align:center;">☕ Refer 3 friends who subscribe &amp; play — win a mug. Details after you play.</p>
 <!--EDITOR_MESSAGE_INSERT_POINT-->
 <!--YESTERDAY_INSERT_POINT-->
 <!--SUBSCRIBE_INSERT_POINT-->
@@ -1491,7 +1490,6 @@ function buildEmailHtml(siteUrl, date, subscriberName, teaserHtml, unsubUrl, tra
       ${teaserHtml}
 <!--EDITOR_MESSAGE_INSERT_POINT-->
       <a href="${siteUrl}/news-quiz.html${trackingToken ? '?tok=' + encodeURIComponent(trackingToken) + '&group=A' : ''}" style="display:inline-block;background:#1a1008;color:#f5f0e8;padding:16px 36px;font-family:monospace;font-size:13px;letter-spacing:2px;text-decoration:none;text-transform:uppercase;">Play Today's Quiz ▸</a>
-      <p style="font-family:monospace;font-size:11px;color:#6b5f4e;margin:16px 0 0;letter-spacing:1px;">☕ Refer 3 friends who subscribe &amp; play — win a mug. Details after you play.</p>
 
 <!--SUBSCRIBE_INSERT_POINT-->
     </div>
