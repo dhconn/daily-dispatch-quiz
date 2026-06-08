@@ -1968,9 +1968,10 @@ const prospectEmails = [];
 
         baseHtml = baseHtml.replace('<!--EDITOR_MESSAGE_INSERT_POINT-->', editorMessageHtml);
         const subscribeBtn = `
-          <div style="padding:20px 24px;text-align:center;background:#f5f0e8;border-top:1px solid #e0d8cc;">
-            <p style="font-family:monospace;font-size:11px;letter-spacing:1px;color:#6b5f4e;margin-bottom:12px;">GET THIS AUTOMATICALLY EVERY MORNING</p>
-            <a href="${subscribeUrl}" style="display:inline-block;background:#c0392b;color:white;padding:12px 28px;font-family:monospace;font-size:12px;letter-spacing:2px;text-decoration:none;text-transform:uppercase;">Subscribe Free &#9658;</a>
+          <div style="padding:24px;text-align:center;background:#f5f0e8;border-top:2px solid #1a1008;">
+            <p style="font-family:monospace;font-size:11px;letter-spacing:1px;color:#6b5f4e;margin:0 0 14px;">GET THIS AUTOMATICALLY EVERY MORNING</p>
+            <p style="font-size:14px;color:#1a1008;margin:0 0 18px;line-height:1.6;">🏆 Subscribe free and you could win a DDQ coffee mug — just finish a month as our top scorer, or refer 3 friends who subscribe and play. It's even more fun than it sounds.</p>
+            <a href="${subscribeUrl}" style="display:inline-block;background:#c0392b;color:white;padding:16px 40px;font-family:monospace;font-size:14px;letter-spacing:2px;text-decoration:none;text-transform:uppercase;font-weight:bold;">Subscribe Free &#9658;</a>
           </div>`;
 
         const html = baseHtml.replace('<!--SUBSCRIBE_INSERT_POINT-->', subscribeBtn);
@@ -3248,9 +3249,10 @@ async function checkScheduledPublish() {
 
         baseHtml = baseHtml.replace('<!--EDITOR_MESSAGE_INSERT_POINT-->', editorMessageHtml);
         const subscribeBtn = `
-          <div style="padding:20px 24px;text-align:center;background:#f5f0e8;border-top:1px solid #e0d8cc;">
-            <p style="font-family:monospace;font-size:11px;letter-spacing:1px;color:#6b5f4e;margin-bottom:12px;">GET THIS AUTOMATICALLY EVERY MORNING</p>
-            <a href="${subscribeUrl}" style="display:inline-block;background:#c0392b;color:white;padding:12px 28px;font-family:monospace;font-size:12px;letter-spacing:2px;text-decoration:none;text-transform:uppercase;">Subscribe Free &#9658;</a>
+          <div style="padding:24px;text-align:center;background:#f5f0e8;border-top:2px solid #1a1008;">
+            <p style="font-family:monospace;font-size:11px;letter-spacing:1px;color:#6b5f4e;margin:0 0 14px;">GET THIS AUTOMATICALLY EVERY MORNING</p>
+            <p style="font-size:14px;color:#1a1008;margin:0 0 18px;line-height:1.6;">🏆 Subscribe free and you could win a DDQ coffee mug — just finish a month as our top scorer, or refer 3 friends who subscribe and play. It's more fun than it sounds.</p>
+            <a href="${subscribeUrl}" style="display:inline-block;background:#c0392b;color:white;padding:16px 40px;font-family:monospace;font-size:14px;letter-spacing:2px;text-decoration:none;text-transform:uppercase;font-weight:bold;">Subscribe Free &#9658;</a>
           </div>`;
 
         prospectEmails.push({
