@@ -2112,6 +2112,23 @@ app.post('/api/pwa-session', async (req, res) => {
 });
 
 // ── Email quiz tokens ─────────────────────────────────────────
+// ── GET /api/subscriber-name — look up display name for a token ──
+// Used to pre-fill the name field when a player arrives via email link.
+// No date check — just a name lookup, fails silently.
+app.get('/api/subscriber-name', async (req, res) => {
+  const { tok } = req.query;
+  if (!tok) return res.json({ name: '' });
+  try {
+    const tokens = (await getKey('emailTokens')) || {};
+    const record = tokens[tok];
+    if (!record) return res.json({ name: '' });
+    const name = (record.displayName || record.playerKey || '').split('@')[0].trim();
+    res.json({ name });
+  } catch (e) {
+    res.json({ name: '' });
+  }
+});
+
 // Stored as emailTokens = { token: { email, playerKey, date, usedAt } }
 
 app.post('/api/email-token/validate', async (req, res) => {
