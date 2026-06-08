@@ -152,9 +152,10 @@ function parseRSS(xml) {
       || (block.match(/href="(https?:\/\/[^"]+)"/)||[])[1]
       || '';
     const pubDate = get('pubDate') || get('published') || get('updated') || '';
+    const author = get('author') || get('dc:creator') || get('media:credit') || '';
 
     if (title) {
-      items.push({ title, description: description.slice(0, 2000), link, pubDate });
+      items.push({ title, description: description.slice(0, 2000), link, pubDate, author });
     }
   }
   return items;

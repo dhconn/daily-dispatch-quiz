@@ -703,9 +703,28 @@ function reporterMatchesAuthor(reporter, authorName) {
   return false;
 }
 
+// Fetch the RSS cache from the production server
+async function fetchRssCache() {
+  try {
+    const { data } = await axios.get('https://dailydispatchquiz.com/api/rss', { timeout: 10000 });
+    return data.items || [];
+  } catch (e) {
+    console.warn('[Outreach] Could not fetch RSS cache:', e.message);
+    return [];
+  }
+}
+
 // Match reporters to today's quiz questions by fetching article bylines
 async function matchReporters(questions, topics, contacts) {
   const allMatches = [];
+
+  // Build URL→author map from the RSS cache — bypasses paywalls for outlets like the Banner
+  const rssItems = await fetchRssCache();
+  const rssAuthorMap = new Map();
+  for (const item of rssItems) {
+    if (item.link && item.author) rssAuthorMap.set(item.link, item.author);
+  }
+  console.log(`[Outreach] RSS cache loaded — ${rssAuthorMap.size} items with author data`);
 
   for (const q of questions) {
     if (!q.sourceUrl) continue;
@@ -724,10 +743,17 @@ async function matchReporters(questions, topics, contacts) {
     const outletReporters = contacts.filter(c => matchedOutlets.includes(c.outlet));
     if (!outletReporters.length) continue;
 
-    // Fetch the article to find the actual author
-    process.stdout.write(`[Outreach] Fetching byline: ${q.sourceUrl.slice(0, 70)}…`);
-    const bylineNames = await fetchByline(q.sourceUrl);
-    await sleep(300);
+    // Try RSS cache first (no paywall), fall back to live article fetch
+    let bylineNames = null;
+    const rssAuthor = rssAuthorMap.get(q.sourceUrl);
+    if (rssAuthor) {
+      bylineNames = [rssAuthor];
+      process.stdout.write(`[Outreach] Byline from RSS cache: ${q.sourceUrl.slice(0, 70)}…`);
+    } else {
+      process.stdout.write(`[Outreach] Fetching byline: ${q.sourceUrl.slice(0, 70)}…`);
+      bylineNames = await fetchByline(q.sourceUrl);
+      await sleep(300);
+    }
 
     if (!bylineNames) {
       console.log(' (not found — skipping)');
