@@ -1847,6 +1847,11 @@ app.post('/api/quiz', async (req, res) => {
       for (const sub of subscribers) {
         // Assign A/B group if not yet assigned
         if (!sub.abGroup) sub.abGroup = Math.random() < 0.5 ? 'A' : 'B';
+        // Ensure subscriber has a referral code
+        if (!sub.referralCode) {
+          sub.referralCode = Buffer.from(sub.email + Math.random()).toString('base64')
+            .replace(/[^a-zA-Z0-9]/g, '').slice(0, 10);
+        }
         updatedSubscribers.push(sub);
 
         const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(sub.email)}`;
@@ -1886,9 +1891,17 @@ app.post('/api/quiz', async (req, res) => {
         }
 
         baseHtml = baseHtml.replace('<!--EDITOR_MESSAGE_INSERT_POINT-->', editorMessageHtml);
-        const html = resultsHtml
+        const referralUrl = sub.referralCode ? `${siteUrl}/?ref=${sub.referralCode}` : null;
+        const referralHtml = referralUrl ? `
+          <div style="margin:20px 0 0;padding:16px 20px;background:white;border-left:4px solid #f0c040;">
+            <p style="font-family:monospace;font-size:10px;letter-spacing:2px;color:#6b5f4e;margin:0 0 6px;">🎁 YOUR PERSONAL REFERRAL LINK</p>
+            <p style="font-size:13px;color:#444;margin:0 0 10px;line-height:1.5;">Share with friends — if they subscribe and play 3 times, you earn a DDQ mug:</p>
+            <a href="${referralUrl}" style="font-family:monospace;font-size:12px;color:#1a1008;word-break:break-all;">${referralUrl}</a>
+          </div>` : '';
+        const withResults = resultsHtml
           ? baseHtml.replace('<!--YESTERDAY_INSERT_POINT-->', resultsHtml)
           : baseHtml.replace('<!--YESTERDAY_INSERT_POINT-->', '');
+        const html = withResults.replace('<!--SUBSCRIBE_INSERT_POINT-->', referralHtml);
 
         emails.push({
           from: process.env.FROM_EMAIL || 'David @ Daily Dispatch Quiz <david@dailydispatchquiz.com>',
@@ -1906,6 +1919,7 @@ app.post('/api/quiz', async (req, res) => {
         updatedSubscribers.forEach(sub => {
           if (subData.subscribers[sub.email]) {
             subData.subscribers[sub.email].abGroup = sub.abGroup;
+            if (sub.referralCode) subData.subscribers[sub.email].referralCode = sub.referralCode;
           }
         });
         await writeData(subData);
