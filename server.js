@@ -2237,7 +2237,13 @@ app.post('/api/quiz/test-email', async (req, res) => {
 
     html = html.replace('<!--EDITOR_MESSAGE_INSERT_POINT-->', '');
     html = html.replace('<!--YESTERDAY_INSERT_POINT-->', '');
-    const testReferralCode = subRecord && subRecord.referralCode;
+    let testReferralCode = subRecord && subRecord.referralCode;
+    if (!testReferralCode && subRecord) {
+      testReferralCode = Buffer.from(testEmail + Math.random()).toString('base64')
+        .replace(/[^a-zA-Z0-9]/g, '').slice(0, 10);
+      data.subscribers[testEmail].referralCode = testReferralCode;
+      await writeData(data);
+    }
     const testReferralHtml = testReferralCode ? `
       <div style="margin:20px 0 0;padding:16px 20px;background:white;border-left:4px solid #f0c040;">
         <p style="font-family:monospace;font-size:10px;letter-spacing:2px;color:#6b5f4e;margin:0 0 6px;">🎁 YOUR PERSONAL REFERRAL LINK</p>
