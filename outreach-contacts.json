@@ -18,7 +18,7 @@
   {"name": "Emily Sullivan", "email": "esullivan@wypr.org", "outlet": "WYPR", "beat": "City Hall", "emailVerified": false},
   {"name": "Mary Rose Madden", "email": "mmadden@wypr.org", "outlet": "WYPR", "beat": "senior news producer", "emailVerified": false},
   {"name": "Emily Hofstaedter", "email": "ehofstaedter@wypr.org", "outlet": "WYPR", "beat": "community & general assignment", "emailVerified": false},
-
+  {"name": "Michelle Basch", "email": "mbasch@wtop.com", "outlet": "WTOP", "beat": "Southern Maryland", "emailVerified": false}, 
   {"name": "Steve Crane", "email": "scrane@marylandmatters.org", "outlet": "Maryland Matters", "beat": "editor", "emailVerified": false},
   {"name": "Danielle J. Brown", "email": "dbrown@marylandmatters.org", "outlet": "Maryland Matters", "beat": "health care & equity", "emailVerified": false},
   {"name": "William Ford", "email": "wford@marylandmatters.org", "outlet": "Maryland Matters", "beat": "state government", "emailVerified": true},
@@ -27,7 +27,7 @@
   {"name": "Josh Kurtz", "email": "jkurtz@marylandmatters.org", "outlet": "Maryland Matters", "beat": "founding editor", "emailVerified": false},
   {"name": "Danielle E. Gaines", "email": "dgaines@marylandmatters.org", "outlet": "Maryland Matters", "beat": "government & politics", "emailVerified": false},
   {"name": "Louis Peck", "email": "lpeck@marylandmatters.org", "outlet": "Maryland Matters", "beat": "co-founder", "emailVerified": false},
-
+  {"name": "Dan Belson", "email": "DBelson@thedailyrecord.com", "outlet": "The Daily Record", "beat": "Legal", "emailVerified": false},
   {"name": "Susan Dunn", "email": "suzy@baltimorefishbowl.com", "outlet": "Baltimore Fishbowl", "beat": "founder & CEO", "emailVerified": true},
   {"name": "David Nitkin", "email": "david@baltimorefishbowl.com", "outlet": "Baltimore Fishbowl", "beat": "executive editor", "emailVerified": true},
   {"name": "Marcus Dieterle", "email": "marcus@baltimorefishbowl.com", "outlet": "Baltimore Fishbowl", "beat": "managing editor", "emailVerified": true},
