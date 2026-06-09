@@ -1893,7 +1893,7 @@ app.post('/api/quiz', async (req, res) => {
         const referralHtml = referralUrl ? `
           <div style="margin:20px 0 0;padding:16px 20px;background:white;border-left:4px solid #f0c040;">
             <p style="font-family:monospace;font-size:10px;letter-spacing:2px;color:#6b5f4e;margin:0 0 6px;">🎁 YOUR PERSONAL REFERRAL LINK</p>
-            <p style="font-size:13px;color:#444;margin:0 0 10px;line-height:1.5;">Share with friends — if they subscribe and play 3 times, you earn a DDQ mug:</p>
+            <p style="font-size:13px;color:#444;margin:0 0 10px;line-height:1.5;">Copy and send to friends — if they subscribe and play 3 times, you earn a DDQ mug:</p>
             <a href="${referralUrl}" style="font-family:monospace;font-size:12px;color:#1a1008;word-break:break-all;">${referralUrl}</a>
           </div>` : '';
         const withResults = resultsHtml
@@ -2262,7 +2262,7 @@ app.post('/api/quiz/test-email', async (req, res) => {
     const testReferralHtml = testReferralCode ? `
       <div style="margin:20px 0 0;padding:16px 20px;background:white;border-left:4px solid #f0c040;">
         <p style="font-family:monospace;font-size:10px;letter-spacing:2px;color:#6b5f4e;margin:0 0 6px;">🎁 YOUR PERSONAL REFERRAL LINK</p>
-        <p style="font-size:13px;color:#444;margin:0 0 10px;line-height:1.5;">Share with friends — if they subscribe and play 3 times, you earn a DDQ mug:</p>
+        <p style="font-size:13px;color:#444;margin:0 0 10px;line-height:1.5;">Copy and send to friends — if they subscribe and play 3 times, you earn a DDQ mug:</p>
         <a href="${siteUrl}/?ref=${testReferralCode}" style="font-family:monospace;font-size:12px;color:#1a1008;word-break:break-all;">${siteUrl}/?ref=${testReferralCode}</a>
       </div>` : '';
     html = html.replace('<!--SUBSCRIBE_INSERT_POINT-->', testReferralHtml);
@@ -3246,7 +3246,7 @@ async function checkScheduledPublish() {
         const referralHtml = referralUrl ? `
           <div style="margin:20px 0 0;padding:16px 20px;background:white;border-left:4px solid #f0c040;">
             <p style="font-family:monospace;font-size:10px;letter-spacing:2px;color:#6b5f4e;margin:0 0 6px;">🎁 YOUR PERSONAL REFERRAL LINK</p>
-            <p style="font-size:13px;color:#444;margin:0 0 10px;line-height:1.5;">Share with friends — if they subscribe and play 3 times, you earn a DDQ mug:</p>
+            <p style="font-size:13px;color:#444;margin:0 0 10px;line-height:1.5;">Copy and send to friends — if they subscribe and play 3 times, you earn a DDQ mug:</p>
             <a href="${referralUrl}" style="font-family:monospace;font-size:12px;color:#1a1008;word-break:break-all;">${referralUrl}</a>
           </div>` : '';
         const withResults = resultsHtml
