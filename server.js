@@ -3215,6 +3215,10 @@ async function checkScheduledPublish() {
 
       for (const sub of subscribers) {
         if (!sub.abGroup) sub.abGroup = Math.random() < 0.5 ? 'A' : 'B';
+        if (!sub.referralCode) {
+          sub.referralCode = Buffer.from(sub.email + Math.random()).toString('base64')
+            .replace(/[^a-zA-Z0-9]/g, '').slice(0, 10);
+        }
         updatedSubscribers.push(sub);
 
         const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(sub.email)}`;
@@ -3238,9 +3242,17 @@ async function checkScheduledPublish() {
         }
 
         baseHtml = baseHtml.replace('<!--EDITOR_MESSAGE_INSERT_POINT-->', editorMessageHtml);
-        const html = resultsHtml
+        const referralUrl = sub.referralCode ? `${siteUrl}/?ref=${sub.referralCode}` : null;
+        const referralHtml = referralUrl ? `
+          <div style="margin:20px 0 0;padding:16px 20px;background:white;border-left:4px solid #f0c040;">
+            <p style="font-family:monospace;font-size:10px;letter-spacing:2px;color:#6b5f4e;margin:0 0 6px;">🎁 YOUR PERSONAL REFERRAL LINK</p>
+            <p style="font-size:13px;color:#444;margin:0 0 10px;line-height:1.5;">Share with friends — if they subscribe and play 3 times, you earn a DDQ mug:</p>
+            <a href="${referralUrl}" style="font-family:monospace;font-size:12px;color:#1a1008;word-break:break-all;">${referralUrl}</a>
+          </div>` : '';
+        const withResults = resultsHtml
           ? baseHtml.replace('<!--YESTERDAY_INSERT_POINT-->', resultsHtml)
           : baseHtml.replace('<!--YESTERDAY_INSERT_POINT-->', '');
+        const html = withResults.replace('<!--SUBSCRIBE_INSERT_POINT-->', referralHtml);
 
         emails.push({
           from: process.env.FROM_EMAIL || 'David @ Daily Dispatch Quiz <david@dailydispatchquiz.com>',
@@ -3253,7 +3265,10 @@ async function checkScheduledPublish() {
       const subData = await readData();
       if (subData.subscribers) {
         updatedSubscribers.forEach(sub => {
-          if (subData.subscribers[sub.email]) subData.subscribers[sub.email].abGroup = sub.abGroup;
+          if (subData.subscribers[sub.email]) {
+            subData.subscribers[sub.email].abGroup = sub.abGroup;
+            if (sub.referralCode) subData.subscribers[sub.email].referralCode = sub.referralCode;
+          }
         });
         await writeData(subData);
       }
@@ -3297,7 +3312,7 @@ async function checkScheduledPublish() {
         const subscribeBtn = `
           <div style="padding:24px;text-align:center;background:#f5f0e8;border-top:2px solid #1a1008;">
             <p style="font-family:monospace;font-size:11px;letter-spacing:1px;color:#6b5f4e;margin:0 0 14px;">GET THIS AUTOMATICALLY EVERY MORNING</p>
-            <p style="font-size:14px;color:#1a1008;margin:0 0 18px;line-height:1.6;">🏆 Subscribe free and you could win a DDQ coffee mug — just finish a month as our top scorer, or refer 3 friends who subscribe and play. It's more fun than it sounds.</p>
+            <p style="font-size:14px;color:#1a1008;margin:0 0 18px;line-height:1.6;">🏆 Subscribe free and you could win a DDQ coffee mug — just finish a month as our top scorer, or refer 3 friends who subscribe and play. It's even more fun than it sounds.</p>
             <a href="${subscribeUrl}" style="display:inline-block;background:#c0392b;color:white;padding:16px 40px;font-family:monospace;font-size:14px;letter-spacing:2px;text-decoration:none;text-transform:uppercase;font-weight:bold;">Subscribe Free &#9658;</a>
           </div>`;
 
