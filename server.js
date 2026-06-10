@@ -655,9 +655,6 @@ app.post('/api/progress', async (req, res) => {
       hasQuiz: !!(data.quizzes && data.quizzes[date])
     });
 
-    const quiz = data.quizzes && data.quizzes[date];
-    if (!quiz) return res.status(404).json({ error: 'Quiz not found' });
-
   // Recalculate score server-side from stored per-answer points,
   // which already include full credit or partial credit as awarded.
   let validatedScore = 0;
