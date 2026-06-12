@@ -1329,7 +1329,7 @@ app.post('/api/admin/announce-monthly-winner', async (req, res) => {
   }
 });
 
-// ── GET /api/quiz/latest — always return the most recently published quiz ──
+// ── GET /api/quiz/latest — return today's quiz only; null if not yet published ──
 app.get('/api/quiz/latest', async (req, res) => {
   const data = await readData();
   if (!data.quizzes) return res.json({ quiz: null });
@@ -1338,6 +1338,8 @@ app.get('/api/quiz/latest', async (req, res) => {
   const scheduled = await getKey('scheduledQuiz');
   if (scheduled) return res.json({ quiz: null, scheduled: true });
   const mostRecent = dates[dates.length - 1];
+  const todayEastern = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  if (mostRecent !== todayEastern) return res.json({ quiz: null });
   res.json({ quiz: data.quizzes[mostRecent], date: mostRecent });
 });
 
@@ -2041,8 +2043,12 @@ app.get('/api/quiz', async (req, res) => {
     return res.json({ quiz: data.quizzes[date], date });
   }
 
- // Only fall back if the most recent quiz is today's date or earlier with no scheduled quiz pending
+  // Never serve a previous day's quiz as a fallback — return null so the client shows "not yet published"
+  const todayEastern = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
   const mostRecent = dates[dates.length - 1];
+  if (mostRecent !== todayEastern) {
+    return res.json({ quiz: null, date: null });
+  }
   const scheduled = await getKey('scheduledQuiz');
   if (scheduled) {
     return res.json({ quiz: null, date: null });
@@ -3169,13 +3175,22 @@ async function checkScheduledPublish() {
 
     console.log(`[Schedule] Time to publish! Scheduled for ${scheduled.scheduledFor}`);
 
-    // Clear the schedule first to prevent double-firing
-    await setKey('scheduledQuiz', null);
+    // Clear the schedule first to prevent double-firing on subsequent cron ticks.
+    // If this fails, abort — better to miss a publish than to re-fire on the wrong date.
+    const cleared = await setKey('scheduledQuiz', null);
+    if (!cleared) {
+      console.error('[Schedule] Failed to clear scheduledQuiz — aborting to prevent re-fire.');
+      return;
+    }
 
     const { quiz } = scheduled;
     const date = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });    const data = await readData();
     if (!data.quizzes) data.quizzes = {};
-    data.quizzes[date] = quiz;
+    if (data.quizzes[date]) {
+      console.log(`[Schedule] Quiz already published for ${date} — skipping overwrite, sending emails only.`);
+    } else {
+      data.quizzes[date] = quiz;
+    }
     const keys = Object.keys(data.quizzes).sort();
     if (keys.length > 14) keys.slice(0, keys.length - 14).forEach(k => delete data.quizzes[k]);
     await writeData(data);
