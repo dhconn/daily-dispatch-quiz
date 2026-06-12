@@ -2629,6 +2629,10 @@
             style="border-color:var(--green);color:var(--green);">+ Add Question</button>
           <button class="btn-secondary" onclick="emergencySave()" style="border-color:var(--red);color:var(--red);"
             title="Save visible questions directly to server, bypassing draft">⚑ Emergency Save</button>
+          <button class="btn-secondary" onclick="retractQuiz()" style="border-color:var(--red);color:var(--red);"
+            title="Immediately hide the live quiz from all players without deleting it">⊘ Retract Live Quiz</button>
+          <button class="btn-secondary" onclick="restoreQuiz()" style="border-color:var(--green);color:var(--green);"
+            title="Make the retracted quiz visible to players again">↺ Restore Quiz</button>
           <button class="btn-secondary" onclick="saveDraftToServer()" style="border-color:var(--yellow);color:var(--yellow);" title="Save draft to server without publishing">💾 Save Draft</button>
           <button class="btn-secondary" onclick="loadDraftFromServer()" style="border-color:var(--yellow);color:var(--yellow);" title="Load draft saved on another device">📂 Load Draft</button>
         </div>
@@ -7505,6 +7509,44 @@ ${siteUrl}`;
         }
       } catch (e) {
         statusEl.textContent = 'Error: ' + e.message;
+      }
+    }
+
+    async function retractQuiz() {
+      if (!confirm('Hide the live quiz from all players immediately? The quiz data is NOT deleted — you can restore it or republish from the archive.')) return;
+      const adminToken = lsGet('dnq_admin_token') || 'admin';
+      try {
+        const res = await fetch('/api/admin/retract-quiz', {
+          method: 'POST',
+          headers: { 'x-admin-token': adminToken }
+        });
+        const data = await res.json();
+        if (data.ok) {
+          setStatus('⊘ Quiz retracted — players now see "no quiz yet." Use ↺ Restore Quiz to bring it back.', 'error');
+        } else {
+          setStatus('Retract failed: ' + (data.error || 'unknown error'), 'error');
+        }
+      } catch (e) {
+        setStatus('Retract error: ' + e.message, 'error');
+      }
+    }
+
+    async function restoreQuiz() {
+      if (!confirm('Make the quiz visible to players again?')) return;
+      const adminToken = lsGet('dnq_admin_token') || 'admin';
+      try {
+        const res = await fetch('/api/admin/restore-quiz', {
+          method: 'POST',
+          headers: { 'x-admin-token': adminToken }
+        });
+        const data = await res.json();
+        if (data.ok) {
+          setStatus('↺ Quiz restored — live and visible to all players.', 'success');
+        } else {
+          setStatus('Restore failed: ' + (data.error || 'unknown error'), 'error');
+        }
+      } catch (e) {
+        setStatus('Restore error: ' + e.message, 'error');
       }
     }
 

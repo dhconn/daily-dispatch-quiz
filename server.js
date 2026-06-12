@@ -2425,6 +2425,32 @@ app.post('/api/quiz/schedule', async (req, res) => {
   }
 });
 
+// ── POST /api/admin/retract-quiz — hide live quiz from players immediately ──
+app.post('/api/admin/retract-quiz', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  try {
+    await setKey('scheduledQuiz', { retracted: true, retractedAt: new Date().toISOString() });
+    console.log('[Admin] Quiz retracted — hidden from players');
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── POST /api/admin/restore-quiz — undo a retraction, make quiz live again ──
+app.post('/api/admin/restore-quiz', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  try {
+    await setKey('scheduledQuiz', null);
+    console.log('[Admin] Quiz restored — visible to players');
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── DELETE /api/quiz/schedule — cancel a scheduled publish ───
 app.delete('/api/quiz/schedule', async (req, res) => {
   const adminToken = process.env.ADMIN_TOKEN || 'admin';
