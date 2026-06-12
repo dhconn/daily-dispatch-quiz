@@ -28,6 +28,7 @@ const CONTACTS_PATH       = path.join(DIR, 'outreach-contacts.json');
 const CONTACT_LOG_PATH    = path.join(DIR, 'outreach-contact-log.json');
 const TODAY_CACHE_PATH    = path.join(DIR, 'outreach-today-cache.json');
 const PENDING_EMAILS_PATH = path.join(DIR, 'outreach-pending-emails.json');
+const DIGEST_HTML_PATH    = path.join(DIR, 'outreach-digest.html');
 
 const REDDIT_SUBS = ['baltimore', 'maryland', 'baltimoreorioles', 'MDpolitics', 'bmore', 'ravens', 'orioles', 'annapolis', 'baltimore_social'];
 
@@ -1063,6 +1064,16 @@ async function sendDigest(quizDate, topics, opps, reporterEmails, cfg) {
 
 </div>
 </body></html>`;
+
+  // Save digest locally and open in browser — Gmail strips localhost links,
+  // so the browser version is the only reliable way to use "Send & Log".
+  try {
+    fs.writeFileSync(DIGEST_HTML_PATH, html, 'utf8');
+    spawn('cmd', ['/c', 'start', '', DIGEST_HTML_PATH], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+    console.log(`[Outreach] Digest opened in browser: ${DIGEST_HTML_PATH}`);
+  } catch (e) {
+    console.warn('[Outreach] Could not open digest in browser:', e.message);
+  }
 
   const transporter = nodemailer.createTransport({
     service: 'gmail',
