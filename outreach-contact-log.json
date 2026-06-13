@@ -143,5 +143,25 @@
         "storyTopic": "Maryland Republican Criticized Over Gun Post"
       }
     ]
+  },
+  {
+    "email": "john.oconnor@thebaltimorebanner.com",
+    "contacts": [
+      {
+        "date": "2026-06-11",
+        "storyUrl": "https://www.thebanner.com/politics-power/local-government/maryland-early-voting-election-2026-vote-polling-WLYDVF2AIFGE7DWND4K667QJU4/",
+        "storyTopic": "Maryland 2026 Primary Election Milestone"
+      }
+    ]
+  },
+  {
+    "email": "wford@marylandmatters.org",
+    "contacts": [
+      {
+        "date": "2026-06-11",
+        "storyUrl": "https://marylandmatters.org/2026/06/10/butterfly-stampede-more-than-22000-sign-up-for-id-logo-alerting-to-hidden-disabilities/",
+        "storyTopic": "Eric's Law Butterfly License Plate"
+      }
+    ]
   }
 ]
