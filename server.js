@@ -2425,6 +2425,111 @@ app.post('/api/quiz/schedule', async (req, res) => {
   }
 });
 
+// ── GET /api/admin/nudge-preview — who hasn't played today ───────────────────
+app.get('/api/admin/nudge-preview', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+    const data = await readData();
+    const allProgress = (await getKey('progress')) || {};
+    const todayPlayers = new Set(Object.keys(allProgress[today] || {}));
+
+    const notPlayed = { subscribers: [], prospects: [] };
+    const played = { subscribers: [], prospects: [] };
+
+    for (const sub of Object.values(data.subscribers || {})) {
+      if (!sub.active) continue;
+      const key = (sub.name || '').toLowerCase().trim();
+      const bucket = todayPlayers.has(key) ? played.subscribers : notPlayed.subscribers;
+      bucket.push({ email: sub.email, name: sub.name || '' });
+    }
+    for (const pro of Object.values(data.prospects || {})) {
+      if (pro.active === false) continue;
+      const key = (pro.name || '').toLowerCase().trim();
+      const bucket = todayPlayers.has(key) ? played.prospects : notPlayed.prospects;
+      bucket.push({ email: pro.email, name: pro.name || '' });
+    }
+
+    res.json({ today, notPlayed, played });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── POST /api/admin/send-nudge — send custom message to non-players today ────
+app.post('/api/admin/send-nudge', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  const { subject, message } = req.body || {};
+  if (!subject || !message) return res.status(400).json({ error: 'subject and message required' });
+
+  try {
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+    const siteUrl = process.env.SITE_URL || 'https://dailydispatchquiz.com';
+    const data = await readData();
+    const allProgress = (await getKey('progress')) || {};
+    const todayPlayers = new Set(Object.keys(allProgress[today] || {}));
+
+    const recipients = [];
+
+    for (const sub of Object.values(data.subscribers || {})) {
+      if (!sub.active) continue;
+      const key = (sub.name || '').toLowerCase().trim();
+      if (todayPlayers.has(key)) continue;
+      const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(sub.email)}`;
+      recipients.push({
+        from: process.env.FROM_EMAIL || 'David @ Daily Dispatch Quiz <david@dailydispatchquiz.com>',
+        reply_to: 'dhconn@gmail.com',
+        to: [sub.email],
+        subject,
+        html: buildNudgeHtml(sub.name, message, siteUrl, unsubUrl)
+      });
+    }
+    for (const pro of Object.values(data.prospects || {})) {
+      if (pro.active === false) continue;
+      const key = (pro.name || '').toLowerCase().trim();
+      if (todayPlayers.has(key)) continue;
+      recipients.push({
+        from: process.env.FROM_EMAIL || 'David @ Daily Dispatch Quiz <david@dailydispatchquiz.com>',
+        reply_to: 'dhconn@gmail.com',
+        to: [pro.email],
+        subject,
+        html: buildNudgeHtml(pro.name, message, siteUrl, null)
+      });
+    }
+
+    if (recipients.length === 0) return res.json({ ok: true, sent: 0, message: 'Everyone has already played today.' });
+
+    await sendEmailBatch(recipients);
+    console.log(`[Nudge] Sent to ${recipients.length} non-players on ${today}`);
+    res.json({ ok: true, sent: recipients.length });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+function buildNudgeHtml(name, message, siteUrl, unsubUrl) {
+  const greeting = name ? `Hi ${name},` : 'Hi,';
+  const bodyLines = message.trim().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .split('\n').filter(l => l.trim()).map(l => `<p style="font-size:15px;line-height:1.7;margin:0 0 14px;">${l}</p>`).join('');
+  return `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1008;">
+    <div style="background:#1a1008;color:#f5f0e8;text-align:center;padding:24px;">
+      <div style="font-family:monospace;font-size:11px;letter-spacing:3px;color:#f0c040;margin-bottom:6px;">BALTIMORE · DAILY DISPATCH</div>
+      <div style="font-size:28px;font-weight:bold;">The Daily Dispatch Quiz</div>
+    </div>
+    <div style="padding:32px 24px;background:#f5f0e8;">
+      <p style="font-size:18px;margin:0 0 20px;">${greeting}</p>
+      ${bodyLines}
+      <div style="text-align:center;margin:28px 0;">
+        <a href="${siteUrl}" style="display:inline-block;background:#1a1008;color:#f5f0e8;padding:16px 36px;font-family:monospace;font-size:13px;letter-spacing:2px;text-decoration:none;text-transform:uppercase;">Play Today's Quiz ▸</a>
+      </div>
+      <p style="font-family:monospace;font-size:11px;color:#6b5f4e;margin:0;">— David, Editor</p>
+    </div>
+    ${unsubUrl ? `<div style="padding:16px 24px;text-align:center;font-size:11px;color:#999;font-family:monospace;border-top:1px solid #e0d8cc;"><a href="${unsubUrl}" style="color:#999;">Unsubscribe</a></div>` : ''}
+  </div>`;
+}
+
 // ── POST /api/admin/retract-quiz — hide live quiz from players immediately ──
 app.post('/api/admin/retract-quiz', async (req, res) => {
   const adminToken = process.env.ADMIN_TOKEN || 'admin';

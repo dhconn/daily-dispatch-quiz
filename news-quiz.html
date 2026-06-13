@@ -2861,6 +2861,35 @@
         </div>
       </div>
 
+      <div class="admin-collapsible" style="margin-top:20px;" id="anc-nudge">
+        <details>
+          <summary>
+            <span class="summary-left">Nudge Non-Players</span>
+            <span class="summary-arrow">▸</span>
+          </summary>
+          <div class="collapsible-body">
+            <p style="font-size:12px;color:var(--muted);font-family:monospace;margin-bottom:12px;">Send a one-off message to every subscriber and prospect who hasn't played today. Matching is by name — players who use a different display name than their subscriber name may still receive it.</p>
+            <div style="margin-bottom:12px;">
+              <button onclick="nudgePreview()" style="font-family:monospace;font-size:11px;letter-spacing:1px;padding:6px 14px;background:none;border:1px solid var(--muted);color:var(--muted);cursor:pointer;">↻ Preview Recipients</button>
+              <span id="nudge-preview-summary" style="font-family:monospace;font-size:11px;color:var(--muted);margin-left:10px;"></span>
+            </div>
+            <div id="nudge-preview-list" style="display:none;font-family:monospace;font-size:11px;color:var(--muted);max-height:120px;overflow-y:auto;border:1px solid var(--rule);padding:8px;margin-bottom:12px;background:white;"></div>
+            <div style="margin-bottom:10px;">
+              <label style="font-family:monospace;font-size:10px;letter-spacing:1px;color:var(--muted);display:block;margin-bottom:4px;">SUBJECT LINE</label>
+              <input id="nudge-subject" type="text" placeholder="Today's quiz is waiting for you…"
+                style="width:100%;box-sizing:border-box;font-family:serif;font-size:13px;padding:8px 10px;border:1px solid var(--rule);background:white;color:var(--ink);" />
+            </div>
+            <div style="margin-bottom:12px;">
+              <label style="font-family:monospace;font-size:10px;letter-spacing:1px;color:var(--muted);display:block;margin-bottom:4px;">MESSAGE (plain text, line breaks become paragraphs)</label>
+              <textarea id="nudge-message" rows="5" placeholder="Today's quiz is live — six questions, two minutes, and bragging rights on the leaderboard. Come play!"
+                style="width:100%;box-sizing:border-box;font-family:serif;font-size:13px;padding:8px 10px;border:1px solid var(--rule);background:white;color:var(--ink);resize:vertical;"></textarea>
+            </div>
+            <button onclick="sendNudge()" style="font-family:monospace;font-size:11px;letter-spacing:1px;padding:8px 20px;background:var(--ink);color:var(--paper);border:none;cursor:pointer;">✉ Send Nudge</button>
+            <div id="nudge-status" style="font-family:monospace;font-size:11px;margin-top:10px;min-height:16px;"></div>
+          </div>
+        </details>
+      </div>
+
       <div class="admin-collapsible" style="margin-top:20px;" id="anc-quiz-archive">
         <details>
           <summary>
@@ -3213,6 +3242,60 @@
         sel.appendChild(opt);
       }
     }
+    async function nudgePreview() {
+      const adminToken = lsGet('dnq_admin_token') || 'admin';
+      const summaryEl = document.getElementById('nudge-preview-summary');
+      const listEl = document.getElementById('nudge-preview-list');
+      summaryEl.textContent = 'Loading…';
+      try {
+        const res = await fetch('/api/admin/nudge-preview', { headers: { 'x-admin-token': adminToken } });
+        const data = await res.json();
+        if (!res.ok) { summaryEl.textContent = 'Error: ' + (data.error || res.status); return; }
+        const { notPlayed } = data;
+        const total = notPlayed.subscribers.length + notPlayed.prospects.length;
+        summaryEl.textContent = `${total} recipients (${notPlayed.subscribers.length} subscribers, ${notPlayed.prospects.length} prospects)`;
+        if (total === 0) { listEl.style.display = 'none'; return; }
+        const all = [
+          ...notPlayed.subscribers.map(r => `[SUB] ${r.name || '—'} &lt;${r.email}&gt;`),
+          ...notPlayed.prospects.map(r => `[PRO] ${r.name || '—'} &lt;${r.email}&gt;`)
+        ];
+        listEl.innerHTML = all.join('<br>');
+        listEl.style.display = 'block';
+      } catch (e) {
+        summaryEl.textContent = 'Error: ' + e.message;
+      }
+    }
+
+    async function sendNudge() {
+      const adminToken = lsGet('dnq_admin_token') || 'admin';
+      const subject = (document.getElementById('nudge-subject').value || '').trim();
+      const message = (document.getElementById('nudge-message').value || '').trim();
+      const statusEl = document.getElementById('nudge-status');
+      if (!subject) { statusEl.textContent = 'Please enter a subject line.'; statusEl.style.color = 'var(--red)'; return; }
+      if (!message) { statusEl.textContent = 'Please enter a message.'; statusEl.style.color = 'var(--red)'; return; }
+      const summaryText = document.getElementById('nudge-preview-summary').textContent;
+      if (!confirm(`Send nudge to ${summaryText || 'all non-players today'}?\n\nSubject: ${subject}`)) return;
+      statusEl.textContent = 'Sending…'; statusEl.style.color = 'var(--muted)';
+      try {
+        const res = await fetch('/api/admin/send-nudge', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+          body: JSON.stringify({ subject, message })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          statusEl.textContent = `✓ Sent to ${data.sent} recipient${data.sent !== 1 ? 's' : ''}.${data.message ? ' ' + data.message : ''}`;
+          statusEl.style.color = 'var(--green)';
+        } else {
+          statusEl.textContent = 'Error: ' + (data.error || 'unknown');
+          statusEl.style.color = 'var(--red)';
+        }
+      } catch (e) {
+        statusEl.textContent = 'Error: ' + e.message;
+        statusEl.style.color = 'var(--red)';
+      }
+    }
+
     async function previewMonthlyWinner() {
       const sel = document.getElementById('winner-month-select');
       const month = sel ? sel.value : '';
