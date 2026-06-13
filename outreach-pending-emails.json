@@ -1,120 +1,39 @@
 {
-  "1f8ed57c5804f24b725e18e6": {
-    "date": "2026-06-11",
+  "9987af583ae2827eaa0a8e7b": {
+    "date": "2026-06-13",
     "reporter": {
-      "name": "David Nitkin",
-      "email": "david@baltimorefishbowl.com",
+      "name": "Aliza Worthington",
+      "email": "aliza@baltimorefishbowl.com",
       "outlet": "Baltimore Fishbowl",
-      "beat": "executive editor",
+      "beat": "staff reporter",
       "emailVerified": true
     },
     "topic": {
-      "question": "Legislators are considering an override of Governor Moore's decision to ink a veto of legislation designed to help what struggling industry survive?",
-      "topic": "Maryland Governor Veto Override Fight",
+      "question": "Starting today, area residents have the rare opportunity to enter a contest to name what new acquisition by the Maryland Zoo?",
+      "topic": "Maryland Zoo Animal Naming Contest",
       "entities": [
-        "Governor Moore",
-        "Maryland"
+        "Maryland Zoo"
       ],
       "searchPhrases": [
-        "Governor Moore veto override",
-        "Maryland legislature veto",
-        "Maryland industry bailout bill"
+        "Maryland Zoo new animal",
+        "Maryland Zoo naming contest",
+        "zoo animal contest Baltimore"
       ]
     },
-    "storyUrl": "https://baltimorefishbowl.com/stories/gov-moore-rejected-a-plan-to-help-local-news-survive-but-key-backers-arent-giving-up/",
+    "storyUrl": "https://baltimorefishbowl.com/stories/a-contest-to-name-the-maryland-zoos-new-red-panda-is-on/",
     "question": {
-      "points": 20,
       "options": [
-        "Cannabis dispensaries",
-        "Goat cheese fermenters",
-        "Sports gaming centers",
-        "Local news outlets "
+        "Baby \"porcupette\"",
+        "Caribbean pink flamingo",
+        "Juvenile red panda",
+        "Atlantic marmoset"
       ],
-      "pubDate": "Wed, 11 Jun 2026 00:00:00 +0000",
-      "question": "Legislators are considering an override of Governor Moore's decision to ink a veto of legislation designed to help what struggling industry survive?",
-      "sourceUrl": "https://baltimorefishbowl.com/stories/gov-moore-rejected-a-plan-to-help-local-news-survive-but-key-backers-arent-giving-up/",
-      "difficulty": "medium",
-      "explanation": "Gov. Wes Moore may have vetoed a bill requiring many state agencies to focus their advertising spending on local news outlets, but the idea is not dead yet. But the possibility of a special session on redistricting could allow an override vote on this bill.",
-      "correctIndex": 3
+      "question": "Starting today, area residents have the rare opportunity to enter a contest to name what new acquisition by the Maryland Zoo?",
+      "sourceUrl": "https://baltimorefishbowl.com/stories/a-contest-to-name-the-maryland-zoos-new-red-panda-is-on/",
+      "difficulty": "easy",
+      "explanation": "The Maryland Zoo has welcomed two red pandas recently, one a mature red panda female named Aurora, and a juvenile female still waiting for the perfect name, which fans can address by entering a naming contest / fundraiser starting today.",
+      "correctIndex": 2
     },
-    "draftEmail": "David,\n\nReally enjoyed your piece on the fight to override Governor Moore's veto of the local news survival legislation — it made for a great quiz question in today's Daily Dispatch Quiz at dailydispatchquiz.com! Would love for you to take a crack at the quiz yourself and share it with your readers if you're feeling generous.\n\nDavid Conn, editor of the Daily Dispatch Quiz"
-  },
-  "8dbfe7212046700e219b9b29": {
-    "date": "2026-06-11",
-    "reporter": {
-      "name": "Scott Maucione",
-      "email": "smaucione@wypr.org",
-      "outlet": "WYPR",
-      "beat": "health, justice & investigative",
-      "emailVerified": true
-    },
-    "topic": {
-      "question": "What dubious health distinction does Maryland continue to hold among all U.S. states?",
-      "topic": "Maryland Worst U.S. Health Ranking",
-      "entities": [
-        "Maryland"
-      ],
-      "searchPhrases": [
-        "Maryland health statistics ranking",
-        "Maryland public health crisis",
-        "worst state health outcomes"
-      ]
-    },
-    "storyUrl": "https://www.wypr.org/wypr-news/2026-06-10/maryland-still-ranks-highest-in-dementia-scientists-arent-sure-why",
-    "question": {
-      "points": 10,
-      "options": [
-        "Lowest vaccination rates for children",
-        "Highest prevalence of Alzheimer's and dementia-related illnesses  ",
-        "Most emergency room visits per capita",
-        "Highest prescription drug costs"
-      ],
-      "pubDate": "Wed, 10 Jun 2026 22:32:43 -0000",
-      "question": "What dubious health distinction does Maryland continue to hold among all U.S. states?",
-      "sourceUrl": "https://www.wypr.org/wypr-news/2026-06-10/maryland-still-ranks-highest-in-dementia-scientists-arent-sure-why",
-      "difficulty": "medium",
-      "explanation": "Maryland continues to rank as the state with the highest prevalence of Alzheimer's and dementia-related illnesses, with nearly 13% of people over 65 suffering from these diseases. Baltimore City and County have even higher rates at about 16.6%, though researchers still aren't sure why these issues are clustered in the area.",
-      "correctIndex": 1
-    },
-    "draftEmail": "Scott,\n\nSaw your piece on Maryland's troubling lead in dementia rates and had to feature it in today's Daily Dispatch Quiz at dailydispatchquiz.com — it's exactly the kind of sharp, surprising reporting that makes for a great quiz question. Hope you'll give the quiz a play yourself and maybe share it with your audience if it feels like a fit. Thanks for digging into this one.\n\nDavid Conn, editor of the Daily Dispatch Quiz"
-  },
-  "7334ed33f0ad228433deb77a": {
-    "date": "2026-06-11",
-    "reporter": {
-      "name": "Bryan Sears",
-      "email": "bsears@marylandmatters.org",
-      "outlet": "Maryland Matters",
-      "beat": "state politics & transportation",
-      "emailVerified": false
-    },
-    "topic": {
-      "question": "What federal election-related effort did Maryland officials oppose during a hearing yesterday before a federal judge?",
-      "topic": "Maryland Officials Fight Federal Election Policy",
-      "entities": [
-        "Maryland"
-      ],
-      "searchPhrases": [
-        "Maryland election lawsuit",
-        "Maryland federal court hearing",
-        "Maryland officials oppose federal election"
-      ]
-    },
-    "storyUrl": "https://marylandmatters.org/2026/06/11/state-election-officials-ask-judge-to-block-access-to-sensitive-voter-records/",
-    "question": {
-      "points": 30,
-      "options": [
-        "Prohibit voting by naturalized citizens",
-        "Require ranked-choice voting",
-        "Bar offering food and water to voters standing in line",
-        "Obtain sensitive state voter records"
-      ],
-      "pubDate": "Wed, 11 Jun 2026 00:00:00 +0000",
-      "question": "What federal election-related effort did Maryland officials oppose during a hearing yesterday before a federal judge?",
-      "sourceUrl": "https://marylandmatters.org/2026/06/11/state-election-officials-ask-judge-to-block-access-to-sensitive-voter-records/",
-      "difficulty": "hard",
-      "explanation": "State election officials asked a judge to block access to sensitive voter records, indicating heightened concerns about protecting voter privacy and preventing potential intimidation tactics ahead of the election.",
-      "correctIndex": 3
-    },
-    "draftEmail": "Bryan — great to see you back in the quiz so soon after your piece on the Maryland Election Board new policy ran just yesterday! Your story on Maryland officials fighting federal access to sensitive voter records was the perfect fit for today's Daily Dispatch Quiz at dailydispatchquiz.com. Hope you'll give it a play and maybe share it with your readers — always happy to have state politics folks in the mix.\n\nDavid Conn, editor of the Daily Dispatch Quiz"
+    "draftEmail": "Aliza — looks like you're making a habit of showing up in the Daily Dispatch Quiz! After featuring your piece on the Tesla driver who ran over animals back in June, today we used your Maryland Zoo red panda naming contest story as one of our questions at dailydispatchquiz.com. Hope you'll give it a play and maybe share it with your readers — always fun when the reporter whose story inspired the question takes a crack at it!\n\nDavid Conn, editor of the Daily Dispatch Quiz"
   }
 }
