@@ -2425,6 +2425,58 @@ app.post('/api/quiz/schedule', async (req, res) => {
   }
 });
 
+// ── POST /api/admin/fix-q2-june13 — one-time: correct Q2 wrong→right for June 13 players ──
+app.post('/api/admin/fix-q2-june13', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+
+  const DATE = '2026-06-13';
+  const Q_KEY = 'q2';
+  const WRONG_PTS = 5;
+  const RIGHT_PTS = 20;
+
+  try {
+    const allProgress = (await getKey('progress')) || {};
+    const scores = (await getKey('scores')) || {};
+    const todayProgress = allProgress[DATE] || {};
+    const updated = [];
+    const skipped = [];
+
+    for (const [playerKey, record] of Object.entries(todayProgress)) {
+      const q2 = record.answers && record.answers[Q_KEY];
+      if (!q2) { skipped.push({ playerKey, reason: 'no Q2 answer' }); continue; }
+      if (q2.correct === true) { skipped.push({ playerKey, reason: 'already correct' }); continue; }
+      if (q2.pts !== WRONG_PTS) { skipped.push({ playerKey, reason: `unexpected pts=${q2.pts}` }); continue; }
+
+      const oldScore = record.score;
+      record.answers[Q_KEY] = { ...q2, correct: true, pts: RIGHT_PTS };
+      // Recompute from all answer pts + completion bonus
+      const newScore = Object.values(record.answers).reduce((s, a) => s + (Number(a?.pts) || 0), 0)
+        + (record.completed ? 10 : 0);
+      record.score = newScore;
+      record.updatedAt = new Date().toISOString();
+
+      if (scores[playerKey]) {
+        scores[playerKey].dailyScores = scores[playerKey].dailyScores || {};
+        scores[playerKey].dailyScores[DATE] = newScore;
+        scores[playerKey].allTime = Object.values(scores[playerKey].dailyScores).reduce((a, b) => a + b, 0);
+      }
+
+      updated.push({ playerKey, displayName: record.displayName, oldScore, newScore });
+    }
+
+    if (updated.length > 0) {
+      allProgress[DATE] = todayProgress;
+      await setKey('progress', allProgress);
+      await setKey('scores', scores);
+    }
+
+    res.json({ ok: true, updated, skipped });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── POST /api/admin/retract-quiz — hide live quiz from players immediately ──
 app.post('/api/admin/retract-quiz', async (req, res) => {
   const adminToken = process.env.ADMIN_TOKEN || 'admin';
