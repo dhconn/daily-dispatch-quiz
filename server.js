@@ -1273,10 +1273,12 @@ app.post('/api/admin/announce-monthly-winner', async (req, res) => {
     // Winner email(s)
     for (const winner of winners) {
       const winnerHtml = `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1008;">
+        <a href="${siteUrl}" style="display:block;text-decoration:none;color:inherit;">
         <div style="background:#1a1008;color:#f5f0e8;text-align:center;padding:24px;">
           <div style="font-family:monospace;font-size:11px;letter-spacing:3px;color:#f0c040;margin-bottom:6px;">BALTIMORE · DAILY DISPATCH</div>
           <div style="font-size:28px;font-weight:bold;">The Daily Dispatch Quiz</div>
         </div>
+        </a>
         <div style="padding:32px 24px;background:#f5f0e8;text-align:center;">
           <div style="font-size:48px;margin-bottom:12px;">🏆</div>
           <p style="font-family:Georgia,serif;font-size:24px;font-weight:700;margin:0 0 10px;">${winner.displayName} wins the ${monthName} mug!</p>
@@ -1293,10 +1295,12 @@ app.post('/api/admin/announce-monthly-winner', async (req, res) => {
 
     // Announcement to all subscribers and prospects
     const announcementHtml = `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1008;">
+      <a href="${siteUrl}" style="display:block;text-decoration:none;color:inherit;">
       <div style="background:#1a1008;color:#f5f0e8;text-align:center;padding:24px;">
         <div style="font-family:monospace;font-size:11px;letter-spacing:3px;color:#f0c040;margin-bottom:6px;">BALTIMORE · DAILY DISPATCH</div>
         <div style="font-size:28px;font-weight:bold;">The Daily Dispatch Quiz</div>
       </div>
+      </a>
       <div style="padding:32px 24px;background:#f5f0e8;text-align:center;">
         <div style="font-size:48px;margin-bottom:12px;">🏆</div>
         <p style="font-family:Georgia,serif;font-size:24px;font-weight:700;margin:0 0 10px;">${monthName} Champion${winners.length > 1 ? 's' : ''}</p>
@@ -1451,11 +1455,13 @@ function buildEmailHtmlWithQ1(siteUrl, date, subscriberName, teaserHtml, unsubUr
 }).join('');
 
 return `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1008;">
+    <a href="${siteUrl}" style="display:block;text-decoration:none;color:inherit;">
     <div style="background:#1a1008;color:#f5f0e8;text-align:center;padding:24px;">
       <div style="font-family:monospace;font-size:11px;letter-spacing:3px;color:#f0c040;margin-bottom:6px;">BALTIMORE · DAILY DISPATCH</div>
       <div style="font-size:28px;font-weight:bold;">The Daily Dispatch Quiz</div>
       <div style="font-family:monospace;font-size:10px;letter-spacing:2px;color:#aaa;margin-top:6px;">${date}</div>
     </div>
+    </a>
     <div style="padding:32px 24px;background:#f5f0e8;">
       <p style="font-size:18px;margin:0 0 24px;">Hi${subscriberName ? ' ' + subscriberName : ''} — start today's quiz by clicking your answer here:</p>
       <div style="background:white;border:2px solid #1a1008;padding:20px 20px 10px;margin-bottom:20px;box-shadow:4px 4px 0 #1a1008;">
@@ -2517,10 +2523,12 @@ function buildNudgeHtml(name, message, siteUrl, unsubUrl) {
   const bodyLines = message.trim().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
     .split('\n').filter(l => l.trim()).map(l => `<p style="font-size:15px;line-height:1.7;margin:0 0 14px;">${l}</p>`).join('');
   return `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1008;">
+    <a href="${siteUrl}" style="display:block;text-decoration:none;color:inherit;">
     <div style="background:#1a1008;color:#f5f0e8;text-align:center;padding:24px;">
       <div style="font-family:monospace;font-size:11px;letter-spacing:3px;color:#f0c040;margin-bottom:6px;">BALTIMORE · DAILY DISPATCH</div>
       <div style="font-size:28px;font-weight:bold;">The Daily Dispatch Quiz</div>
     </div>
+    </a>
     <div style="padding:32px 24px;background:#f5f0e8;">
       <p style="font-size:18px;margin:0 0 20px;">${greeting}</p>
       ${bodyLines}
@@ -2911,10 +2919,12 @@ async function sendEmail(to, subject, html) {
 function sendWelcomeEmail(email, name, siteUrl, unsubUrl) {
   const greeting = name ? `Hi ${name}` : 'Hi there';
   const html = `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1008;">
+    <a href="${siteUrl}" style="display:block;text-decoration:none;color:inherit;">
     <div style="background:#1a1008;color:#f5f0e8;text-align:center;padding:24px;">
       <div style="font-family:monospace;font-size:11px;letter-spacing:3px;color:#f0c040;margin-bottom:6px;">BALTIMORE · DAILY DISPATCH</div>
       <div style="font-size:28px;font-weight:bold;">The Daily Dispatch Quiz</div>
     </div>
+    </a>
     <div style="padding:32px 24px;background:#f5f0e8;">
       <p style="font-size:18px;margin:0 0 20px;">${greeting} — welcome aboard.</p>
       <p style="font-size:15px;line-height:1.7;margin:0 0 16px;">You've just subscribed to the Daily Dispatch Quiz — a free, daily Baltimore local news quiz that takes about two minutes to play. Six questions, a leaderboard, and bragging rights. That's the whole deal.</p>
@@ -3034,10 +3044,12 @@ app.post('/api/admin/message/bulk', async (req, res) => {
       to: [t.email],
       subject,
       html: `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1008;">
+        <a href="${siteUrl}" style="display:block;text-decoration:none;color:inherit;">
         <div style="background:#1a1008;color:#f5f0e8;text-align:center;padding:24px;">
           <div style="font-family:monospace;font-size:11px;letter-spacing:3px;color:#f0c040;margin-bottom:6px;">BALTIMORE · DAILY DISPATCH</div>
           <div style="font-size:24px;font-weight:bold;">The Daily Dispatch Quiz</div>
         </div>
+        </a>
         <div style="padding:32px 24px;background:#f5f0e8;">
           ${t.name ? `<p style="font-size:16px;margin:0 0 16px;">Hi ${t.name},</p>` : ''}
           <div style="font-size:15px;line-height:1.7;">${htmlBody}</div>
@@ -3382,10 +3394,12 @@ async function announceMonthlyWinner() {
     for (const winner of winners) {
       const winnerHtml = `
         <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1008;">
+          <a href="${siteUrl}" style="display:block;text-decoration:none;color:inherit;">
           <div style="background:#1a1008;color:#f5f0e8;text-align:center;padding:24px;">
             <div style="font-family:monospace;font-size:11px;letter-spacing:3px;color:#f0c040;margin-bottom:6px;">BALTIMORE · DAILY DISPATCH</div>
             <div style="font-size:28px;font-weight:bold;">The Daily Dispatch Quiz</div>
           </div>
+          </a>
           <div style="padding:32px 24px;background:#f5f0e8;text-align:center;">
             <div style="font-size:48px;margin-bottom:12px;">🏆</div>
             <p style="font-family:'Playfair Display',Georgia,serif;font-size:24px;font-weight:700;margin:0 0 10px;">${winner.displayName} wins the ${monthName} mug!</p>
@@ -3408,10 +3422,12 @@ async function announceMonthlyWinner() {
     const winnerNames = winners.map(w => w.displayName).join(' and ');
     const announcementHtml = `
       <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1008;">
+        <a href="${siteUrl}" style="display:block;text-decoration:none;color:inherit;">
         <div style="background:#1a1008;color:#f5f0e8;text-align:center;padding:24px;">
           <div style="font-family:monospace;font-size:11px;letter-spacing:3px;color:#f0c040;margin-bottom:6px;">BALTIMORE · DAILY DISPATCH</div>
           <div style="font-size:28px;font-weight:bold;">The Daily Dispatch Quiz</div>
         </div>
+        </a>
         <div style="padding:32px 24px;background:#f5f0e8;text-align:center;">
           <div style="font-size:48px;margin-bottom:12px;">🏆</div>
           <p style="font-family:'Playfair Display',Georgia,serif;font-size:24px;font-weight:700;margin:0 0 10px;">${monthName} Champion${winners.length > 1 ? 's' : ''}</p>
