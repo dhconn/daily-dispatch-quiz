@@ -5,6 +5,7 @@ const http = require('http');
 const { Pool } = require('pg')
 const path = require('path');
 const webpush = require('web-push');
+const nodemailer = require('nodemailer');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -20,6 +21,8 @@ if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
 }
 
 app.use(express.json({ limit: '2mb' }));
+
+const escHtml = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 app.use('/images', express.static(path.join(__dirname, 'public', 'images')));
 app.use(express.static(path.dirname(__filename), {
   setHeaders: (res, filePath) => {
@@ -2674,6 +2677,183 @@ async function sendPushNotifications(date) {
 
   console.log(`[Push] Done — sent: ${sent}, failed: ${failed}, expired/removed: ${expired}`);
 }
+
+// ── Outreach reporter-email endpoints ────────────────────────
+
+function reporterEmailPage(title, body) {
+  return `<!DOCTYPE html>
+<html><head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>${escHtml(title)} — Daily Dispatch Quiz Outreach</title>
+  <style>
+    body{font-family:Georgia,serif;max-width:640px;margin:40px auto;padding:0 20px;color:#1a1008;background:#f0ebe0}
+    .hdr{border-bottom:2px solid #1a3a6b;padding-bottom:10px;margin-bottom:24px}
+    .label{font-family:monospace;font-size:10px;letter-spacing:2px;color:#1a3a6b}
+    .ttl{font-size:20px;font-weight:bold;margin-top:4px}
+    input,textarea{width:100%;box-sizing:border-box;padding:8px 10px;font-size:14px;border:1px solid #ccc;font-family:Georgia,serif}
+    textarea{line-height:1.7;resize:vertical}
+    .field-label{display:block;font-family:monospace;font-size:10px;letter-spacing:1px;color:#888;margin-bottom:5px}
+  </style>
+</head>
+<body>
+  <div class="hdr"><div class="label">DAILY DISPATCH QUIZ &mdash; OUTREACH</div><div class="ttl">${escHtml(title)}</div></div>
+  ${body}
+</body></html>`;
+}
+
+// POST /api/outreach/tokens — upload reporter email tokens from outreach.js
+app.post('/api/outreach/tokens', async (req, res) => {
+  const secret = process.env.OUTREACH_SECRET;
+  if (!secret || req.headers['x-outreach-token'] !== secret) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  const { tokens } = req.body;
+  if (!tokens || typeof tokens !== 'object') return res.status(400).json({ error: 'tokens object required' });
+  try {
+    const ok = await setKey('outreachTokens', tokens);
+    if (!ok) return res.status(500).json({ error: 'DB write failed' });
+    console.log(`[Outreach] ${Object.keys(tokens).length} reporter token(s) saved`);
+    res.json({ ok: true, count: Object.keys(tokens).length });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /api/outreach/contact-log — return Railway contact log for local sync
+app.get('/api/outreach/contact-log', async (req, res) => {
+  const secret = process.env.OUTREACH_SECRET;
+  if (!secret || req.headers['x-outreach-token'] !== secret) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  try {
+    const log = (await getKey('outreachContactLog')) || [];
+    res.json({ log });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /api/reporter-email?token=XXX — editable send form (token is the auth)
+app.get('/api/reporter-email', async (req, res) => {
+  const { token } = req.query;
+  if (!token) return res.status(400).send(reporterEmailPage('Bad Request', '<p>Missing token.</p>'));
+  let tokens;
+  try { tokens = (await getKey('outreachTokens')) || {}; }
+  catch (e) { return res.status(500).send(reporterEmailPage('Error', '<p>Database error.</p>')); }
+  const entry = tokens[token];
+  if (!entry) {
+    return res.status(404).send(reporterEmailPage('Link Expired or Already Used', `
+      <p style="font-size:15px;">This send link has already been used or has expired.</p>
+      <p style="font-size:13px;color:#888;">Each link works once. Run the outreach script again to generate new links.</p>
+    `));
+  }
+  const defaultSubj = "Your story in today's Daily Dispatch Quiz";
+  res.send(reporterEmailPage(`Email to ${entry.reporter.name}`, `
+    <div style="margin-bottom:14px;">
+      <div style="font-family:monospace;font-size:10px;color:#888;margin-bottom:3px;">TO</div>
+      <div style="font-size:16px;font-weight:bold;">${escHtml(entry.reporter.name)}</div>
+      <div style="font-size:13px;color:#555;">${escHtml(entry.reporter.outlet)} &bull; ${escHtml(entry.reporter.beat)} &bull;
+        <a href="mailto:${escHtml(entry.reporter.email)}" style="color:#1a3a6b;">${escHtml(entry.reporter.email)}</a>
+      </div>
+    </div>
+    <div style="margin-bottom:18px;background:#f5f0e8;padding:10px 12px;font-family:monospace;font-size:11px;color:#555;line-height:1.6;">
+      <div style="color:#aaa;font-size:9px;letter-spacing:1px;margin-bottom:4px;">STORY</div>
+      ${escHtml(entry.topic.topic || '')}${entry.storyUrl
+        ? `<br><a href="${escHtml(entry.storyUrl)}" style="color:#1a6b9a;font-size:10px;" target="_blank">${escHtml(entry.storyUrl)}</a>`
+        : ''}
+    </div>
+    <div style="margin-bottom:12px;">
+      <label class="field-label">SUBJECT</label>
+      <input type="text" id="subj" value="${escHtml(defaultSubj)}">
+    </div>
+    <div style="margin-bottom:18px;">
+      <label class="field-label">BODY (editable before sending)</label>
+      <textarea id="body" rows="13">${escHtml(entry.draftEmail)}</textarea>
+    </div>
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+      <button id="send-btn" onclick="sendEmail()"
+        style="background:#1a3a6b;color:#fff;border:none;padding:10px 22px;font-family:monospace;font-size:12px;letter-spacing:1px;cursor:pointer;">
+        &#x2709; Send &amp; Log &#x25B8;
+      </button>
+      <span id="msg" style="font-family:monospace;font-size:12px;color:#888;"></span>
+    </div>
+    <script>
+      async function sendEmail() {
+        const btn = document.getElementById('send-btn');
+        const msg = document.getElementById('msg');
+        btn.disabled = true; btn.textContent = 'Sending…';
+        try {
+          const r = await fetch('/api/reporter-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              token: '${escHtml(token)}',
+              subject: document.getElementById('subj').value,
+              body: document.getElementById('body').value
+            })
+          });
+          const j = await r.json();
+          if (j.ok) {
+            btn.style.background = '#1a6b3c'; btn.textContent = '✓ Sent & Logged';
+            msg.style.color = '#1a6b3c'; msg.textContent = 'Email sent. Contact logged.';
+            document.getElementById('subj').disabled = true;
+            document.getElementById('body').disabled = true;
+          } else {
+            btn.disabled = false; btn.textContent = '✉ Send & Log ▸';
+            msg.style.color = '#b33'; msg.textContent = j.error || 'Send failed.';
+          }
+        } catch (err) {
+          btn.disabled = false; btn.textContent = '✉ Send & Log ▸';
+          msg.style.color = '#b33'; msg.textContent = 'Network error — try again.';
+        }
+      }
+    </script>
+  `));
+});
+
+// POST /api/reporter-email — send email and log contact
+app.post('/api/reporter-email', async (req, res) => {
+  const { token, subject, body } = req.body;
+  if (!token || !body) return res.status(400).json({ error: 'Missing required fields' });
+  let tokens;
+  try { tokens = (await getKey('outreachTokens')) || {}; }
+  catch (e) { return res.status(500).json({ error: 'Database error' }); }
+  const entry = tokens[token];
+  if (!entry) return res.status(409).json({ error: 'Already sent or link expired.' });
+  const gmailUser = process.env.OUTREACH_GMAIL_USER;
+  const gmailPass = process.env.OUTREACH_GMAIL_APP_PASSWORD;
+  if (!gmailUser || !gmailPass) {
+    return res.status(500).json({ error: 'Outreach email not configured on server — add OUTREACH_GMAIL_USER and OUTREACH_GMAIL_APP_PASSWORD to Railway.' });
+  }
+  try {
+    const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: gmailUser, pass: gmailPass } });
+    await transporter.sendMail({
+      from: gmailUser, to: entry.reporter.email,
+      replyTo: gmailUser, bcc: gmailUser,
+      subject: subject || "Your story in today's Daily Dispatch Quiz",
+      text: body
+    });
+  } catch (e) {
+    console.error('[OutreachEmail] Send failed:', e.message);
+    return res.status(500).json({ error: 'Send failed: ' + e.message });
+  }
+  try {
+    const contactLog = (await getKey('outreachContactLog')) || [];
+    let rec = contactLog.find(c => c.email === entry.reporter.email);
+    if (!rec) { rec = { email: entry.reporter.email, contacts: [] }; contactLog.push(rec); }
+    if (!rec.contacts.some(c => c.date === entry.date && c.storyUrl === entry.storyUrl)) {
+      rec.contacts.push({ date: entry.date, storyUrl: entry.storyUrl, storyTopic: entry.topic.topic || '' });
+      await setKey('outreachContactLog', contactLog);
+    }
+  } catch (e) { console.error('[OutreachEmail] Contact log failed:', e.message); }
+  try {
+    delete tokens[token];
+    await setKey('outreachTokens', tokens);
+  } catch (e) { console.error('[OutreachEmail] Token cleanup failed:', e.message); }
+  console.log(`[OutreachEmail] Sent to ${entry.reporter.name} (${entry.reporter.email}) — logged`);
+  res.json({ ok: true });
+});
 
 // ── Start ─────────────────────────────────────────────────────
 (async () => {
