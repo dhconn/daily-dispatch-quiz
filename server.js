@@ -2829,23 +2829,32 @@ app.post('/api/reporter-email', async (req, res) => {
   catch (e) { return res.status(500).json({ error: 'Database error' }); }
   const entry = tokens[token];
   if (!entry) return res.status(409).json({ error: 'Already sent or link expired.' });
-  const gmailUser = process.env.OUTREACH_GMAIL_USER;
-  const gmailPass = process.env.OUTREACH_GMAIL_APP_PASSWORD;
-  if (!gmailUser || !gmailPass) {
-    return res.status(500).json({ error: 'Outreach email not configured on server — add OUTREACH_GMAIL_USER and OUTREACH_GMAIL_APP_PASSWORD to Railway.' });
-  }
-  try {
-    const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: gmailUser, pass: gmailPass } });
-    await transporter.sendMail({
-      from: gmailUser, to: entry.reporter.email,
-      replyTo: gmailUser, bcc: gmailUser,
+  const apiKey   = process.env.RESEND_API_KEY;
+  if (!apiKey) return res.status(500).json({ error: 'RESEND_API_KEY not configured on server.' });
+  const fromAddr = process.env.FROM_EMAIL || 'David @ Daily Dispatch Quiz <david@dailydispatchquiz.com>';
+  const replyTo  = process.env.OUTREACH_GMAIL_USER || 'dhconn@gmail.com';
+  // Use Resend (HTTPS) — Railway blocks outbound SMTP so nodemailer fails
+  const sent = await new Promise((resolve) => {
+    const payload = JSON.stringify({
+      from: fromAddr, reply_to: replyTo, bcc: [replyTo],
+      to: [entry.reporter.email],
       subject: subject || "Your story in today's Daily Dispatch Quiz",
       text: body
     });
-  } catch (e) {
-    console.error('[OutreachEmail] Send failed:', e.message);
-    return res.status(500).json({ error: 'Send failed: ' + e.message });
-  }
+    const apiReq = https.request({
+      hostname: 'api.resend.com', path: '/emails', method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) }
+    }, (r) => {
+      let d = ''; r.on('data', c => d += c);
+      r.on('end', () => {
+        if (r.statusCode < 300) resolve(true);
+        else { console.error(`[OutreachEmail] Resend failed: ${r.statusCode} ${d}`); resolve(false); }
+      });
+    });
+    apiReq.on('error', e => { console.error('[OutreachEmail] Resend error:', e.message); resolve(false); });
+    apiReq.write(payload); apiReq.end();
+  });
+  if (!sent) return res.status(500).json({ error: 'Email send failed — check server logs.' });
   try {
     const contactLog = (await getKey('outreachContactLog')) || [];
     let rec = contactLog.find(c => c.email === entry.reporter.email);
