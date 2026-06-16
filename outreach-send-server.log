@@ -41,8 +41,25 @@
 [2026-06-11T16:22:36.734Z] Logged contact for john.oconnor@thebaltimorebanner.com
 [2026-06-11T16:23:39.392Z] Sent to wford@marylandmatters.org (William Ford)
 [2026-06-11T16:23:39.395Z] Logged contact for wford@marylandmatters.org
-[2026-06-13T21:22:12.841Z] Ready at http://localhost:3001/reporter-email
-[2026-06-13T21:23:21.766Z] Sent to ccondon@marylandmatters.org (Christine Condon)
-[2026-06-13T21:23:21.772Z] Logged contact for ccondon@marylandmatters.org
-[2026-06-13T21:24:46.774Z] Sent to bsears@marylandmatters.org (Bryan Sears)
-[2026-06-13T21:24:46.777Z] Logged contact for bsears@marylandmatters.org
+[2026-06-12T15:33:16.418Z] Ready at http://localhost:3001/reporter-email
+[2026-06-12T15:37:01.150Z] Sent to marcus@baltimorefishbowl.com (Marcus Dieterle)
+[2026-06-12T15:37:01.155Z] Logged contact for marcus@baltimorefishbowl.com
+[2026-06-12T15:37:55.753Z] Sent to bnordstrom@baltsun.com (Brendan Nordstrom)
+[2026-06-12T15:37:55.754Z] Logged contact for bnordstrom@baltsun.com
+[2026-06-12T15:40:46.051Z] Sent to ccondon@marylandmatters.org (Christine Condon)
+[2026-06-12T15:40:46.055Z] Logged contact for ccondon@marylandmatters.org
+[2026-06-12T15:42:09.653Z] Sent to nmiller@wypr.org (Nathanael Miller)
+[2026-06-12T15:42:09.655Z] Logged contact for nmiller@wypr.org
+[2026-06-12T15:42:09.656Z] All tokens consumed — shutting down.
+[2026-06-15T13:53:33.669Z] Ready at http://localhost:3001/reporter-email
+[2026-06-15T14:01:38.814Z] Sent to justin.fenton@thebaltimorebanner.com (Justin Fenton)
+[2026-06-15T14:01:38.817Z] Logged contact for justin.fenton@thebaltimorebanner.com
+[2026-06-15T14:02:27.681Z] Sent to wford@marylandmatters.org (William Ford)
+[2026-06-15T14:02:27.684Z] Logged contact for wford@marylandmatters.org
+[2026-06-15T14:03:13.364Z] Sent to jlee@wypr.org (John Lee)
+[2026-06-15T14:03:13.368Z] Logged contact for jlee@wypr.org
+[2026-06-15T14:03:56.352Z] Sent to cpryce@baltsun.com (Chevall Pryce)
+[2026-06-15T14:03:56.357Z] Logged contact for cpryce@baltsun.com
+[2026-06-15T14:04:30.844Z] Sent to myelenik@baltsun.com (Marissa Yelenik)
+[2026-06-15T14:04:30.847Z] Logged contact for myelenik@baltsun.com
+[2026-06-15T14:04:30.849Z] All tokens consumed — shutting down.

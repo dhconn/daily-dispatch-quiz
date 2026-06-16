@@ -617,6 +617,53 @@ function savePendingEmails(pending) {
   catch (e) { console.warn('[Outreach] Could not save pending emails:', e.message); }
 }
 
+async function uploadTokensToRailway(pending, cfg) {
+  const siteUrl   = cfg.siteUrl;
+  const siteToken = cfg.siteToken;
+  if (!siteUrl || !siteToken) {
+    console.warn('[Outreach] siteUrl/siteToken not in config — skipping Railway token upload');
+    return false;
+  }
+  try {
+    const { data } = await axios.post(`${siteUrl}/api/outreach/tokens`, { tokens: pending }, {
+      headers: { 'x-outreach-token': siteToken }, timeout: 15000
+    });
+    console.log(`[Outreach] ${data.count} token(s) uploaded to Railway`);
+    return true;
+  } catch (e) {
+    console.error('[Outreach] Railway token upload failed:', e.response?.data?.error || e.message);
+    return false;
+  }
+}
+
+async function syncContactLogFromRailway(cfg) {
+  const siteUrl   = cfg.siteUrl;
+  const siteToken = cfg.siteToken;
+  if (!siteUrl || !siteToken) return;
+  try {
+    const { data } = await axios.get(`${siteUrl}/api/outreach/contact-log`, {
+      headers: { 'x-outreach-token': siteToken }, timeout: 10000
+    });
+    const remoteLog = data.log;
+    if (!Array.isArray(remoteLog) || remoteLog.length === 0) return;
+    const localLog = loadContactLog();
+    let updated = false;
+    for (const remote of remoteLog) {
+      let local = localLog.find(c => c.email === remote.email);
+      if (!local) { local = { email: remote.email, contacts: [] }; localLog.push(local); }
+      for (const rc of (remote.contacts || [])) {
+        if (!local.contacts.some(c => c.date === rc.date && c.storyUrl === rc.storyUrl)) {
+          local.contacts.push(rc);
+          updated = true;
+        }
+      }
+    }
+    if (updated) { saveContactLog(localLog); console.log('[Outreach] Contact log synced from Railway'); }
+  } catch (e) {
+    console.warn('[Outreach] Could not sync contact log from Railway:', e.message);
+  }
+}
+
 // Score a reporter's relevance to a specific story
 const MANAGEMENT_BEATS = new Set([
   'editor', 'managing editor', 'editor-in-chief', 'executive editor',
@@ -865,12 +912,11 @@ async function buildReporterEmails(questions, topics, contacts, anthropic) {
 function reporterEmailsHtml(reporterEmails, cfg) {
   if (!reporterEmails.length) return '';
 
-  const host       = (cfg && cfg.serverHost) || 'localhost';
-  const port       = (cfg && cfg.outreachPort) || 3001;
+  const siteUrl    = (cfg && cfg.siteUrl) || 'https://dailydispatchquiz.com';
   const subjectEnc = encodeURIComponent("Your story in today's Daily Dispatch Quiz");
 
   const rows = reporterEmails.map(re => {
-    const serverHref = `http://${host}:${port}/reporter-email?token=${re.token}`;
+    const serverHref = `${siteUrl}/api/reporter-email?token=${re.token}`;
     const mailtoHref = `mailto:${re.reporter.email}?subject=${subjectEnc}&body=${encodeURIComponent(re.draftEmail)}`;
     return `
     <div style="margin:0 0 16px;border:1px solid #b8cce4;overflow:hidden;">
@@ -1103,6 +1149,9 @@ async function main() {
     return;
   }
 
+  // Sync Railway contact log to local file so dedup reflects emails sent via web
+  await syncContactLogFromRailway(cfg);
+
   // Fetch latest quiz
   let quizData;
   try {
@@ -1194,7 +1243,7 @@ async function main() {
     console.warn('[Outreach] outreach-contacts.json not found — skipping reporter emails');
   }
 
-  // Save pending emails so the "Send & Log" web flow can find them by token
+  // Upload tokens to Railway so "Send & Log" links work from any browser on any machine
   if (reporterEmails.length) {
     const pending = {};
     for (const re of reporterEmails) {
@@ -1207,14 +1256,8 @@ async function main() {
         draftEmail: re.draftEmail
       };
     }
-    savePendingEmails(pending);
-
-    // Spawn a standalone send server that stays alive for 8 hours to handle "Send & Log" clicks
-    const child = spawn(process.execPath, [path.join(DIR, 'outreach-send-server.js')], {
-      detached: true, stdio: 'ignore', windowsHide: true
-    });
-    child.unref();
-    console.log(`[Outreach] Send server spawned — listening on port ${cfg.outreachPort || 3001} for 8 hours`);
+    savePendingEmails(pending); // local backup
+    await uploadTokensToRailway(pending, cfg);
   }
 
   // Save today's cache so --log-today can update the contact log after sending

@@ -21,6 +21,11 @@
         "date": "2026-06-06",
         "storyUrl": "https://www.wypr.org/wypr-news/2026-06-04/housing-bottleneck-causes-supply-to-fall-behind-demand-in-frederick-county",
         "storyTopic": "Frederick County Senior Housing Crisis"
+      },
+      {
+        "date": "2026-06-12",
+        "storyUrl": "https://www.wypr.org/wypr-news/2026-06-11/frederick-county-public-schools-want-cameras-in-all-special-needs-classrooms-by-2030",
+        "storyTopic": "Frederick County Schools Surveillance Expansion"
       }
     ]
   },
@@ -73,9 +78,9 @@
         "storyTopic": "Orioles Groundskeeper Nicole Sherry Retires"
       },
       {
-        "date": "2026-06-13",
-        "storyUrl": "https://marylandmatters.org/briefs/maryland-to-require-registration-of-ev-chargers-at-reduced-annual-fee/",
-        "storyTopic": "Maryland Agriculture Department New Transportation Fee"
+        "date": "2026-06-12",
+        "storyUrl": "https://marylandmatters.org/2026/06/11/brandon-shores-wagner-rmr-extension-2031/",
+        "storyTopic": "Maryland Power Plant Federal License Renewal"
       }
     ]
   },
@@ -126,11 +131,6 @@
         "date": "2026-06-10",
         "storyUrl": "https://marylandmatters.org/2026/06/10/elections-panel-approves-guidelines-to-address-the-canvassing-issue/",
         "storyTopic": "Maryland Election Board New Policy"
-      },
-      {
-        "date": "2026-06-13",
-        "storyUrl": "https://marylandmatters.org/2026/06/12/penman-to-return-to-harford-council-more-than-year-after-wrongful-removal/",
-        "storyTopic": "Aaron Penman Harford County Council Reinstatement"
       }
     ]
   },
@@ -171,6 +171,71 @@
         "date": "2026-06-11",
         "storyUrl": "https://marylandmatters.org/2026/06/10/butterfly-stampede-more-than-22000-sign-up-for-id-logo-alerting-to-hidden-disabilities/",
         "storyTopic": "Eric's Law Butterfly License Plate"
+      },
+      {
+        "date": "2026-06-15",
+        "storyUrl": "https://marylandmatters.org/2026/06/13/union-urges-university-board-to-reconsider-decision-to-lay-off-employees/",
+        "storyTopic": "AFSCME University Workers Labor Dispute"
+      }
+    ]
+  },
+  {
+    "email": "marcus@baltimorefishbowl.com",
+    "contacts": [
+      {
+        "date": "2026-06-12",
+        "storyUrl": "https://baltimorefishbowl.com/stories/baltimore-weekend-events-baltimore-pride-floatilla-shakespeares-midsummer-with-a-twist-and-more/",
+        "storyTopic": "Baltimore Weekend Celebrations Guide"
+      }
+    ]
+  },
+  {
+    "email": "bnordstrom@baltsun.com",
+    "contacts": [
+      {
+        "date": "2026-06-12",
+        "storyUrl": "https://www.baltimoresun.com/2026/06/11/governor-candidate-convicted-stalking/",
+        "storyTopic": "GOP Governor Candidate Criminal Conviction"
+      }
+    ]
+  },
+  {
+    "email": "justin.fenton@thebaltimorebanner.com",
+    "contacts": [
+      {
+        "date": "2026-06-15",
+        "storyUrl": "https://www.thebanner.com/community/criminal-justice/baltimore-cop-alexi-correa-fbi-drug-recording-ZCHHCJDCSZHGPEWDQSS7W56PEM/",
+        "storyTopic": "Baltimore Cop FBI Confession Case"
+      }
+    ]
+  },
+  {
+    "email": "jlee@wypr.org",
+    "contacts": [
+      {
+        "date": "2026-06-15",
+        "storyUrl": "https://www.wypr.org/wypr-news/2026-06-14/kach-endorses-le-gardeur-over-mangione-in-baltimore-county-council-race",
+        "storyTopic": "Baltimore County Republican Endorsement Withdrawal"
+      }
+    ]
+  },
+  {
+    "email": "cpryce@baltsun.com",
+    "contacts": [
+      {
+        "date": "2026-06-15",
+        "storyUrl": "https://www.baltimoresun.com/2026/06/15/baltimore-municipal-id-program-delays/",
+        "storyTopic": "Baltimore Unimplemented Brandon Scott Policy"
+      }
+    ]
+  },
+  {
+    "email": "myelenik@baltsun.com",
+    "contacts": [
+      {
+        "date": "2026-06-15",
+        "storyUrl": "https://www.baltimoresun.com/2026/06/15/new-windsor-mprp-lawsuit/",
+        "storyTopic": "New Windsor Opposes Power Line Project"
       }
     ]
   }
