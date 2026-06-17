@@ -7,6 +7,9 @@ node_modules/
 outreach-config.json
 outreach-today-cache.json
 outreach-last-run.txt
+outreach-digest.html
+outreach-pending-emails.json
+outreach-contact-log.json
 
 # Ignore system files
 .DS_Store
