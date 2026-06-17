@@ -1173,12 +1173,13 @@ async function main() {
     return;
   }
 
-  // Guard: quiz must be ≤ 8 hours old, if a timestamp is available
-  const ts = quizData.quiz.publishedAt || quizData.quiz.savedAt;
+  // Guard: quiz must be ≤ 16 hours old (based on publishedAt only — savedAt reflects
+  // draft save time, not publish time, so it would give a false age for scheduled quizzes)
+  const ts = quizData.quiz.publishedAt;
   if (ts) {
     const ageH = (Date.now() - new Date(ts).getTime()) / 3600000;
-    if (ageH > 8) {
-      console.log(`[Outreach] Quiz is ${ageH.toFixed(1)}h old (max 8h) — exiting`);
+    if (ageH > 16) {
+      console.log(`[Outreach] Quiz is ${ageH.toFixed(1)}h old (max 16h) — exiting`);
       return;
     }
     console.log(`[Outreach] Quiz age: ${(ageH * 60).toFixed(0)} minutes`);

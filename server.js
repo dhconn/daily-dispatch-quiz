@@ -1775,7 +1775,7 @@ app.post('/api/quiz', async (req, res) => {
   if (!date || !quiz) return res.status(400).json({ error: 'date and quiz required' });
   const data = await readData();
   if (!data.quizzes) data.quizzes = {};
-  data.quizzes[date] = quiz;
+  data.quizzes[date] = { ...quiz, publishedAt: new Date().toISOString() };
   // Keep only last 14 days
   const keys = Object.keys(data.quizzes).sort();
   if (keys.length > 14) keys.slice(0, keys.length - 14).forEach(k => delete data.quizzes[k]);
@@ -3499,7 +3499,7 @@ async function checkScheduledPublish() {
     if (data.quizzes[date]) {
       console.log(`[Schedule] Quiz already published for ${date} — skipping overwrite, sending emails only.`);
     } else {
-      data.quizzes[date] = quiz;
+      data.quizzes[date] = { ...quiz, publishedAt: new Date().toISOString() };
     }
     const keys = Object.keys(data.quizzes).sort();
     if (keys.length > 14) keys.slice(0, keys.length - 14).forEach(k => delete data.quizzes[k]);
