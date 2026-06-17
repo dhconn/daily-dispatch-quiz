@@ -2,6 +2,7 @@
   {"name": "Kevin", "email": "Kevin@InceptMM.com", "outlet": "Incept MM", "beat": "unknown", "emailVerified": true},
   {"name": "J. Cox", "email": "jcox@bayjournal.com", "outlet": "Bay Journal", "beat": "environment", "emailVerified": true},
   {"name": "P. Gilbert", "email": "pgilbert@hearst.com", "outlet": "Hearst", "beat": "unknown", "emailVerified": true},
+  {"name": "Tori Yorgey", "email": "tori.yorgey@hearst.com", "outlet": "Hearst", "beat": "general assignment", "emailVerified": true},
   {"name": "Adam Thompson", "email": "adam.thompson@paramount.com", "outlet": "Paramount/CBS", "beat": "unknown", "emailVerified": true},
   {"name": "JT Moodee Lockman", "email": "JT.MoodeeLockman@Paramount.com", "outlet": "Paramount/CBS", "beat": "unknown", "emailVerified": true},
   {"name": "David Collins", "email": "davidcollins@hearst.com", "outlet": "Hearst", "beat": "unknown", "emailVerified": true},
@@ -9,6 +10,7 @@
   {"name": "Drew Aunkst", "email": "Drew.Aunkst@cbs.com", "outlet": "CBS Baltimore", "beat": "unknown", "emailVerified": true},
   {"name": "Bryant Reed", "email": "bryant.reed@cbs.com", "outlet": "CBS Baltimore", "beat": "unknown", "emailVerified": true},
   {"name": "Alexa Dikos", "email": "aadikos@sbgtv.com", "outlet": "Fox 45 Baltimore", "beat": "unknown", "emailVerified": true},  
+  {"name": "Mikenzie Frost", "email": "mbfrost@sbgtv.com", "outlet": "Fox 45 Baltimore", "beat": "political reporter", "emailVerified": true},
   {"name": "Greg Ng", "email": "gng@hearst.com", "outlet": "WBALTV 11", "beat": "digital content", "emailVerified": true},
   {"name": "Sarah Petrowich", "email": "spetrowich@wypr.org", "outlet": "WYPR", "beat": "state government & politics", "emailVerified": true},
   {"name": "John Lee", "email": "jlee@wypr.org", "outlet": "WYPR", "beat": "Baltimore County", "emailVerified": true},
@@ -39,7 +41,8 @@
   {"name": "Kit Pollard", "email": "kit@kitpollard.com", "outlet": "Baltimore Fishbowl", "beat": "food columnist", "emailVerified": true},
   {"name": "Evelyn Lucado", "email": "evelyn@baltimorefishbowl.com", "outlet": "Baltimore Fishbowl", "beat": "staff reporter", "emailVerified": true},
   {"name": "Dan Rodricks", "email": "djrodricks@gmail.com", "outlet": "Baltimore Fishbowl", "beat": "staff reporter", "emailVerified": true},
-  
+  {"name": "Reid Epstein", "email": "reid.epstein@nytimes.com", "outlet": "New York Times", "beat": "political reporter", "emailVerified": true},
+
   {"name": "Audrey Cooper", "email": "audrey.cooper@thebaltimorebanner.com", "outlet": "Baltimore Banner", "beat": "editor-in-chief", "emailVerified": false},
   {"name": "Andrea K. McDaniels", "email": "andrea.mcdaniels@thebaltimorebanner.com", "outlet": "Baltimore Banner", "beat": "managing editor", "emailVerified": false},
   {"name": "Monique Jones", "email": "monique.jones@thebaltimorebanner.com", "outlet": "Baltimore Banner", "beat": "VP editorial", "emailVerified": false},
