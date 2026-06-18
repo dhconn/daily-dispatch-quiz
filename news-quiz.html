@@ -6197,22 +6197,32 @@ ${siteUrl}`;
       // Feed URLs = RSS/site URLs saved in the feeds box
       const articleUrlList = articleUrls ? articleUrls.split('\n').map(u => u.trim()).filter(u => u.startsWith('http')) : [];
       const urlList = urls ? urls.split('\n').map(u => u.trim()).filter(u => u.startsWith('http')) : [];
-      // Fetch server-side archive (authoritative, works across devices/sessions)
+      // Fetch server-side archive from both sources and merge:
+      // /api/archive/full — derived from last 14 days of published quizzes (rich, with summaries)
+      // /api/archive      — stored archive of last 60 questions (cross-device, device-independent)
       let serverArchiveUrls = [], serverArchiveQuestions = [], serverArchiveSlugs = [], serverArchiveSummaries = [];
       try {
-        // Use /api/archive/full which derives archive directly from published quizzes
-        // This is more reliable than the client-side slug system
-        const archRes = await Promise.race([
-          fetch('/api/archive/full'),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
+        const [archRes, storedRes] = await Promise.allSettled([
+          Promise.race([
+            fetch('/api/archive/full'),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
+          ]),
+          fetch('/api/archive')
         ]);
-        if (archRes.ok) {
-          const archData = await archRes.json();
+        if (archRes.status === 'fulfilled' && archRes.value.ok) {
+          const archData = await archRes.value.json();
           serverArchiveUrls = archData.urls || [];
           serverArchiveQuestions = archData.questions || [];
           serverArchiveSlugs = archData.slugs || [];
           serverArchiveSummaries = archData.summaries || [];
           console.log('[Archive/full] Loaded', serverArchiveQuestions.length, 'questions,', serverArchiveUrls.length, 'URLs,', serverArchiveSummaries.length, 'summaries from published quizzes');
+        }
+        if (storedRes.status === 'fulfilled' && storedRes.value.ok) {
+          const stored = await storedRes.value.json();
+          (stored.questions || []).forEach(q => { if (!serverArchiveQuestions.includes(q)) serverArchiveQuestions.push(q); });
+          (stored.urls || []).forEach(u => { if (!serverArchiveUrls.includes(u)) serverArchiveUrls.push(u); });
+          (stored.slugs || []).forEach(s => { if (s && !serverArchiveSlugs.includes(s)) serverArchiveSlugs.push(s); });
+          console.log('[Archive/stored] Merged', stored.questions?.length || 0, 'stored questions — total now', serverArchiveQuestions.length);
         }
       } catch (e) { console.warn('[Archive] fetch failed or timed out, using localStorage fallback'); }
       // Merge with localStorage fallback (covers current session before first publish)
