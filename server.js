@@ -1273,12 +1273,10 @@ app.post('/api/admin/announce-monthly-winner', async (req, res) => {
     // Winner email(s)
     for (const winner of winners) {
       const winnerHtml = `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1008;">
-        <a href="${siteUrl}" style="display:block;text-decoration:none;color:inherit;">
         <div style="background:#1a1008;color:#f5f0e8;text-align:center;padding:24px;">
           <div style="font-family:monospace;font-size:11px;letter-spacing:3px;color:#f0c040;margin-bottom:6px;">BALTIMORE · DAILY DISPATCH</div>
           <div style="font-size:28px;font-weight:bold;">The Daily Dispatch Quiz</div>
         </div>
-        </a>
         <div style="padding:32px 24px;background:#f5f0e8;text-align:center;">
           <div style="font-size:48px;margin-bottom:12px;">🏆</div>
           <p style="font-family:Georgia,serif;font-size:24px;font-weight:700;margin:0 0 10px;">${winner.displayName} wins the ${monthName} mug!</p>
@@ -1295,12 +1293,10 @@ app.post('/api/admin/announce-monthly-winner', async (req, res) => {
 
     // Announcement to all subscribers and prospects
     const announcementHtml = `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1008;">
-      <a href="${siteUrl}" style="display:block;text-decoration:none;color:inherit;">
       <div style="background:#1a1008;color:#f5f0e8;text-align:center;padding:24px;">
         <div style="font-family:monospace;font-size:11px;letter-spacing:3px;color:#f0c040;margin-bottom:6px;">BALTIMORE · DAILY DISPATCH</div>
         <div style="font-size:28px;font-weight:bold;">The Daily Dispatch Quiz</div>
       </div>
-      </a>
       <div style="padding:32px 24px;background:#f5f0e8;text-align:center;">
         <div style="font-size:48px;margin-bottom:12px;">🏆</div>
         <p style="font-family:Georgia,serif;font-size:24px;font-weight:700;margin:0 0 10px;">${monthName} Champion${winners.length > 1 ? 's' : ''}</p>
@@ -1455,13 +1451,11 @@ function buildEmailHtmlWithQ1(siteUrl, date, subscriberName, teaserHtml, unsubUr
 }).join('');
 
 return `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1008;">
-    <a href="${siteUrl}" style="display:block;text-decoration:none;color:inherit;">
     <div style="background:#1a1008;color:#f5f0e8;text-align:center;padding:24px;">
       <div style="font-family:monospace;font-size:11px;letter-spacing:3px;color:#f0c040;margin-bottom:6px;">BALTIMORE · DAILY DISPATCH</div>
       <div style="font-size:28px;font-weight:bold;">The Daily Dispatch Quiz</div>
       <div style="font-family:monospace;font-size:10px;letter-spacing:2px;color:#aaa;margin-top:6px;">${date}</div>
     </div>
-    </a>
     <div style="padding:32px 24px;background:#f5f0e8;">
       <p style="font-size:18px;margin:0 0 24px;">Hi${subscriberName ? ' ' + subscriberName : ''} — start today's quiz by clicking your answer here:</p>
       <div style="background:white;border:2px solid #1a1008;padding:20px 20px 10px;margin-bottom:20px;box-shadow:4px 4px 0 #1a1008;">
@@ -1775,7 +1769,7 @@ app.post('/api/quiz', async (req, res) => {
   if (!date || !quiz) return res.status(400).json({ error: 'date and quiz required' });
   const data = await readData();
   if (!data.quizzes) data.quizzes = {};
-  data.quizzes[date] = { ...quiz, publishedAt: new Date().toISOString() };
+  data.quizzes[date] = quiz;
   // Keep only last 14 days
   const keys = Object.keys(data.quizzes).sort();
   if (keys.length > 14) keys.slice(0, keys.length - 14).forEach(k => delete data.quizzes[k]);
@@ -2434,113 +2428,6 @@ app.post('/api/quiz/schedule', async (req, res) => {
   }
 });
 
-// ── GET /api/admin/nudge-preview — who hasn't played today ───────────────────
-app.get('/api/admin/nudge-preview', async (req, res) => {
-  const adminToken = process.env.ADMIN_TOKEN || 'admin';
-  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
-  try {
-    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
-    const data = await readData();
-    const allProgress = (await getKey('progress')) || {};
-    const todayPlayers = new Set(Object.keys(allProgress[today] || {}));
-
-    const notPlayed = { subscribers: [], prospects: [] };
-    const played = { subscribers: [], prospects: [] };
-
-    for (const sub of Object.values(data.subscribers || {})) {
-      if (!sub.active) continue;
-      const key = (sub.name || '').toLowerCase().trim();
-      const bucket = todayPlayers.has(key) ? played.subscribers : notPlayed.subscribers;
-      bucket.push({ email: sub.email, name: sub.name || '' });
-    }
-    for (const pro of Object.values(data.prospects || {})) {
-      if (pro.active === false) continue;
-      const key = (pro.name || '').toLowerCase().trim();
-      const bucket = todayPlayers.has(key) ? played.prospects : notPlayed.prospects;
-      bucket.push({ email: pro.email, name: pro.name || '' });
-    }
-
-    res.json({ today, notPlayed, played });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// ── POST /api/admin/send-nudge — send custom message to non-players today ────
-app.post('/api/admin/send-nudge', async (req, res) => {
-  const adminToken = process.env.ADMIN_TOKEN || 'admin';
-  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
-  const { subject, message } = req.body || {};
-  if (!subject || !message) return res.status(400).json({ error: 'subject and message required' });
-
-  try {
-    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
-    const siteUrl = process.env.SITE_URL || 'https://dailydispatchquiz.com';
-    const data = await readData();
-    const allProgress = (await getKey('progress')) || {};
-    const todayPlayers = new Set(Object.keys(allProgress[today] || {}));
-
-    const recipients = [];
-
-    for (const sub of Object.values(data.subscribers || {})) {
-      if (!sub.active) continue;
-      const key = (sub.name || '').toLowerCase().trim();
-      if (todayPlayers.has(key)) continue;
-      const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(sub.email)}`;
-      recipients.push({
-        from: process.env.FROM_EMAIL || 'David @ Daily Dispatch Quiz <david@dailydispatchquiz.com>',
-        reply_to: 'dhconn@gmail.com',
-        to: [sub.email],
-        subject,
-        html: buildNudgeHtml(sub.name, message, siteUrl, unsubUrl)
-      });
-    }
-    for (const pro of Object.values(data.prospects || {})) {
-      if (pro.active === false) continue;
-      const key = (pro.name || '').toLowerCase().trim();
-      if (todayPlayers.has(key)) continue;
-      recipients.push({
-        from: process.env.FROM_EMAIL || 'David @ Daily Dispatch Quiz <david@dailydispatchquiz.com>',
-        reply_to: 'dhconn@gmail.com',
-        to: [pro.email],
-        subject,
-        html: buildNudgeHtml(pro.name, message, siteUrl, null)
-      });
-    }
-
-    if (recipients.length === 0) return res.json({ ok: true, sent: 0, message: 'Everyone has already played today.' });
-
-    await sendEmailBatch(recipients);
-    console.log(`[Nudge] Sent to ${recipients.length} non-players on ${today}`);
-    res.json({ ok: true, sent: recipients.length });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-function buildNudgeHtml(name, message, siteUrl, unsubUrl) {
-  const greeting = name ? `Hi ${name},` : 'Hi,';
-  const bodyLines = message.trim().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    .split('\n').filter(l => l.trim()).map(l => `<p style="font-size:15px;line-height:1.7;margin:0 0 14px;">${l}</p>`).join('');
-  return `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1008;">
-    <a href="${siteUrl}" style="display:block;text-decoration:none;color:inherit;">
-    <div style="background:#1a1008;color:#f5f0e8;text-align:center;padding:24px;">
-      <div style="font-family:monospace;font-size:11px;letter-spacing:3px;color:#f0c040;margin-bottom:6px;">BALTIMORE · DAILY DISPATCH</div>
-      <div style="font-size:28px;font-weight:bold;">The Daily Dispatch Quiz</div>
-    </div>
-    </a>
-    <div style="padding:32px 24px;background:#f5f0e8;">
-      <p style="font-size:18px;margin:0 0 20px;">${greeting}</p>
-      ${bodyLines}
-      <div style="text-align:center;margin:28px 0;">
-        <a href="${siteUrl}" style="display:inline-block;background:#1a1008;color:#f5f0e8;padding:16px 36px;font-family:monospace;font-size:13px;letter-spacing:2px;text-decoration:none;text-transform:uppercase;">Play Today's Quiz ▸</a>
-      </div>
-      <p style="font-family:monospace;font-size:11px;color:#6b5f4e;margin:0;">— David, Editor</p>
-    </div>
-    ${unsubUrl ? `<div style="padding:16px 24px;text-align:center;font-size:11px;color:#999;font-family:monospace;border-top:1px solid #e0d8cc;"><a href="${unsubUrl}" style="color:#999;">Unsubscribe</a></div>` : ''}
-  </div>`;
-}
-
 // ── POST /api/admin/retract-quiz — hide live quiz from players immediately ──
 app.post('/api/admin/retract-quiz', async (req, res) => {
   const adminToken = process.env.ADMIN_TOKEN || 'admin';
@@ -2829,32 +2716,23 @@ app.post('/api/reporter-email', async (req, res) => {
   catch (e) { return res.status(500).json({ error: 'Database error' }); }
   const entry = tokens[token];
   if (!entry) return res.status(409).json({ error: 'Already sent or link expired.' });
-  const apiKey   = process.env.RESEND_API_KEY;
-  if (!apiKey) return res.status(500).json({ error: 'RESEND_API_KEY not configured on server.' });
-  const fromAddr = process.env.FROM_EMAIL || 'David @ Daily Dispatch Quiz <david@dailydispatchquiz.com>';
-  const replyTo  = process.env.OUTREACH_GMAIL_USER || 'dhconn@gmail.com';
-  // Use Resend (HTTPS) — Railway blocks outbound SMTP so nodemailer fails
-  const sent = await new Promise((resolve) => {
-    const payload = JSON.stringify({
-      from: fromAddr, reply_to: replyTo, bcc: [replyTo],
-      to: [entry.reporter.email],
+  const gmailUser = process.env.OUTREACH_GMAIL_USER;
+  const gmailPass = process.env.OUTREACH_GMAIL_APP_PASSWORD;
+  if (!gmailUser || !gmailPass) {
+    return res.status(500).json({ error: 'Outreach email not configured on server — add OUTREACH_GMAIL_USER and OUTREACH_GMAIL_APP_PASSWORD to Railway.' });
+  }
+  try {
+    const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: gmailUser, pass: gmailPass } });
+    await transporter.sendMail({
+      from: gmailUser, to: entry.reporter.email,
+      replyTo: gmailUser, bcc: gmailUser,
       subject: subject || "Your story in today's Daily Dispatch Quiz",
       text: body
     });
-    const apiReq = https.request({
-      hostname: 'api.resend.com', path: '/emails', method: 'POST',
-      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) }
-    }, (r) => {
-      let d = ''; r.on('data', c => d += c);
-      r.on('end', () => {
-        if (r.statusCode < 300) resolve(true);
-        else { console.error(`[OutreachEmail] Resend failed: ${r.statusCode} ${d}`); resolve(false); }
-      });
-    });
-    apiReq.on('error', e => { console.error('[OutreachEmail] Resend error:', e.message); resolve(false); });
-    apiReq.write(payload); apiReq.end();
-  });
-  if (!sent) return res.status(500).json({ error: 'Email send failed — check server logs.' });
+  } catch (e) {
+    console.error('[OutreachEmail] Send failed:', e.message);
+    return res.status(500).json({ error: 'Send failed: ' + e.message });
+  }
   try {
     const contactLog = (await getKey('outreachContactLog')) || [];
     let rec = contactLog.find(c => c.email === entry.reporter.email);
@@ -2928,12 +2806,10 @@ async function sendEmail(to, subject, html) {
 function sendWelcomeEmail(email, name, siteUrl, unsubUrl) {
   const greeting = name ? `Hi ${name}` : 'Hi there';
   const html = `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1008;">
-    <a href="${siteUrl}" style="display:block;text-decoration:none;color:inherit;">
     <div style="background:#1a1008;color:#f5f0e8;text-align:center;padding:24px;">
       <div style="font-family:monospace;font-size:11px;letter-spacing:3px;color:#f0c040;margin-bottom:6px;">BALTIMORE · DAILY DISPATCH</div>
       <div style="font-size:28px;font-weight:bold;">The Daily Dispatch Quiz</div>
     </div>
-    </a>
     <div style="padding:32px 24px;background:#f5f0e8;">
       <p style="font-size:18px;margin:0 0 20px;">${greeting} — welcome aboard.</p>
       <p style="font-size:15px;line-height:1.7;margin:0 0 16px;">You've just subscribed to the Daily Dispatch Quiz — a free, daily Baltimore local news quiz that takes about two minutes to play. Six questions, a leaderboard, and bragging rights. That's the whole deal.</p>
@@ -3053,12 +2929,10 @@ app.post('/api/admin/message/bulk', async (req, res) => {
       to: [t.email],
       subject,
       html: `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1008;">
-        <a href="${siteUrl}" style="display:block;text-decoration:none;color:inherit;">
         <div style="background:#1a1008;color:#f5f0e8;text-align:center;padding:24px;">
           <div style="font-family:monospace;font-size:11px;letter-spacing:3px;color:#f0c040;margin-bottom:6px;">BALTIMORE · DAILY DISPATCH</div>
           <div style="font-size:24px;font-weight:bold;">The Daily Dispatch Quiz</div>
         </div>
-        </a>
         <div style="padding:32px 24px;background:#f5f0e8;">
           ${t.name ? `<p style="font-size:16px;margin:0 0 16px;">Hi ${t.name},</p>` : ''}
           <div style="font-size:15px;line-height:1.7;">${htmlBody}</div>
@@ -3403,12 +3277,10 @@ async function announceMonthlyWinner() {
     for (const winner of winners) {
       const winnerHtml = `
         <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1008;">
-          <a href="${siteUrl}" style="display:block;text-decoration:none;color:inherit;">
           <div style="background:#1a1008;color:#f5f0e8;text-align:center;padding:24px;">
             <div style="font-family:monospace;font-size:11px;letter-spacing:3px;color:#f0c040;margin-bottom:6px;">BALTIMORE · DAILY DISPATCH</div>
             <div style="font-size:28px;font-weight:bold;">The Daily Dispatch Quiz</div>
           </div>
-          </a>
           <div style="padding:32px 24px;background:#f5f0e8;text-align:center;">
             <div style="font-size:48px;margin-bottom:12px;">🏆</div>
             <p style="font-family:'Playfair Display',Georgia,serif;font-size:24px;font-weight:700;margin:0 0 10px;">${winner.displayName} wins the ${monthName} mug!</p>
@@ -3431,12 +3303,10 @@ async function announceMonthlyWinner() {
     const winnerNames = winners.map(w => w.displayName).join(' and ');
     const announcementHtml = `
       <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1008;">
-        <a href="${siteUrl}" style="display:block;text-decoration:none;color:inherit;">
         <div style="background:#1a1008;color:#f5f0e8;text-align:center;padding:24px;">
           <div style="font-family:monospace;font-size:11px;letter-spacing:3px;color:#f0c040;margin-bottom:6px;">BALTIMORE · DAILY DISPATCH</div>
           <div style="font-size:28px;font-weight:bold;">The Daily Dispatch Quiz</div>
         </div>
-        </a>
         <div style="padding:32px 24px;background:#f5f0e8;text-align:center;">
           <div style="font-size:48px;margin-bottom:12px;">🏆</div>
           <p style="font-family:'Playfair Display',Georgia,serif;font-size:24px;font-weight:700;margin:0 0 10px;">${monthName} Champion${winners.length > 1 ? 's' : ''}</p>
@@ -3499,7 +3369,7 @@ async function checkScheduledPublish() {
     if (data.quizzes[date]) {
       console.log(`[Schedule] Quiz already published for ${date} — skipping overwrite, sending emails only.`);
     } else {
-      data.quizzes[date] = { ...quiz, publishedAt: new Date().toISOString() };
+      data.quizzes[date] = quiz;
     }
     const keys = Object.keys(data.quizzes).sort();
     if (keys.length > 14) keys.slice(0, keys.length - 14).forEach(k => delete data.quizzes[k]);
