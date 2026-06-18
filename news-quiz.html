@@ -5918,15 +5918,23 @@ ${siteUrl}`;
       loadAdminMessages();
       loadAdminPosts();
 
-      // Archive count
-      const archive = getArchive();
-      document.getElementById('archive-count').textContent = archive.length;
+      // Archive count — merge server + localStorage so all devices show accurate count
+      const localArchive = getArchive();
+      let mergedArchive = [...localArchive];
+      try {
+        const archRes = await fetch('/api/archive');
+        if (archRes.ok) {
+          const archData = await archRes.json();
+          (archData.questions || []).forEach(q => { if (!mergedArchive.includes(q)) mergedArchive.push(q); });
+        }
+      } catch (e) { /* server unavailable — fall back to localStorage count */ }
+      document.getElementById('archive-count').textContent = mergedArchive.length;
 
       // Archive preview (first 20)
-      const prev = archive.slice(0, 20);
+      const prev = mergedArchive.slice(0, 20);
       document.getElementById('archive-preview').innerHTML = prev.map(q =>
         `<span class="archive-pill">${escHtml(q.slice(0, 50))}…</span>`
-      ).join('') + (archive.length > 20 ? `<span class="archive-pill">+${archive.length - 20} more</span>` : '');
+      ).join('') + (mergedArchive.length > 20 ? `<span class="archive-pill">+${mergedArchive.length - 20} more</span>` : '');
 
       // Today's published — fetch from server to get correct article URLs
       let today = null;
