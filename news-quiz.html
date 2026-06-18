@@ -5930,11 +5930,11 @@ ${siteUrl}`;
       } catch (e) { /* server unavailable — fall back to localStorage count */ }
       document.getElementById('archive-count').textContent = mergedArchive.length;
 
-      // Archive preview (first 20)
-      const prev = mergedArchive.slice(0, 20);
+      // Archive preview (first 12)
+      const prev = mergedArchive.slice(0, 12);
       document.getElementById('archive-preview').innerHTML = prev.map(q =>
         `<span class="archive-pill">${escHtml(q.slice(0, 50))}…</span>`
-      ).join('') + (mergedArchive.length > 20 ? `<span class="archive-pill">+${mergedArchive.length - 20} more</span>` : '');
+      ).join('') + (mergedArchive.length > 12 ? `<span class="archive-pill">+${mergedArchive.length - 12} more</span>` : '');
 
       // Today's published — fetch from server to get correct article URLs
       let today = null;
