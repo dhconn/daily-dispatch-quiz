@@ -5930,8 +5930,8 @@ ${siteUrl}`;
       } catch (e) { /* server unavailable — fall back to localStorage count */ }
       document.getElementById('archive-count').textContent = mergedArchive.length;
 
-      // Archive preview (first 12)
-      const prev = mergedArchive.slice(0, 12);
+      // Archive preview (newest 12 first)
+      const prev = [...mergedArchive].reverse().slice(0, 12);
       document.getElementById('archive-preview').innerHTML = prev.map(q =>
         `<span class="archive-pill">${escHtml(q.slice(0, 50))}…</span>`
       ).join('') + (mergedArchive.length > 12 ? `<span class="archive-pill">+${mergedArchive.length - 12} more</span>` : '');
