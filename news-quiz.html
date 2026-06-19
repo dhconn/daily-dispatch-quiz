@@ -2765,6 +2765,12 @@
             <textarea id="community-message-input"
               style="width:100%;box-sizing:border-box;font-family:serif;font-size:14px;padding:8px;border:1px solid var(--rule);border-radius:2px;background:var(--white,#fff);color:var(--ink);resize:vertical;min-height:80px;"
               placeholder="e.g. We're adding a new weekly feature — stay tuned. Thanks for playing!"></textarea>
+            <div style="margin-top:10px;">
+              <label style="font-family:monospace;font-size:11px;color:var(--muted);display:block;margin-bottom:4px;">IMAGE URL (optional — appears above the note in the email)</label>
+              <input id="community-image-url-input" type="url"
+                style="width:100%;box-sizing:border-box;font-family:monospace;font-size:12px;padding:6px 8px;border:1px solid var(--rule);border-radius:2px;background:var(--white,#fff);color:var(--ink);"
+                placeholder="https://…">
+            </div>
             <div style="margin-top:8px;display:flex;align-items:center;gap:10px;">
               <button onclick="saveCommunityMessage()"
                 style="font-family:monospace;font-size:11px;padding:5px 14px;cursor:pointer;border-radius:2px;border:1px solid var(--ink);color:var(--ink);background:none;">Save Message</button>
@@ -6031,6 +6037,8 @@ ${siteUrl}`;
         const data = await res.json();
         const ta = document.getElementById('community-message-input');
         if (ta) ta.value = data.message || '';
+        const imgInput = document.getElementById('community-image-url-input');
+        if (imgInput) imgInput.value = data.imageUrl || '';
         const statusEl = document.getElementById('community-message-status');
         if (statusEl) statusEl.textContent = data.message ? '(active)' : '';
         const lastSentEl = document.getElementById('community-message-last-sent');
@@ -6048,12 +6056,13 @@ ${siteUrl}`;
     }
     async function saveCommunityMessage() {
       const message = (document.getElementById('community-message-input') || {}).value || '';
+      const imageUrl = (document.getElementById('community-image-url-input') || {}).value || '';
       const adminToken = lsGet('dnq_admin_token') || 'admin';
       try {
         const res = await fetch('/api/community-message', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
-          body: JSON.stringify({ message })
+          body: JSON.stringify({ message, imageUrl })
         });
         if (res.ok) {
           const msgEl = document.getElementById('community-message-saved-msg');

@@ -93,7 +93,7 @@ async function setKey(key, value) {
 // All callers that used await readData()/await writeData() now use async versions below.
 async function readData() {
   const keys = ['sites','rssCache','scores','dist','quizzes','archiveUrls',
-                 'archiveQuestions','archiveSlugs','posts','messages','subscribers','emailPaused','emailPausedSnapshot','topicBlocklist','cachedTeaserHtml','cachedTeaserDate','emailSentDates','prospects','prospectsPaused','statsExclusions','editorNotes','starredQuestions','communityMessage','communityMessageLastSent'];
+                 'archiveQuestions','archiveSlugs','posts','messages','subscribers','emailPaused','emailPausedSnapshot','topicBlocklist','cachedTeaserHtml','cachedTeaserDate','emailSentDates','prospects','prospectsPaused','statsExclusions','editorNotes','starredQuestions','communityMessage','communityMessageLastSent','communityImageUrl'];
   const data = {};
   await Promise.all(keys.map(async k => {
     const v = await getKey(k);
@@ -104,7 +104,7 @@ async function readData() {
 
 async function writeData(data) {
   const keys = ['sites','rssCache','scores','dist','quizzes','archiveUrls',
-                 'archiveQuestions','archiveSlugs','posts','messages','subscribers','emailPaused','emailPausedSnapshot','topicBlocklist','cachedTeaserHtml','cachedTeaserDate','emailSentDates','prospects','prospectsPaused','statsExclusions','editorNotes','starredQuestions','communityMessage','communityMessageLastSent'];
+                 'archiveQuestions','archiveSlugs','posts','messages','subscribers','emailPaused','emailPausedSnapshot','topicBlocklist','cachedTeaserHtml','cachedTeaserDate','emailSentDates','prospects','prospectsPaused','statsExclusions','editorNotes','starredQuestions','communityMessage','communityMessageLastSent','communityImageUrl'];
   await Promise.all(keys.map(async k => {
     if (data[k] === null) await setKey(k, null);
     else if (data[k] !== undefined) await setKey(k, data[k]);
@@ -1419,12 +1419,15 @@ Respond with ONLY a JSON array of 3 strings. No preamble, no markdown.`;
   });
 }
 
-function buildEditorMessageHtml(message) {
+function buildEditorMessageHtml(message, imageUrl) {
   if (!message || !message.trim()) return '';
+  const imgHtml = imageUrl && imageUrl.trim()
+    ? `<div style="margin-bottom:14px;"><img src="${imageUrl.trim()}" alt="" style="max-width:100%;height:auto;display:block;border:0;"></div>`
+    : '';
   return `
     <div style="margin:0 0 24px;padding:18px 20px;background:#fff8f0;border-left:4px solid #c0392b;text-align:left;">
       <div style="font-family:monospace;font-size:10px;letter-spacing:2px;color:#c0392b;margin-bottom:10px;">&#128226; A NOTE FROM THE EDITOR:</div>
-      <div style="font-family:Georgia,serif;font-size:15px;line-height:1.6;color:#1a1008;">${message.trim().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>')}</div>
+      ${imgHtml}<div style="font-family:Georgia,serif;font-size:15px;line-height:1.6;color:#1a1008;">${message.trim().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>')}</div>
     </div>`;
 }
 
@@ -1575,7 +1578,7 @@ app.post('/api/editor-notes', async (req, res) => {
 // ── GET /api/community-message — fetch community email message ───
 app.get('/api/community-message', async (req, res) => {
   const data = await readData();
-  res.json({ message: data.communityMessage || '', lastSent: data.communityMessageLastSent || '' });
+  res.json({ message: data.communityMessage || '', lastSent: data.communityMessageLastSent || '', imageUrl: data.communityImageUrl || '' });
 });
 // ── POST /api/community-message — save community email message ───
 app.post('/api/community-message', async (req, res) => {
@@ -1583,9 +1586,10 @@ app.post('/api/community-message', async (req, res) => {
   if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
   const data = await readData();
   data.communityMessage = typeof req.body.message === 'string' ? req.body.message.trim() : '';
+  data.communityImageUrl = typeof req.body.imageUrl === 'string' ? req.body.imageUrl.trim() : '';
   await writeData(data);
   console.log('[Admin] Community message updated (' + data.communityMessage.length + ' chars)');
-  res.json({ ok: true, message: data.communityMessage });
+  res.json({ ok: true, message: data.communityMessage, imageUrl: data.communityImageUrl });
 });
 
 // ── GET /api/starred-questions — fetch starred example questions ──
@@ -1818,7 +1822,7 @@ app.post('/api/quiz', async (req, res) => {
     const communityMessage = (freshData.communityMessage || '').trim();
     const communityMessageLastSent = (freshData.communityMessageLastSent || '').trim();
     const shouldIncludeEditorMessage = communityMessage.length > 0 && communityMessage !== communityMessageLastSent;
-    const editorMessageHtml = shouldIncludeEditorMessage ? buildEditorMessageHtml(communityMessage) : '';
+    const editorMessageHtml = shouldIncludeEditorMessage ? buildEditorMessageHtml(communityMessage, freshData.communityImageUrl || '') : '';
 
     const subscribers = freshData.emailPaused ? [] : Object.values(freshData.subscribers || {}).filter(s => s.active);
     if (subscribers.length > 0) {
@@ -3423,7 +3427,7 @@ async function checkScheduledPublish() {
     const communityMessage = (freshData.communityMessage || '').trim();
     const communityMessageLastSent = (freshData.communityMessageLastSent || '').trim();
     const shouldIncludeEditorMessage = communityMessage.length > 0 && communityMessage !== communityMessageLastSent;
-    const editorMessageHtml = shouldIncludeEditorMessage ? buildEditorMessageHtml(communityMessage) : '';
+    const editorMessageHtml = shouldIncludeEditorMessage ? buildEditorMessageHtml(communityMessage, freshData.communityImageUrl || '') : '';
 
     const subscribers = freshData.emailPaused ? [] : Object.values(freshData.subscribers || {}).filter(s => s.active);
     if (subscribers.length > 0) {
