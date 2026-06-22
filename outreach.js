@@ -617,23 +617,120 @@ function savePendingEmails(pending) {
   catch (e) { console.warn('[Outreach] Could not save pending emails:', e.message); }
 }
 
-async function uploadTokensToRailway(pending, cfg) {
-  const siteUrl   = cfg.siteUrl;
-  const siteToken = cfg.siteToken;
-  if (!siteUrl || !siteToken) {
-    console.warn('[Outreach] siteUrl/siteToken not in config — skipping Railway token upload');
-    return false;
+function startLocalSendServer(pending, cfg) {
+  const http = require('http');
+  const port = cfg.localPort || 7891;
+
+  function sendHtml(res, status, html) {
+    res.writeHead(status, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(html);
   }
-  try {
-    const { data } = await axios.post(`${siteUrl}/api/outreach/tokens`, { tokens: pending }, {
-      headers: { 'x-outreach-token': siteToken }, timeout: 15000
-    });
-    console.log(`[Outreach] ${data.count} token(s) uploaded to Railway`);
-    return true;
-  } catch (e) {
-    console.error('[Outreach] Railway token upload failed:', e.response?.data?.error || e.message);
-    return false;
+  function sendJson(res, status, data) {
+    res.writeHead(status, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(data));
   }
+  function page(title, bodyHtml) {
+    return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${escHtml(title)}</title>
+    <style>body{font-family:Georgia,serif;max-width:600px;margin:40px auto;padding:0 20px;color:#1a1008;}
+    input,textarea{width:100%;box-sizing:border-box;font-family:Georgia,serif;font-size:14px;padding:8px;border:1px solid #ccc;margin-top:4px;}
+    textarea{resize:vertical;}label{font-family:monospace;font-size:10px;letter-spacing:1px;color:#888;display:block;margin-top:14px;}
+    button{background:#1a3a6b;color:#fff;border:none;padding:10px 22px;font-family:monospace;font-size:12px;letter-spacing:1px;cursor:pointer;margin-top:16px;}
+    button:disabled{opacity:.5;cursor:default;}</style></head>
+    <body><h2 style="font-family:monospace;font-size:14px;letter-spacing:2px;color:#1a3a6b;">${escHtml(title)}</h2>${bodyHtml}</body></html>`;
+  }
+
+  const server = http.createServer((req, res) => {
+    const url = new URL(req.url, `http://localhost:${port}`);
+
+    if (req.method === 'GET' && url.pathname === '/api/reporter-email') {
+      const token = url.searchParams.get('token');
+      if (!token) return sendHtml(res, 400, page('Bad Request', '<p>Missing token.</p>'));
+      const entry = pending[token];
+      if (!entry) return sendHtml(res, 410, page('Link Expired or Already Used',
+        '<p>This link has already been used or has expired.</p><p style="font-size:13px;color:#888;">Run <code>node outreach.js</code> again to generate new links.</p>'));
+      const defSubj = escHtml("Your story in today's Daily Dispatch Quiz");
+      return sendHtml(res, 200, page(`Email to ${entry.reporter.name}`, `
+        <p style="font-size:13px;color:#555;margin:0 0 16px;">${escHtml(entry.reporter.outlet)} &bull; ${escHtml(entry.reporter.beat)} &bull; ${escHtml(entry.reporter.email)}</p>
+        <div style="background:#f5f0e8;padding:8px 12px;font-family:monospace;font-size:11px;color:#555;margin-bottom:16px;">
+          <span style="color:#aaa;font-size:9px;letter-spacing:1px;">STORY</span><br>${escHtml(entry.topic.topic || entry.storyUrl || '')}
+        </div>
+        <label>SUBJECT</label><input type="text" id="subj" value="${defSubj}">
+        <label>BODY (editable before sending)</label><textarea id="body" rows="13">${escHtml(entry.draftEmail)}</textarea>
+        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+          <button id="send-btn" onclick="doSend()">&#x2709; Send &amp; Log &#x25B8;</button>
+          <span id="msg" style="font-family:monospace;font-size:12px;color:#888;"></span>
+        </div>
+        <script>
+          async function doSend() {
+            const btn = document.getElementById('send-btn');
+            const msg = document.getElementById('msg');
+            btn.disabled = true; btn.textContent = 'Sending…';
+            try {
+              const r = await fetch('/api/reporter-email', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token: '${token}', subject: document.getElementById('subj').value, body: document.getElementById('body').value })
+              });
+              const j = await r.json();
+              if (j.ok) {
+                btn.style.background = '#1a6b3c'; btn.textContent = '✓ Sent & Logged';
+                msg.style.color = '#1a6b3c'; msg.textContent = 'Email sent. Contact logged.';
+                document.getElementById('subj').disabled = true;
+                document.getElementById('body').disabled = true;
+              } else {
+                btn.disabled = false; btn.textContent = '✉ Send & Log ▸';
+                msg.style.color = '#b33'; msg.textContent = j.error || 'Send failed.';
+              }
+            } catch (e) {
+              btn.disabled = false; btn.textContent = '✉ Send & Log ▸';
+              msg.style.color = '#b33'; msg.textContent = 'Network error — try again.';
+            }
+          }
+        </script>`));
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/reporter-email') {
+      let raw = '';
+      req.on('data', c => raw += c);
+      req.on('end', async () => {
+        try {
+          const { token, subject, body: emailBody } = JSON.parse(raw);
+          const entry = pending[token];
+          if (!entry) return sendJson(res, 409, { error: 'Already sent or link expired.' });
+          const transporter = nodemailer.createTransport({
+            service: 'gmail', auth: { user: cfg.gmailUser, pass: cfg.gmailAppPassword }
+          });
+          await transporter.sendMail({
+            from: cfg.gmailUser, to: entry.reporter.email,
+            replyTo: cfg.gmailUser, bcc: cfg.gmailUser,
+            subject: subject || "Your story in today's Daily Dispatch Quiz",
+            text: emailBody
+          });
+          const log = loadContactLog();
+          let rec = log.find(c => c.email === entry.reporter.email);
+          if (!rec) { rec = { email: entry.reporter.email, contacts: [] }; log.push(rec); }
+          if (!rec.contacts.some(c => c.date === entry.date && c.storyUrl === entry.storyUrl)) {
+            rec.contacts.push({ date: entry.date, storyUrl: entry.storyUrl, storyTopic: entry.topic?.topic || '' });
+            saveContactLog(log);
+          }
+          delete pending[token];
+          savePendingEmails(pending);
+          console.log(`[Outreach] Email sent to ${entry.reporter.name} (${entry.reporter.email}) — logged`);
+          sendJson(res, 200, { ok: true });
+        } catch (e) {
+          console.error('[Outreach] Send failed:', e.message);
+          sendJson(res, 500, { error: 'Send failed: ' + e.message });
+        }
+      });
+      return;
+    }
+
+    sendHtml(res, 404, page('Not Found', '<p>Page not found.</p>'));
+  });
+
+  server.listen(port, () => {
+    console.log(`[Outreach] Local send server running on port ${port} — keep this terminal open while sending emails.`);
+  });
+  return server;
 }
 
 async function syncContactLogFromRailway(cfg) {
@@ -912,11 +1009,11 @@ async function buildReporterEmails(questions, topics, contacts, anthropic) {
 function reporterEmailsHtml(reporterEmails, cfg) {
   if (!reporterEmails.length) return '';
 
-  const siteUrl    = (cfg && cfg.siteUrl) || 'https://dailydispatchquiz.com';
+  const localPort  = (cfg && cfg.localPort) || 7891;
   const subjectEnc = encodeURIComponent("Your story in today's Daily Dispatch Quiz");
 
   const rows = reporterEmails.map(re => {
-    const serverHref = `${siteUrl}/api/reporter-email?token=${re.token}`;
+    const serverHref = `http://localhost:${localPort}/api/reporter-email?token=${re.token}`;
     const mailtoHref = `mailto:${re.reporter.email}?subject=${subjectEnc}&body=${encodeURIComponent(re.draftEmail)}`;
     return `
     <div style="margin:0 0 16px;border:1px solid #b8cce4;overflow:hidden;">
@@ -1244,7 +1341,7 @@ async function main() {
     console.warn('[Outreach] outreach-contacts.json not found — skipping reporter emails');
   }
 
-  // Upload tokens to Railway so "Send & Log" links work from any browser on any machine
+  // Start local send server so "Send & Log" links work from this machine's browser
   if (reporterEmails.length) {
     const pending = {};
     for (const re of reporterEmails) {
@@ -1257,8 +1354,8 @@ async function main() {
         draftEmail: re.draftEmail
       };
     }
-    savePendingEmails(pending); // local backup
-    await uploadTokensToRailway(pending, cfg);
+    savePendingEmails(pending);
+    startLocalSendServer(pending, cfg);
   }
 
   // Save today's cache so --log-today can update the contact log after sending
