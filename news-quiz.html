@@ -7177,6 +7177,7 @@ ${siteUrl}`;
 
     function showDraftPreview(questions) {
       const diffMap = { easy: 'easy', medium: 'medium', hard: 'hard', bonus: 'bonus' };
+      const heldQuestions = (getDraftQuiz() || {}).heldQuestions || [];
       let html = '';
       questions.forEach((q, i) => {
         const diff = q.difficulty || (i < 4 ? 'easy' : i < 7 ? 'medium' : i < 10 ? 'hard' : 'bonus');
@@ -7217,6 +7218,7 @@ ${siteUrl}`;
           'placeholder="' + (i + 1) + '" onchange="reorderQuestion(' + i + ', parseInt(this.value)-1, this)">' +
           '<button onclick="toggleLock(' + i + ')" title="Lock this question so Generate skips it" style="background:none;border:1px solid ' + (getLockedQuestions().has(i) ? 'var(--green);color:var(--green)' : '#888;color:#888') + ';border-radius:3px;padding:2px 8px;font-size:11px;cursor:pointer;font-family:inherit;">' + (getLockedQuestions().has(i) ? '🔒 Locked' : '🔓 Lock') + '</button>' +
           '<button onclick="replaceQuestion(' + i + ')" title="Replace with a new question" style="background:none;border:1px solid var(--gold);color:var(--gold,#b8860b);border-radius:3px;padding:2px 8px;font-size:11px;cursor:pointer;font-family:inherit;">↺ Replace</button>' +
+          '<button onclick="holdQuestion(' + i + ')" title="Move to question bank for a future quiz" style="background:none;border:1px solid var(--muted);color:var(--muted);border-radius:3px;padding:2px 8px;font-size:11px;cursor:pointer;font-family:inherit;">⬇ Hold</button>' +
           '<button onclick="deleteQuestion(' + i + ')" title="Delete this question" style="background:none;border:1px solid var(--red);color:var(--red);border-radius:3px;padding:2px 8px;font-size:11px;cursor:pointer;font-family:inherit;">✕ Delete</button>' +
           '</span>' +
           '</div>' +
@@ -7233,6 +7235,29 @@ ${siteUrl}`;
           '</div>' +
           '</div>';
       });
+
+      // Question bank — held questions stored in draft.heldQuestions
+      if (heldQuestions.length > 0) {
+        html += '<div style="margin-top:24px;border-top:2px dashed var(--muted);padding-top:16px;">' +
+          '<div style="font-family:\'Courier Prime\',monospace;font-size:11px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:12px;">Question Bank — ' + heldQuestions.length + ' held for future quiz</div>';
+        heldQuestions.forEach((q, i) => {
+          const optLetters = ['A', 'B', 'C', 'D'];
+          const correctAnswer = Array.isArray(q.options) ? (q.options[q.correctIndex] || '') : '';
+          html += '<div class="q-review-card" style="background:var(--cream);border-style:dashed;">' +
+            '<div class="q-meta">' +
+            '<span style="color:var(--muted)"><strong>HELD ' + (i + 1) + '</strong></span>' +
+            '<span style="margin-left:auto;display:flex;align-items:center;gap:10px;">' +
+            '<button onclick="promoteHeldQuestion(' + i + ')" title="Move to active quiz draft" style="background:none;border:1px solid var(--green);color:var(--green);border-radius:3px;padding:2px 8px;font-size:11px;cursor:pointer;font-family:inherit;">▲ Promote to quiz</button>' +
+            '<button onclick="deleteHeldQuestion(' + i + ')" title="Delete this held question" style="background:none;border:1px solid var(--red);color:var(--red);border-radius:3px;padding:2px 8px;font-size:11px;cursor:pointer;font-family:inherit;">✕ Delete</button>' +
+            '</span></div>' +
+            '<div style="font-size:14px;color:var(--ink);margin-bottom:6px;">' + escHtml(q.question) + '</div>' +
+            '<div style="font-family:monospace;font-size:11px;color:var(--green);margin-bottom:4px;">✓ ' + escHtml(correctAnswer) + '</div>' +
+            (q.sourceUrl ? '<div style="font-size:11px;font-family:monospace;"><a href="' + escHtml(q.sourceUrl) + '" target="_blank" style="color:var(--blue);">↗ ' + escHtml(q.sourceUrl.replace(/^https?:\/\//, '').slice(0, 70)) + '</a></div>' : '') +
+            '</div>';
+        });
+        html += '</div>';
+      }
+
       document.getElementById('q-preview-list').innerHTML = html;
       document.getElementById('preview-section').style.display = 'block';
     }
@@ -7446,6 +7471,40 @@ ${siteUrl}`;
       setStatus('Question moved to position ' + (toIdx + 1) + '.', 'info');
     }
 
+    function holdQuestion(i) {
+      const draft = getDraftQuiz();
+      if (!draft || !draft.questions || !draft.questions[i]) return;
+      if (!draft.heldQuestions) draft.heldQuestions = [];
+      const [q] = draft.questions.splice(i, 1);
+      draft.heldQuestions.push(q);
+      saveDraftQuiz(draft);
+      showDraftPreview(draft.questions);
+      setStatus('Question moved to bank. ' + draft.questions.length + ' active, ' + draft.heldQuestions.length + ' held.', 'info');
+    }
+
+    function promoteHeldQuestion(i) {
+      const draft = getDraftQuiz();
+      if (!draft || !draft.heldQuestions || !draft.heldQuestions[i]) return;
+      const [q] = draft.heldQuestions.splice(i, 1);
+      if (!draft.questions) draft.questions = [];
+      draft.questions.push(q);
+      const diffs = ['easy', 'easy', 'medium', 'medium', 'hard', 'bonus'];
+      draft.questions.forEach((q, idx) => { q.difficulty = diffs[idx] || q.difficulty; });
+      saveDraftQuiz(draft);
+      showDraftPreview(draft.questions);
+      setStatus('Question promoted. ' + draft.questions.length + ' active, ' + draft.heldQuestions.length + ' held.', 'success');
+    }
+
+    function deleteHeldQuestion(i) {
+      if (!confirm('Delete this held question permanently?')) return;
+      const draft = getDraftQuiz();
+      if (!draft || !draft.heldQuestions) return;
+      draft.heldQuestions.splice(i, 1);
+      saveDraftQuiz(draft);
+      showDraftPreview(draft.questions);
+      setStatus('Held question deleted.', 'info');
+    }
+
     function updateDraftQuestion(i, val) {
       const draft = getDraftQuiz();
       if (draft && draft.questions[i]) { draft.questions[i].question = val; saveDraftQuiz(draft); }
@@ -7470,7 +7529,7 @@ ${siteUrl}`;
 
     function validateQuestions(questions) {
       const errors = [];
-      if (!questions || questions.length < 6) {
+      if (!questions || questions.length !== 6) {
         errors.push('Need exactly 6 questions, found ' + (questions ? questions.length : 0));
       }
       (questions || []).forEach((q, i) => {
@@ -7697,30 +7756,22 @@ ${siteUrl}`;
     }
 
     async function saveDraftToServer() {
-      const cards = document.querySelectorAll('#q-preview-list .q-review-card');
-      if (!cards.length) { alert('No questions to save.'); return; }
+      const draft = getDraftQuiz();
+      if (!draft || !draft.questions || !draft.questions.length) { alert('No questions to save.'); return; }
+      // Re-normalize position-based difficulties before saving
       const diffs = ['easy', 'easy', 'medium', 'medium', 'hard', 'bonus'];
-      const questions = Array.from(cards).map((card, i) => {
-        const question = card.querySelector('textarea').value;
-        const optionRows = card.querySelectorAll('.q-option-row input[type="text"]');
-        const options = Array.from(optionRows).slice(0, 4).map(o => o.value);
-        const correctRadio = card.querySelector('input[type="radio"]:checked');
-        const correctIndex = correctRadio ? parseInt(correctRadio.value) : 0;
-        const allTextInputs = card.querySelectorAll('input[type="text"]');
-        const nonOptionInputs = Array.from(allTextInputs).filter(el => !el.closest('.q-option-row'));
-        const explanation = nonOptionInputs[0]?.value || '';
-        const sourceUrl = nonOptionInputs[1]?.value || '';
-        return { question, options, correctIndex, explanation, sourceUrl, difficulty: diffs[i] };
-      });
+      draft.questions.forEach((q, i) => { q.difficulty = diffs[i] || q.difficulty; });
+      const heldCount = (draft.heldQuestions || []).length;
       try {
         const res = await fetch('/api/draft', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'x-admin-token': lsGet('dnq_admin_token') || 'admin' },
-          body: JSON.stringify({ quiz: { questions, generatedAt: new Date().toISOString() } })
+          body: JSON.stringify({ quiz: { ...draft, savedAt: new Date().toISOString() } })
         });
         const data = await res.json();
         if (data.ok) {
-          setStatus('💾 Draft saved — resume on any device.', 'success');
+          const heldNote = heldCount ? ', ' + heldCount + ' held' : '';
+          setStatus('💾 Draft saved — ' + draft.questions.length + ' active' + heldNote + '. Resume on any device.', 'success');
         } else {
           setStatus('Draft save failed.', 'error');
         }
@@ -7741,7 +7792,9 @@ ${siteUrl}`;
         return;
       }
       saveDraftQuiz(data.draft);
-      setStatus('📂 Draft loaded — rendering questions…', 'success');
+      const heldCount = (data.draft.heldQuestions || []).length;
+      const heldNote = heldCount ? ', ' + heldCount + ' held' : '';
+      setStatus('📂 Draft loaded — ' + data.draft.questions.length + ' active' + heldNote + '.', 'success');
       showDraftPreview(data.draft.questions);
     } catch (e) {
       setStatus('Failed to load draft: ' + e.message, 'error');
