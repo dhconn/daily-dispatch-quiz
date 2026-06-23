@@ -1374,9 +1374,18 @@ async function generateTeasers(questions) {
 Here are today's quiz questions:
 ${questionList}
 
-Pick the 3 most interesting or surprising topics. For each, write a 3-5 word teaser phrase that hints at the topic without giving away the answer.
+Pick the 3 most interesting or surprising topics. For each, write a 3-5 word teaser phrase.
+
+CRITICAL RULE: Never reveal what happened. Describe the subject, conflict, or tension — leave the reader wondering what the outcome was. The teaser should raise a question, not answer one.
+
+BAD (reveals outcome): "Judge blocks voter data demand" — this tells you what the judge did
+GOOD (raises curiosity): "Maryland voters in federal crosshairs" — this makes you wonder what happened
+
+BAD (reveals outcome): "City council approves new stadium"
+GOOD (raises curiosity): "A stadium's uncertain future"
+
 Style: slightly mysterious, intriguing, like a newspaper front page tease.
-Examples: "A soccer superstar arrives", "Cheese steaks cross state lines", "The Constitution meets zoning law"
+More good examples: "A soccer superstar arrives", "Cheese steaks cross state lines", "The Constitution meets zoning law"
 
 Respond with ONLY a JSON array of 3 strings. No preamble, no markdown.`;
 
