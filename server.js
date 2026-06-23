@@ -2428,11 +2428,14 @@ app.post('/api/quiz/schedule', async (req, res) => {
         existing: { date: existing.date, scheduledFor: existing.scheduledFor }
       });
     }
+    // Snapshot current cached teasers so they travel with the quiz regardless of date rollover
+    const schedData = await readData();
     await setKey('scheduledQuiz', {
       date,
       quiz,
       scheduledFor, // ISO string in UTC
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      cachedTeaserHtml: schedData.cachedTeaserHtml || null
     });
     console.log(`[Schedule] Quiz scheduled for ${scheduledFor} (date: ${date})`);
     res.json({ ok: true, scheduledFor });
@@ -3423,7 +3426,11 @@ async function checkScheduledPublish() {
     const subject = subjects[dow] || `Today's Baltimore Daily Dispatch Quiz is live — ${date}`;
 
     let teaserHtml;
-    if (freshData.cachedTeaserHtml && freshData.cachedTeaserDate === date) {
+    if (scheduled.cachedTeaserHtml) {
+      // Use teasers snapshotted at schedule time (survives date rollover)
+      console.log('[Schedule] Using teasers snapshotted at schedule time');
+      teaserHtml = scheduled.cachedTeaserHtml;
+    } else if (freshData.cachedTeaserHtml && freshData.cachedTeaserDate === date) {
       console.log('[Schedule] Reusing cached teasers for', date);
       teaserHtml = freshData.cachedTeaserHtml;
     } else {
