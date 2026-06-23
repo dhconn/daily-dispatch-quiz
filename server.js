@@ -93,7 +93,7 @@ async function setKey(key, value) {
 // All callers that used await readData()/await writeData() now use async versions below.
 async function readData() {
   const keys = ['sites','rssCache','scores','dist','quizzes','archiveUrls',
-                 'archiveQuestions','archiveSlugs','posts','messages','subscribers','emailPaused','emailPausedSnapshot','topicBlocklist','cachedTeaserHtml','cachedTeaserDate','emailSentDates','prospects','prospectsPaused','statsExclusions','editorNotes','starredQuestions','communityMessage','communityMessageLastSent','communityImageUrl'];
+                 'archiveQuestions','archiveSlugs','posts','messages','subscribers','emailPaused','emailPausedSnapshot','topicBlocklist','cachedTeaserHtml','cachedTeaserDate','emailSentDates','prospects','prospectsPaused','statsExclusions','editorNotes','starredQuestions','communityMessage','communityMessageLastSent','communityImageUrl','forceGroupBUntil'];
   const data = {};
   await Promise.all(keys.map(async k => {
     const v = await getKey(k);
@@ -104,7 +104,7 @@ async function readData() {
 
 async function writeData(data) {
   const keys = ['sites','rssCache','scores','dist','quizzes','archiveUrls',
-                 'archiveQuestions','archiveSlugs','posts','messages','subscribers','emailPaused','emailPausedSnapshot','topicBlocklist','cachedTeaserHtml','cachedTeaserDate','emailSentDates','prospects','prospectsPaused','statsExclusions','editorNotes','starredQuestions','communityMessage','communityMessageLastSent','communityImageUrl'];
+                 'archiveQuestions','archiveSlugs','posts','messages','subscribers','emailPaused','emailPausedSnapshot','topicBlocklist','cachedTeaserHtml','cachedTeaserDate','emailSentDates','prospects','prospectsPaused','statsExclusions','editorNotes','starredQuestions','communityMessage','communityMessageLastSent','communityImageUrl','forceGroupBUntil'];
   await Promise.all(keys.map(async k => {
     if (data[k] === null) await setKey(k, null);
     else if (data[k] !== undefined) await setKey(k, data[k]);
@@ -1836,6 +1836,8 @@ app.post('/api/quiz', async (req, res) => {
       }
 
     let sentAnyEmails = false;
+    const forceB = freshData.forceGroupBUntil && easternToday() <= freshData.forceGroupBUntil;
+    if (forceB) console.log('[Email] Force Group B active until', freshData.forceGroupBUntil);
 
     const communityMessage = (freshData.communityMessage || '').trim();
     const communityMessageLastSent = (freshData.communityMessageLastSent || '').trim();
@@ -1882,7 +1884,7 @@ app.post('/api/quiz', async (req, res) => {
         const resultsHtml = buildResultsHtml(playerProgress, yesterdayQuiz);
 
         let baseHtml;
-        if (sub.abGroup === 'B' && q1) {
+        if ((sub.abGroup === 'B' || forceB) && q1) {
           // Group B: teaser email with Q1 embedded
           const token = Buffer.from(sub.email + date + Math.random()).toString('base64')
             .replace(/[^a-zA-Z0-9]/g, '').slice(0, 32);
@@ -1974,7 +1976,7 @@ const prospectEmails = [];
         updatedProspects.push(p);
 
         let baseHtml;
-        if (p.abGroup === 'B' && q1) {
+        if ((p.abGroup === 'B' || forceB) && q1) {
           const token = Buffer.from(p.email + date + Math.random()).toString('base64')
             .replace(/[^a-zA-Z0-9]/g, '').slice(0, 32);
           tokens[token] = {
@@ -2230,6 +2232,23 @@ app.get('/api/email-ab-stats', async (req, res) => {
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
+});
+
+// ── GET/POST /api/ab-override — force all emails to Group B until a given date ──
+app.get('/api/ab-override', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  const until = await getKey('forceGroupBUntil');
+  res.json({ forceGroupBUntil: until || null });
+});
+
+app.post('/api/ab-override', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  const { until } = req.body;
+  await setKey('forceGroupBUntil', until || null);
+  console.log('[Admin] forceGroupBUntil set to', until || 'null (cleared)');
+  res.json({ ok: true, forceGroupBUntil: until || null });
 });
 
 // ── POST /api/quiz/test-email — send test email to admin, respecting abGroup ───
@@ -3448,6 +3467,8 @@ async function checkScheduledPublish() {
     }
 
     let sentAnyEmails = false;
+    const forceB = freshData.forceGroupBUntil && easternToday() <= freshData.forceGroupBUntil;
+    if (forceB) console.log('[Schedule] Force Group B active until', freshData.forceGroupBUntil);
 
     const communityMessage = (freshData.communityMessage || '').trim();
     const communityMessageLastSent = (freshData.communityMessageLastSent || '').trim();
@@ -3487,7 +3508,7 @@ async function checkScheduledPublish() {
         const resultsHtml = buildResultsHtml(playerProgress, yesterdayQuiz);
 
         let baseHtml;
-        if (sub.abGroup === 'B' && q1) {
+        if ((sub.abGroup === 'B' || forceB) && q1) {
           const token = Buffer.from(sub.email + date + Math.random()).toString('base64')
             .replace(/[^a-zA-Z0-9]/g, '').slice(0, 32);
           tokens[token] = { email: sub.email, playerKey, displayName: sub.name || '', date, group: 'B', usedAt: null };
@@ -3554,7 +3575,7 @@ async function checkScheduledPublish() {
         updatedProspects.push(p);
 
         let baseHtml;
-        if (p.abGroup === 'B' && q1) {
+        if ((p.abGroup === 'B' || forceB) && q1) {
           const token = Buffer.from(p.email + date + Math.random()).toString('base64')
             .replace(/[^a-zA-Z0-9]/g, '').slice(0, 32);
           tokens[token] = { email: p.email, playerKey, displayName: p.name || '', date, group: 'B', usedAt: null };

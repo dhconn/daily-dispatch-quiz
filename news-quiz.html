@@ -7679,6 +7679,35 @@ ${siteUrl}`;
       }
     }
 
+    async function setAbOverride() {
+      const until = document.getElementById('ab-override-date').value;
+      if (!until) { alert('Pick a date first.'); return; }
+      const adminToken = lsGet('dnq_admin_token') || 'admin';
+      const res = await fetch('/api/ab-override', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+        body: JSON.stringify({ until })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        document.getElementById('ab-override-status').textContent = '✓ Set — all emails will use Group B through ' + until;
+      }
+    }
+
+    async function clearAbOverride() {
+      const adminToken = lsGet('dnq_admin_token') || 'admin';
+      const res = await fetch('/api/ab-override', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+        body: JSON.stringify({ until: null })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        document.getElementById('ab-override-status').textContent = '✓ Cleared — normal A/B split restored';
+        document.getElementById('ab-override-date').value = '';
+      }
+    }
+
     async function retractQuiz() {
       if (!confirm('Hide the live quiz from all players immediately? The quiz data is NOT deleted — you can restore it or republish from the archive.')) return;
       const adminToken = lsGet('dnq_admin_token') || 'admin';
@@ -8527,10 +8556,26 @@ ${siteUrl}`;
           }
         });
 
-        // Load A/B stats
+        // Load A/B override status + stats
         let abHtml = '';
         try {
           const adminToken = lsGet('dnq_admin_token') || 'admin';
+          const overrideRes = await fetch('/api/ab-override', { headers: { 'x-admin-token': adminToken } });
+          const overrideData = overrideRes.ok ? await overrideRes.json() : {};
+          const currentOverride = overrideData.forceGroupBUntil || '';
+          const overrideActive = currentOverride && today <= currentOverride;
+          abHtml += `
+            <div style="margin-bottom:12px;padding:10px 14px;border:1px solid ${overrideActive ? 'var(--green)' : 'var(--rule)'};background:white;">
+              <div style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:8px;">FORCE ALL EMAILS → GROUP B</div>
+              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                <span style="font-family:monospace;font-size:12px;color:${overrideActive ? 'var(--green)' : 'var(--muted)'};">${overrideActive ? '● Active until ' + currentOverride : '○ Off'}</span>
+                <input type="date" id="ab-override-date" value="${currentOverride}" min="${today}" style="font-family:monospace;font-size:12px;padding:3px 6px;border:1px solid var(--rule);">
+                <button onclick="setAbOverride()" style="font-family:monospace;font-size:11px;padding:3px 10px;background:none;border:1px solid var(--green);color:var(--green);cursor:pointer;">Set</button>
+                <button onclick="clearAbOverride()" style="font-family:monospace;font-size:11px;padding:3px 10px;background:none;border:1px solid var(--muted);color:var(--muted);cursor:pointer;">Clear</button>
+                <span id="ab-override-status" style="font-family:monospace;font-size:11px;color:var(--green);"></span>
+              </div>
+            </div>`;
+
           const abRes = await fetch('/api/email-ab-stats?date=' + today, {
             headers: { 'x-admin-token': adminToken }
           });
@@ -8538,7 +8583,7 @@ ${siteUrl}`;
             const abData = await abRes.json();
             const g = abData.groups;
             const pct = (n, d) => d > 0 ? Math.round(n / d * 100) + '%' : '—';
-            abHtml = `
+            abHtml += `
               <div style="margin-bottom:16px;padding:12px 14px;border:1px solid var(--rule);background:white;">
                 <div style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:10px;">EMAIL A/B TEST · ${today}</div>
                 <table style="width:100%;border-collapse:collapse;font-size:12px;font-family:monospace;">
