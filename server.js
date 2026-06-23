@@ -1677,14 +1677,13 @@ app.post('/api/teaser-cache', async (req, res) => {
 app.all('/api/quiz/preview-email', async (req, res) => {
   const siteUrl = process.env.SITE_URL || 'https://dailydispatchquiz.com';
   let questions = null;
-  let dateLabel = new Date().toISOString().slice(0, 10);
+  // Always use Eastern date to match client todayStr() and publish flow
+  let dateLabel = easternToday();
 
   if (req.method === 'POST' && req.body && req.body.questions && req.body.questions.length) {
-    // Use draft questions passed from client
     questions = req.body.questions;
     console.log('[PreviewEmail] Using draft questions:', questions.length);
   } else {
-    // Fall back to most recently published quiz
     const data = await readData();
     const dates = Object.keys(data.quizzes || {}).sort();
     if (!dates.length) return res.json({ html: '<p>No quiz published yet.</p>' });
@@ -1693,11 +1692,21 @@ app.all('/api/quiz/preview-email', async (req, res) => {
     console.log('[PreviewEmail] Using published quiz:', dateLabel);
   }
 
+  const previewData = await readData();
+
+  // If user has already saved edited teasers for today, use those — don't overwrite with a fresh generation
+  if (previewData.cachedTeaserHtml && previewData.cachedTeaserDate === dateLabel) {
+    console.log('[PreviewEmail] Returning existing cached teasers for', dateLabel);
+    const html = buildEmailHtml(siteUrl, dateLabel, 'Subscriber', previewData.cachedTeaserHtml, siteUrl + '/api/unsubscribe?email=example');
+    // Extract plain text teasers from cached html so the editor fields populate correctly
+    const teaserMatches = [...previewData.cachedTeaserHtml.matchAll(/·\s*([^<]+)<\/div>/g)].map(m => m[1].trim());
+    return res.json({ html, teasers: teaserMatches });
+  }
+
+  // No cache yet — generate fresh teasers and cache them
   const teasers = await generateTeasers(questions);
   const teaserHtml = buildTeaserHtml(teasers);
   const html = buildEmailHtml(siteUrl, dateLabel, 'Subscriber', teaserHtml, siteUrl + '/api/unsubscribe?email=example');
-  // Cache teasers so publish can reuse them without regenerating
-  const previewData = await readData();
   previewData.cachedTeaserHtml = teaserHtml;
   previewData.cachedTeaserDate = dateLabel;
   await writeData(previewData);
