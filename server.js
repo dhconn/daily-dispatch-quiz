@@ -2935,6 +2935,88 @@ async function sendEmailBatch(emails) {
 }
 
 // ── POST /api/admin/message/bulk — send custom email to selected or all subscribers ──
+// ── Shared helper: find subscribers + prospects who haven't played today ──
+async function getNonPlayersToday() {
+  const today = easternToday();
+  const data = await readData();
+  const scores = data.scores || {};
+
+  const notPlayedSubs = Object.values(data.subscribers || {}).filter(sub => {
+    if (!sub.active || !sub.email) return false;
+    const playerKey = sub.playerKey || (sub.name || '').toLowerCase().trim();
+    const daily = scores[playerKey]?.dailyScores || {};
+    return daily[today] === undefined;
+  }).map(sub => ({ email: sub.email, name: sub.name || '' }));
+
+  const subscriberEmails = new Set(Object.values(data.subscribers || {}).filter(s => s.active).map(s => s.email));
+  const notPlayedProspects = Object.values(data.prospects || {}).filter(p => {
+    if (!p.email || p.active === false) return false;
+    if (subscriberEmails.has(p.email)) return false;
+    const playerKey = (p.name || '').toLowerCase().trim();
+    const daily = scores[playerKey]?.dailyScores || {};
+    return daily[today] === undefined;
+  }).map(p => ({ email: p.email, name: p.name || '' }));
+
+  return { notPlayed: { subscribers: notPlayedSubs, prospects: notPlayedProspects }, today, data };
+}
+
+// ── GET /api/admin/nudge-preview ──────────────────────────────
+app.get('/api/admin/nudge-preview', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const { notPlayed } = await getNonPlayersToday();
+    res.json({ notPlayed });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── POST /api/admin/send-nudge ────────────────────────────────
+app.post('/api/admin/send-nudge', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  const { subject, message } = req.body;
+  if (!subject || !message) return res.status(400).json({ error: 'subject and message required' });
+  try {
+    const { notPlayed, today } = await getNonPlayersToday();
+    const siteUrl = process.env.SITE_URL || 'https://dailydispatchquiz.com';
+    const targets = [...notPlayed.subscribers, ...notPlayed.prospects];
+    if (!targets.length) return res.json({ ok: true, sent: 0, message: 'No non-players found for today.' });
+    const htmlBody = message.replace(/\n/g, '<br>');
+    const emails = targets.map(t => {
+      const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(t.email)}`;
+      return {
+        from: process.env.FROM_EMAIL || 'David @ Daily Dispatch Quiz <david@dailydispatchquiz.com>',
+        reply_to: 'dhconn@gmail.com',
+        to: [t.email],
+        subject,
+        html: `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1008;">
+          <div style="background:#1a1008;color:#f5f0e8;text-align:center;padding:24px;">
+            <div style="font-family:monospace;font-size:11px;letter-spacing:3px;color:#f0c040;margin-bottom:6px;">BALTIMORE · DAILY DISPATCH</div>
+            <div style="font-size:24px;font-weight:bold;">The Daily Dispatch Quiz</div>
+          </div>
+          <div style="padding:32px 24px;background:#f5f0e8;">
+            ${t.name ? `<p style="font-size:16px;margin:0 0 16px;">Hi ${escHtml(t.name)},</p>` : ''}
+            <p style="font-size:15px;line-height:1.7;margin:0 0 24px;color:#1a1008;">${htmlBody}</p>
+            <div style="text-align:center;">
+              <a href="${siteUrl}" style="display:inline-block;background:#1a1008;color:#f5f0e8;padding:16px 36px;font-family:monospace;font-size:13px;letter-spacing:2px;text-decoration:none;text-transform:uppercase;">Play Today's Quiz ▸</a>
+            </div>
+          </div>
+          <div style="padding:16px 24px;text-align:center;font-size:11px;color:#999;font-family:monospace;border-top:1px solid #e0d8cc;">
+            <a href="${unsubUrl}" style="color:#999;">Unsubscribe</a>
+          </div>
+        </div>`
+      };
+    });
+    await sendEmailBatch(emails);
+    console.log(`[Nudge] Sent to ${emails.length} non-players for ${today}`);
+    res.json({ ok: true, sent: emails.length });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.post('/api/admin/message/bulk', async (req, res) => {
   const adminToken = process.env.ADMIN_TOKEN || 'admin';
   if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
