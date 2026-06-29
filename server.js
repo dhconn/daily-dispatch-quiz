@@ -1068,6 +1068,38 @@ app.post('/api/archive', async (req, res) => {
 // ── Subscribers ───────────────────────────────────────────────
 // Stored as data.subscribers = { email: { name, subscribedAt, active } }
 
+// ── GET /api/prospect-invite — auto-subscribes prospect, redirects to pre-filled mailto ──
+app.get('/api/prospect-invite', async (req, res) => {
+  const { code } = req.query;
+  const siteUrl = process.env.SITE_URL || 'https://dailydispatchquiz.com';
+  if (!code) return res.status(400).send('Missing invite code.');
+  try {
+    const data = await readData();
+    const prospectKey = Object.keys(data.prospects || {}).find(k => (data.prospects[k].referralCode === code));
+    if (prospectKey) {
+      const prospect = data.prospects[prospectKey];
+      if (!data.subscribers) data.subscribers = {};
+      if (!data.subscribers[prospectKey]) {
+        data.subscribers[prospectKey] = {
+          email: prospect.email,
+          name: prospect.name || '',
+          subscribedAt: new Date().toISOString(),
+          active: true,
+          referralCode: code,
+          referrals: []
+        };
+        delete data.prospects[prospectKey];
+        await writeData(data);
+        console.log(`[ProspectInvite] Auto-subscribed ${prospectKey} via referral invite`);
+      }
+    }
+    res.redirect(buildReferralMailto(siteUrl, code));
+  } catch (e) {
+    console.error('[ProspectInvite] Error:', e.message);
+    res.status(500).send('Something went wrong — please try again.');
+  }
+});
+
 // ── POST /api/referral — record a referral when a new player registers ──
 app.post('/api/referral', async (req, res) => {
   const { referralCode, newPlayerEmail, newPlayerName } = req.body || {};
@@ -1440,6 +1472,22 @@ function buildEditorMessageHtml(message, imageUrl) {
     </div>`;
 }
 
+function buildReferralMailto(siteUrl, referralCode) {
+  const referralUrl = `${siteUrl}/?ref=${referralCode}`;
+  const subject = encodeURIComponent("I think you'd love this quiz");
+  const body = encodeURIComponent(
+    `Hi —\n\nI've been playing the Daily Dispatch Quiz every morning and thought of you. It's a quick, fun news quiz — takes about 3 minutes. Click to play: ${referralUrl}\n\nHope you enjoy it!`
+  );
+  return `mailto:?subject=${subject}&body=${body}`;
+}
+
+function buildReferralStripHtml(inviteUrl) {
+  return `
+    <div style="margin:0 0 20px;padding:10px 16px;background:#fffbf0;border-left:3px solid #f0c040;text-align:left;">
+      <span style="font-family:Georgia,serif;font-size:14px;color:#1a1008;">🏆 Refer 3 friends. Win a mug. </span><a href="${inviteUrl}" style="font-family:Georgia,serif;font-size:14px;color:#1a3a6b;font-weight:bold;text-decoration:underline;">Send an invite →</a>
+    </div>`;
+}
+
 function buildTeaserHtml(teasers) {
   if (!teasers || teasers.length === 0) return '';
   return `
@@ -1469,7 +1517,8 @@ return `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;colo
       <div style="font-family:monospace;font-size:10px;letter-spacing:2px;color:#aaa;margin-top:6px;">${date}</div>
     </div>
     <div style="padding:32px 24px;background:#f5f0e8;">
-      <p style="font-size:18px;margin:0 0 24px;">Hi${subscriberName ? ' ' + subscriberName : ''} — start today's quiz by clicking your answer here:</p>
+      <p style="font-size:18px;margin:0 0 16px;">Hi${subscriberName ? ' ' + subscriberName : ''} — start today's quiz by clicking your answer here:</p>
+<!--REFERRAL_STRIP_INSERT_POINT-->
       <div style="background:white;border:2px solid #1a1008;padding:20px 20px 10px;margin-bottom:20px;box-shadow:4px 4px 0 #1a1008;">
         <div style="font-family:monospace;font-size:11px;letter-spacing:2px;color:#6b5f4e;margin-bottom:12px;">QUESTION 1 OF 5 · STARTER</div>
         <div style="font-size:19px;line-height:1.5;color:#1a1008;font-weight:400;margin-bottom:16px;">${q1.question}</div>
@@ -1499,6 +1548,7 @@ function buildEmailHtml(siteUrl, date, subscriberName, teaserHtml, unsubUrl, tra
     </a>
     <div style="padding:32px 24px;background:#f5f0e8;text-align:center;">
       <p style="font-size:18px;margin:0 0 8px;">Hi${subscriberName ? ' ' + subscriberName : ''},</p>
+<!--REFERRAL_STRIP_INSERT_POINT-->
       <p style="font-size:16px;color:#444;margin:0 0 8px;">6 questions. 90 seconds.</p>
       <p style="font-size:16px;color:#444;margin:0 0 24px;">How closely are you following the news?</p>
       ${teaserHtml}
@@ -1915,17 +1965,12 @@ app.post('/api/quiz', async (req, res) => {
         }
 
         baseHtml = baseHtml.replace('<!--EDITOR_MESSAGE_INSERT_POINT-->', editorMessageHtml);
-        const referralUrl = sub.referralCode ? `${siteUrl}/?ref=${sub.referralCode}` : null;
-        const referralHtml = referralUrl ? `
-          <div style="margin:20px 0 0;padding:16px 20px;background:white;border-left:4px solid #f0c040;">
-            <p style="font-family:monospace;font-size:10px;letter-spacing:2px;color:#6b5f4e;margin:0 0 6px;">🎁 YOUR PERSONAL REFERRAL LINK</p>
-            <p style="font-size:13px;color:#444;margin:0 0 10px;line-height:1.5;">Copy and send to friends — if they subscribe and play 3 times, you earn a DDQ mug:</p>
-            <a href="${referralUrl}" style="font-family:monospace;font-size:12px;color:#1a1008;word-break:break-all;">${referralUrl}</a>
-          </div>` : '';
+        const subReferralStrip = sub.referralCode ? buildReferralStripHtml(buildReferralMailto(siteUrl, sub.referralCode)) : '';
+        baseHtml = baseHtml.replace('<!--REFERRAL_STRIP_INSERT_POINT-->', subReferralStrip);
         const withResults = resultsHtml
           ? baseHtml.replace('<!--YESTERDAY_INSERT_POINT-->', resultsHtml)
           : baseHtml.replace('<!--YESTERDAY_INSERT_POINT-->', '');
-        const html = withResults.replace('<!--SUBSCRIBE_INSERT_POINT-->', referralHtml);
+        const html = withResults.replace('<!--SUBSCRIBE_INSERT_POINT-->', '');
 
         emails.push({
           from: process.env.FROM_EMAIL || 'David @ Daily Dispatch Quiz <david@dailydispatchquiz.com>',
@@ -1973,6 +2018,11 @@ const prospectEmails = [];
 
         // Assign A/B group if not yet assigned
         if (!p.abGroup) p.abGroup = Math.random() < 0.5 ? 'A' : 'B';
+        // Ensure prospect has a referral code
+        if (!p.referralCode) {
+          p.referralCode = Buffer.from(p.email + Math.random()).toString('base64')
+            .replace(/[^a-zA-Z0-9]/g, '').slice(0, 10);
+        }
         updatedProspects.push(p);
 
         let baseHtml;
@@ -2005,6 +2055,9 @@ const prospectEmails = [];
         }
 
         baseHtml = baseHtml.replace('<!--EDITOR_MESSAGE_INSERT_POINT-->', editorMessageHtml);
+        const prospectInviteUrl = `${siteUrl}/api/prospect-invite?code=${p.referralCode}`;
+        const prospectReferralStrip = buildReferralStripHtml(prospectInviteUrl);
+        baseHtml = baseHtml.replace('<!--REFERRAL_STRIP_INSERT_POINT-->', prospectReferralStrip);
         const subscribeBtn = `
           <div style="padding:24px;text-align:center;background:#f5f0e8;border-top:2px solid #1a1008;">
             <p style="font-family:monospace;font-size:11px;letter-spacing:1px;color:#6b5f4e;margin:0 0 14px;">GET THIS AUTOMATICALLY EVERY MORNING</p>
@@ -2035,6 +2088,7 @@ const prospectEmails = [];
 
         if (prospectData.prospects[key]) {
           prospectData.prospects[key].abGroup = p.abGroup;
+          if (p.referralCode) prospectData.prospects[key].referralCode = p.referralCode;
        }
      });
 
@@ -3605,17 +3659,12 @@ async function checkScheduledPublish() {
         }
 
         baseHtml = baseHtml.replace('<!--EDITOR_MESSAGE_INSERT_POINT-->', editorMessageHtml);
-        const referralUrl = sub.referralCode ? `${siteUrl}/?ref=${sub.referralCode}` : null;
-        const referralHtml = referralUrl ? `
-          <div style="margin:20px 0 0;padding:16px 20px;background:white;border-left:4px solid #f0c040;">
-            <p style="font-family:monospace;font-size:10px;letter-spacing:2px;color:#6b5f4e;margin:0 0 6px;">🎁 YOUR PERSONAL REFERRAL LINK</p>
-            <p style="font-size:13px;color:#444;margin:0 0 10px;line-height:1.5;">Copy and send to friends — if they subscribe and play 3 times, you earn a DDQ mug:</p>
-            <a href="${referralUrl}" style="font-family:monospace;font-size:12px;color:#1a1008;word-break:break-all;">${referralUrl}</a>
-          </div>` : '';
+        const subReferralStrip = sub.referralCode ? buildReferralStripHtml(buildReferralMailto(siteUrl, sub.referralCode)) : '';
+        baseHtml = baseHtml.replace('<!--REFERRAL_STRIP_INSERT_POINT-->', subReferralStrip);
         const withResults = resultsHtml
           ? baseHtml.replace('<!--YESTERDAY_INSERT_POINT-->', resultsHtml)
           : baseHtml.replace('<!--YESTERDAY_INSERT_POINT-->', '');
-        const html = withResults.replace('<!--SUBSCRIBE_INSERT_POINT-->', referralHtml);
+        const html = withResults.replace('<!--SUBSCRIBE_INSERT_POINT-->', '');
 
         emails.push({
           from: process.env.FROM_EMAIL || 'David @ Daily Dispatch Quiz <david@dailydispatchquiz.com>',
@@ -3654,6 +3703,10 @@ async function checkScheduledPublish() {
         const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(p.email)}`;
         const playerKey = (p.name || '').toLowerCase().trim();
         if (!p.abGroup) p.abGroup = Math.random() < 0.5 ? 'A' : 'B';
+        if (!p.referralCode) {
+          p.referralCode = Buffer.from(p.email + Math.random()).toString('base64')
+            .replace(/[^a-zA-Z0-9]/g, '').slice(0, 10);
+        }
         updatedProspects.push(p);
 
         let baseHtml;
@@ -3672,6 +3725,8 @@ async function checkScheduledPublish() {
         }
 
         baseHtml = baseHtml.replace('<!--EDITOR_MESSAGE_INSERT_POINT-->', editorMessageHtml);
+        const prospectInviteUrl = `${siteUrl}/api/prospect-invite?code=${p.referralCode}`;
+        baseHtml = baseHtml.replace('<!--REFERRAL_STRIP_INSERT_POINT-->', buildReferralStripHtml(prospectInviteUrl));
         const subscribeBtn = `
           <div style="padding:24px;text-align:center;background:#f5f0e8;border-top:2px solid #1a1008;">
             <p style="font-family:monospace;font-size:11px;letter-spacing:1px;color:#6b5f4e;margin:0 0 14px;">GET THIS AUTOMATICALLY EVERY MORNING</p>
