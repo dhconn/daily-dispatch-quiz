@@ -2360,13 +2360,9 @@ app.post('/api/quiz/test-email', async (req, res) => {
       data.subscribers[testEmail].referralCode = testReferralCode;
       await writeData(data);
     }
-    const testReferralHtml = testReferralCode ? `
-      <div style="margin:20px 0 0;padding:16px 20px;background:white;border-left:4px solid #f0c040;">
-        <p style="font-family:monospace;font-size:10px;letter-spacing:2px;color:#6b5f4e;margin:0 0 6px;">🎁 YOUR PERSONAL REFERRAL LINK</p>
-        <p style="font-size:13px;color:#444;margin:0 0 10px;line-height:1.5;">Copy and send to friends — if they subscribe and play 3 times, you earn a DDQ mug:</p>
-        <a href="${siteUrl}/?ref=${testReferralCode}" style="font-family:monospace;font-size:12px;color:#1a1008;word-break:break-all;">${siteUrl}/?ref=${testReferralCode}</a>
-      </div>` : '';
-    html = html.replace('<!--SUBSCRIBE_INSERT_POINT-->', testReferralHtml);
+    const testReferralStrip = testReferralCode ? buildReferralStripHtml(buildReferralMailto(siteUrl, testReferralCode)) : '';
+    html = html.replace('<!--REFERRAL_STRIP_INSERT_POINT-->', testReferralStrip);
+    html = html.replace('<!--SUBSCRIBE_INSERT_POINT-->', '');
 
     await sendEmail(testEmail, `[TEST - Group ${group}] Today's Daily Dispatch Quiz — ${date}`, html);
     console.log(`[TestEmail] Sent Group ${group} email to ${testEmail}`);
