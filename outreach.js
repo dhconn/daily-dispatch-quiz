@@ -727,6 +727,13 @@ function startLocalSendServer(pending, cfg) {
     sendHtml(res, 404, page('Not Found', '<p>Page not found.</p>'));
   });
 
+  server.on('error', e => {
+    if (e.code === 'EADDRINUSE') {
+      console.warn(`[Outreach] Port ${port} already in use — close the previous terminal window and re-run outreach.js, or open the digest that's already in your browser.`);
+    } else {
+      console.error('[Outreach] Local send server error:', e.message);
+    }
+  });
   server.listen(port, () => {
     console.log(`[Outreach] Local send server running on port ${port} — keep this terminal open while sending emails.`);
   });

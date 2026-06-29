@@ -1,5 +1,5 @@
 [
-  {"name": "Kevin", "email": "Kevin@InceptMM.com", "outlet": "Incept MM", "beat": "unknown", "emailVerified": true},
+  {"name": "Kevin Lynch", "email": "Kevin@InceptMM.com", "outlet": "Incept MM", "beat": "unknown", "emailVerified": true},
   {"name": "J. Cox", "email": "jcox@bayjournal.com", "outlet": "Bay Journal", "beat": "environment", "emailVerified": true},
   {"name": "P. Gilbert", "email": "pgilbert@hearst.com", "outlet": "Hearst", "beat": "unknown", "emailVerified": true},
   {"name": "Tori Yorgey", "email": "tori.yorgey@hearst.com", "outlet": "Hearst", "beat": "general assignment", "emailVerified": true},
@@ -7,6 +7,7 @@
   {"name": "JT Moodee Lockman", "email": "JT.MoodeeLockman@Paramount.com", "outlet": "Paramount/CBS", "beat": "unknown", "emailVerified": true},
   {"name": "David Collins", "email": "davidcollins@hearst.com", "outlet": "Hearst", "beat": "unknown", "emailVerified": true},
   {"name": "Tara Lynch", "email": "Tara.Lynch@cbs.com", "outlet": "CBS Baltimore", "beat": "unknown", "emailVerified": true},
+  {"name": "Cutter Martin", "email": "cutter.martin@cbs.com", "outlet": "CBS Baltimore", "beat": "weather", "emailVerified": true},
   {"name": "Drew Aunkst", "email": "Drew.Aunkst@cbs.com", "outlet": "CBS Baltimore", "beat": "unknown", "emailVerified": true},
   {"name": "Bryant Reed", "email": "bryant.reed@cbs.com", "outlet": "CBS Baltimore", "beat": "unknown", "emailVerified": true},
   {"name": "Alexa Dikos", "email": "aadikos@sbgtv.com", "outlet": "Fox 45 Baltimore", "beat": "unknown", "emailVerified": true},  
@@ -29,6 +30,7 @@
   {"name": "Christine Condon", "email": "ccondon@marylandmatters.org", "outlet": "Maryland Matters", "beat": "environment & energy", "emailVerified": true},
   {"name": "Josh Kurtz", "email": "jkurtz@marylandmatters.org", "outlet": "Maryland Matters", "beat": "founding editor", "emailVerified": false},
   {"name": "Danielle E. Gaines", "email": "dgaines@marylandmatters.org", "outlet": "Maryland Matters", "beat": "government & politics", "emailVerified": false},
+  {"name": "Will Hammann", "email": "whammann@marylandmatters.org", "outlet": "Maryland Matters", "beat": "general assignment", "emailVerified": false},
   {"name": "Louis Peck", "email": "lpeck@marylandmatters.org", "outlet": "Maryland Matters", "beat": "co-founder", "emailVerified": false},
   {"name": "Dan Belson", "email": "DBelson@thedailyrecord.com", "outlet": "The Daily Record", "beat": "Legal", "emailVerified": false},
   {"name": "Susan Dunn", "email": "suzy@baltimorefishbowl.com", "outlet": "Baltimore Fishbowl", "beat": "founder & CEO", "emailVerified": true},
@@ -110,6 +112,7 @@
   {"name": "Rondez Green", "email": "rondez.green@thebaltimorebanner.com", "outlet": "Baltimore Banner", "beat": "social editor", "emailVerified": false},
   {"name": "Jack Hogan", "email": "jack.hogan@thebaltimorebanner.com", "outlet": "Baltimore Banner", "beat": "Montgomery County", "emailVerified": false},
   {"name": "Antonio Planas", "email": "antonio.planas@thebaltimorebanner.com", "outlet": "Baltimore Banner", "beat": "Montgomery County", "emailVerified": false},
+  {"name": "Sara Ruberg", "email": "sara.ruberg@thebanner.com", "outlet": "Baltimore Banner", "beat": "general assignment", "emailVerified": false},
   {"name": "Talia Richman", "email": "talia.richman@thebaltimorebanner.com", "outlet": "Baltimore Banner", "beat": "education Montgomery County", "emailVerified": false},
   {"name": "Hannah Yasharoff", "email": "hannah.yasharoff@thebaltimorebanner.com", "outlet": "Baltimore Banner", "beat": "Montgomery County", "emailVerified": false},
   {"name": "Bryan Brandom", "email": "bryan.brandom@thebaltimorebanner.com", "outlet": "Baltimore Banner", "beat": "copy chief", "emailVerified": false},
@@ -219,5 +222,6 @@
   {"name": "Taylor Lyons", "email": "tlyons@baltsun.com", "outlet": "Baltimore Sun", "beat": "sports Harford & Baltimore counties", "emailVerified": true},
   {"name": "Jacob Steinberg", "email": "jsteinberg@baltsun.com", "outlet": "Baltimore Sun", "beat": "sports Howard County", "emailVerified": true},
   {"name": "Jake Kauderer", "email": "jkauderer@baltsun.com", "outlet": "Baltimore Sun", "beat": "sports", "emailVerified": true},
+  {"name": "Nicole Pilsbury", "email": "npilsbury@baltsun.com", "outlet": "Baltimore Sun", "beat": "general assignment", "emailVerified": true},
   {"name": "Bill Wagner", "email": "bwagner@capgaznews.com", "outlet": "Capital Gazette", "beat": "sports Anne Arundel", "emailVerified": true}
 ]
