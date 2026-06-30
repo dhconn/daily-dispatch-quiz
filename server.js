@@ -1483,8 +1483,9 @@ function buildReferralMailto(siteUrl, referralCode) {
 
 function buildReferralStripHtml(inviteUrl) {
   return `
-    <div style="margin:0 0 20px;padding:10px 16px;background:#fffbf0;border-left:3px solid #f0c040;text-align:left;">
-      <span style="font-family:Georgia,serif;font-size:14px;color:#1a1008;">🏆 Refer 3 friends. Win a mug. </span><a href="${inviteUrl}" style="font-family:Georgia,serif;font-size:14px;color:#1a3a6b;font-weight:bold;text-decoration:underline;">Send an invite →</a>
+    <div style="margin:0 0 24px;padding:16px 20px;background:#fffbf0;border-left:4px solid #f0c040;border-top:1px solid #f0c040;border-bottom:1px solid #f0c040;text-align:left;">
+      <div style="font-family:Georgia,serif;font-size:18px;font-weight:bold;color:#1a1008;margin-bottom:6px;">🏆 Refer 3 friends. Win a mug.</div>
+      <div style="font-family:Georgia,serif;font-size:15px;color:#444;"><a href="${inviteUrl}" style="color:#1a3a6b;font-weight:bold;text-decoration:underline;">Send an invite →</a></div>
     </div>`;
 }
 
