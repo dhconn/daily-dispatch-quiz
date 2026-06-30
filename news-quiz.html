@@ -7808,11 +7808,12 @@ ${siteUrl}`;
 
     async function saveDraftToServer() {
       const draft = getDraftQuiz();
-      if (!draft || !draft.questions || !draft.questions.length) { alert('No questions to save.'); return; }
+      const activeCount = draft && draft.questions ? draft.questions.length : 0;
+      const heldCount = draft && draft.heldQuestions ? draft.heldQuestions.length : 0;
+      if (!draft || (activeCount === 0 && heldCount === 0)) { alert('No questions to save.'); return; }
       // Re-normalize position-based difficulties before saving
       const diffs = ['easy', 'easy', 'medium', 'medium', 'hard', 'bonus'];
-      draft.questions.forEach((q, i) => { q.difficulty = diffs[i] || q.difficulty; });
-      const heldCount = (draft.heldQuestions || []).length;
+      if (draft.questions) draft.questions.forEach((q, i) => { q.difficulty = diffs[i] || q.difficulty; });
       try {
         const res = await fetch('/api/draft', {
           method: 'POST',
@@ -7822,7 +7823,7 @@ ${siteUrl}`;
         const data = await res.json();
         if (data.ok) {
           const heldNote = heldCount ? ', ' + heldCount + ' held' : '';
-          setStatus('💾 Draft saved — ' + draft.questions.length + ' active' + heldNote + '. Resume on any device.', 'success');
+          setStatus('💾 Draft saved — ' + activeCount + ' active' + heldNote + '. Resume on any device.', 'success');
         } else {
           setStatus('Draft save failed.', 'error');
         }
