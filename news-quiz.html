@@ -6548,6 +6548,28 @@ ${siteUrl}`;
         rssContent = [...enriched, ...rest].join('\n\n---\n\n');
       }
 
+      // ── Step 1.6: Fetch content for editor-picked articles ──────────
+      let specificBlocks = articleUrlList.map((url, i) => `ARTICLE ${i+1}:\nARTICLE_URL: ${url}`);
+      if (articleUrlList.length > 0) {
+        document.getElementById('gen-progress-text').textContent = 'Fetching hand-picked articles…';
+        specificBlocks = await Promise.all(articleUrlList.map(async (url, i) => {
+          try {
+            const r = await Promise.race([
+              fetch('/api/fetch-article', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) }),
+              new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 8000))
+            ]);
+            const d = await r.json();
+            if (d.ok && d.excerpt && d.excerpt.length > 200) {
+              console.log(`[HandPick] Fetched content (${d.excerpt.length} chars): ${url.slice(0, 70)}`);
+              return `ARTICLE ${i+1}:\nARTICLE_URL: ${url}\nFULL TEXT:\n${d.excerpt}`;
+            }
+          } catch (e) {
+            console.warn(`[HandPick] Could not fetch: ${url.slice(0, 70)}`);
+          }
+          return `ARTICLE ${i+1}:\nARTICLE_URL: ${url}`;
+        }));
+      }
+
       // ── Article pool guard — abort before calling Claude if nothing to work with ──
       const _articleCount = (rssContent.match(/ARTICLE \d+:/g) || []).length;
       const _hasAssignedUrls = articleUrlList.length > 0;
@@ -6569,7 +6591,7 @@ ${siteUrl}`;
 
         prompt = buildPromptProduction(
           urlList,
-          articleUrlList,
+          specificBlocks,
           manualText,
           archiveNote,
           rssContent,
@@ -6718,11 +6740,13 @@ ${siteUrl}`;
               });
             }
           }
+          const existingDraft = getDraftQuiz();
           saveDraftQuiz({
             questions,
             generatedAt: new Date().toISOString(),
             urls: urlList,
-            promptMode: mode
+            promptMode: mode,
+            heldQuestions: (existingDraft && existingDraft.heldQuestions) || []
           });
           window._currentDraftDate = todayStr();
 
@@ -6764,21 +6788,22 @@ ${siteUrl}`;
       } catch (e) { }
     }
 
-    function buildPromptProduction(urlList, articleUrlList, manualText, archiveNote, rssContent, isFeedMode, allArchiveUrls, allArchiveSlugs, editorNotes, starredExamples) {
+    function buildPromptProduction(urlList, specificBlocks, manualText, archiveNote, rssContent, isFeedMode, allArchiveUrls, allArchiveSlugs, editorNotes, starredExamples) {
       allArchiveUrls = allArchiveUrls || [];
       allArchiveSlugs = allArchiveSlugs || [];
       const manualBlock = manualText
         ? 'MANUALLY PROVIDED ARTICLE TEXT (use as additional source):\n' + manualText.slice(0, 4000)
         : '';
 
-      const isSpecificArticles = articleUrlList.length > 0;
+      const isSpecificArticles = specificBlocks.length > 0;
+      const specificUrls = specificBlocks.map(b => { const m = b.match(/ARTICLE_URL: (.+)/); return m ? m[1].trim() : ''; }).filter(Boolean);
 
       const fallback = !rssContent && !manualBlock && !isSpecificArticles
         ? 'Search for and read the most recent articles from these Baltimore news websites:\n' + urlList.join('\n')
         : '';
 
       const specificArticlesBlock = isSpecificArticles
-        ? 'EDITOR-PICKED ARTICLES (these are assigned to Q1–' + articleUrlList.length + ' — use ONLY these URLs for those questions, in order):\n' + articleUrlList.join('\n') + '\n\nRemaining question slots will be filled from the RSS articles provided below.\n'
+        ? 'EDITOR-PICKED ARTICLES (these are assigned to Q1–' + specificBlocks.length + ' — use ONLY these URLs for those questions, in order):\n' + specificUrls.join('\n') + '\n\nRemaining question slots will be filled from the RSS articles provided below.\n'
         : '';
 
       // ── Topic deduplication: pick 11 topically distinct articles ──
@@ -6832,9 +6857,6 @@ ${siteUrl}`;
 
       if (isSpecificArticles) {
         // Specific articles go first, guaranteed. RSS fills remaining slots up to 11.
-        const specificBlocks = articleUrlList.map((url, i) =>
-          `ARTICLE ${i + 1}:\nURL: ${url}`
-        );
         const chosenHeadlines = []; // track headlines from RSS fill to dedup
         const rssBlocks = [];
 
