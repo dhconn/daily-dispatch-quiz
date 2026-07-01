@@ -44,6 +44,7 @@
   {"name": "Evelyn Lucado", "email": "evelyn@baltimorefishbowl.com", "outlet": "Baltimore Fishbowl", "beat": "staff reporter", "emailVerified": true},
   {"name": "Dan Rodricks", "email": "djrodricks@gmail.com", "outlet": "Baltimore Fishbowl", "beat": "staff reporter", "emailVerified": true},
   {"name": "Reid Epstein", "email": "reid.epstein@nytimes.com", "outlet": "New York Times", "beat": "political reporter", "emailVerified": true},
+  {"name": "Dion Nissenbaum", "email": "dnissenbaum@votebeat.org", "outlet": "VoteBeat", "beat": "national", "emailVerified": true}
 
   {"name": "Audrey Cooper", "email": "audrey.cooper@thebaltimorebanner.com", "outlet": "Baltimore Banner", "beat": "editor-in-chief", "emailVerified": false},
   {"name": "Andrea K. McDaniels", "email": "andrea.mcdaniels@thebaltimorebanner.com", "outlet": "Baltimore Banner", "beat": "managing editor", "emailVerified": false},
