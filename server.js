@@ -1283,10 +1283,17 @@ app.post('/api/admin/announce-monthly-winner', async (req, res) => {
     const winnerNames = winners.map(w => w.displayName).join(' and ');
     const currentMonth = new Date().toLocaleDateString('en-US', { month: 'long' });
 
-    // Use provided text or fall back to defaults; escape HTML then convert newlines to <br>
+    // Use provided text or fall back to defaults; escape HTML then convert newlines to <br>.
+    // A literal "[MUG]" token in the message is swapped for the mug photo, so admins can
+    // place it inline instead of always getting it appended at the bottom.
     const safeHtml = t => (t || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
-    const winnerBodyHtml = safeHtml(winnerMessage || `You finished ${monthName} at the top of the Daily Dispatch Quiz leaderboard with ${topScore} points.\n\nYour prize: a Daily Dispatch Quiz coffee mug, on us.\n\nJust reply to this email with your mailing address and we'll get it shipped to you.`);
-    const announcementBodyHtml = safeHtml(announcementMessage || `${winnerNames} topped the ${monthName} leaderboard with ${topScore} points and ${winners.length > 1 ? 'are' : 'is'} receiving a Daily Dispatch Quiz mug.\n\nThink you can beat them in ${currentMonth}? Play every day to climb the leaderboard.`);
+    const mugImgHtml = width => `<img src="${siteUrl}/images/mug.png" alt="Daily Dispatch Quiz Mug" style="width:${width}px;height:auto;margin:16px auto;display:block;">`;
+    const winnerMessageRaw = winnerMessage || `You finished ${monthName} at the top of the Daily Dispatch Quiz leaderboard with ${topScore} points.\n\nYour prize: a Daily Dispatch Quiz coffee mug, on us.\n\nJust reply to this email with your mailing address and we'll get it shipped to you.`;
+    const announcementMessageRaw = announcementMessage || `${winnerNames} topped the ${monthName} leaderboard with ${topScore} points and ${winners.length > 1 ? 'are' : 'is'} receiving a Daily Dispatch Quiz mug.\n\nThink you can beat them in ${currentMonth}? Play every day to climb the leaderboard.`;
+    const winnerHasMug = /\[MUG\]/i.test(winnerMessageRaw);
+    const announcementHasMug = /\[MUG\]/i.test(announcementMessageRaw);
+    const winnerBodyHtml = safeHtml(winnerMessageRaw).replace(/\[MUG\]/ig, mugImgHtml(200));
+    const announcementBodyHtml = safeHtml(announcementMessageRaw).replace(/\[MUG\]/ig, mugImgHtml(160));
 
     // Mark mug won
     for (const winner of winners) {
@@ -1313,7 +1320,7 @@ app.post('/api/admin/announce-monthly-winner', async (req, res) => {
           <div style="font-size:48px;margin-bottom:12px;">🏆</div>
           <p style="font-family:Georgia,serif;font-size:24px;font-weight:700;margin:0 0 10px;">${winner.displayName} wins the ${monthName} mug!</p>
           <p style="font-size:15px;color:#6b5f4e;margin:0 0 24px;line-height:1.7;">${winnerBodyHtml}</p>
-          <img src="${siteUrl}/images/mug.png" alt="Daily Dispatch Quiz Mug" style="width:200px;height:auto;margin:0 auto 24px;display:block;">
+          ${winnerHasMug ? '' : `<img src="${siteUrl}/images/mug.png" alt="Daily Dispatch Quiz Mug" style="width:200px;height:auto;margin:0 auto 24px;display:block;">`}
           <a href="${siteUrl}" style="display:inline-block;background:#1a1008;color:#f5f0e8;padding:16px 36px;font-family:monospace;font-size:13px;letter-spacing:2px;text-decoration:none;text-transform:uppercase;">Play Today's Quiz ▸</a>
         </div>
         <div style="padding:16px 24px;text-align:center;font-size:11px;color:#999;font-family:monospace;border-top:1px solid #e0d8cc;">
@@ -1334,7 +1341,7 @@ app.post('/api/admin/announce-monthly-winner', async (req, res) => {
         <p style="font-family:Georgia,serif;font-size:24px;font-weight:700;margin:0 0 10px;">${monthName} Champion${winners.length > 1 ? 's' : ''}</p>
         <p style="font-size:20px;font-weight:700;color:#b8860b;margin:0 0 16px;">${winnerNames}</p>
         <p style="font-size:15px;color:#6b5f4e;margin:0 0 24px;line-height:1.7;">${announcementBodyHtml}</p>
-        <img src="${siteUrl}/images/mug.png" alt="Daily Dispatch Quiz Mug" style="width:160px;height:auto;margin:0 auto 24px;display:block;">
+        ${announcementHasMug ? '' : `<img src="${siteUrl}/images/mug.png" alt="Daily Dispatch Quiz Mug" style="width:160px;height:auto;margin:0 auto 24px;display:block;">`}
         <a href="${siteUrl}" style="display:inline-block;background:#1a1008;color:#f5f0e8;padding:16px 36px;font-family:monospace;font-size:13px;letter-spacing:2px;text-decoration:none;text-transform:uppercase;">Play Today's Quiz ▸</a>
       </div>
       <div style="padding:16px 24px;text-align:center;font-size:11px;color:#999;font-family:monospace;border-top:1px solid #e0d8cc;">
