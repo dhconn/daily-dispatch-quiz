@@ -2951,6 +2951,26 @@ function sendWelcomeEmail(email, name, siteUrl, unsubUrl) {
 async function sendEmailBatch(emails) {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) { console.log('Email skipped: RESEND_API_KEY not set.'); return; }
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const extractEmail = addr => { const m = String(addr||'').match(/<([^>]+)>/); return m ? m[1].trim() : String(addr||'').trim(); };
+  const normalizeAddr = addr => {
+    const s = String(addr||'').trim();
+    const quoted = s.match(/^"([^"]+)"\s*<([^>]+)>$/);
+    return quoted ? `${quoted[1].trim()} <${quoted[2].trim()}>` : s;
+  };
+  const valid = emails.map(e => {
+    const addr = Array.isArray(e.to) ? e.to[0] : e.to;
+    if (!emailRegex.test(extractEmail(addr))) {
+      console.warn(`[Email] Skipping invalid address: "${addr}"`);
+      return null;
+    }
+    return { ...e, to: [normalizeAddr(addr)] };
+  }).filter(Boolean);
+  if (valid.length < emails.length) {
+    console.warn(`[Email] Filtered out ${emails.length - valid.length} invalid address(es) — fix them in the subscriber list`);
+  }
+  emails = valid;
+  if (!emails.length) { console.warn('[Email] No valid addresses to send to.'); return; }
   const CHUNK_SIZE = 100;
   const CHUNK_DELAY = 1000; // 1 second between chunks
   const chunks = [];

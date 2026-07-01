@@ -4033,13 +4033,17 @@
     }
 
     // ═══════════════════════════════════════════════════════
+    function isValidEmail(email) {
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || '').trim());
+    }
+
     //  REGISTER
     // ═══════════════════════════════════════════════════════
     async function submitInterstitialSubscribe() {
       const emailEl = document.getElementById('interstitial-sub-email');
       const statusEl = document.getElementById('interstitial-sub-status');
       const email = emailEl ? emailEl.value.trim() : '';
-      if (!email) { if (statusEl) statusEl.textContent = 'Please enter your email.'; return; }
+      if (!isValidEmail(email)) { if (statusEl) statusEl.textContent = 'Please enter a valid email (e.g. you@example.com).'; return; }
       if (statusEl) statusEl.textContent = 'Subscribing…';
       try {
         const name = state.playerName || '';
@@ -4063,7 +4067,7 @@
       const emailEl = document.getElementById('archive-sub-email');
       const statusEl = document.getElementById('archive-sub-status');
       const email = emailEl ? emailEl.value.trim() : '';
-      if (!email) { if (statusEl) statusEl.textContent = 'Please enter your email.'; return; }
+      if (!isValidEmail(email)) { if (statusEl) statusEl.textContent = 'Please enter a valid email (e.g. you@example.com).'; return; }
       if (statusEl) statusEl.textContent = 'Subscribing…';
       try {
         const name = state.playerName || '';
@@ -4086,7 +4090,7 @@
       const emailEl = document.getElementById('no-quiz-sub-email');
       const statusEl = document.getElementById('no-quiz-sub-status');
       const email = emailEl ? emailEl.value.trim() : '';
-      if (!email) { if (statusEl) statusEl.textContent = 'Please enter your email.'; return; }
+      if (!isValidEmail(email)) { if (statusEl) statusEl.textContent = 'Please enter a valid email (e.g. you@example.com).'; return; }
       if (statusEl) statusEl.textContent = 'Subscribing…';
       try {
         const name = state.playerName || '';
@@ -4177,8 +4181,8 @@ ${siteUrl}`;
   const statusEl = document.getElementById('referral-sub-status');
   const email = emailEl ? emailEl.value.trim() : '';
 
-  if (!email || !email.includes('@')) {
-    if (statusEl) statusEl.textContent = 'Please enter a valid email.';
+  if (!isValidEmail(email)) {
+    if (statusEl) statusEl.textContent = 'Please enter a valid email (e.g. you@example.com).';
     return;
   }
 
@@ -4252,8 +4256,8 @@ ${siteUrl}`;
       const emailEl = document.getElementById('results-sub-email');
       const statusEl = document.getElementById('results-sub-status');
       const email = emailEl.value.trim();
-      if (!email || !email.includes('@')) {
-        statusEl.textContent = 'Please enter a valid email address.';
+      if (!isValidEmail(email)) {
+        statusEl.textContent = 'Please enter a valid email (e.g. you@example.com).';
         statusEl.style.color = 'var(--red)';
         statusEl.style.display = 'block';
         return;
@@ -4294,7 +4298,15 @@ ${siteUrl}`;
       const emailEl = document.getElementById('email-input');
       const optinEl = document.getElementById('email-optin');
       const storedRef = lsGet('dnq_referral_code');
-      if (emailEl && optinEl && optinEl.checked && emailEl.value.includes('@')) {
+      if (emailEl && optinEl && optinEl.checked) {
+        const subEmail = emailEl.value.trim();
+        if (subEmail && !isValidEmail(subEmail)) {
+          errEl.textContent = 'Please enter a valid email address (e.g. you@example.com).';
+          errEl.style.display = 'block';
+          return;
+        }
+      }
+      if (emailEl && optinEl && optinEl.checked && isValidEmail(emailEl.value.trim())) {
         const subEmail = emailEl.value.trim();
         fetch('/api/subscribe', {
           method: 'POST',
