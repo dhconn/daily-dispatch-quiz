@@ -3238,13 +3238,13 @@
       if (!sel) return;
       sel.innerHTML = '';
       const now = new Date();
-      for (let i = 1; i <= 6; i++) {
+      for (let i = 0; i <= 6; i++) {
         const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
         const value = d.toISOString().slice(0, 7);
         const label = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
         const opt = document.createElement('option');
         opt.value = value; opt.textContent = label;
-        if (i === 1) opt.selected = true;
+        if (i === 0) opt.selected = true;
         sel.appendChild(opt);
       }
     }
@@ -3302,9 +3302,11 @@
       }
     }
 
+    let winnerDraftMonth = null;
     async function previewMonthlyWinner() {
       const sel = document.getElementById('winner-month-select');
       const month = sel ? sel.value : '';
+      const isNewMonth = month !== winnerDraftMonth;
       const previewEl = document.getElementById('winner-preview');
       const draftSection = document.getElementById('winner-draft-section');
       const announceBtn = document.getElementById('winner-announce-btn');
@@ -3328,11 +3330,15 @@
           ? `<span style="color:var(--muted);">Already announced.</span> Winner${d.winners.length > 1 ? 's' : ''}: ${names}`
           : `Winner${d.winners.length > 1 ? 's' : ''}: ${names}`;
 
-        // Populate editable draft textareas
+        // Populate editable draft textareas only when switching to a different month —
+        // otherwise re-clicking Preview would wipe out in-progress edits.
         const winnerTa = document.getElementById('winner-message-input');
         const announceTa = document.getElementById('announcement-message-input');
-        if (winnerTa) winnerTa.value = d.defaultWinnerMessage || '';
-        if (announceTa) announceTa.value = d.defaultAnnouncementMessage || '';
+        if (isNewMonth) {
+          if (winnerTa) winnerTa.value = d.defaultWinnerMessage || '';
+          if (announceTa) announceTa.value = d.defaultAnnouncementMessage || '';
+          winnerDraftMonth = month;
+        }
 
         if (draftSection) draftSection.style.display = 'block';
         if (announceBtn) {
