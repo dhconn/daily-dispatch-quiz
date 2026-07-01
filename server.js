@@ -837,7 +837,7 @@ try {
           console.log(`[Referral] ${key} play count: ${ref.playCount} — referred by ${sub.email}`);
           // Check if this referrer just hit 3 confirmed referrals
           if (!sub.mugWon) {
-            const confirmed = sub.referrals.filter(r => r.playCount >= 3 && r.hasSubscribed).length;
+            const confirmed = sub.referrals.filter(r => r.playCount >= 1).length;
             if (confirmed >= 3) {
               console.log(`[Referral] 🏆 ${sub.email} is now MUG ELIGIBLE`);
             }
@@ -1808,7 +1808,7 @@ app.get('/api/referral-code', async (req, res) => {
         .replace(/[^a-zA-Z0-9]/g, '').slice(0, 10);
       await writeData(data);
     }
-    const confirmed = (sub.referrals || []).filter(r => r.playCount >= 3 && r.hasSubscribed).length;
+    const confirmed = (sub.referrals || []).filter(r => r.playCount >= 1).length;
     res.json({ ok: true, referralCode: sub.referralCode, confirmedReferrals: confirmed, mugWon: !!sub.mugWon });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -2383,7 +2383,7 @@ app.get('/api/admin/referrals', async (req, res) => {
     const results = [];
     for (const sub of Object.values(data.subscribers || {})) {
       if (!sub.referrals || !sub.referrals.length) continue;
-      const confirmed = sub.referrals.filter(r => r.playCount >= 3 && r.hasSubscribed).length;
+      const confirmed = sub.referrals.filter(r => r.playCount >= 1).length;
       results.push({
         email: sub.email,
         name: sub.name || '',
@@ -2928,7 +2928,7 @@ function sendWelcomeEmail(email, name, siteUrl, unsubUrl) {
       <p style="font-size:15px;font-weight:700;margin:0 0 8px;">Two ways to win a mug ☕</p>
       <p style="font-size:15px;line-height:1.7;margin:0 0 8px;">Yes, an actual mug. Yes, it's worth playing for.</p>
       <p style="font-size:15px;line-height:1.7;margin:0 0 8px;">🏆 <strong>Finish the month at the top of the leaderboard.</strong> Play every day, score well — winner announced on the 1st.</p>
-      <p style="font-size:15px;line-height:1.7;margin:0 0 28px;">☕ <strong>Refer a friend who subscribes and plays three times.</strong> After you play today, look for your referral link at the top of the results page — you can share it anytime.</p>
+      <p style="font-size:15px;line-height:1.7;margin:0 0 28px;">☕ <strong>Refer 3 friends who each play at least once.</strong> After you play today, look for your referral link at the top of the results page — you can share it anytime.</p>
       <div style="text-align:center;margin-bottom:28px;">
         <a href="${siteUrl}" style="display:inline-block;background:#1a1008;color:#f5f0e8;padding:16px 36px;font-family:monospace;font-size:13px;letter-spacing:2px;text-decoration:none;text-transform:uppercase;">Play Today's Quiz ▸</a>
       </div>
