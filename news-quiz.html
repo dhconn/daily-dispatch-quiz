@@ -3560,6 +3560,7 @@
     const COMPLETION_BONUS = 10;
 
     function isJuly4() {
+      if (new URLSearchParams(window.location.search).has('j4')) return true;
       const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
       return d.getMonth() === 6 && d.getDate() === 4;
     }
@@ -7755,10 +7756,12 @@ ${siteUrl}`;
       document.getElementById('teaser-editor').style.display = 'none';
       try {
         const draft = getDraftQuiz();
+        const isJ4Preview = new URLSearchParams(window.location.search).has('j4');
         const fetchOpts = draft && draft.questions && draft.questions.length
-          ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ questions: draft.questions }) }
+          ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ questions: draft.questions, previewDate: isJ4Preview ? '2026-07-04' : undefined }) }
           : {};
-        const res = await fetch('/api/quiz/preview-email', fetchOpts);
+        const previewUrl = '/api/quiz/preview-email' + (isJ4Preview && !fetchOpts.body ? '?previewDate=2026-07-04' : '');
+        const res = await fetch(previewUrl, fetchOpts);
         const data = await res.json();
         inner.innerHTML = data.html;
         if (data.teasers && data.teasers.length) {

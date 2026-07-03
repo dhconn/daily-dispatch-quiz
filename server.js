@@ -45,15 +45,33 @@ app.use((req, res, next) => {
 // ── Postgres connection ───────────────────────────────────────
 
 async function createPool() {
-  return new Pool({
-    connectionString: process.env.DATABASE_URL,
+  const base = {
     ssl: { rejectUnauthorized: false },
     connectionTimeoutMillis: 5000,
     idleTimeoutMillis: 30000,
-    max: 20,
-    // Force IPv4 to avoid ECONNREFUSED on IPv6
-    family: 4
-  });
+    max: 20
+  };
+  // If individual PG* vars are present (Railway injects them; set them locally too),
+  // let pg read them directly — avoids URL-parsing issues with special chars in passwords.
+  if (process.env.PGHOST) return new Pool(base);
+
+  const url = process.env.DATABASE_URL;
+  if (!url) return new Pool(base);
+  try {
+    const withoutScheme = url.replace(/^postgres(?:ql)?:\/\//, '');
+    const atIdx = withoutScheme.lastIndexOf('@');
+    const userPass = withoutScheme.slice(0, atIdx);
+    const hostDb = withoutScheme.slice(atIdx + 1);
+    const colonIdx = userPass.indexOf(':');
+    const user = decodeURIComponent(userPass.slice(0, colonIdx));
+    const password = decodeURIComponent(userPass.slice(colonIdx + 1));
+    const slashIdx = hostDb.indexOf('/');
+    const [host, portStr] = hostDb.slice(0, slashIdx).split(':');
+    const database = hostDb.slice(slashIdx + 1).split('?')[0];
+    return new Pool({ ...base, user, password, host, port: portStr ? parseInt(portStr) : 5432, database });
+  } catch (e) {
+    return new Pool({ ...base, connectionString: url });
+  }
 }
 
 let pool;
@@ -1779,6 +1797,10 @@ app.all('/api/quiz/preview-email', async (req, res) => {
     questions = data.quizzes[dateLabel].questions || [];
     console.log('[PreviewEmail] Using published quiz:', dateLabel);
   }
+
+  // Allow ?previewDate=YYYY-MM-DD (or in POST body) to override date for holiday preview testing
+  const dateOverride = ((req.query.previewDate || req.body?.previewDate) || '').match(/^\d{4}-\d{2}-\d{2}$/)?.[0];
+  if (dateOverride) dateLabel = dateOverride;
 
   const previewData = await readData();
 
