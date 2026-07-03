@@ -1893,6 +1893,7 @@
     <div class="tagline">Local News · Daily Questions · Community Knowledge</div>
     <button id="admin-btn" onclick="showAdminLogin()">Admin ▸</button>
   </div>
+  <div id="july4-stripe" style="display:none;height:6px;background:linear-gradient(to right,#b22234 33.33%,#ffffff 33.33% 66.66%,#3c3b6e 66.66%);"></div>
 
   <div id="site-nav" class="site-nav">
     <button onclick="showArchiveBrowser()">Browse Past Quizzes</button>
@@ -1904,6 +1905,10 @@
 
     <!-- REGISTER -->
     <div id="screen-register" class="screen active">
+      <div id="july4-banner" style="display:none;margin:0 0 18px;padding:14px 20px;background:linear-gradient(135deg,#3c3b6e 0%,#b22234 100%);color:white;text-align:center;font-family:'Courier Prime',monospace;letter-spacing:1px;">
+        <div style="font-size:15px;margin-bottom:3px;">&#127878; Happy 4th of July, Baltimore! &#127482;&#127480;</div>
+        <div style="font-size:11px;opacity:0.8;letter-spacing:2px;">INDEPENDENCE DAY SPECIAL EDITION</div>
+      </div>
       <div class="edition-rule" style="margin-top: 0; margin-bottom: 0; padding-top: 0;">Today's Edition</div>
       <h2>Know Your Community.</h2>
       <p>5 questions + a bonus drawn from today's local news — updated daily by your editor.</p>
@@ -3554,6 +3559,77 @@
     const POINTS = { easy: 10, medium: 20, hard: 30, bonus: 50 };
     const COMPLETION_BONUS = 10;
 
+    function isJuly4() {
+      const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+      return d.getMonth() === 6 && d.getDate() === 4;
+    }
+
+    function launchFireworks() {
+      const canvas = document.createElement('canvas');
+      canvas.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;';
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      document.body.appendChild(canvas);
+      const ctx = canvas.getContext('2d');
+
+      const COLORS = ['#ff2020', '#ffffff', '#2244cc', '#ff6633', '#4488ff', '#ffdd22', '#cc2244'];
+      const particles = [];
+
+      function createBurst(x, y) {
+        const color = COLORS[Math.floor(Math.random() * COLORS.length)];
+        const count = 55 + Math.floor(Math.random() * 20);
+        for (let i = 0; i < count; i++) {
+          const angle = (Math.PI * 2 / count) * i + Math.random() * 0.15;
+          const speed = 1.8 + Math.random() * 3.5;
+          particles.push({
+            x, y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed - 0.6,
+            life: 0.85 + Math.random() * 0.15,
+            decay: 0.011 + Math.random() * 0.007,
+            color,
+            size: 1.5 + Math.random() * 2
+          });
+        }
+      }
+
+      const W = canvas.width, H = canvas.height;
+      const burstPoints = [
+        [W * 0.28, H * 0.22], [W * 0.72, H * 0.18], [W * 0.50, H * 0.30],
+        [W * 0.18, H * 0.38], [W * 0.82, H * 0.28], [W * 0.42, H * 0.14],
+        [W * 0.63, H * 0.36], [W * 0.35, H * 0.42]
+      ];
+      burstPoints.forEach(([bx, by], i) => setTimeout(() => createBurst(bx, by), i * 300));
+
+      let startTime = null;
+      const totalDuration = 4600;
+
+      function animate(ts) {
+        if (!startTime) startTime = ts;
+        const elapsed = ts - startTime;
+        const fadeAlpha = elapsed > 3300 ? Math.max(0, 1 - (elapsed - 3300) / 1300) : 1;
+
+        ctx.clearRect(0, 0, W, H);
+
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const p = particles[i];
+          p.x += p.vx; p.y += p.vy;
+          p.vy += 0.055;
+          p.life -= p.decay;
+          if (p.life <= 0) { particles.splice(i, 1); continue; }
+          ctx.globalAlpha = p.life * fadeAlpha;
+          ctx.fillStyle = p.color;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        if (elapsed < totalDuration) requestAnimationFrame(animate);
+        else canvas.remove();
+      }
+      requestAnimationFrame(animate);
+    }
+
     function todayStr() {
       // Always use Eastern time — quiz is Baltimore-based
       const eastern = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
@@ -3894,6 +3970,16 @@
     //  INIT
     // ═══════════════════════════════════════════════════════
     document.addEventListener('DOMContentLoaded', () => {
+      // ── July 4th theming ─────────────────────────────────────
+      if (isJuly4()) {
+        const el = document.getElementById('july4-stripe');
+        if (el) el.style.display = 'block';
+        const banner = document.getElementById('july4-banner');
+        if (banner) banner.style.display = 'block';
+        const mh = document.getElementById('masthead');
+        if (mh) mh.style.borderBottom = '4px double #b22234';
+      }
+
       // ── Email Q1 token handling ──────────────────────────────
       const _urlParams = new URLSearchParams(window.location.search);
       const _emailQ1Answer = _urlParams.get('q1');
@@ -5142,6 +5228,7 @@ ${siteUrl}`;
         }
       }
       showScreen('screen-results');
+      if (!archiveMode && isJuly4()) launchFireworks();
       checkPwaPrompt();
       subscribeToPush();
 

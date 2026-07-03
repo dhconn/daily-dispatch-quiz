@@ -1505,6 +1505,19 @@ function buildTeaserHtml(teasers) {
     </div>`;
 }
 
+function isJuly4Date(dateStr) {
+  return String(dateStr).slice(5) === '07-04';
+}
+
+function buildJuly4EmailParts(dateStr) {
+  if (!isJuly4Date(dateStr)) return { stripe: '', mastheadLine: '', signoff: '' };
+  return {
+    stripe: '<div style="height:8px;background:linear-gradient(to right,#b22234 33.33%,#f5f0e8 33.33% 66.66%,#3c3b6e 66.66%);"></div>',
+    mastheadLine: '<div style="font-family:monospace;font-size:11px;letter-spacing:2px;color:#f0c040;margin-top:10px;">&#127878; INDEPENDENCE DAY EDITION &#127879;</div>',
+    signoff: '<div style="padding:12px 24px;text-align:center;font-size:13px;color:#6b5f4e;font-family:Georgia,serif;">&#127879; Happy 4th of July! Enjoy the fireworks tonight.</div>'
+  };
+}
+
 function buildEmailHtmlWithQ1(siteUrl, date, subscriberName, teaserHtml, unsubUrl, q1, token) {
   const optLetters = ['A', 'B', 'C', 'D'];
   const answerButtons = (q1.options || []).map((opt, i) => {
@@ -1518,11 +1531,14 @@ function buildEmailHtmlWithQ1(siteUrl, date, subscriberName, teaserHtml, unsubUr
     </div>`;
 }).join('');
 
+  const j4 = buildJuly4EmailParts(date);
 return `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1008;">
+    ${j4.stripe}
     <div style="background:#1a1008;color:#f5f0e8;text-align:center;padding:24px;">
       <div style="font-family:monospace;font-size:11px;letter-spacing:3px;color:#f0c040;margin-bottom:6px;">BALTIMORE · DAILY DISPATCH</div>
       <div style="font-size:28px;font-weight:bold;">The Daily Dispatch Quiz</div>
       <div style="font-family:monospace;font-size:10px;letter-spacing:2px;color:#aaa;margin-top:6px;">${date}</div>
+      ${j4.mastheadLine}
     </div>
     <div style="padding:32px 24px;background:#f5f0e8;">
 <!--REFERRAL_STRIP_INSERT_POINT-->
@@ -1539,6 +1555,7 @@ return `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;colo
 <!--YESTERDAY_INSERT_POINT-->
 <!--SUBSCRIBE_INSERT_POINT-->
     </div>
+    ${j4.signoff}
     <div style="padding:16px 24px;text-align:center;font-size:11px;color:#999;font-family:monospace;border-top:1px solid #e0d8cc;">
       <a href="${unsubUrl}" style="color:#999;">Unsubscribe</a>
     </div>
@@ -1546,12 +1563,15 @@ return `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;colo
 }
 
 function buildEmailHtml(siteUrl, date, subscriberName, teaserHtml, unsubUrl, trackingToken) {
+  const j4 = buildJuly4EmailParts(date);
   return `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1008;">
+    ${j4.stripe}
     <a href="${siteUrl}/news-quiz.html${trackingToken ? '?tok=' + encodeURIComponent(trackingToken) + '&group=A' : ''}" style="display:block;text-decoration:none;color:inherit;">
     <div style="background:#1a1008;color:#f5f0e8;text-align:center;padding:24px;">
       <div style="font-family:monospace;font-size:11px;letter-spacing:3px;color:#f0c040;margin-bottom:6px;">BALTIMORE · DAILY DISPATCH</div>
       <div style="font-size:28px;font-weight:bold;">The Daily Dispatch Quiz</div>
       <div style="font-family:monospace;font-size:10px;letter-spacing:2px;color:#aaa;margin-top:6px;">${date}</div>
+      ${j4.mastheadLine}
     </div>
     </a>
     <div style="padding:32px 24px;background:#f5f0e8;text-align:center;">
@@ -1565,6 +1585,7 @@ function buildEmailHtml(siteUrl, date, subscriberName, teaserHtml, unsubUrl, tra
 
 <!--SUBSCRIBE_INSERT_POINT-->
     </div>
+    ${j4.signoff}
     <div style="padding:16px 24px;text-align:center;font-size:11px;color:#999;font-family:monospace;border-top:1px solid #e0d8cc;">
       <a href="${unsubUrl}" style="color:#999;">Unsubscribe</a>
     </div>
