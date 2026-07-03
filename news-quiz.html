@@ -7603,6 +7603,11 @@ ${siteUrl}`;
       draft.publishDate = todayStr();
       const adminToken = lsGet('dnq_admin_token') || 'admin';
 
+      const pubBtn = document.querySelector('button[onclick="publishQuestions()"]');
+      const pubOrigText = pubBtn ? pubBtn.textContent : '';
+      if (pubBtn) { pubBtn.textContent = 'Publishing… sending emails'; pubBtn.disabled = true; }
+      setStatus('Publishing quiz and sending emails — this takes about 30 seconds…', 'info');
+
       try {
         // 3. Save to Archive
         const archiveRes = await fetch('/api/archive', {
@@ -7645,10 +7650,11 @@ ${siteUrl}`;
         clearDraftQuiz();
         clearAllLocks();
 
-        setStatus('✓ Quiz published for ' + todayStr() + ' and saved to server! Emails are being sent.', 'success');
-        alert('✓ Quiz published for ' + todayStr() + '! Emails are being sent.');
+        if (pubBtn) { pubBtn.textContent = '✓ Published!'; pubBtn.disabled = false; setTimeout(() => { pubBtn.textContent = pubOrigText; }, 4000); }
+        setStatus('✓ Quiz published for ' + todayStr() + ' — emails sent to subscribers and prospects.', 'success');
 
       } catch (e) {
+        if (pubBtn) { pubBtn.textContent = pubOrigText; pubBtn.disabled = false; }
         setStatus('⚠ FAILED to save to server (' + e.message + '). Draft preserved — please try again.', 'error');
         console.error('[Publish] Server error:', e);
       }
@@ -7832,6 +7838,9 @@ ${siteUrl}`;
       // Re-normalize position-based difficulties before saving
       const diffs = ['easy', 'easy', 'medium', 'medium', 'hard', 'bonus'];
       if (draft.questions) draft.questions.forEach((q, i) => { q.difficulty = diffs[i] || q.difficulty; });
+      const btn = document.querySelector('button[onclick="saveDraftToServer()"]');
+      const origText = btn ? btn.textContent : '';
+      if (btn) { btn.textContent = 'Saving…'; btn.disabled = true; }
       try {
         const res = await fetch('/api/draft', {
           method: 'POST',
@@ -7841,11 +7850,14 @@ ${siteUrl}`;
         const data = await res.json();
         if (data.ok) {
           const heldNote = heldCount ? ', ' + heldCount + ' held' : '';
+          if (btn) { btn.textContent = '✓ Saved!'; btn.disabled = false; setTimeout(() => { btn.textContent = origText; }, 2500); }
           setStatus('💾 Draft saved — ' + activeCount + ' active' + heldNote + '. Resume on any device.', 'success');
         } else {
+          if (btn) { btn.textContent = origText; btn.disabled = false; }
           setStatus('Draft save failed.', 'error');
         }
       } catch (e) {
+        if (btn) { btn.textContent = origText; btn.disabled = false; }
         setStatus('Draft save failed: ' + e.message, 'error');
       }
     }
