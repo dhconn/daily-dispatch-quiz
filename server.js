@@ -1525,8 +1525,8 @@ return `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;colo
       <div style="font-family:monospace;font-size:10px;letter-spacing:2px;color:#aaa;margin-top:6px;">${date}</div>
     </div>
     <div style="padding:32px 24px;background:#f5f0e8;">
-      <p style="font-size:18px;margin:0 0 16px;">Hi${subscriberName ? ' ' + subscriberName : ''} — start today's quiz by clicking your answer here:</p>
 <!--REFERRAL_STRIP_INSERT_POINT-->
+      <p style="font-size:18px;margin:0 0 16px;">Hi${subscriberName ? ' ' + subscriberName : ''} — start today's quiz by clicking your answer here:</p>
       <div style="background:white;border:2px solid #1a1008;padding:20px 20px 10px;margin-bottom:20px;box-shadow:4px 4px 0 #1a1008;">
         <div style="font-family:monospace;font-size:11px;letter-spacing:2px;color:#6b5f4e;margin-bottom:12px;">QUESTION 1 OF 5 · STARTER</div>
         <div style="font-size:19px;line-height:1.5;color:#1a1008;font-weight:400;margin-bottom:16px;">${q1.question}</div>
