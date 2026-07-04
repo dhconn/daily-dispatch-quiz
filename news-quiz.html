@@ -7797,8 +7797,19 @@ ${siteUrl}`;
         // 5. Success Cleanup
         saveTodayQuiz(draft); // Update local backup
         addToArchive(draft.questions); // Update local archive
+        const heldAfterPublish = draft.heldQuestions || [];
         clearDraftQuiz();
         clearAllLocks();
+        // Reset server draft to held questions only — published questions no longer belong in the draft
+        const cleanedDraft = { questions: [], heldQuestions: heldAfterPublish, savedAt: new Date().toISOString() };
+        saveDraftQuiz(cleanedDraft);
+        try {
+          await fetch('/api/draft', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-admin-token': lsGet('dnq_admin_token') || 'admin' },
+            body: JSON.stringify({ quiz: cleanedDraft })
+          });
+        } catch (e) { console.warn('[Publish] Could not reset server draft:', e.message); }
 
         if (pubBtn) { pubBtn.textContent = '✓ Published!'; pubBtn.disabled = false; setTimeout(() => { pubBtn.textContent = pubOrigText; }, 4000); }
         setStatus('✓ Quiz published for ' + todayStr() + ' — emails sent to subscribers and prospects.', 'success');
