@@ -7869,10 +7869,16 @@ ${siteUrl}`;
       const wrappedHtml = `<div style="margin:0 0 28px;padding:20px;background:#fff;border:1px solid #e0d8cc;text-align:left;"><div style="font-family:monospace;font-size:10px;letter-spacing:2px;color:#999;margin-bottom:12px;">TODAY'S TOPICS INCLUDE…</div>${teaserHtml}</div>`;
       try {
         const adminToken = lsGet('dnq_admin_token') || 'admin';
+        // A draft (e.g. tomorrow's quiz prepped for Schedule) caches by its own questions,
+        // not by date, so it can't collide with the live day's teaser cache.
+        const draft = getDraftQuiz();
+        const body = draft && draft.questions && draft.questions.length
+          ? { teaserHtml: wrappedHtml, questions: draft.questions }
+          : { teaserHtml: wrappedHtml, date: todayStr() };
         const res = await fetch('/api/teaser-cache', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
-          body: JSON.stringify({ teaserHtml: wrappedHtml, date: todayStr() })
+          body: JSON.stringify(body)
         });
         const data = await res.json();
         if (data.ok) {

@@ -4,6 +4,7 @@ const https = require('https');
 const http = require('http');
 const { Pool } = require('pg')
 const path = require('path');
+const crypto = require('crypto');
 const webpush = require('web-push');
 const nodemailer = require('nodemailer');
 
@@ -111,7 +112,7 @@ async function setKey(key, value) {
 // All callers that used await readData()/await writeData() now use async versions below.
 async function readData() {
   const keys = ['sites','rssCache','scores','dist','quizzes','archiveUrls',
-                 'archiveQuestions','archiveSlugs','posts','messages','subscribers','emailPaused','emailPausedSnapshot','topicBlocklist','cachedTeaserHtml','cachedTeaserDate','emailSentDates','prospects','prospectsPaused','statsExclusions','editorNotes','starredQuestions','communityMessage','communityMessageLastSent','communityImageUrl','forceGroupBUntil'];
+                 'archiveQuestions','archiveSlugs','posts','messages','subscribers','emailPaused','emailPausedSnapshot','topicBlocklist','cachedTeaserHtml','cachedTeaserDate','draftTeaserHtml','draftTeaserFingerprint','emailSentDates','prospects','prospectsPaused','statsExclusions','editorNotes','starredQuestions','communityMessage','communityMessageLastSent','communityImageUrl','forceGroupBUntil'];
   const data = {};
   await Promise.all(keys.map(async k => {
     const v = await getKey(k);
@@ -122,7 +123,7 @@ async function readData() {
 
 async function writeData(data) {
   const keys = ['sites','rssCache','scores','dist','quizzes','archiveUrls',
-                 'archiveQuestions','archiveSlugs','posts','messages','subscribers','emailPaused','emailPausedSnapshot','topicBlocklist','cachedTeaserHtml','cachedTeaserDate','emailSentDates','prospects','prospectsPaused','statsExclusions','editorNotes','starredQuestions','communityMessage','communityMessageLastSent','communityImageUrl','forceGroupBUntil'];
+                 'archiveQuestions','archiveSlugs','posts','messages','subscribers','emailPaused','emailPausedSnapshot','topicBlocklist','cachedTeaserHtml','cachedTeaserDate','draftTeaserHtml','draftTeaserFingerprint','emailSentDates','prospects','prospectsPaused','statsExclusions','editorNotes','starredQuestions','communityMessage','communityMessageLastSent','communityImageUrl','forceGroupBUntil'];
   await Promise.all(keys.map(async k => {
     if (data[k] === null) await setKey(k, null);
     else if (data[k] !== undefined) await setKey(k, data[k]);
@@ -1421,6 +1422,14 @@ app.post('/api/quiz/fix-date', async (req, res) => {
   res.json({ ok: true, message: `Copied from ${mostRecent} to ${todayEastern}`, from: mostRecent, to: todayEastern });
 });
 
+// Fingerprints a draft's question set so draft teaser previews/edits can be
+// cached independently of the live day's cachedTeaserHtml/cachedTeaserDate —
+// otherwise previewing a future draft on the same calendar day collides with
+// (and can overwrite) today's already-sent quiz's teaser cache.
+function fingerprintQuestions(questions) {
+  return crypto.createHash('md5').update(JSON.stringify((questions || []).map(q => q.question))).digest('hex');
+}
+
 // ── Generate teaser phrases for email ────────────────────────
 async function generateTeasers(questions) {
   return new Promise((resolve) => {
@@ -1764,16 +1773,25 @@ app.post('/api/email-pause', async (req, res) => {
 });
 
 // ── POST /api/teaser-cache — save edited teasers for use on publish ──────
+// Pass `questions` (the draft being edited) to save into the draft-specific cache;
+// pass `date` to save into the live day's cache (used when editing today's already-published quiz).
 app.post('/api/teaser-cache', async (req, res) => {
   const adminToken = process.env.ADMIN_TOKEN || 'admin';
   if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
-  const { teaserHtml, date } = req.body;
-  if (!teaserHtml || !date) return res.status(400).json({ error: 'teaserHtml and date required' });
+  const { teaserHtml, date, questions } = req.body;
+  if (!teaserHtml || (!date && !questions)) return res.status(400).json({ error: 'teaserHtml and (date or questions) required' });
   const data = await readData();
-  data.cachedTeaserHtml = teaserHtml;
-  data.cachedTeaserDate = date;
-  await writeData(data);
-  console.log('[Admin] Teaser cache updated for', date);
+  if (questions && questions.length) {
+    data.draftTeaserHtml = teaserHtml;
+    data.draftTeaserFingerprint = fingerprintQuestions(questions);
+    await writeData(data);
+    console.log('[Admin] Draft teaser cache updated');
+  } else {
+    data.cachedTeaserHtml = teaserHtml;
+    data.cachedTeaserDate = date;
+    await writeData(data);
+    console.log('[Admin] Teaser cache updated for', date);
+  }
   res.json({ ok: true });
 });
 
@@ -1785,8 +1803,9 @@ app.all('/api/quiz/preview-email', async (req, res) => {
   let questions = null;
   // Always use Eastern date to match client todayStr() and publish flow
   let dateLabel = easternToday();
+  const isDraftRequest = req.method === 'POST' && req.body && req.body.questions && req.body.questions.length;
 
-  if (req.method === 'POST' && req.body && req.body.questions && req.body.questions.length) {
+  if (isDraftRequest) {
     questions = req.body.questions;
     console.log('[PreviewEmail] Using draft questions:', questions.length);
   } else {
@@ -1803,6 +1822,26 @@ app.all('/api/quiz/preview-email', async (req, res) => {
   if (dateOverride) dateLabel = dateOverride;
 
   const previewData = await readData();
+
+  // Draft previews (e.g. prepping tomorrow's quiz to Schedule) are cached by a fingerprint of
+  // their own questions — NOT by today's date — so they never collide with the live day's
+  // cachedTeaserHtml/cachedTeaserDate (which today's already-sent quiz may already occupy).
+  if (isDraftRequest) {
+    const fingerprint = fingerprintQuestions(questions);
+    if (previewData.draftTeaserHtml && previewData.draftTeaserFingerprint === fingerprint) {
+      console.log('[PreviewEmail] Returning existing cached teasers for this draft');
+      const html = buildEmailHtml(siteUrl, dateLabel, 'Subscriber', previewData.draftTeaserHtml, siteUrl + '/api/unsubscribe?email=example');
+      const teaserMatches = [...previewData.draftTeaserHtml.matchAll(/·\s*([^<]+)<\/div>/g)].map(m => m[1].trim());
+      return res.json({ html, teasers: teaserMatches });
+    }
+    const teasers = await generateTeasers(questions);
+    const teaserHtml = buildTeaserHtml(teasers);
+    const html = buildEmailHtml(siteUrl, dateLabel, 'Subscriber', teaserHtml, siteUrl + '/api/unsubscribe?email=example');
+    previewData.draftTeaserHtml = teaserHtml;
+    previewData.draftTeaserFingerprint = fingerprint;
+    await writeData(previewData);
+    return res.json({ html, teasers });
+  }
 
   // If user has already saved edited teasers for today, use those — don't overwrite with a fresh generation
   if (previewData.cachedTeaserHtml && previewData.cachedTeaserDate === dateLabel) {
@@ -2557,14 +2596,20 @@ app.post('/api/quiz/schedule', async (req, res) => {
         existing: { date: existing.date, scheduledFor: existing.scheduledFor }
       });
     }
-    // Snapshot current cached teasers so they travel with the quiz regardless of date rollover
+    // Snapshot this draft's cached teasers (matched by fingerprint) so any edits made during
+    // preview travel with the quiz — sourced from the draft-specific cache, not the live day's
+    // cachedTeaserHtml, since those are for a different quiz (today's, already sent/publishing).
     const schedData = await readData();
+    const fingerprint = fingerprintQuestions(quiz.questions);
+    const snapshotTeaserHtml = schedData.draftTeaserFingerprint === fingerprint
+      ? (schedData.draftTeaserHtml || null)
+      : null;
     await setKey('scheduledQuiz', {
       date,
       quiz,
       scheduledFor, // ISO string in UTC
       createdAt: new Date().toISOString(),
-      cachedTeaserHtml: schedData.cachedTeaserHtml || null
+      cachedTeaserHtml: snapshotTeaserHtml
     });
     console.log(`[Schedule] Quiz scheduled for ${scheduledFor} (date: ${date})`);
     res.json({ ok: true, scheduledFor });
