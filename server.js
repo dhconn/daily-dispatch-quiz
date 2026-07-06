@@ -432,7 +432,8 @@ app.post('/api/rss/refresh', async (req, res) => {
 
 // ── Redirect root to quiz ────────────────────────────────────
 app.get('/', async (req, res) => {
-  res.redirect('/news-quiz.html');
+  const qs = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+  res.redirect('/news-quiz.html' + qs);
 });
 
 // ── Save/load news sites ──────────────────────────────────────
