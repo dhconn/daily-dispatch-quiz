@@ -1767,12 +1767,9 @@
 
     /* ─── GLOBAL SITE NAV ─── */
     .site-nav {
-      position: sticky;
-      top: 0;
-      z-index: 2000;
       background: #f6f3ec;
-      border-bottom: 1px solid #ddd;
-      padding: 10px 12px;
+      border-top: 1px solid #ddd;
+      padding: 16px 12px;
       display: flex;
       gap: 10px;
       justify-content: center;
@@ -1894,11 +1891,6 @@
     <button id="admin-btn" onclick="showAdminLogin()">Admin ▸</button>
   </div>
   <div id="july4-stripe" style="display:none;height:6px;background:linear-gradient(to right,#b22234 33.33%,#ffffff 33.33% 66.66%,#3c3b6e 66.66%);"></div>
-
-  <div id="site-nav" class="site-nav">
-    <button onclick="showArchiveBrowser()">Browse Past Quizzes</button>
-    <button id="site-nav-today-btn" onclick="exitArchiveMode()">Today's Quiz</button>
-  </div>
 
   <!-- APP -->
   <div id="app">
@@ -3171,6 +3163,11 @@
     </div>
 
   </div><!-- #app -->
+
+  <div id="site-nav" class="site-nav">
+    <button onclick="showArchiveBrowser()">Browse Past Quizzes</button>
+    <button id="site-nav-today-btn" onclick="exitArchiveMode()">Today's Quiz</button>
+  </div>
 
   <!-- ADMIN LOGIN OVERLAY -->
   <div id="admin-login-overlay">
