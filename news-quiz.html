@@ -6588,14 +6588,14 @@ ${siteUrl}`;
           const olderSummaries = allArchiveSummaries.slice(-60, -12);
 
           const recentSummaryNote = allArchiveSummaries.length > 0
-            ? 'CRITICAL — COVERED IN THE LAST 48 HOURS. You MUST reject ANY article touching these topics, even from a different outlet or angle. These are absolute blocks:\n' +
+            ? 'COVERED IN THE LAST 48 HOURS — reject an article only if it reports on the SAME specific event, decision, or incident as one of these, even from a different outlet (a fresh development or new angle in an ongoing story is NOT a duplicate and should be accepted):\n' +
               last12Summaries.map(s => '- ' + s).join('\n') + '\n\n' +
               (olderSummaries.length > 0
-                ? 'ALSO COVERED RECENTLY (reject same-event articles):\n' + olderSummaries.map(s => '- ' + s).join('\n') + '\n\n'
+                ? 'ALSO COVERED IN THE LAST TWO WEEKS (reject only if it is the same specific event, not just a related topic):\n' + olderSummaries.map(s => '- ' + s).join('\n') + '\n\n'
                 : '')
             : '';
           const recentUrlNote = recentUrls.length > 0
-            ? 'ALREADY USED THIS WEEK (REJECT these URLs and any article covering the same topic):\n' + recentUrls.join('\n') + '\n\n'
+            ? 'ALREADY USED RECENTLY (REJECT these exact URLs; reject other articles only if they cover the identical event, not just a related topic):\n' + recentUrls.join('\n') + '\n\n'
             : '';
 
           const screenPrompt = 'You are an editor screening articles for a Baltimore local news quiz. ' +
@@ -7026,42 +7026,52 @@ ${siteUrl}`;
       }
 
       function topicsOverlap(h1, h2) {
-        // Named entity check first: if both headlines share a proper noun (capitalized
-        // word 4+ chars, not a generic stop word) that's a strong signal of same event.
-        // We check this BEFORE the outcome verb exception — a second article about
-        // "Coca-Cola explosion" is still the same event even if it has new details.
+        // Named entity check: two or more shared proper nouns (capitalized word 4+
+        // chars, not a generic stop word) is a strong signal of same event on its own.
+        // A single shared name is too weak alone — two unrelated stories can easily
+        // mention the same person or place in passing — so it needs corroboration
+        // below from a shared topic word before counting as overlap.
         const namedEntityStops = new Set(['Baltimore', 'Maryland', 'City', 'County', 'State', 'Federal', 'Local', 'North', 'South', 'East', 'West', 'Johns', 'Hopkins', 'Avenue', 'Street', 'Police', 'Officer']);
         const namedEntities = h => (h.match(/\b[A-Z][a-z]{3,}\b/g) || []).filter(w => !namedEntityStops.has(w));
         const e1 = new Set(namedEntities(h1));
-        const shared = namedEntities(h2).filter(w => e1.has(w));
-        if (shared.length >= 1) return true;
+        const sharedEntities = namedEntities(h2).filter(w => e1.has(w));
 
-        // Also catch hyphenated brand/company names by checking lowercased full match
-        // e.g. "coca-cola" appears in both → same event
+        // Hyphenated brand/company names (e.g. "coca-cola") are specific enough
+        // that a single match is a reliable same-event signal on its own.
         const brands = h => (h.toLowerCase().match(/\b[a-z]+-[a-z]+\b/g) || []);
         const b1 = new Set(brands(h1));
-        if (brands(h2).some(b => b1.has(b))) return true;
+        const sharedBrand = brands(h2).some(b => b1.has(b));
 
         // Acronym check: catch shared all-caps abbreviations (ICE, DHS, MTA, etc.)
-        // These won't match the named entity regex since they're not Title Case
+        // These won't match the named entity regex since they're not Title Case.
+        // Also specific enough to trust on a single match.
         const acronyms = h => (h.match(/\b[A-Z]{2,}\b/g) || []);
         const a1 = new Set(acronyms(h1));
-        const sharedAcronyms = acronyms(h2).filter(a => a1.has(a));
-        if (sharedAcronyms.length >= 1) return true;
+        const sharedAcronym = acronyms(h2).some(a => a1.has(a));
 
-        // Outcome verb exception: only applies when no named entity overlap found above.
-        // A story that has advanced (bill passed vs. bill considered) is fresh news.
+        if (sharedEntities.length >= 2 || sharedBrand || sharedAcronym) return true;
+
+        // Outcome verb exception: a story that has advanced (bill passed vs. bill
+        // considered) is fresh news, not a duplicate — unless a strong signal above
+        // already proved otherwise.
         const outcomeVerbs = /\b(passed?|approved?|signed|enacted|launched|opened?|announced?|awarded?|funded|broke ground|breaking ground|unveiled?|elected?|appointed?|resigned?)\b/i;
         if (outcomeVerbs.test(h1) || outcomeVerbs.test(h2)) return false;
 
         const w1 = new Set(topicWords(h1));
-        return topicWords(h2).filter(w => w1.has(w)).length >= 2;
+        const sharedTopicWords = topicWords(h2).filter(w => w1.has(w)).length;
+
+        // A single shared proper noun only counts as overlap if corroborated by
+        // at least one shared generic topic word too.
+        if (sharedEntities.length >= 1 && sharedTopicWords >= 1) return true;
+
+        return sharedTopicWords >= 3;
       }
 
       const difficulties = ['easy', 'easy', 'medium', 'medium', 'hard', 'bonus'];
       const points = ['10', '10', '20', '20', '30', '50'];
 
       let assignedArticles = '';
+      let articleCount = 6;
 
       if (isSpecificArticles) {
         // Specific articles go first, guaranteed. RSS fills remaining slots up to 11.
@@ -7089,6 +7099,7 @@ ${siteUrl}`;
         }
 
         const allBlocks = [...specificBlocks, ...rssBlocks];
+        articleCount = allBlocks.length;
         assignedArticles = allBlocks.map((block, i) => {
           const label = i < specificBlocks.length ? ' [EDITOR PICK]' : '';
           const urlMatch = block.match(/ARTICLE_URL: (.+)/);
@@ -7117,6 +7128,7 @@ ${siteUrl}`;
           if (chosen.length >= 6) break;
         }
         console.log(`[TopicDedup] Final count: ${chosen.length} articles assigned to Claude`);
+        articleCount = chosen.length;
         assignedArticles = chosen.map((block, i) => {
           const urlMatch = block.match(/ARTICLE_URL: (.+)/);
           const articleUrl = urlMatch ? urlMatch[1].trim() : '';
@@ -7177,7 +7189,7 @@ ${siteUrl}`;
         '- USE: sports stories about record-breaking achievements, major roster decisions, or stadium/ownership news\n' +
         '- USE: arts/culture stories involving major institutions (BSO, BMA, Center Stage) or nationally recognized figures\n' +
         '- USE: anything involving public money, public safety, elections, housing, schools, or the local economy\n\n' +
-        'HERE ARE YOUR 6 ASSIGNED ARTICLES:\n\n' +
+        `HERE ARE YOUR ${articleCount} ASSIGNED ARTICLES:\n\n` +
         (assignedArticles || rssContent) + '\n\n' +
         'QUESTION QUALITY CONSTRAINTS:\n' +
         '- Every question must contain a specific factual anchor: a named person, a specific location or neighborhood, a concrete decision or outcome, or a number that IS the story (record-breaking, historic, etc.)\n' +
@@ -7215,14 +7227,14 @@ ${siteUrl}`;
         '- TOPIC BALANCE: Do not over-concentrate on state legislative politics even if it dominates the feeds. Prefer a mix of city life topics: development, transportation, schools, business openings, culture, community news, local government, sports.\n\n' +
         'GENERATION PROCESS — work through these steps in your head before outputting anything:\nStep 1 — CORE FACT: For each article, identify one sentence: the central news fact (main event/development). Reject: incidental details, descriptive color, quotes, statistics, logistical details, column framing.\nStep 2 — NEWS VALUE CHECK: Confirm the core fact is: a decision/approval, new development/opening, major event/milestone, notable person action/statement, visible community change, or public controversy.\nStep 3 — QUESTION: Write a question testing the core fact only.\nDo all of this silently. Output ONLY the final JSON object — no preamble, no reasoning, no markdown. Your entire response must start with { and end with }.\nInclude a coreFacts array in the JSON (one sentence per question from Step 1) for debugging.\n\n' +
         'OUTPUT: Respond with ONLY valid JSON. No preamble, no markdown. Start with { and end with }.\n\n' +
-        'IMPORTANT: Always write questions for ALL 6 assigned articles. Never return an empty questions array.\n' +
+        `IMPORTANT: Always write questions for ALL ${articleCount} assigned articles. Never return an empty questions array. Never write more than one question for the same article, even if fewer than 6 articles are assigned.\n` +
         'Set staleWarning to true only if articles appear more than 3 days old.\n\n' +
         'difficulty values: "easy" | "medium" | "hard" | "bonus"\n' +
         'BONUS QUESTION: The bonus question should come from the most surprising or memorable story of the day. Prefer: major public events, celebrity or notable-person appearances, unusual civic developments, record-breaking or historic milestones, large public gatherings with local significance. Avoid: routine crime incidents, minor police blotter items, procedural government actions, or stories whose only hook is an obscure detail. The bonus tests something that would make a reader say "I didn\'t know that happened" — about the story itself, not a footnote within it.\n' +
         'Include a "pubDate" field on each question, copied exactly from the DATE: field of the assigned article. This is used to label older stories for readers.\n' +
         'correctIndex: MUST be the 0-based index of the option your explanation describes as correct. Write explanation FIRST, then set correctIndex to match.\n' +
         'sourceUrl: copy ARTICLE_URL exactly. NEVER use a feed URL ending in /feed/ or /rss.\n' +
-        'Generate exactly 6 questions, one per assigned article.';
+        `Generate exactly ${articleCount} question${articleCount === 1 ? '' : 's'}, one per assigned article — never more than one question about the same article.`;
     }
 
 
