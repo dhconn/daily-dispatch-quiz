@@ -1969,6 +1969,9 @@ app.post('/api/quiz', async (req, res) => {
       if (freshData.cachedTeaserHtml && freshData.cachedTeaserDate === date) {
         console.log('[Email] Reusing cached teasers from preview for', date);
         teaserHtml = freshData.cachedTeaserHtml;
+      } else if (freshData.draftTeaserHtml) {
+        console.log('[Email] Using saved draft teasers');
+        teaserHtml = freshData.draftTeaserHtml;
       } else {
         console.log('[Email] No cached teasers found, generating fresh');
         const teasers = await generateTeasers(quiz.questions || []);
