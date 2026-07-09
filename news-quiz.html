@@ -6479,7 +6479,6 @@ ${siteUrl}`;
       const isFeedMode = articleUrlList.length === 0;
 
       let rssContent = '';
-      let sandboxAcceptedBlocks = [];
       try {
         const rssRes = await fetch('/api/rss');
         if (rssRes.ok) {
@@ -6598,10 +6597,16 @@ ${siteUrl}`;
             ? 'ALREADY USED RECENTLY (REJECT these exact URLs; reject other articles only if they cover the identical event, not just a related topic):\n' + recentUrls.join('\n') + '\n\n'
             : '';
 
+          const starredStoryNote = starredExamples.length > 0
+            ? 'EDITOR-APPROVED STORY EXAMPLES — the editor has previously starred these as strong quiz questions. Use them to calibrate what counts as an interesting, worthwhile story for this audience — favor accepting and rating highly any candidate article that resembles these in topic, scale, or civic significance:\n' +
+              starredExamples.slice(-15).map((q, i) => `${i + 1}. "${q.question}"${q.note ? ' — editor note: ' + q.note : ''}`).join('\n') + '\n\n'
+            : '';
+
           const screenPrompt = 'You are an editor screening articles for a Baltimore local news quiz. ' +
             'For each article below, decide if it is suitable for a quiz question.\n\n' +
             recentSummaryNote +
             recentUrlNote +
+            starredStoryNote +
             'REJECT only if clearly one of these:\n' +
             '- Weather forecast or routine temperature update\n' +
             '- DC team sports story (Nationals, Commanders, Capitals, Wizards) with no Baltimore/Maryland angle\n' +
@@ -6619,7 +6624,8 @@ ${siteUrl}`;
             'EXTRA HINT: If an article URL contains \'headlines\' or \'roundup\' or \'digest\' in the path, it is almost certainly a multi-story summary — REJECT it.\n\n' +
             'ARTICLES:\n' + headlines + '\n\n' +
             'DUPLICATE DETECTION: After deciding accept/reject, also identify pairs of accepted articles that cover the same news event from different angles or outlets. Two articles are duplicates if a reader would say they are "about the same thing" — same incident, same decision, same person\'s action. Different takes on a developing story still count as duplicates.\n\n' +
-            'INTEREST RATING: For each accepted article, also rate how interesting it is to a general Baltimore-area reader (not a specialist). Use:\n' +
+            'INTEREST RATING: For each accepted article, also rate how interesting it is to a general Baltimore-area reader (not a specialist)' +
+            (starredExamples.length > 0 ? ', calibrated against the EDITOR-APPROVED STORY EXAMPLES above' : '') + '. Use:\n' +
             '3 = HIGH — a well-informed Baltimorean would mention this to a friend: major civic decision, significant development, compelling human story, notable public figure, clear community impact\n' +
             '2 = MEDIUM — reasonably newsworthy but not especially compelling\n' +
             '1 = LOW — accepted but dry: routine procedural item, minor agency update, niche topic most residents would not care about\n\n' +
@@ -6679,32 +6685,8 @@ ${siteUrl}`;
             }
 
             const acceptedBlocks = sortedIndices.map(i => blocks[i]);
-            sandboxAcceptedBlocks = acceptedBlocks.slice();
             rssContent = acceptedBlocks.join('\n\n---\n\n');
             console.log(`[PreScreen] RSS content filtered to ${acceptedBlocks.length} articles after dupe removal`);
-
-            if (picker && list) {
-              list.innerHTML = '';
-
-              acceptedBlocks.forEach((block, idx) => {
-                const headlineMatch = block.match(/HEADLINE: (.+)/);
-                const sourceMatch = block.match(/SOURCE: (.+)/);
-                const headline = headlineMatch ? headlineMatch[1].trim() : '(no headline)';
-                const source = sourceMatch ? sourceMatch[1].trim() : '';
-
-                const row = document.createElement('div');
-                row.style.marginBottom = '8px';
-                row.innerHTML = `
-              <label style="display:block;cursor:pointer;line-height:1.4;">
-                <input type="checkbox" class="sandbox-story-checkbox" value="${idx}" style="margin-right:8px;">
-                <strong>${headline}</strong>
-                ${source ? `<div style="font-size:12px;color:var(--muted);margin-left:22px;">${source}</div>` : ''}
-              </label>
-            `;
-                list.appendChild(row);
-              });
-            }
-
           }
         } catch (e) {
           console.warn('[PreScreen] Screening step failed, proceeding with full RSS:', e.message);
