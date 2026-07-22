@@ -6132,14 +6132,15 @@ ${siteUrl}`;
       loadAdminMessages();
       loadAdminPosts();
 
-      // Archive count — merge server + localStorage so all devices show accurate count
-      const localArchive = getArchive();
-      let mergedArchive = [...localArchive];
+      // Archive count — sourced from /api/archive/full, which is computed live
+      // from actual published quiz history, so it's always accurate and never
+      // drifts out of sync the way a separately-maintained list could.
+      let mergedArchive = getArchive(); // localStorage fallback if server fetch fails
       try {
-        const archRes = await fetch('/api/archive');
+        const archRes = await fetch('/api/archive/full');
         if (archRes.ok) {
           const archData = await archRes.json();
-          (archData.questions || []).forEach(q => { if (!mergedArchive.includes(q)) mergedArchive.push(q); });
+          mergedArchive = archData.questions || [];
         }
       } catch (e) { /* server unavailable — fall back to localStorage count */ }
       document.getElementById('archive-count').textContent = mergedArchive.length;
@@ -7793,7 +7794,10 @@ ${siteUrl}`;
       setStatus('Publishing quiz and sending emails — this takes about 30 seconds…', 'info');
 
       try {
-        // 3. Save to Archive
+        // 3. Save to Archive (legacy secondary tracking list — /api/archive/full,
+        // derived live from published quizzes, is the primary source of truth and
+        // isn't affected if this call fails, but log it since it still feeds the
+        // generation-time duplicate check as a backup signal)
         const archiveRes = await fetch('/api/archive', {
           method: 'POST',
           headers: {
@@ -7806,6 +7810,7 @@ ${siteUrl}`;
             slugs: draft.questions.map(q => extractTopicSlug(q.question)).filter(Boolean)
           })
         });
+        if (!archiveRes.ok) console.warn('[Publish] Legacy archive save failed (status ' + archiveRes.status + ') — published quiz itself is unaffected.');
 
         // 4. Save Live Quiz & Trigger Emails
         // Note: 'silent: false' is what tells the server to send the emails!
@@ -8094,11 +8099,17 @@ ${siteUrl}`;
       setStatus('Draft discarded.', 'info');
     }
 
-    function clearArchive() {
-      if (!confirm('Clear the entire question archive? Past questions may be regenerated.')) return;
+    async function clearArchive() {
+      if (!confirm('Clear the legacy duplicate-tracking list? This does not affect the Question Archive count above (that reflects actual published quiz history) — it only resets the secondary list used as a backup signal during question generation.')) return;
       lsSet('dnq_archive', []);
       lsSet('dnq_archive_urls', []);
       lsSet('dnq_archive_slugs', []);
+      try {
+        await fetch('/api/archive', {
+          method: 'DELETE',
+          headers: { 'x-admin-token': lsGet('dnq_admin_token') || 'admin' }
+        });
+      } catch (e) { console.warn('[ClearArchive] server clear failed:', e.message); }
       refreshAdminPreviews();
     }
 

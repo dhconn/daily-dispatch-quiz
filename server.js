@@ -1023,8 +1023,38 @@ app.post('/api/admin/stats-exclusions', async (req, res) => {
 
 // ── Archive (used article URLs + question text) ───────────────
 
+// Extract a 2-4 word topic slug from a question for cross-day deduplication.
+// Mirrors the client-side extractTopicSlug in news-quiz.html — kept in sync
+// so slugs computed here match slugs computed there.
+const TOPIC_SLUG_STOPWORDS = new Set([
+  'a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'is', 'are', 'was',
+  'were', 'be', 'been', 'has', 'have', 'had', 'will', 'would', 'that', 'this', 'as', 'from', 'by',
+  'after', 'over', 'about', 'how', 'what', 'who', 'when', 'where', 'which', 'why', 'does', 'do',
+  'did', 'its', 'their', 'into', 'than', 'some', 'could', 'new', 'more', 'year', 'week', 'day',
+  'baltimore', 'maryland', 'city', 'county', 'state', 'local', 'major', 'first',
+  'according', 'revealed', 'shows', 'mean', 'means', 'reveal', 'approach', 'make', 'makes',
+  'happen', 'impact', 'effect', 'result', 'response', 'plan', 'proposal', 'effort', 'initiative',
+  'feature', 'include', 'included', 'hosted', 'held', 'took', 'place', 'during', 'between',
+  'following', 'ahead', 'recently', 'announced', 'said', 'says',
+  'author', 'argue', 'argued', 'argues', 'serve', 'served', 'serves', 'complete', 'completing',
+  'mentioned', 'having', 'being', 'surprising', 'prompted', 'expressed', 'concern', 'concerns',
+  'existing', 'happening', 'league', 'team', 'neighborhoods', 'leaders', 'facility',
+  'small', 'town', 'near', 'best', 'final', 'season', 'speaker', 'writers', 'keynote'
+]);
+function extractTopicSlug(question) {
+  return String(question || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length > 3 && !TOPIC_SLUG_STOPWORDS.has(w))
+    .slice(0, 4)
+    .join(' ');
+}
+
 // ── GET /api/archive/full — derive rich archive from published quizzes ──
-// Returns full question texts, source URLs, explanations and topic slugs from last 14 days
+// Returns full question texts, source URLs, explanations and topic slugs,
+// computed live from data.quizzes so it's always accurate — never relies on
+// a separately-maintained side list that can silently fall out of sync.
 app.get('/api/archive/full', async (req, res) => {
   try {
     const data = await readData();
@@ -1042,6 +1072,10 @@ app.get('/api/archive/full', async (req, res) => {
       for (const q of quiz.questions) {
         if (q.question && !questions.includes(q.question)) questions.push(q.question);
         if (q.sourceUrl && !urls.includes(q.sourceUrl)) urls.push(q.sourceUrl);
+        if (q.question) {
+          const slug = extractTopicSlug(q.question);
+          if (slug && !slugs.includes(slug)) slugs.push(slug);
+        }
         // Combined summary includes key entities from the explanation
         if (q.question && q.explanation) {
           const summary = q.question + ' — ' + q.explanation.slice(0, 120);
@@ -1081,6 +1115,20 @@ app.post('/api/archive', async (req, res) => {
   if (data.archiveUrls.length > 60) data.archiveUrls = data.archiveUrls.slice(-60);
   if (data.archiveQuestions.length > 60) data.archiveQuestions = data.archiveQuestions.slice(-60);
   if (data.archiveSlugs.length > 60) data.archiveSlugs = data.archiveSlugs.slice(-60);
+  await writeData(data);
+  res.json({ ok: true });
+});
+
+// ── DELETE /api/archive — clear the legacy tracking list ──────
+// Does not touch data.quizzes — /api/archive/full always reflects real
+// published quiz history regardless of this list's state.
+app.delete('/api/archive', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  const data = await readData();
+  data.archiveUrls = [];
+  data.archiveQuestions = [];
+  data.archiveSlugs = [];
   await writeData(data);
   res.json({ ok: true });
 });
