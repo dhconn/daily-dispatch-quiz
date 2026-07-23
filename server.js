@@ -743,26 +743,34 @@ app.post('/api/progress', async (req, res) => {
     await setKey('progress', allProgress);
 
     // ── Mirror to scores for leaderboard ───────────────────
+    // Uses scoped getKey/setKey on 'scores' only — NOT readData()/writeData(),
+    // which read and rewrite every stored key at once. Under concurrent
+    // requests (e.g. a burst of players finishing right after publication),
+    // a readData()/writeData() round trip here could hold a stale snapshot of
+    // the 'progress' key and silently overwrite another player's just-saved
+    // progress with it. Scoping to 'scores' alone eliminates that collateral
+    // damage — this can still lose a concurrent 'scores' update in the rare
+    // case two requests race on the exact same instant, but it can no longer
+    // touch 'progress' at all.
     try {
-      const scoresData = await readData();
-      if (!scoresData.scores) scoresData.scores = {};
+      const scores = (await getKey('scores')) || {};
 
-      if (!scoresData.scores[key]) {
-        scoresData.scores[key] = {
+      if (!scores[key]) {
+        scores[key] = {
           displayName: playerName.trim(),
           allTime: 0,
           dailyScores: {}
         };
       }
-      const prev = scoresData.scores[key].dailyScores[date] || 0;
+      const prev = scores[key].dailyScores[date] || 0;
 
       if (progress.completed || validatedScore >= prev) {
-        scoresData.scores[key].dailyScores[date] = validatedScore;
-        scoresData.scores[key].allTime = Object.values(
-          scoresData.scores[key].dailyScores
+        scores[key].dailyScores[date] = validatedScore;
+        scores[key].allTime = Object.values(
+          scores[key].dailyScores
         ).reduce((a, b) => a + b, 0);
-        scoresData.scores[key].displayName = playerName.trim();
-        await writeData(scoresData);
+        scores[key].displayName = playerName.trim();
+        await setKey('scores', scores);
       }
     } catch (e) {
       console.warn('[progress] scores mirror failed (non-fatal):', e.message);
@@ -797,8 +805,11 @@ app.post('/api/scores', async (req, res) => {
   }
 
 try {
-    const data = await readData();
-    if (!data.scores) data.scores = {};
+    // Scoped getKey/setKey on 'scores' only — see the matching note in
+    // POST /api/progress. A readData()/writeData() round trip here would
+    // read and rewrite every stored key, risking a stale-snapshot overwrite
+    // of 'progress' if a concurrent request's progress write lands in between.
+    const data = { scores: (await getKey('scores')) || {} };
 
     const key = playerName.toLowerCase().trim();
 
@@ -819,7 +830,7 @@ try {
       data.scores[key].dailyScores
     ).reduce((a, b) => a + b, 0);
 
-    await writeData(data);
+    await setKey('scores', data.scores);
 
     // 🔍 Log success
     console.log('[scores] saved', {
@@ -963,6 +974,49 @@ app.get('/api/admin/migrate-progress', async (req, res) => {
     console.log(`[Migration] Created ${created} synthetic progress records`);
     res.json({ ok: true, created });
   } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── POST /api/admin/repair-progress — restore specific progress records ──
+// For precise, targeted recovery (e.g. records lost to a concurrency bug)
+// without the blast radius of the broad migrate-progress backfill above,
+// which would re-create synthetic entries for every pruned historical date.
+// Writes the given record(s) verbatim for one date — does NOT recompute
+// score from answers, and does NOT touch the 'scores' key at all, so it
+// can't disturb data that's already correct there. Only fills gaps; never
+// overwrites an existing progress record.
+app.post('/api/admin/repair-progress', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  const { date, entries } = req.body || {};
+  if (!date || !Array.isArray(entries)) return res.status(400).json({ error: 'date and entries[] required' });
+  try {
+    const allProgress = (await getKey('progress')) || {};
+    if (!allProgress[date]) allProgress[date] = {};
+    const restored = [];
+    const skipped = [];
+    for (const entry of entries) {
+      const key = String(entry.playerKey || '').toLowerCase().trim();
+      if (!key) continue;
+      if (allProgress[date][key]) { skipped.push(key); continue; }
+      allProgress[date][key] = {
+        score: Number(entry.score) || 0,
+        completed: !!entry.completed,
+        answers: entry.answers && typeof entry.answers === 'object' ? entry.answers : {},
+        currentQ: typeof entry.currentQ === 'number' ? entry.currentQ : 5,
+        displayName: entry.displayName || entry.playerKey,
+        synthetic: !!entry.synthetic,
+        updatedAt: new Date().toISOString(),
+        repairedAt: new Date().toISOString()
+      };
+      restored.push(key);
+    }
+    await setKey('progress', allProgress);
+    console.log('[Repair] Restored progress records:', { date, restored, skipped });
+    res.json({ ok: true, restored, skipped });
+  } catch (e) {
+    console.error('[Repair] error:', e.message);
     res.status(500).json({ error: e.message });
   }
 });
