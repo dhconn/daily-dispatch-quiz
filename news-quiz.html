@@ -2982,14 +2982,14 @@
             </div>
             <div style="margin-top:20px;border-top:1px solid var(--rule);padding-top:16px;">
               <div style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:8px;">BLOCKED NAMES</div>
-              <div id="blocklist-items" style="margin-bottom:10px;font-family:monospace;font-size:13px;"></div>
+              <div id="player-blocklist-items" style="margin-bottom:10px;font-family:monospace;font-size:13px;"></div>
               <div style="display:flex;gap:8px;align-items:center;">
-                <input id="blocklist-input" type="text" placeholder="name to block"
+                <input id="player-blocklist-input" type="text" placeholder="name to block"
                   style="font-family:monospace;font-size:13px;padding:5px 8px;border:1px solid var(--rule);background:var(--paper);color:var(--ink);flex:1;">
                 <button onclick="adminAddBlock()"
                   style="font-family:monospace;font-size:11px;letter-spacing:1px;padding:6px 14px;background:var(--ink);color:var(--paper);border:none;cursor:pointer;">BLOCK</button>
               </div>
-              <div id="blocklist-status" style="font-family:monospace;font-size:11px;color:var(--muted);margin-top:6px;"></div>
+              <div id="player-blocklist-status" style="font-family:monospace;font-size:11px;color:var(--muted);margin-top:6px;"></div>
             </div>
           </div>
         </details>
@@ -8631,7 +8631,7 @@
     }
 
     async function loadBlocklist() {
-      const el = document.getElementById('blocklist-items');
+      const el = document.getElementById('player-blocklist-items');
       if (!el) return;
       try {
         const adminToken = lsGet('dnq_admin_token') || 'admin';
@@ -8654,8 +8654,8 @@
     }
 
     async function adminAddBlock() {
-      const input = document.getElementById('blocklist-input');
-      const statusEl = document.getElementById('blocklist-status');
+      const input = document.getElementById('player-blocklist-input');
+      const statusEl = document.getElementById('player-blocklist-status');
       const name = input.value.trim();
       if (!name) return;
       try {
@@ -8679,7 +8679,7 @@
     }
 
     async function adminUnblock(name) {
-      const statusEl = document.getElementById('blocklist-status');
+      const statusEl = document.getElementById('player-blocklist-status');
       try {
         const adminToken = lsGet('dnq_admin_token') || 'admin';
         const res = await fetch('/api/admin/blocklist/' + encodeURIComponent(name), {
