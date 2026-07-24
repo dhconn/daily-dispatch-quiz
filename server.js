@@ -838,6 +838,16 @@ try {
       data.scores[key].dailyScores
     ).reduce((a, b) => a + b, 0);
 
+    // Streak: current is computed live from dailyScores each time, not
+    // stored, so it's always correct even if a gap day gets backfilled
+    // later. maxStreak is persisted since it's a running best, not derivable
+    // from a single read — noted for a future stats view per the brief.
+    const currentStreak = currentStreakFromDailyScores(data.scores[key].dailyScores, date);
+    data.scores[key].maxStreak = Math.max(
+      data.scores[key].maxStreak || 0,
+      longestStreakFromDailyScores(data.scores[key].dailyScores)
+    );
+
     await setKey('scores', data.scores);
 
     // 🔍 Log success
@@ -908,7 +918,12 @@ try {
       console.warn('[scores] progress mirror failed (non-fatal):', e.message);
     }
 
-    res.json({ ok: true, allTime: data.scores[key].allTime });
+    res.json({
+      ok: true,
+      allTime: data.scores[key].allTime,
+      currentStreak,
+      maxStreak: data.scores[key].maxStreak
+    });
 
   } catch (e) {
     console.error('[scores] error', e.message);
@@ -1388,6 +1403,50 @@ function normPlayerKey(name) {
 // whitespace, but preserve the player's original capitalization.
 function normDisplayName(name) {
   return String(name || '').trim().replace(/\s+/g, ' ');
+}
+
+// ── Streak computation ─────────────────────────────────────────
+// Built entirely from data.scores[key].dailyScores, which already has
+// unbounded per-day history (unlike data.progress, pruned to ~5 days) and
+// is only ever written from a completed play — so "played" and "completed"
+// are the same condition here, matching the streak spec's requirement.
+// No new per-day schema needed, just a maxStreak field on the score record.
+
+// Consecutive days ending at or adjacent to referenceDateStr (a gap of 0 or
+// 1 day keeps the streak alive — mirrors the client-side getDayStreak()).
+function currentStreakFromDailyScores(dailyScores, referenceDateStr) {
+  const dates = Object.keys(dailyScores || {}).sort().reverse();
+  if (!dates.length) return 0;
+  let streak = 0;
+  let check = new Date(referenceDateStr + 'T12:00:00');
+  for (const dateStr of dates) {
+    const d = new Date(dateStr + 'T12:00:00');
+    const diffDays = Math.round((check - d) / 86400000);
+    if (diffDays === 0 || diffDays === 1) {
+      streak++;
+      check = d;
+    } else {
+      break;
+    }
+  }
+  return streak;
+}
+
+// Longest run of consecutive calendar days found anywhere in history —
+// the running best, independent of whether the streak is currently active.
+function longestStreakFromDailyScores(dailyScores) {
+  const dates = Object.keys(dailyScores || {}).sort();
+  if (!dates.length) return 0;
+  let longest = 1;
+  let run = 1;
+  for (let i = 1; i < dates.length; i++) {
+    const prev = new Date(dates[i - 1] + 'T12:00:00');
+    const curr = new Date(dates[i] + 'T12:00:00');
+    const diffDays = Math.round((curr - prev) / 86400000);
+    run = diffDays === 1 ? run + 1 : 1;
+    if (run > longest) longest = run;
+  }
+  return longest;
 }
 
 // ── GET /api/monthly-winners — return recent monthly winners ──

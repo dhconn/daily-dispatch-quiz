@@ -2301,8 +2301,31 @@
           <div class="lbl">Today's Rank</div>
         </div>
       </div>
-      <div class="results-breakdown" id="breakdown-table"></div>
-      <div id="dist-table"></div>
+
+      <!-- Share card — moved directly below the stat cards, at the moment
+           of peak emotion, instead of buried below the full spoiler review. -->
+      <div id="share-section"
+        style="margin:20px 0;padding:16px;background:white;border:1px solid var(--rule);text-align:center;display:none;">
+        <div style="font-family:monospace;font-size:11px;letter-spacing:2px;color:var(--muted);margin-bottom:8px;">SHARE
+          YOUR SCORE</div>
+        <div id="share-grid-preview" style="margin-bottom:12px;line-height:1;"></div>
+        <div id="share-text-preview"
+          style="font-size:14px;color:var(--ink);margin-bottom:14px;line-height:1.5;white-space:pre-line;font-family:monospace;">
+        </div>
+        <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+          <button onclick="shareOnX()"
+            style="font-family:monospace;font-size:12px;padding:8px 16px;background:#000;color:#fff;border:none;cursor:pointer;border-radius:2px;">Share
+            on X</button>
+          <button onclick="shareOnBluesky()"
+            style="font-family:monospace;font-size:12px;padding:8px 16px;background:#0085ff;color:#fff;border:none;cursor:pointer;border-radius:2px;">Share
+            on Bluesky</button>
+          <button onclick="copyShareText()"
+            style="font-family:monospace;font-size:12px;padding:8px 16px;background:none;border:1px solid var(--rule);color:var(--ink);cursor:pointer;border-radius:2px;">Copy</button>
+        </div>
+        <div id="share-copy-confirm"
+          style="font-family:monospace;font-size:11px;color:var(--green);margin-top:6px;min-height:14px;"></div>
+      </div>
+
       <div id="results-streak-nudge"
         style="display:none;margin:20px 0 0;padding:14px 16px;background:var(--ink);color:var(--paper);text-align:center;font-family:'Courier Prime',monospace;letter-spacing:1px;line-height:1.7;">
       </div>
@@ -2329,26 +2352,8 @@
           You're in. See you tomorrow.</div>
       </div>
 
-      <div id="share-section"
-        style="margin:20px 0;padding:16px;background:white;border:1px solid var(--rule);text-align:center;display:none;">
-        <div style="font-family:monospace;font-size:11px;letter-spacing:2px;color:var(--muted);margin-bottom:8px;">SHARE
-          YOUR SCORE</div>
-        <div id="share-text-preview"
-          style="font-size:14px;color:var(--ink);margin-bottom:14px;line-height:1.5;white-space:pre-line;font-family:monospace;">
-        </div>
-        <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
-          <button onclick="shareOnX()"
-            style="font-family:monospace;font-size:12px;padding:8px 16px;background:#000;color:#fff;border:none;cursor:pointer;border-radius:2px;">Share
-            on X</button>
-          <button onclick="shareOnBluesky()"
-            style="font-family:monospace;font-size:12px;padding:8px 16px;background:#0085ff;color:#fff;border:none;cursor:pointer;border-radius:2px;">Share
-            on Bluesky</button>
-          <button onclick="copyShareText()"
-            style="font-family:monospace;font-size:12px;padding:8px 16px;background:none;border:1px solid var(--rule);color:var(--ink);cursor:pointer;border-radius:2px;">Copy</button>
-        </div>
-        <div id="share-copy-confirm"
-          style="font-family:monospace;font-size:11px;color:var(--green);margin-top:6px;min-height:14px;"></div>
-      </div>
+      <div class="results-breakdown" id="breakdown-table"></div>
+      <div id="dist-table"></div>
 
       <div class="result-actions">
         <button class="btn-primary" onclick="showLeaderboard()">View Leaderboard ▸</button>
@@ -4176,20 +4181,26 @@
       const saved = lsGet('dnq_current_player');
       if (saved) {
         document.getElementById('player-input').value = saved;
-        // Show day streak for returning player
-        const players = getPlayers();
-        const player = players[normPlayerKey(saved)];
-        if (player) {
-          const dayStreak = getDayStreak(player);
-          const streakEl = document.getElementById('reg-streak-display');
-          if (dayStreak >= 2) {
-            const milestone = streakMilestone(dayStreak);
-            streakEl.innerHTML = milestone
-              ? `${milestone} &nbsp;·&nbsp; Keep it going!`
-              : `🔥 ${dayStreak}-day streak &nbsp;·&nbsp; Keep it going!`;
-            streakEl.style.display = 'block';
-          }
-        }
+        // Show day streak for returning player — pulled from the server's
+        // canonical, cross-device score history (not the local per-browser
+        // cache, which only reflects devices this player has used before).
+        (async () => {
+          try {
+            const res = await fetch('/api/scores');
+            const data = await res.json();
+            const record = (data.scores || {})[normPlayerKey(saved)];
+            if (!record) return;
+            const dayStreak = getDayStreak(record);
+            const streakEl = document.getElementById('reg-streak-display');
+            if (dayStreak >= 2) {
+              const milestone = streakMilestone(dayStreak);
+              streakEl.innerHTML = milestone
+                ? `${milestone} &nbsp;·&nbsp; Keep it going!`
+                : `🔥 ${dayStreak}-day streak &nbsp;·&nbsp; Keep it going!`;
+              streakEl.style.display = 'block';
+            }
+          } catch (e) { /* fail silently — non-critical nudge */ }
+        })();
       }
 
       // ── Vacation mode ─────────────────────────────────────
@@ -4304,14 +4315,74 @@
       }
     }
 
+    // Shared source of truth for the share grid — one result per Q1–5 in
+    // order, plus the bonus outcome (null if it was never reached/attempted,
+    // which the app guarantees can't happen mid-quiz since all 6 questions
+    // are answered before finishQuiz() runs, but archive/replay views can
+    // still land here with a partial state.answers).
+    function getShareGridData() {
+      const results = [];
+      let bonus = null;
+      const scoredAnswers = state.answers
+        .filter(a => a.qIdx !== 'completion')
+        .slice()
+        .sort((a, b) => a.qIdx - b.qIdx);
+      for (const a of scoredAnswers) {
+        const q = quizQuestions[a.qIdx];
+        const isBonus = q && q.difficulty === 'bonus';
+        if (isBonus) bonus = a.correct;
+        else results.push(a.correct);
+      }
+      return { results, bonus };
+    }
+
+    function buildShareGridEmoji() {
+      const { results, bonus } = getShareGridData();
+      const squares = results.map(c => c ? '🟩' : '🟥').join('');
+      const bonusMarker = bonus === null ? '' : (bonus ? ' +🟢' : ' +🔴');
+      return squares + bonusMarker;
+    }
+
+    // Formats state.todayKey ("YYYY-MM-DD", already the correct America/New_York
+    // calendar date) directly from its string parts — deliberately avoids
+    // `new Date(dateStr)`, which parses as UTC midnight and can print the
+    // wrong day once converted to a local/Eastern display.
+    function formatShareDate(dateStr) {
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const parts = String(dateStr || '').split('-').map(Number);
+      if (parts.length !== 3 || parts.some(isNaN)) return dateStr;
+      return `${months[parts[1] - 1]} ${parts[2]}`;
+    }
+
     function buildShareText() {
-      const score = state.sessionScore;
-      const maxScore = 10 + 10 + 20 + 20 + 30 + 50 + 10; // 150 with completion bonus
+      const grid = buildShareGridEmoji();
+      const dateLabel = formatShareDate(state.todayKey);
+      const totalPlayers = state.shareTotalPlayers || 0;
+      const rankLine = totalPlayers > 0
+        ? `${state.sessionScore} pts · #${state.shareRank} of ${totalPlayers} today`
+        : `${state.sessionScore} pts`;
       const siteUrl = 'https://dailydispatchquiz.com';
-      return `Daily Dispatch Quiz
-Score: ${score}/${maxScore}
-How closely were you following Baltimore news today?
-${siteUrl}`;
+      return `Daily Dispatch Quiz — ${dateLabel}\n\n${grid}\n\n${rankLine}\n\n${siteUrl}`;
+    }
+
+    // Colored HTML preview of the same grid — emoji can't vary in shade, so
+    // the bonus block is rendered here in a distinctly brighter green/red
+    // than the standard Q1–5 blocks to make it visually pop, while staying
+    // in the same hue family as the site's existing --green/--red palette.
+    function renderShareGridPreview() {
+      const el = document.getElementById('share-grid-preview');
+      if (!el) return;
+      const { results, bonus } = getShareGridData();
+      el.style.cssText = 'margin-bottom:12px;display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:6px;';
+      const squareStyle = 'width:28px;height:28px;min-width:28px;border-radius:5px;';
+      let html = results.map(c =>
+        `<span style="${squareStyle}background:${c ? 'var(--green)' : 'var(--red)'};"></span>`
+      ).join('');
+      if (bonus !== null) {
+        const bonusColor = bonus ? '#2ecc71' : '#e74c3c';
+        html += `<span style="width:28px;height:28px;min-width:28px;border-radius:50%;margin-left:2px;background:${bonusColor};box-shadow:0 0 0 2px ${bonusColor}40;"></span>`;
+      }
+      el.innerHTML = html;
     }
 
     function shareOnX() {
@@ -5230,17 +5301,17 @@ ${siteUrl}`;
         updatePlayerScore(state.playerName, state.sessionScore);
       }
 
-      // Calculate day-over-day streak (after score is saved so today counts)
-      const players = getPlayers();
       const playerKey = normPlayerKey(state.playerName);
-      const dayStreak = getDayStreak(players[playerKey]);
 
       // Submit score to server for shared leaderboard (not in archive mode),
-      // and fetch the real, cross-device canonical state — rank and all-time
-      // used to be computed from a local per-browser cache that, for any
-      // player who'd only ever typed one name into that browser, made
-      // "Today's Rank" always read #1 regardless of actual performance.
+      // and fetch the real, cross-device canonical state — rank, all-time,
+      // and streak used to be computed from a local per-browser cache that,
+      // for any player who'd only ever typed one name into that browser,
+      // made "Today's Rank" always read #1 regardless of actual performance,
+      // and made streaks reset whenever they switched devices.
       let allTime = state.sessionScore;
+      let dayStreak = 0;
+      let maxStreak = 0;
       let todayProgress = null;
       if (!archiveMode && !state.isReplay) {
         try {
@@ -5256,6 +5327,8 @@ ${siteUrl}`;
           });
           const scoreData = await scoreRes.json();
           if (typeof scoreData.allTime === 'number') allTime = scoreData.allTime;
+          if (typeof scoreData.currentStreak === 'number') dayStreak = scoreData.currentStreak;
+          if (typeof scoreData.maxStreak === 'number') maxStreak = scoreData.maxStreak;
         } catch (e) { }
 
         // Batch-submit all answer distribution data in one reliable POST at completion
@@ -5301,6 +5374,13 @@ ${siteUrl}`;
           .sort((a, b) => b - a);
         const myScore = todayProgress[playerKey]?.score ?? state.sessionScore;
         rank = todayScores.findIndex(s => s <= myScore) + 1;
+        // Stashed for buildShareText() — 0 total means "no real data",
+        // which tells the share text to omit the rank line entirely.
+        state.shareRank = rank;
+        state.shareTotalPlayers = todayScores.length;
+      } else {
+        state.shareRank = 0;
+        state.shareTotalPlayers = 0;
       }
 
       document.getElementById('result-today-score').textContent = state.sessionScore;
@@ -5350,6 +5430,7 @@ ${siteUrl}`;
         const sharePreview = document.getElementById('share-text-preview');
         if (shareSection && sharePreview) {
           sharePreview.textContent = buildShareText();
+          renderShareGridPreview();
           shareSection.style.display = 'block';
         }
       }
@@ -5417,7 +5498,9 @@ ${siteUrl}`;
         document.getElementById('results-subscribe-cta').style.display = 'none';
       }
 
-      // Show day streak + tomorrow nudge
+      // Show day streak + tomorrow nudge. maxStreak (from the server) isn't
+      // displayed yet — captured here for the future stats view noted in
+      // the brief.
       const streakNudgeEl = document.getElementById('results-streak-nudge');
       if (streakNudgeEl && !archiveMode) {
         const milestone = streakMilestone(dayStreak);
@@ -5426,8 +5509,10 @@ ${siteUrl}`;
           nudgeHtml = `<span style="font-size:15px;">${milestone}</span><br><span style="font-size:13px;opacity:0.85;">Come back tomorrow to extend your streak to ${dayStreak + 1} days.</span>`;
         } else if (dayStreak >= 2) {
           nudgeHtml = `<span>🔥 ${dayStreak}-day streak</span><br><span style="font-size:13px;opacity:0.85;">Come back tomorrow to keep it alive.</span>`;
-        } else if (dayStreak === 1) {
-          nudgeHtml = `<span style="font-size:13px;opacity:0.85;">Come back tomorrow to start a streak.</span>`;
+        } else {
+          // dayStreak is 0 or 1 — encouraging copy instead, replacing the
+          // old footer line this section supersedes.
+          nudgeHtml = `<span style="font-size:13px;opacity:0.85;">Come back tomorrow to build a streak.</span>`;
         }
         if (nudgeHtml) {
           streakNudgeEl.innerHTML = nudgeHtml;
@@ -5437,16 +5522,20 @@ ${siteUrl}`;
 
       // Community distribution — reuses todayProgress fetched above for rank,
       // so this no longer re-fetches the same data a second time.
+      // Below 15 players, percentages are noisy and expose thin traffic on
+      // slow days, so the whole section stays hidden rather than showing an
+      // encouraging placeholder — there's no non-revealing way to say
+      // "only a few people have played" without saying it.
       {
         const distPlayers = Object.values(todayProgress || {});
         const totalPlayers = distPlayers.length;
+        const MIN_PLAYERS_FOR_DIST = 15;
 
-        let distHtml = '<div class="breakdown-header" style="margin-top:24px;">How Others Did</div>';
-
-        if (totalPlayers < 2) {
-          distHtml += '<div style="font-size:13px;color:var(--muted);padding:8px 0;">Be the first! Distribution appears once more players have played.</div>';
+        if (totalPlayers < MIN_PLAYERS_FOR_DIST) {
+          document.getElementById('dist-table').innerHTML = '';
         } else {
-          distHtml += `<div style="font-size:12px;color:var(--muted);padding:4px 16px 8px;">Based on ${totalPlayers} player${totalPlayers === 1 ? '' : 's'} today</div>`;
+          let distHtml = '<div class="breakdown-header" style="margin-top:24px;">How Others Did</div>';
+          distHtml += `<div style="font-size:12px;color:var(--muted);padding:4px 16px 8px;">Based on ${totalPlayers} players today</div>`;
 
           for (let i = 0; i <= 5; i++) {
             let attempts = 0;
@@ -5469,9 +5558,9 @@ ${siteUrl}`;
           <span class="dist-pct">${pct}%</span>
         </div>`;
           }
-        }
 
-        document.getElementById('dist-table').innerHTML = distHtml;
+          document.getElementById('dist-table').innerHTML = distHtml;
+        }
       }
     }
     // ═══════════════════════════════════════════════════════
