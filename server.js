@@ -908,7 +908,7 @@ try {
       console.warn('[scores] progress mirror failed (non-fatal):', e.message);
     }
 
-    res.json({ ok: true });
+    res.json({ ok: true, allTime: data.scores[key].allTime });
 
   } catch (e) {
     console.error('[scores] error', e.message);

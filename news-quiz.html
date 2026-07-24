@@ -5235,10 +5235,16 @@ ${siteUrl}`;
       const playerKey = normPlayerKey(state.playerName);
       const dayStreak = getDayStreak(players[playerKey]);
 
-      // Submit score to server for shared leaderboard (not in archive mode)
+      // Submit score to server for shared leaderboard (not in archive mode),
+      // and fetch the real, cross-device canonical state — rank and all-time
+      // used to be computed from a local per-browser cache that, for any
+      // player who'd only ever typed one name into that browser, made
+      // "Today's Rank" always read #1 regardless of actual performance.
+      let allTime = state.sessionScore;
+      let todayProgress = null;
       if (!archiveMode && !state.isReplay) {
         try {
-          await fetch('/api/scores', {
+          const scoreRes = await fetch('/api/scores', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -5248,6 +5254,8 @@ ${siteUrl}`;
               completed: true
             })
           });
+          const scoreData = await scoreRes.json();
+          if (typeof scoreData.allTime === 'number') allTime = scoreData.allTime;
         } catch (e) { }
 
         // Batch-submit all answer distribution data in one reliable POST at completion
@@ -5268,6 +5276,14 @@ ${siteUrl}`;
             });
           }
         } catch (e) { }
+
+        // Canonical, cross-device today's progress — same source "How Others
+        // Did" already uses correctly. Reused below for rank and again
+        // further down for the distribution bars, so it's only fetched once.
+        try {
+          const progRes = await fetch('/api/progress?date=' + state.todayKey);
+          todayProgress = await progRes.json();
+        } catch (e) { }
       }
 
       // Compute stats
@@ -5276,15 +5292,16 @@ ${siteUrl}`;
       const correct = scoredAnswers.filter(a => a.correct).length;
       const pct = total ? Math.round(correct / total * 100) : 0;
 
-      // Get rank
-      const todayScores = Object.values(players)
-        .map(p => (p.dailyScores || {})[state.todayKey] || 0)
-        .sort((a, b) => b - a);
-      const myScore = (players[normPlayerKey(state.playerName)]?.dailyScores || {})[state.todayKey] || state.sessionScore;
-      const rank = todayScores.findIndex(s => s <= myScore) + 1;
-
-      // All-time
-      const allTime = players[normPlayerKey(state.playerName)]?.allTime || state.sessionScore;
+      // Get rank from canonical server data when available; archive/replay
+      // mode has no live rank, so just show this session's own placement.
+      let rank = 1;
+      if (todayProgress) {
+        const todayScores = Object.values(todayProgress)
+          .map(p => p.score || 0)
+          .sort((a, b) => b - a);
+        const myScore = todayProgress[playerKey]?.score ?? state.sessionScore;
+        rank = todayScores.findIndex(s => s <= myScore) + 1;
+      }
 
       document.getElementById('result-today-score').textContent = state.sessionScore;
       document.getElementById('result-alltime-score').textContent = allTime;
@@ -5418,50 +5435,44 @@ ${siteUrl}`;
         }
       }
 
-      document.getElementById('dist-table').innerHTML = '<div class="breakdown-header" style="margin-top:24px;">How Others Did</div><div style="font-size:13px;color:var(--muted);padding:8px 0;">Loading…</div>';
+      // Community distribution — reuses todayProgress fetched above for rank,
+      // so this no longer re-fetches the same data a second time.
+      {
+        const distPlayers = Object.values(todayProgress || {});
+        const totalPlayers = distPlayers.length;
 
-      // Fetch community distribution from canonical progress
-      fetch('/api/progress?date=' + state.todayKey)
-        .then(r => r.json())
-        .then(progress => {
-          const players = Object.values(progress || {});
-          const totalPlayers = players.length;
+        let distHtml = '<div class="breakdown-header" style="margin-top:24px;">How Others Did</div>';
 
-          let distHtml = '<div class="breakdown-header" style="margin-top:24px;">How Others Did</div>';
+        if (totalPlayers < 2) {
+          distHtml += '<div style="font-size:13px;color:var(--muted);padding:8px 0;">Be the first! Distribution appears once more players have played.</div>';
+        } else {
+          distHtml += `<div style="font-size:12px;color:var(--muted);padding:4px 16px 8px;">Based on ${totalPlayers} player${totalPlayers === 1 ? '' : 's'} today</div>`;
 
-          if (totalPlayers < 2) {
-            distHtml += '<div style="font-size:13px;color:var(--muted);padding:8px 0;">Be the first! Distribution appears once more players have played.</div>';
-          } else {
-            distHtml += `<div style="font-size:12px;color:var(--muted);padding:4px 16px 8px;">Based on ${totalPlayers} player${totalPlayers === 1 ? '' : 's'} today</div>`;
+          for (let i = 0; i <= 5; i++) {
+            let attempts = 0;
+            let correct = 0;
 
-            for (let i = 0; i <= 5; i++) {
-              let attempts = 0;
-              let correct = 0;
+            distPlayers.forEach(p => {
+              const a = p.answers && p.answers['q' + i];
+              if (a !== undefined) {
+                attempts++;
+                if (typeof a === 'object' && a.correct === true) correct++;
+              }
+            });
 
-              players.forEach(p => {
-                const a = p.answers && p.answers['q' + i];
-                if (a !== undefined) {
-                  attempts++;
-                  if (typeof a === 'object' && a.correct === true) correct++;
-                }
-              });
+            const pct = attempts ? Math.round((correct / attempts) * 100) : 0;
+            const label = i === 5 ? 'BONUS' : ('Q' + (i + 1));
 
-              const pct = attempts ? Math.round((correct / attempts) * 100) : 0;
-              const label = i === 5 ? 'BONUS' : ('Q' + (i + 1));
-
-              distHtml += `<div class="dist-row">
+            distHtml += `<div class="dist-row">
           <span class="dist-label">${label}</span>
           <div class="dist-bar-wrap"><div class="dist-bar" style="width:${pct}%"></div></div>
           <span class="dist-pct">${pct}%</span>
         </div>`;
-            }
           }
+        }
 
-          document.getElementById('dist-table').innerHTML = distHtml;
-        })
-        .catch(() => {
-          document.getElementById('dist-table').innerHTML = '';
-        });
+        document.getElementById('dist-table').innerHTML = distHtml;
+      }
     }
     // ═══════════════════════════════════════════════════════
     //  LEADERBOARD
