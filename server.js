@@ -509,10 +509,10 @@ answers.forEach(({ qIdx, chosenIndex, correct }) => {
   else data.dist[date][k].wrong++;
 
   if (playerName && playerName.trim()) {
-    const key = playerName.trim().toLowerCase();
+    const key = normPlayerKey(playerName);
     if (!data.dist[date].players) data.dist[date].players = {};
     if (!data.dist[date].players[key]) {
-      data.dist[date].players[key] = { displayName: playerName.trim(), answers: {} };
+      data.dist[date].players[key] = { displayName: normDisplayName(playerName), answers: {} };
     }
     data.dist[date].players[key].answers[k] = isActuallyCorrect;
   }
@@ -649,7 +649,7 @@ app.get('/api/progress', async (req, res) => {
 
     // If you're looking for one person: ?date=...&playerName=...
     if (playerName) {
-      const key = playerName.toLowerCase().trim();
+      const key = normPlayerKey(playerName);
       return res.json(dayData[key] || { score: 0, completed: false });
     }
 
@@ -695,13 +695,20 @@ app.post('/api/progress', async (req, res) => {
     const allProgress = (await getKey('progress')) || {};
     if (!allProgress[date]) allProgress[date] = {};
 
-    const key = playerName.toLowerCase().trim();
+    const key = normPlayerKey(playerName);
     const existing = allProgress[date][key] || {};
+
+    // First-use display casing: once a player has a canonical displayName
+    // (in today's progress record already, or in their persistent scores
+    // record), it wins over whatever casing was just typed. Only a
+    // brand-new player's first-ever submission sets it.
+    const existingScores = (await getKey('scores')) || {};
+    const canonicalDisplayName = existing.displayName || existingScores[key]?.displayName || normDisplayName(playerName);
 
     allProgress[date][key] = {
       ...existing,
       ...progress,
-      displayName: playerName.trim(),
+      displayName: canonicalDisplayName,
       updatedAt: new Date().toISOString(),
       score: validatedScore,
       synthetic: false
@@ -753,11 +760,11 @@ app.post('/api/progress', async (req, res) => {
     // case two requests race on the exact same instant, but it can no longer
     // touch 'progress' at all.
     try {
-      const scores = (await getKey('scores')) || {};
+      const scores = existingScores; // already fetched above for canonicalDisplayName
 
       if (!scores[key]) {
         scores[key] = {
-          displayName: playerName.trim(),
+          displayName: normDisplayName(playerName),
           allTime: 0,
           dailyScores: {}
         };
@@ -769,7 +776,8 @@ app.post('/api/progress', async (req, res) => {
         scores[key].allTime = Object.values(
           scores[key].dailyScores
         ).reduce((a, b) => a + b, 0);
-        scores[key].displayName = playerName.trim();
+        // displayName intentionally not touched here — first-use casing is
+        // canonical once set (see creation above and canonicalDisplayName).
         await setKey('scores', scores);
       }
     } catch (e) {
@@ -811,11 +819,11 @@ try {
     // of 'progress' if a concurrent request's progress write lands in between.
     const data = { scores: (await getKey('scores')) || {} };
 
-    const key = playerName.toLowerCase().trim();
+    const key = normPlayerKey(playerName);
 
     if (!data.scores[key]) {
       data.scores[key] = {
-        displayName: playerName.trim(),
+        displayName: normDisplayName(playerName),
         allTime: 0,
         dailyScores: {}
       };
@@ -846,7 +854,7 @@ try {
     if (isCompleted) {
       const subData = await readData();
       const subRecord = subData.subscribers && Object.values(subData.subscribers).find(s =>
-        (s.name || '').toLowerCase().trim() === key
+        normPlayerKey(s.name) === key
       );
       if (subRecord && subRecord.abGroup) {
         logEmailEvent('quiz_completed', subRecord.email, date, { group: subRecord.abGroup, score });
@@ -859,7 +867,7 @@ try {
       for (const sub of Object.values(allData.subscribers || {})) {
         if (!sub.referrals) continue;
         const ref = sub.referrals.find(r =>
-          r.email === key || (r.name && r.name.toLowerCase().trim() === key)
+          r.email === key || (r.name && normPlayerKey(r.name) === key)
         );
         if (ref) {
           if (!ref.playCount) ref.playCount = 0;
@@ -890,7 +898,7 @@ try {
           completed: false,
           answers: {},
           currentQ: 0,
-          displayName: playerName.trim(),
+          displayName: normDisplayName(playerName),
           synthetic: true,
           updatedAt: new Date().toISOString()
         };
@@ -912,7 +920,7 @@ try {
 app.delete('/api/scores/:playerKey', async (req, res) => {
   const adminToken = process.env.ADMIN_TOKEN || 'admin';
   if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
-  const key = req.params.playerKey.toLowerCase().trim();
+  const key = normPlayerKey(req.params.playerKey);
   const data = await readData();
   if (!data.scores || !data.scores[key]) return res.status(404).json({ error: 'Player not found' });
   const name = data.scores[key].displayName;
@@ -920,6 +928,55 @@ app.delete('/api/scores/:playerKey', async (req, res) => {
   await writeData(data);
   console.log('[Admin] Deleted player:', key);
   res.json({ ok: true, deleted: name });
+});
+
+// ── POST /api/admin/merge-players — merge two duplicate player records ──
+// For the near-duplicate-name case (case/whitespace variants that predate
+// key normalization, or genuine typos an admin has manually reviewed).
+// Exact-key operation — takes the literal keys as stored, does not
+// normalize them, so it can target a legacy non-lowercased key precisely
+// (unlike DELETE /api/scores/:playerKey, which always lowercases its param
+// and so can't address a key like "Sampson" distinctly from "sampson").
+// Unions dailyScores into toKey, recomputes allTime, deletes fromKey.
+// On a same-date conflict, keeps toKey's value and reports it rather than
+// silently overwriting. Optional displayName lets the caller set the
+// canonical display casing (e.g. per a first-use policy) explicitly.
+app.post('/api/admin/merge-players', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  const { fromKey, toKey, displayName } = req.body || {};
+  if (!fromKey || !toKey || fromKey === toKey) {
+    return res.status(400).json({ error: 'fromKey and toKey required and must differ' });
+  }
+  try {
+    const scores = (await getKey('scores')) || {};
+    const from = scores[fromKey];
+    const to = scores[toKey];
+    if (!from) return res.status(404).json({ error: `fromKey "${fromKey}" not found` });
+    if (!to) return res.status(404).json({ error: `toKey "${toKey}" not found` });
+
+    const mergedDailyScores = { ...(to.dailyScores || {}) };
+    const conflicts = [];
+    for (const [date, score] of Object.entries(from.dailyScores || {})) {
+      if (mergedDailyScores[date] !== undefined && mergedDailyScores[date] !== score) {
+        conflicts.push({ date, keptScore: mergedDailyScores[date], discardedScore: score });
+        continue;
+      }
+      mergedDailyScores[date] = score;
+    }
+
+    to.dailyScores = mergedDailyScores;
+    to.allTime = Object.values(mergedDailyScores).reduce((a, b) => a + b, 0);
+    if (displayName) to.displayName = displayName;
+    delete scores[fromKey];
+
+    await setKey('scores', scores);
+    console.log('[Admin] Merged player scores:', { fromKey, toKey, conflicts });
+    res.json({ ok: true, merged: toKey, removed: fromKey, result: to, conflicts });
+  } catch (e) {
+    console.error('[Admin] merge-players error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.get('/api/scores', async (req, res) => {
@@ -997,7 +1054,7 @@ app.post('/api/admin/repair-progress', async (req, res) => {
     const restored = [];
     const skipped = [];
     for (const entry of entries) {
-      const key = String(entry.playerKey || '').toLowerCase().trim();
+      const key = normPlayerKey(entry.playerKey);
       if (!key) continue;
       if (allProgress[date][key]) { skipped.push(key); continue; }
       allProgress[date][key] = {
@@ -1054,7 +1111,7 @@ app.post('/api/admin/stats-exclusions', async (req, res) => {
   }
 
   try {
-    const key = playerKey.toLowerCase().trim();
+    const key = normPlayerKey(playerKey);
     const data = await readData();
 
     if (!data.statsExclusions) data.statsExclusions = {};
@@ -1317,6 +1374,22 @@ function easternToday() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
 }
 
+// Player identity key: trim, collapse internal whitespace runs to one
+// space, lowercase. Used everywhere a Player Name is turned into the key
+// that scores/progress/streaks accumulate under, so a typo'd double space
+// can't silently fork a player's identity. Case was already collapsed
+// before this was added; this closes the remaining whitespace gap. Mirrors
+// the client-side version in news-quiz.html — keep both in sync.
+function normPlayerKey(name) {
+  return String(name || '').trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+// Cleaned-up display name for first-use storage: trim + collapse internal
+// whitespace, but preserve the player's original capitalization.
+function normDisplayName(name) {
+  return String(name || '').trim().replace(/\s+/g, ' ');
+}
+
 // ── GET /api/monthly-winners — return recent monthly winners ──
 app.get('/api/monthly-winners', async (req, res) => {
   try {
@@ -1339,7 +1412,7 @@ async function getMonthlyWinnerCandidates(monthPrefix) {
       .reduce((sum, [, s]) => sum + s, 0);
     if (monthlyScore === 0) continue;
     const sub = Object.values(data.subscribers || {}).find(s =>
-      s.active && (s.name || '').toLowerCase().trim() === playerKey
+      s.active && normPlayerKey(s.name) === playerKey
     );
     if (!sub || sub.mugWon) continue;
     entries.push({ playerKey, displayName: player.displayName || playerKey, monthlyScore, email: sub.email });
@@ -2125,7 +2198,7 @@ app.post('/api/quiz', async (req, res) => {
         updatedSubscribers.push(sub);
 
         const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(sub.email)}`;
-        const playerKey = (sub.name || '').toLowerCase().trim();
+        const playerKey = normPlayerKey(sub.name);
         const playerProgress = yesterdayProgress[playerKey] || null;
         const resultsHtml = buildResultsHtml(playerProgress, yesterdayQuiz);
 
@@ -2210,7 +2283,7 @@ const prospectEmails = [];
       for (const p of activeProspects) {
         const subscribeUrl = `${siteUrl}/subscribe?email=${encodeURIComponent(p.email)}&name=${encodeURIComponent(p.name || '')}`;
         const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(p.email)}`;
-        const playerKey = (p.name || '').toLowerCase().trim();
+        const playerKey = normPlayerKey(p.name);
 
         // Assign A/B group if not yet assigned
         if (!p.abGroup) p.abGroup = Math.random() < 0.5 ? 'A' : 'B';
@@ -2376,12 +2449,13 @@ app.post('/api/pwa-session', async (req, res) => {
   const { playerName, date } = req.body || {};
   if (!playerName || !date) return res.status(400).json({ error: 'playerName and date required' });
   try {
-    const key = playerName.toLowerCase().trim();
+    const key = normPlayerKey(playerName);
     const allProgress = (await getKey('progress')) || {};
     if (!allProgress[date]) allProgress[date] = {};
     if (!allProgress[date][key]) allProgress[date][key] = {};
     allProgress[date][key].pwaSession = true;
-    allProgress[date][key].displayName = playerName.trim();
+    // First-use casing: don't overwrite a displayName that's already set.
+    if (!allProgress[date][key].displayName) allProgress[date][key].displayName = normDisplayName(playerName);
     await setKey('progress', allProgress);
     console.log(`[PWA] Session logged: ${playerName} on ${date}`);
     res.json({ ok: true });
@@ -2522,7 +2596,7 @@ app.post('/api/quiz/test-email', async (req, res) => {
     const subRecord = data.subscribers && data.subscribers[testEmail];
     const group = (subRecord && subRecord.abGroup) || 'B';
     const displayName = (subRecord && subRecord.name) || 'Player';
-    const playerKey = displayName.toLowerCase().trim();
+    const playerKey = normPlayerKey(displayName);
 
     const tokens = (await getKey('emailTokens')) || {};
     const token = Buffer.from(testEmail + date + Math.random()).toString('base64')
@@ -3215,7 +3289,7 @@ async function getNonPlayersToday() {
 
   const notPlayedSubs = Object.values(data.subscribers || {}).filter(sub => {
     if (!sub.active || !sub.email) return false;
-    const playerKey = sub.playerKey || (sub.name || '').toLowerCase().trim();
+    const playerKey = sub.playerKey || normPlayerKey(sub.name);
     const daily = scores[playerKey]?.dailyScores || {};
     return daily[today] === undefined;
   }).map(sub => ({ email: sub.email, name: sub.name || '' }));
@@ -3224,7 +3298,7 @@ async function getNonPlayersToday() {
   const notPlayedProspects = Object.values(data.prospects || {}).filter(p => {
     if (!p.email || p.active === false) return false;
     if (subscriberEmails.has(p.email)) return false;
-    const playerKey = (p.name || '').toLowerCase().trim();
+    const playerKey = normPlayerKey(p.name);
     const daily = scores[playerKey]?.dailyScores || {};
     return daily[today] === undefined;
   }).map(p => ({ email: p.email, name: p.name || '' }));
@@ -3565,7 +3639,7 @@ async function sendStreakNudges() {
   const nudgeTargets = [];
   for (const sub of Object.values(subscribers)) {
     if (!sub.active || !sub.email) continue;
-    const playerKey = sub.playerKey || Object.keys(scores).find(k => sub.name && k === sub.name.toLowerCase().trim());
+    const playerKey = sub.playerKey || Object.keys(scores).find(k => sub.name && k === normPlayerKey(sub.name));
     if (!playerKey || !scores[playerKey]) continue;
     const { dailyScores, displayName } = scores[playerKey];
     if (dailyScores[today] !== undefined) continue;
@@ -3645,7 +3719,7 @@ async function announceMonthlyWinner() {
 
       // Find matching subscriber
       const sub = Object.values(data.subscribers || {}).find(s =>
-        s.active && (s.name || '').toLowerCase().trim() === playerKey
+        s.active && normPlayerKey(s.name) === playerKey
       );
       if (!sub) continue; // not a subscriber — ineligible
       if (sub.mugWon) continue; // already won a mug
@@ -3857,7 +3931,7 @@ async function checkScheduledPublish() {
         updatedSubscribers.push(sub);
 
         const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(sub.email)}`;
-        const playerKey = (sub.name || '').toLowerCase().trim();
+        const playerKey = normPlayerKey(sub.name);
         const playerProgress = yesterdayProgress[playerKey] || null;
         const resultsHtml = buildResultsHtml(playerProgress, yesterdayQuiz);
 
@@ -3919,7 +3993,7 @@ async function checkScheduledPublish() {
       for (const p of activeProspects) {
         const subscribeUrl = `${siteUrl}/subscribe?email=${encodeURIComponent(p.email)}&name=${encodeURIComponent(p.name || '')}`;
         const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(p.email)}`;
-        const playerKey = (p.name || '').toLowerCase().trim();
+        const playerKey = normPlayerKey(p.name);
         if (!p.abGroup) p.abGroup = Math.random() < 0.5 ? 'A' : 'B';
         if (!p.referralCode) {
           p.referralCode = Buffer.from(p.email + Math.random()).toString('base64')

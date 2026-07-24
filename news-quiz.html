@@ -3722,6 +3722,12 @@
       return eastern; // returns YYYY-MM-DD
     }
 
+    // Player identity key: trim, collapse internal whitespace runs to one
+    // space, lowercase. Mirrors normPlayerKey() in server.js — keep in sync.
+    function normPlayerKey(name) {
+      return String(name || '').trim().replace(/\s+/g, ' ').toLowerCase();
+    }
+
     // ═══════════════════════════════════════════════════════
     //  STATE
     // ═══════════════════════════════════════════════════════
@@ -3843,7 +3849,7 @@
     function dismissFirstTimeOverlay() {
       document.getElementById('first-time-overlay').style.display = 'none';
 
-      const pkey = (state.playerName || '').toLowerCase().trim();
+      const pkey = normPlayerKey(state.playerName);
       if (pkey) lsSet('dnq_seen_intro_' + pkey, '1');
 
       startQuiz(window._pendingQuiz, window._pendingQuizOptions || {});
@@ -3939,7 +3945,7 @@
 
     function getOrCreatePlayer(name) {
       const players = getPlayers();
-      const key = name.toLowerCase().trim();
+      const key = normPlayerKey(name);
       if (!players[key]) {
         players[key] = { displayName: name, allTime: 0, dailyScores: {}, streak: 0, lastPlayed: '' };
       }
@@ -3978,7 +3984,7 @@
 
     function updatePlayerScore(name, todayScore) {
       const players = getPlayers();
-      const key = name.toLowerCase().trim();
+      const key = normPlayerKey(name);
       if (!players[key]) return;
       if (!players[key].dailyScores) players[key].dailyScores = {};
 
@@ -4172,7 +4178,7 @@
         document.getElementById('player-input').value = saved;
         // Show day streak for returning player
         const players = getPlayers();
-        const player = players[saved.toLowerCase().trim()];
+        const player = players[normPlayerKey(saved)];
         if (player) {
           const dayStreak = getDayStreak(player);
           const streakEl = document.getElementById('reg-streak-display');
@@ -4342,7 +4348,7 @@ ${siteUrl}`;
 
     function proceedAfterMugTease(quiz, { resumed } = {}) {
       if (!quiz) return;
-      const pkey = state.playerName.toLowerCase().trim();
+      const pkey = normPlayerKey(state.playerName);
       const introKey = 'dnq_seen_intro_' + pkey;
       if (!lsGet(introKey) && !resumed) {
         window._pendingQuiz = quiz;
@@ -4618,7 +4624,7 @@ ${siteUrl}`;
       }
 
       const players = getPlayers();
-      const pkey = name.toLowerCase().trim();
+      const pkey = normPlayerKey(name);
       const saved = await fetchSavedProgress(name, state.todayKey);
 
       const localCompleted = !!(
@@ -5226,7 +5232,7 @@ ${siteUrl}`;
 
       // Calculate day-over-day streak (after score is saved so today counts)
       const players = getPlayers();
-      const playerKey = state.playerName.toLowerCase().trim();
+      const playerKey = normPlayerKey(state.playerName);
       const dayStreak = getDayStreak(players[playerKey]);
 
       // Submit score to server for shared leaderboard (not in archive mode)
@@ -5274,11 +5280,11 @@ ${siteUrl}`;
       const todayScores = Object.values(players)
         .map(p => (p.dailyScores || {})[state.todayKey] || 0)
         .sort((a, b) => b - a);
-      const myScore = (players[state.playerName.toLowerCase().trim()]?.dailyScores || {})[state.todayKey] || state.sessionScore;
+      const myScore = (players[normPlayerKey(state.playerName)]?.dailyScores || {})[state.todayKey] || state.sessionScore;
       const rank = todayScores.findIndex(s => s <= myScore) + 1;
 
       // All-time
-      const allTime = players[state.playerName.toLowerCase().trim()]?.allTime || state.sessionScore;
+      const allTime = players[normPlayerKey(state.playerName)]?.allTime || state.sessionScore;
 
       document.getElementById('result-today-score').textContent = state.sessionScore;
       document.getElementById('result-alltime-score').textContent = allTime;
@@ -5506,7 +5512,7 @@ ${siteUrl}`;
           const subRes = await fetch('/api/subscribers');
           const subData = await subRes.json();
           (subData.subscribers || []).forEach(s => {
-            const k = (s.name || '').toLowerCase().trim();
+            const k = normPlayerKey(s.name);
             if (k) {
               subscriberEmails[k] = true;
               if (s.mugWon) mugWonMap[k] = true;
@@ -5519,7 +5525,7 @@ ${siteUrl}`;
           .map(([key, p]) => ({
             name: p.displayName || key,
             score: Number(p.score) || 0,
-            isMe: key === state.playerName.toLowerCase().trim(),
+            isMe: key === normPlayerKey(state.playerName),
             isSubscriber: !!subscriberEmails[key],
             mugWon: !!mugWonMap[key]
          }));
@@ -5540,7 +5546,7 @@ ${siteUrl}`;
         const subRes = await fetch('/api/subscribers');
         const subData = await subRes.json();
         (subData.subscribers || []).forEach(s => {
-          const k = (s.name || '').toLowerCase().trim();
+          const k = normPlayerKey(s.name);
           if (k) {
             subscriberKeys[k] = true;
             if (s.mugWon) mugWonKeys[k] = true;
@@ -5571,7 +5577,7 @@ ${siteUrl}`;
         return {
           name: p.displayName || key,
           score,
-          isMe: key === state.playerName.toLowerCase().trim(),
+          isMe: key === normPlayerKey(state.playerName),
           isSubscriber: !!subscriberKeys[key],
           mugWon: !!mugWonKeys[key]
         };
