@@ -5462,10 +5462,14 @@
         // Canonical, cross-device today's progress — same source "How Others
         // Did" already uses correctly. Reused below for rank and again
         // further down for the distribution bars, so it's only fetched once.
-        try {
-          const progRes = await fetch('/api/progress?date=' + state.todayKey);
-          todayProgress = await progRes.json();
-        } catch (e) { }
+        // One retry: this fetch can land mid-deploy-restart, and a single
+        // transient failure shouldn't be enough to hide the real rank.
+        for (let attempt = 0; attempt < 2 && !todayProgress; attempt++) {
+          try {
+            const progRes = await fetch('/api/progress?date=' + state.todayKey);
+            todayProgress = await progRes.json();
+          } catch (e) { /* try again, or fall through to the "unavailable" state below */ }
+        }
       }
 
       // Compute stats
@@ -5474,9 +5478,11 @@
       const correct = scoredAnswers.filter(a => a.correct).length;
       const pct = total ? Math.round(correct / total * 100) : 0;
 
-      // Get rank from canonical server data when available; archive/replay
-      // mode has no live rank, so just show this session's own placement.
-      let rank = 1;
+      // Get rank from canonical server data when available. null (not a
+      // confident-looking 1) means "couldn't load" — archive/replay mode,
+      // or the retried fetch above still failed — so the UI shows "unavailable"
+      // rather than falsely claiming first place.
+      let rank = null;
       if (todayProgress) {
         const todayScores = Object.values(todayProgress)
           .map(p => p.score || 0)
@@ -5496,7 +5502,7 @@
       document.getElementById('result-alltime-score').textContent = allTime;
       document.getElementById('stat-correct').textContent = correct;
       document.getElementById('stat-pct').textContent = pct + '%';
-      document.getElementById('stat-rank').textContent = '#' + rank;
+      document.getElementById('stat-rank').textContent = rank === null ? '#–' : '#' + rank;
 
       // Breakdown — full Q&A summary
       let brows = `<div class="breakdown-header">Today's Answers</div>`;
