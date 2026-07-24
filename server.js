@@ -641,6 +641,10 @@ app.post('/api/fetch-article', async (req, res) => {
 app.get('/api/progress', async (req, res) => {
   const { date, playerName } = req.query;
   if (!date) return res.status(400).json({ error: 'date required' });
+  // Live per-player data (rank, distribution bars) — must never be cached
+  // by the browser or an intermediate proxy/CDN, or those can render off a
+  // stale snapshot with fewer players than have actually completed today.
+  res.set('Cache-Control', 'no-store');
 
   try {
     // This looks into your Postgres 'store' table for the 'progress' key
@@ -1064,6 +1068,7 @@ app.get('/api/check-name', async (req, res) => {
 });
 
 app.get('/api/scores', async (req, res) => {
+  res.set('Cache-Control', 'no-store'); // leaderboard data — always fresh, see /api/progress note
   try {
     const data = await readData();
     const scores = data.scores || {};
