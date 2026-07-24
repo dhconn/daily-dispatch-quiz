@@ -2980,6 +2980,17 @@
             <div id="player-list" style="font-family:monospace;font-size:13px;color:var(--muted);margin-bottom:12px;">
               <p>Loading players…</p>
             </div>
+            <div style="margin-top:20px;border-top:1px solid var(--rule);padding-top:16px;">
+              <div style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:8px;">BLOCKED NAMES</div>
+              <div id="blocklist-items" style="margin-bottom:10px;font-family:monospace;font-size:13px;"></div>
+              <div style="display:flex;gap:8px;align-items:center;">
+                <input id="blocklist-input" type="text" placeholder="name to block"
+                  style="font-family:monospace;font-size:13px;padding:5px 8px;border:1px solid var(--rule);background:var(--paper);color:var(--ink);flex:1;">
+                <button onclick="adminAddBlock()"
+                  style="font-family:monospace;font-size:11px;letter-spacing:1px;padding:6px 14px;background:var(--ink);color:var(--paper);border:none;cursor:pointer;">BLOCK</button>
+              </div>
+              <div id="blocklist-status" style="font-family:monospace;font-size:11px;color:var(--muted);margin-top:6px;"></div>
+            </div>
           </div>
         </details>
       </div>
@@ -4555,13 +4566,23 @@
       const name = document.getElementById('player-input').value.trim();
       const errEl = document.getElementById('reg-error');
       if (!name) { errEl.textContent = 'Please enter a name or pseudonym.'; errEl.style.display = 'block'; return; }
-      const BLOCKED_NAMES = ['david conn'];
-      if (BLOCKED_NAMES.includes(name.toLowerCase())) {
-        errEl.textContent = 'This player name is reserved. Please create a new name.';
-        errEl.style.display = 'block';
-        return;
-      }
       errEl.style.display = 'none';
+
+      // Blocklist is admin-managed and DB-backed now (was a hardcoded
+      // client-side list) — check it here so a blocked name is caught
+      // immediately, before the player advances into the quiz. The server
+      // still enforces this independently on every progress/score save
+      // regardless of what happens here.
+      try {
+        const checkRes = await fetch('/api/check-name?name=' + encodeURIComponent(name));
+        const checkData = await checkRes.json();
+        if (checkData.blocked) {
+          errEl.textContent = 'This player name is reserved. Please create a new name.';
+          errEl.style.display = 'block';
+          return;
+        }
+      } catch (e) { /* fail open on network error — server still enforces on save */ }
+
       lsSet('dnq_player_name', name); // save for community board pre-fill
 
       // Subscribe email if provided and opted in
@@ -5773,6 +5794,7 @@
       loadAdminStats();
       loadTodayQuestions();
       loadPlayerList();
+      loadBlocklist();
       loadEmailPauseState();
       loadTopicBlocklist();
       populateMonthSelect();
@@ -8605,6 +8627,74 @@
       </div>`).join('');
       } catch (e) {
         el.innerHTML = '<p style="color:red;">Failed to load players.</p>';
+      }
+    }
+
+    async function loadBlocklist() {
+      const el = document.getElementById('blocklist-items');
+      if (!el) return;
+      try {
+        const adminToken = lsGet('dnq_admin_token') || 'admin';
+        const res = await fetch('/api/admin/blocklist', { headers: { 'x-admin-token': adminToken } });
+        const data = await res.json();
+        if (!data.blocklist || data.blocklist.length === 0) {
+          el.innerHTML = '<span style="color:var(--muted);">None</span>';
+          return;
+        }
+        el.innerHTML = data.blocklist.map(name =>
+          `<div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+        <span>${escHtml(name)}</span>
+        <button onclick="adminUnblock('${escHtml(name)}')"
+          style="font-family:monospace;font-size:10px;letter-spacing:1px;padding:2px 8px;background:none;border:1px solid var(--muted);color:var(--muted);cursor:pointer;">UNBLOCK</button>
+      </div>`
+        ).join('');
+      } catch (e) {
+        el.innerHTML = '<span style="color:var(--red);">Failed to load.</span>';
+      }
+    }
+
+    async function adminAddBlock() {
+      const input = document.getElementById('blocklist-input');
+      const statusEl = document.getElementById('blocklist-status');
+      const name = input.value.trim();
+      if (!name) return;
+      try {
+        const adminToken = lsGet('dnq_admin_token') || 'admin';
+        const res = await fetch('/api/admin/blocklist', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+          body: JSON.stringify({ name })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          input.value = '';
+          statusEl.textContent = `"${name}" blocked.`;
+          loadBlocklist();
+        } else {
+          statusEl.textContent = data.error || 'Error.';
+        }
+      } catch (e) {
+        statusEl.textContent = 'Error: ' + e.message;
+      }
+    }
+
+    async function adminUnblock(name) {
+      const statusEl = document.getElementById('blocklist-status');
+      try {
+        const adminToken = lsGet('dnq_admin_token') || 'admin';
+        const res = await fetch('/api/admin/blocklist/' + encodeURIComponent(name), {
+          method: 'DELETE',
+          headers: { 'x-admin-token': adminToken }
+        });
+        const data = await res.json();
+        if (res.ok) {
+          statusEl.textContent = `"${name}" unblocked.`;
+          loadBlocklist();
+        } else {
+          statusEl.textContent = data.error || 'Error.';
+        }
+      } catch (e) {
+        statusEl.textContent = 'Error: ' + e.message;
       }
     }
 

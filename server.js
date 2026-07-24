@@ -1,9 +1,5 @@
 require('dotenv').config();
 const express = require('express');
-
-// Player names that cannot be used — checked on every progress and score save.
-// Add names in lowercase; matching is case-insensitive.
-const BLOCKED_PLAYER_NAMES = new Set(['david conn']);
 const https = require('https');
 const http = require('http');
 const { Pool } = require('pg')
@@ -672,7 +668,7 @@ app.post('/api/progress', async (req, res) => {
     return res.status(400).json({ error: 'playerName, date, and progress required' });
   }
 
-  if (BLOCKED_PLAYER_NAMES.has(playerName.toLowerCase().trim())) {
+  if (await isBlocked(playerName)) {
     return res.status(400).json({ error: 'This player name is reserved. Please create a new name.', blocked: true });
   }
 
@@ -805,7 +801,7 @@ app.post('/api/progress', async (req, res) => {
 app.post('/api/scores', async (req, res) => {
   const { playerName, date, score } = req.body  || {};
 
-  if (playerName && BLOCKED_PLAYER_NAMES.has(playerName.toLowerCase().trim())) {
+  if (playerName && await isBlocked(playerName)) {
     return res.status(400).json({ error: 'This player name is reserved. Please create a new name.', blocked: true });
   }
 
@@ -1003,6 +999,67 @@ app.post('/api/admin/merge-players', async (req, res) => {
   } catch (e) {
     console.error('[Admin] merge-players error:', e.message);
     res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Player name blocklist admin endpoints ─────────────────────
+app.get('/api/admin/blocklist', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  try {
+    let list = await getKey('blocklist');
+    if (!list) {
+      list = ['david conn'];
+      await setKey('blocklist', list);
+    }
+    res.json({ blocklist: list });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/admin/blocklist', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  const key = normPlayerKey((req.body || {}).name);
+  if (!key) return res.status(400).json({ error: 'name required' });
+  try {
+    let list = (await getKey('blocklist')) || [];
+    if (!list.includes(key)) list.push(key);
+    await setKey('blocklist', list);
+    console.log('[Admin] Blocked player name:', key);
+    res.json({ blocklist: list });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete('/api/admin/blocklist/:name', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  const key = normPlayerKey(req.params.name);
+  try {
+    let list = (await getKey('blocklist')) || [];
+    list = list.filter(n => n !== key);
+    await setKey('blocklist', list);
+    console.log('[Admin] Unblocked player name:', key);
+    res.json({ blocklist: list });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── GET /api/check-name — lightweight, unauthenticated blocklist check ──
+// Read-only, no side effects — lets registerPlayer() catch a blocked name
+// immediately at registration. Routing this through POST /api/progress
+// instead would work too (it enforces the same block) but would also
+// write a spurious zero-score "played today" record for anyone who just
+// types a name without ever finishing the quiz.
+app.get('/api/check-name', async (req, res) => {
+  try {
+    res.json({ blocked: await isBlocked(req.query.name || '') });
+  } catch (e) {
+    res.json({ blocked: false }); // fail open — never block play on a server error
   }
 });
 
@@ -1415,6 +1472,20 @@ function normPlayerKey(name) {
 // whitespace, but preserve the player's original capitalization.
 function normDisplayName(name) {
   return String(name || '').trim().replace(/\s+/g, ' ');
+}
+
+// ── Player name blocklist ────────────────────────────────────────
+// Stored under key 'blocklist' as an array of lowercase names. Seeded with
+// a single reserved name on first use (was previously a hardcoded Set
+// checked in POST /api/progress and POST /api/scores — now DB-backed and
+// editable from the admin panel's Player Management section).
+async function isBlocked(name) {
+  let list = await getKey('blocklist');
+  if (!list) {
+    list = ['david conn'];
+    await setKey('blocklist', list);
+  }
+  return list.includes(normPlayerKey(name));
 }
 
 // ── Streak computation ─────────────────────────────────────────
