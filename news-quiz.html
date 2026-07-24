@@ -2209,6 +2209,54 @@
       </div>
     </div>
 
+    <!-- SHARE POPUP — appears the instant the results screen shows, at the
+         moment of peak emotion, and auto-dismisses after 3s. Interacting
+         with it (hover/touch) pauses the countdown so it can't vanish
+         mid-tap. Mirrors the inline share card further down the results
+         page, which stays as a permanent fallback if this gets missed. -->
+    <div id="share-popup-overlay" style="
+      display:none;
+      position:fixed;
+      inset:0;
+      z-index:3000;
+      background:rgba(26,16,8,0.85);
+      align-items:center;
+      justify-content:center;
+      pointer-events:auto;
+    " onclick="dismissSharePopup()">
+      <div style="
+        background:var(--paper);
+        color:var(--ink);
+        border-top:4px double var(--ink);
+        border-bottom:4px double var(--ink);
+        box-shadow:0 8px 24px rgba(0,0,0,0.4);
+        padding:24px 28px;
+        max-width:420px;
+        width:min(90vw,420px);
+        text-align:center;
+        position:relative;
+      " onclick="event.stopPropagation()" onmouseenter="pauseSharePopupTimer()" ontouchstart="pauseSharePopupTimer()">
+        <button onclick="dismissSharePopup()" aria-label="Close"
+          style="position:absolute;top:6px;right:8px;background:none;border:none;font-size:22px;line-height:1;color:var(--muted);cursor:pointer;padding:6px 10px;">&times;</button>
+        <div style="font-family:monospace;font-size:11px;letter-spacing:2px;color:var(--muted);margin-bottom:12px;">SHARE YOUR SCORE</div>
+        <div id="share-popup-grid" style="margin-bottom:12px;"></div>
+        <div id="share-popup-text"
+          style="font-size:14px;color:var(--ink);margin-bottom:14px;line-height:1.5;white-space:pre-line;font-family:monospace;"></div>
+        <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+          <button onclick="shareOnX()"
+            style="font-family:monospace;font-size:12px;padding:8px 16px;background:#000;color:#fff;border:none;cursor:pointer;border-radius:2px;">Share
+            on X</button>
+          <button onclick="shareOnBluesky()"
+            style="font-family:monospace;font-size:12px;padding:8px 16px;background:#0085ff;color:#fff;border:none;cursor:pointer;border-radius:2px;">Share
+            on Bluesky</button>
+          <button onclick="copyShareText()"
+            style="font-family:monospace;font-size:12px;padding:8px 16px;background:none;border:1px solid var(--rule);color:var(--ink);cursor:pointer;border-radius:2px;">Copy</button>
+        </div>
+        <div class="share-copy-confirm" style="font-family:monospace;font-size:11px;color:var(--green);margin-top:6px;min-height:14px;"></div>
+        <div style="font-family:monospace;font-size:10px;color:var(--muted);margin-top:10px;">Tap anywhere to dismiss</div>
+      </div>
+    </div>
+
     <!-- FIRST-TIME PLAYER OVERLAY -->
     <div id="first-time-overlay" style="
   display:none;
@@ -2322,7 +2370,7 @@
           <button onclick="copyShareText()"
             style="font-family:monospace;font-size:12px;padding:8px 16px;background:none;border:1px solid var(--rule);color:var(--ink);cursor:pointer;border-radius:2px;">Copy</button>
         </div>
-        <div id="share-copy-confirm"
+        <div id="share-copy-confirm" class="share-copy-confirm"
           style="font-family:monospace;font-size:11px;color:var(--green);margin-top:6px;min-height:14px;"></div>
       </div>
 
@@ -4380,8 +4428,8 @@
     // the bonus block is rendered here in a distinctly brighter green/red
     // than the standard Q1–5 blocks to make it visually pop, while staying
     // in the same hue family as the site's existing --green/--red palette.
-    function renderShareGridPreview() {
-      const el = document.getElementById('share-grid-preview');
+    function renderShareGridPreview(targetId = 'share-grid-preview') {
+      const el = document.getElementById(targetId);
       if (!el) return;
       const { results, bonus } = getShareGridData();
       el.style.cssText = 'margin-bottom:12px;display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:6px;';
@@ -4522,9 +4570,43 @@
 
     function copyShareText() {
       navigator.clipboard.writeText(buildShareText()).then(() => {
-        const el = document.getElementById('share-copy-confirm');
-        if (el) { el.textContent = '✓ Copied!'; setTimeout(() => el.textContent = '', 2000); }
+        // Updates every confirm element (inline card + popup, if present)
+        // so the message shows wherever the player actually clicked from.
+        document.querySelectorAll('.share-copy-confirm').forEach(el => {
+          el.textContent = '✓ Copied!';
+          setTimeout(() => { el.textContent = ''; }, 2000);
+        });
       });
+    }
+
+    let sharePopupTimer = null;
+
+    // Shows the share popup the instant the results screen appears, then
+    // auto-dismisses after 3s. Reuses the same buildShareText()/
+    // renderShareGridPreview() the inline share card uses, just targeting
+    // the popup's own elements.
+    function showSharePopup() {
+      const overlay = document.getElementById('share-popup-overlay');
+      if (!overlay) return;
+      const textEl = document.getElementById('share-popup-text');
+      if (textEl) textEl.textContent = buildShareText();
+      renderShareGridPreview('share-popup-grid');
+      overlay.style.display = 'flex';
+      clearTimeout(sharePopupTimer);
+      sharePopupTimer = setTimeout(dismissSharePopup, 3000);
+    }
+
+    function dismissSharePopup() {
+      const overlay = document.getElementById('share-popup-overlay');
+      if (overlay) overlay.style.display = 'none';
+      clearTimeout(sharePopupTimer);
+    }
+
+    // Hovering/touching the popup (about to tap a share button) cancels the
+    // countdown so it can't disappear mid-interaction. It only ever closes
+    // after that via an explicit tap-outside or the × button from then on.
+    function pauseSharePopupTimer() {
+      clearTimeout(sharePopupTimer);
     }
 
     async function submitResultsSubscribe() {
@@ -5462,6 +5544,7 @@
         }
       }
       showScreen('screen-results');
+      if (!archiveMode) showSharePopup();
       if (!archiveMode && isJuly4()) launchFireworks();
       checkPwaPrompt();
       subscribeToPush();
