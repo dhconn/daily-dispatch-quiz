@@ -1,5 +1,9 @@
 require('dotenv').config();
 const express = require('express');
+
+// Player names that cannot be used — checked on every progress and score save.
+// Add names in lowercase; matching is case-insensitive.
+const BLOCKED_PLAYER_NAMES = new Set(['david conn']);
 const https = require('https');
 const http = require('http');
 const { Pool } = require('pg')
@@ -668,6 +672,10 @@ app.post('/api/progress', async (req, res) => {
     return res.status(400).json({ error: 'playerName, date, and progress required' });
   }
 
+  if (BLOCKED_PLAYER_NAMES.has(playerName.toLowerCase().trim())) {
+    return res.status(400).json({ error: 'This player name is reserved. Please create a new name.', blocked: true });
+  }
+
   try {
     const data = await readData();
 
@@ -796,6 +804,10 @@ app.post('/api/progress', async (req, res) => {
 
 app.post('/api/scores', async (req, res) => {
   const { playerName, date, score } = req.body  || {};
+
+  if (playerName && BLOCKED_PLAYER_NAMES.has(playerName.toLowerCase().trim())) {
+    return res.status(400).json({ error: 'This player name is reserved. Please create a new name.', blocked: true });
+  }
 
   // 🔍 Log incoming request
   console.log('[scores] incoming', {

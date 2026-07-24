@@ -4555,6 +4555,12 @@
       const name = document.getElementById('player-input').value.trim();
       const errEl = document.getElementById('reg-error');
       if (!name) { errEl.textContent = 'Please enter a name or pseudonym.'; errEl.style.display = 'block'; return; }
+      const BLOCKED_NAMES = ['david conn'];
+      if (BLOCKED_NAMES.includes(name.toLowerCase())) {
+        errEl.textContent = 'This player name is reserved. Please create a new name.';
+        errEl.style.display = 'block';
+        return;
+      }
       errEl.style.display = 'none';
       lsSet('dnq_player_name', name); // save for community board pre-fill
 
