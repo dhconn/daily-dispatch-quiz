@@ -2983,6 +2983,14 @@
         </div>
       </div>
 
+      <div class="admin-section" style="margin-top:20px;" id="anc-share-clicks">
+        <h3>Share Clicks</h3>
+        <p style="font-family:monospace;font-size:12px;color:var(--muted);margin-bottom:8px;">X/Bluesky counts when the share window opens — not confirmation they actually posted. Copy counts a confirmed clipboard write.</p>
+        <div id="share-clicks-stats" style="font-family:monospace;font-size:13px;color:var(--muted);">
+          <p>Loading…</p>
+        </div>
+      </div>
+
       <div class="admin-section" style="margin-top:20px;" id="anc-leaderboard">
         <h3>Leaderboard</h3>
         <p style="font-family:monospace;font-size:12px;color:var(--muted);margin-bottom:8px;">View without affecting
@@ -4444,12 +4452,28 @@
       el.innerHTML = html;
     }
 
+    // Fire-and-forget: records that the share intent was opened, not that a
+    // post was actually completed — X/Bluesky give no callback for that.
+    // keepalive lets the request survive the tab losing focus to window.open.
+    function logShareClick(platform) {
+      try {
+        fetch('/api/share-click', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          keepalive: true,
+          body: JSON.stringify({ platform, date: state.todayKey, playerName: state.playerName || '' })
+        }).catch(() => {});
+      } catch (e) { }
+    }
+
     function shareOnX() {
+      logShareClick('x');
       const text = encodeURIComponent(buildShareText());
       window.open('https://x.com/intent/tweet?text=' + text, '_blank');
     }
 
     function shareOnBluesky() {
+      logShareClick('bluesky');
       const text = encodeURIComponent(buildShareText());
       window.open('https://bsky.app/intent/compose?text=' + text, '_blank');
     }
@@ -4570,6 +4594,9 @@
 
     function copyShareText() {
       navigator.clipboard.writeText(buildShareText()).then(() => {
+        // Only logged on actual success — unlike the X/Bluesky intents, a
+        // resolved clipboard write is a real confirmation, not just a click.
+        logShareClick('copy');
         // Updates every confirm element (inline card + popup, if present)
         // so the message shows wherever the player actually clicked from.
         document.querySelectorAll('.share-copy-confirm').forEach(el => {
@@ -5881,6 +5908,7 @@
       loadSubscribers();
       loadAdminArchive();
       loadAdminStats();
+      loadShareClicks();
       loadTodayQuestions();
       loadPlayerList();
       loadBlocklist();
@@ -9203,6 +9231,55 @@
     `;
       } catch (e) {
         el.innerHTML = '<p style="color:var(--muted);">Could not load stats.</p>';
+      }
+    }
+
+    async function loadShareClicks() {
+      const el = document.getElementById('share-clicks-stats');
+      if (!el) return;
+      try {
+        const adminToken = lsGet('dnq_admin_token') || 'admin';
+        const res = await fetch('/api/admin/share-clicks', {
+          headers: { 'x-admin-token': adminToken }
+        });
+        const data = await res.json();
+        if (!data.ok) { el.innerHTML = '<p style="color:var(--muted);">Could not load share clicks.</p>'; return; }
+
+        const recentRows = data.recent.map(c =>
+          `<tr><td style="padding:3px 8px;">${c.date || '—'}</td><td style="padding:3px 8px;text-transform:capitalize;">${c.platform}</td><td style="padding:3px 8px;">${c.playerName || '—'}</td></tr>`
+        ).join('');
+
+        el.innerHTML = `
+          <div style="display:flex;gap:16px;margin-bottom:14px;">
+            <div style="background:white;border:1px solid var(--rule);padding:12px;text-align:center;flex:1;">
+              <div style="font-size:22px;font-weight:bold;color:var(--ink);">${data.todayTotals.x}</div>
+              <div style="font-size:10px;letter-spacing:1px;color:var(--muted);margin-top:2px;">X TODAY</div>
+            </div>
+            <div style="background:white;border:1px solid var(--rule);padding:12px;text-align:center;flex:1;">
+              <div style="font-size:22px;font-weight:bold;color:var(--ink);">${data.todayTotals.bluesky}</div>
+              <div style="font-size:10px;letter-spacing:1px;color:var(--muted);margin-top:2px;">BLUESKY TODAY</div>
+            </div>
+            <div style="background:white;border:1px solid var(--rule);padding:12px;text-align:center;flex:1;">
+              <div style="font-size:22px;font-weight:bold;color:var(--ink);">${data.todayTotals.copy}</div>
+              <div style="font-size:10px;letter-spacing:1px;color:var(--muted);margin-top:2px;">COPY TODAY</div>
+            </div>
+            <div style="background:white;border:1px solid var(--rule);padding:12px;text-align:center;flex:1;">
+              <div style="font-size:22px;font-weight:bold;color:var(--ink);">${data.totals.x}</div>
+              <div style="font-size:10px;letter-spacing:1px;color:var(--muted);margin-top:2px;">X ALL-TIME</div>
+            </div>
+            <div style="background:white;border:1px solid var(--rule);padding:12px;text-align:center;flex:1;">
+              <div style="font-size:22px;font-weight:bold;color:var(--ink);">${data.totals.bluesky}</div>
+              <div style="font-size:10px;letter-spacing:1px;color:var(--muted);margin-top:2px;">BLUESKY ALL-TIME</div>
+            </div>
+            <div style="background:white;border:1px solid var(--rule);padding:12px;text-align:center;flex:1;">
+              <div style="font-size:22px;font-weight:bold;color:var(--ink);">${data.totals.copy}</div>
+              <div style="font-size:10px;letter-spacing:1px;color:var(--muted);margin-top:2px;">COPY ALL-TIME</div>
+            </div>
+          </div>
+          ${data.recent.length ? `<table style="width:100%;border-collapse:collapse;font-size:12px;"><tr style="text-align:left;color:var(--muted);"><th style="padding:3px 8px;">Date</th><th style="padding:3px 8px;">Platform</th><th style="padding:3px 8px;">Player</th></tr>${recentRows}</table>` : '<p style="color:var(--muted);">No share clicks yet.</p>'}
+        `;
+      } catch (e) {
+        el.innerHTML = '<p style="color:var(--muted);">Could not load share clicks.</p>';
       }
     }
 

@@ -1038,6 +1038,54 @@ app.post('/api/admin/blocklist', async (req, res) => {
   }
 });
 
+// ── POST /api/share-click — fired when a player opens the X/Bluesky share
+// intent, or successfully copies their share text. The X/Bluesky cases can't
+// confirm an actual post (that happens on the platform's own site, with no
+// callback to us) — those are a proxy signal. 'copy' is a real confirmation,
+// since the clipboard write either succeeds or the client never calls this.
+app.post('/api/share-click', async (req, res) => {
+  const { platform, date, playerName } = req.body || {};
+  if (platform !== 'x' && platform !== 'bluesky' && platform !== 'copy') {
+    return res.status(400).json({ error: 'platform must be x, bluesky, or copy' });
+  }
+  try {
+    const clicks = (await getKey('shareClicks')) || [];
+    clicks.push({
+      platform,
+      date: typeof date === 'string' ? date : null,
+      playerName: typeof playerName === 'string' ? playerName.slice(0, 100) : '',
+      ts: new Date().toISOString()
+    });
+    await setKey('shareClicks', clicks);
+    res.json({ ok: true });
+  } catch (e) {
+    // Non-fatal — never let tracking failure surface to the player.
+    console.warn('[share-click] failed (non-fatal):', e.message);
+    res.json({ ok: false });
+  }
+});
+
+// ── GET /api/admin/share-clicks — totals + recent feed for admin panel ──
+app.get('/api/admin/share-clicks', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const clicks = (await getKey('shareClicks')) || [];
+    const today = easternToday();
+    const totals = { x: 0, bluesky: 0, copy: 0 };
+    const todayTotals = { x: 0, bluesky: 0, copy: 0 };
+    for (const c of clicks) {
+      if (totals[c.platform] === undefined) continue;
+      totals[c.platform]++;
+      if (c.date === today) todayTotals[c.platform]++;
+    }
+    const recent = clicks.slice(-25).reverse();
+    res.json({ ok: true, totals, todayTotals, today, recent });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.delete('/api/admin/blocklist/:name', async (req, res) => {
   const adminToken = process.env.ADMIN_TOKEN || 'admin';
   if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
