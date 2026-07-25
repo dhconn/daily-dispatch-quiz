@@ -1513,6 +1513,122 @@ function easternToday() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
 }
 
+// ── Bylines & Newshound designations ────────────────────────────
+// A "Byline" is a perfect 150 on the live daily quiz, first play only.
+// Reuses the same first-play guarantee /api/progress already relies on:
+// a replay or archive play never touches progress[date][playerKey] (see
+// saveProgressToServer's archiveMode/isReplay guards client-side), so
+// anything sitting in that record for a date is inherently the first
+// completion — no parallel replay-tracking needed here.
+//
+// bylines[date][playerKey] = { displayName, awardedAt } — never pruned
+// (stays tiny: a handful of entries a day at most). Presence of
+// bylines[date] at all (even {}) marks that date as processed, which is
+// what makes awardBylinesForDate idempotent across restarts.
+//
+// A "Newshound" is 10 Bylines within a calendar month (America/New_York).
+// newshoundEvents[date][playerKey] records the day a player's monthly
+// count first reached exactly 10, so the next day's email knows who to
+// specifically celebrate without re-scanning or re-firing on later days.
+
+function countPlayerBylinesInMonth(bylines, playerKey, monthPrefix) {
+  let count = 0;
+  for (const [date, players] of Object.entries(bylines)) {
+    if (date.startsWith(monthPrefix) && players[playerKey]) count++;
+  }
+  return count;
+}
+
+async function awardBylinesForDate(date) {
+  const bylines = (await getKey('bylines')) || {};
+  if (bylines[date]) return; // already processed — idempotent no-op
+
+  const dayProgress = (await getKey('progress') || {})[date] || {};
+  const awarded = {};
+  for (const [key, p] of Object.entries(dayProgress)) {
+    if (p.completed && p.score === 150 && !p.synthetic) {
+      awarded[key] = { displayName: p.displayName || key, awardedAt: new Date().toISOString() };
+    }
+  }
+
+  // Stored even when empty — that's the marker that prevents reprocessing.
+  bylines[date] = awarded;
+  await setKey('bylines', bylines);
+
+  if (Object.keys(awarded).length) {
+    const monthPrefix = date.slice(0, 7);
+    const newshoundEvents = (await getKey('newshoundEvents')) || {};
+    const dayEvents = {};
+    for (const [key, info] of Object.entries(awarded)) {
+      if (countPlayerBylinesInMonth(bylines, key, monthPrefix) === 10) {
+        dayEvents[key] = { displayName: info.displayName, month: monthPrefix };
+      }
+    }
+    if (Object.keys(dayEvents).length) {
+      newshoundEvents[date] = dayEvents;
+      await setKey('newshoundEvents', newshoundEvents);
+    }
+  }
+
+  console.log(`[Bylines] Processed ${date} — ${Object.keys(awarded).length} Byline(s) awarded.`);
+}
+
+// Catches up on any unprocessed date within the progress-retention window
+// (5 days) — covers extended downtime — but never touches today, since
+// today's plays aren't finished yet. Safe to call every minute: each
+// date is a no-op once bylines[date] already exists.
+async function processPendingBylines() {
+  try {
+    const today = easternToday();
+    for (let i = 5; i >= 1; i--) {
+      const d = new Date(today + 'T12:00:00');
+      d.setDate(d.getDate() - i);
+      await awardBylinesForDate(d.toISOString().slice(0, 10));
+    }
+  } catch (e) {
+    console.error('[Bylines] processPendingBylines error:', e.message);
+  }
+}
+
+// Public — same class of data as /api/scores and /api/progress.
+app.get('/api/bylines', async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    const month = /^\d{4}-\d{2}$/.test(req.query.month || '') ? req.query.month : easternToday().slice(0, 7);
+    const bylines = (await getKey('bylines')) || {};
+    const byPlayer = {};
+
+    for (const [date, players] of Object.entries(bylines)) {
+      for (const [key, info] of Object.entries(players)) {
+        if (!byPlayer[key]) byPlayer[key] = { displayName: info.displayName, monthCount: 0, lifetimeCount: 0 };
+        byPlayer[key].lifetimeCount++;
+        if (date.startsWith(month)) byPlayer[key].monthCount++;
+      }
+    }
+
+    // Today's Bylines aren't persisted yet (the award job only ever
+    // processes yesterday-and-earlier) — live-check so the leaderboard
+    // reflects a perfect score the moment it happens, not the next day.
+    const today = easternToday();
+    if (today.startsWith(month) && !bylines[today]) {
+      const dayProgress = (await getKey('progress') || {})[today] || {};
+      for (const [key, p] of Object.entries(dayProgress)) {
+        if (p.completed && p.score === 150 && !p.synthetic) {
+          if (!byPlayer[key]) byPlayer[key] = { displayName: p.displayName || key, monthCount: 0, lifetimeCount: 0 };
+          byPlayer[key].monthCount++;
+          byPlayer[key].lifetimeCount++;
+        }
+      }
+    }
+
+    Object.values(byPlayer).forEach(p => { p.isNewshoundThisMonth = p.monthCount >= 10; });
+
+    res.json({ ok: true, month, byPlayer });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Player identity key: trim, collapse internal whitespace runs to one
 // space, lowercase. Used everywhere a Player Name is turned into the key
 // that scores/progress/streaks accumulate under, so a typo'd double space
@@ -1943,6 +2059,7 @@ return `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;colo
     <div style="padding:32px 24px;background:#f5f0e8;">
 <!--REFERRAL_STRIP_INSERT_POINT-->
       <p style="font-size:18px;margin:0 0 16px;">Hi${subscriberName ? ' ' + subscriberName : ''} — start today's quiz by clicking your answer here:</p>
+<!--BYLINES_TEASER_INSERT_POINT-->
       <div style="background:white;border:2px solid #1a1008;padding:20px 20px 10px;margin-bottom:20px;box-shadow:4px 4px 0 #1a1008;">
         <div style="font-family:monospace;font-size:11px;letter-spacing:2px;color:#6b5f4e;margin-bottom:12px;">QUESTION 1 OF 5 · STARTER</div>
         <div style="font-size:19px;line-height:1.5;color:#1a1008;font-weight:400;margin-bottom:16px;">${q1.question}</div>
@@ -1954,6 +2071,7 @@ return `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;colo
 <!--EDITOR_MESSAGE_INSERT_POINT-->
 <!--YESTERDAY_INSERT_POINT-->
 <!--SUBSCRIBE_INSERT_POINT-->
+<!--BYLINES_SECTION_INSERT_POINT-->
     </div>
     ${j4.signoff}
     <div style="padding:16px 24px;text-align:center;font-size:11px;color:#999;font-family:monospace;border-top:1px solid #e0d8cc;">
@@ -1976,6 +2094,7 @@ function buildEmailHtml(siteUrl, date, subscriberName, teaserHtml, unsubUrl, tra
     </a>
     <div style="padding:32px 24px;background:#f5f0e8;text-align:center;">
       <p style="font-size:18px;margin:0 0 8px;">Hi${subscriberName ? ' ' + subscriberName : ''},</p>
+<!--BYLINES_TEASER_INSERT_POINT-->
 <!--REFERRAL_STRIP_INSERT_POINT-->
       <p style="font-size:16px;color:#444;margin:0 0 8px;">6 questions. 90 seconds.</p>
       <p style="font-size:16px;color:#444;margin:0 0 24px;">How closely are you following the news?</p>
@@ -1984,12 +2103,58 @@ function buildEmailHtml(siteUrl, date, subscriberName, teaserHtml, unsubUrl, tra
       <a href="${siteUrl}/news-quiz.html${trackingToken ? '?tok=' + encodeURIComponent(trackingToken) + '&group=A' : ''}" style="display:inline-block;background:#1a1008;color:#f5f0e8;padding:16px 36px;font-family:monospace;font-size:13px;letter-spacing:2px;text-decoration:none;text-transform:uppercase;">Play Today's Quiz ▸</a>
 
 <!--SUBSCRIBE_INSERT_POINT-->
+<!--BYLINES_SECTION_INSERT_POINT-->
     </div>
     ${j4.signoff}
     <div style="padding:16px 24px;text-align:center;font-size:11px;color:#999;font-family:monospace;border-top:1px solid #e0d8cc;">
       <a href="${unsubUrl}" style="color:#999;">Unsubscribe</a>
     </div>
   </div>`;
+}
+
+// Bylines/Newshound email content — computed once per send-run from
+// bylines[yesterday] and newshoundEvents[yesterday], then the same HTML is
+// dropped into every recipient's email (not personalized per-recipient).
+// Both resolve to '' when nobody earned a Byline yesterday — no filler.
+function buildBylinesTeaserHtml(bylineNames, newNewshoundNames) {
+  if (!bylineNames.length) return '';
+  const suffix = newNewshoundNames.length ? ' (and a new Newshound!)' : '';
+  return `      <p style="text-align:center;font-family:monospace;font-size:12px;color:#6b5f4e;margin:0 0 20px;">&#9998; Yesterday's Bylines${suffix} — perfect 150s — are listed at the end of this email.</p>\n`;
+}
+
+function buildBylinesSectionHtml(bylineNames, newNewshoundNames) {
+  if (!bylineNames.length) return '';
+  const namesHtml = bylineNames.join(', ');
+  const newshoundHtml = newNewshoundNames.length
+    ? newNewshoundNames.map(n => `<p style="font-size:14px;color:#1a1008;margin:10px 0 0;">&#128062; <strong>${n}</strong> is now a <strong>Newshound</strong> — 10 perfect scores this month!</p>`).join('')
+    : '';
+  return `
+    <div style="margin-top:24px;padding:18px;background:#fff;border:1px solid #e0d8cc;text-align:center;">
+      <div style="font-family:monospace;font-size:10px;letter-spacing:2px;color:#6b5f4e;margin-bottom:8px;">&#9998; YESTERDAY'S BYLINES — PERFECT 150</div>
+      <p style="font-size:14px;color:#1a1008;margin:0;">${namesHtml}</p>
+      ${newshoundHtml}
+    </div>`;
+}
+
+// Shared by both send paths (scheduled publish + manual /api/quiz) so the
+// yesterday-lookup logic lives in exactly one place. Reads already-awarded
+// records only — never awards anything itself, so it's safe to call as
+// many times as an email gets (re)built.
+async function getBylinesEmailContent(date) {
+  const yd = new Date(date + 'T12:00:00');
+  yd.setDate(yd.getDate() - 1);
+  const yesterday = yd.toISOString().slice(0, 10);
+
+  const dayBylines = ((await getKey('bylines')) || {})[yesterday] || {};
+  const dayNewshounds = ((await getKey('newshoundEvents')) || {})[yesterday] || {};
+
+  const bylineNames = Object.values(dayBylines).map(b => b.displayName);
+  const newNewshoundNames = Object.values(dayNewshounds).map(n => n.displayName);
+
+  return {
+    teaserHtml: buildBylinesTeaserHtml(bylineNames, newNewshoundNames),
+    sectionHtml: buildBylinesSectionHtml(bylineNames, newNewshoundNames)
+  };
 }
 
 function buildResultsHtml(playerProgress, yesterdayQuiz) {
@@ -2359,6 +2524,7 @@ app.post('/api/quiz', async (req, res) => {
     const communityMessageLastSent = (freshData.communityMessageLastSent || '').trim();
     const shouldIncludeEditorMessage = communityMessage.length > 0 && communityMessage !== communityMessageLastSent;
     const editorMessageHtml = shouldIncludeEditorMessage ? buildEditorMessageHtml(communityMessage, freshData.communityImageUrl || '') : '';
+    const { teaserHtml: bylinesTeaserHtml, sectionHtml: bylinesSectionHtml } = await getBylinesEmailContent(date);
 
     const subscribers = freshData.emailPaused ? [] : Object.values(freshData.subscribers || {}).filter(s => s.active);
     if (subscribers.length > 0) {
@@ -2431,12 +2597,13 @@ app.post('/api/quiz', async (req, res) => {
         }
 
         baseHtml = baseHtml.replace('<!--EDITOR_MESSAGE_INSERT_POINT-->', editorMessageHtml);
+        baseHtml = baseHtml.replace('<!--BYLINES_TEASER_INSERT_POINT-->', bylinesTeaserHtml);
         const subReferralStrip = sub.referralCode ? buildReferralStripHtml(buildReferralMailto(siteUrl, sub.referralCode)) : '';
         baseHtml = baseHtml.replace('<!--REFERRAL_STRIP_INSERT_POINT-->', subReferralStrip);
         const withResults = resultsHtml
           ? baseHtml.replace('<!--YESTERDAY_INSERT_POINT-->', resultsHtml)
           : baseHtml.replace('<!--YESTERDAY_INSERT_POINT-->', '');
-        const html = withResults.replace('<!--SUBSCRIBE_INSERT_POINT-->', '');
+        const html = withResults.replace('<!--SUBSCRIBE_INSERT_POINT-->', '').replace('<!--BYLINES_SECTION_INSERT_POINT-->', bylinesSectionHtml);
 
         emails.push({
           from: process.env.FROM_EMAIL || 'David @ Daily Dispatch Quiz <david@dailydispatchquiz.com>',
@@ -2521,6 +2688,7 @@ const prospectEmails = [];
         }
 
         baseHtml = baseHtml.replace('<!--EDITOR_MESSAGE_INSERT_POINT-->', editorMessageHtml);
+        baseHtml = baseHtml.replace('<!--BYLINES_TEASER_INSERT_POINT-->', bylinesTeaserHtml);
         const prospectInviteUrl = `${siteUrl}/api/prospect-invite?code=${p.referralCode}`;
         const prospectReferralStrip = buildReferralStripHtml(prospectInviteUrl);
         baseHtml = baseHtml.replace('<!--REFERRAL_STRIP_INSERT_POINT-->', prospectReferralStrip);
@@ -2531,7 +2699,7 @@ const prospectEmails = [];
             <a href="${subscribeUrl}" style="display:inline-block;background:#c0392b;color:white;padding:16px 40px;font-family:monospace;font-size:14px;letter-spacing:2px;text-decoration:none;text-transform:uppercase;font-weight:bold;">Subscribe Free &#9658;</a>
           </div>`;
 
-        const html = baseHtml.replace('<!--SUBSCRIBE_INSERT_POINT-->', subscribeBtn);
+        const html = baseHtml.replace('<!--SUBSCRIBE_INSERT_POINT-->', subscribeBtn).replace('<!--BYLINES_SECTION_INSERT_POINT-->', bylinesSectionHtml);
 
         prospectEmails.push({
           from: process.env.FROM_EMAIL || 'David @ Daily Dispatch Quiz <david@dailydispatchquiz.com>',
@@ -2820,6 +2988,9 @@ app.post('/api/quiz/test-email', async (req, res) => {
 
     html = html.replace('<!--EDITOR_MESSAGE_INSERT_POINT-->', '');
     html = html.replace('<!--YESTERDAY_INSERT_POINT-->', '');
+    const { teaserHtml: testBylinesTeaserHtml, sectionHtml: testBylinesSectionHtml } = await getBylinesEmailContent(date);
+    html = html.replace('<!--BYLINES_TEASER_INSERT_POINT-->', testBylinesTeaserHtml);
+    html = html.replace('<!--BYLINES_SECTION_INSERT_POINT-->', testBylinesSectionHtml);
     let testReferralCode = subRecord && subRecord.referralCode;
     if (!testReferralCode && subRecord) {
       testReferralCode = Buffer.from(testEmail + Math.random()).toString('base64')
@@ -3350,6 +3521,8 @@ app.post('/api/reporter-email', async (req, res) => {
     // scheduleMonthlyWinner(); // TEMPORARILY DISABLED
     setInterval(checkScheduledPublish, 60000); // check every minute
     checkScheduledPublish(); // check immediately on startup in case of server restart
+    setInterval(processPendingBylines, 60000);
+    processPendingBylines(); // check immediately on startup in case of server restart
   } catch (err) {
 console.error('DB init failed:', JSON.stringify(err));    process.exit(1);
   }
@@ -4099,6 +4272,7 @@ async function checkScheduledPublish() {
     const communityMessageLastSent = (freshData.communityMessageLastSent || '').trim();
     const shouldIncludeEditorMessage = communityMessage.length > 0 && communityMessage !== communityMessageLastSent;
     const editorMessageHtml = shouldIncludeEditorMessage ? buildEditorMessageHtml(communityMessage, freshData.communityImageUrl || '') : '';
+    const { teaserHtml: bylinesTeaserHtml, sectionHtml: bylinesSectionHtml } = await getBylinesEmailContent(date);
 
     const subscribers = freshData.emailPaused ? [] : Object.values(freshData.subscribers || {}).filter(s => s.active);
     if (subscribers.length > 0) {
@@ -4148,12 +4322,13 @@ async function checkScheduledPublish() {
         }
 
         baseHtml = baseHtml.replace('<!--EDITOR_MESSAGE_INSERT_POINT-->', editorMessageHtml);
+        baseHtml = baseHtml.replace('<!--BYLINES_TEASER_INSERT_POINT-->', bylinesTeaserHtml);
         const subReferralStrip = sub.referralCode ? buildReferralStripHtml(buildReferralMailto(siteUrl, sub.referralCode)) : '';
         baseHtml = baseHtml.replace('<!--REFERRAL_STRIP_INSERT_POINT-->', subReferralStrip);
         const withResults = resultsHtml
           ? baseHtml.replace('<!--YESTERDAY_INSERT_POINT-->', resultsHtml)
           : baseHtml.replace('<!--YESTERDAY_INSERT_POINT-->', '');
-        const html = withResults.replace('<!--SUBSCRIBE_INSERT_POINT-->', '');
+        const html = withResults.replace('<!--SUBSCRIBE_INSERT_POINT-->', '').replace('<!--BYLINES_SECTION_INSERT_POINT-->', bylinesSectionHtml);
 
         emails.push({
           from: process.env.FROM_EMAIL || 'David @ Daily Dispatch Quiz <david@dailydispatchquiz.com>',
@@ -4214,6 +4389,7 @@ async function checkScheduledPublish() {
         }
 
         baseHtml = baseHtml.replace('<!--EDITOR_MESSAGE_INSERT_POINT-->', editorMessageHtml);
+        baseHtml = baseHtml.replace('<!--BYLINES_TEASER_INSERT_POINT-->', bylinesTeaserHtml);
         const prospectInviteUrl = `${siteUrl}/api/prospect-invite?code=${p.referralCode}`;
         baseHtml = baseHtml.replace('<!--REFERRAL_STRIP_INSERT_POINT-->', buildReferralStripHtml(prospectInviteUrl));
         const subscribeBtn = `
@@ -4227,7 +4403,7 @@ async function checkScheduledPublish() {
           from: process.env.FROM_EMAIL || 'David @ Daily Dispatch Quiz <david@dailydispatchquiz.com>',
           reply_to: 'dhconn@gmail.com',
           to: [p.email], subject,
-          html: baseHtml.replace('<!--SUBSCRIBE_INSERT_POINT-->', subscribeBtn)
+          html: baseHtml.replace('<!--SUBSCRIBE_INSERT_POINT-->', subscribeBtn).replace('<!--BYLINES_SECTION_INSERT_POINT-->', bylinesSectionHtml)
         });
       }
 

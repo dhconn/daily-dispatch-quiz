@@ -1882,6 +1882,35 @@
 
 <body>
 
+  <!-- Newshound badge mark — reused at every size via <use href="#hound">.
+       One asset for leaderboard chips, the "you're now a Newshound" popup,
+       and (server-side, separately) the daily email recap. -->
+  <svg width="0" height="0" style="position:absolute;">
+    <defs>
+      <g id="hound">
+        <path d="M 32 34 C 16 40, 8 58, 14 78 C 17 88, 26 90, 32 82 C 36 74, 34 50, 38 38 Z" fill="#7a4a26"/>
+        <path d="M 68 34 C 84 40, 92 58, 86 78 C 83 88, 74 90, 68 82 C 64 74, 66 50, 62 38 Z" fill="#7a4a26"/>
+        <ellipse cx="50" cy="54" rx="25" ry="23" fill="#a3673a"/>
+        <ellipse cx="50" cy="67" rx="15" ry="11.5" fill="#e3c39a"/>
+        <ellipse cx="50" cy="62" rx="4.2" ry="3.2" fill="var(--ink)"/>
+        <path d="M 50 65 L 50 70" stroke="var(--ink)" stroke-width="1.4" stroke-linecap="round"/>
+        <path d="M 33 47 Q 38 42, 44 46" fill="none" stroke="#7a4a26" stroke-width="2.4" stroke-linecap="round"/>
+        <path d="M 67 47 Q 62 42, 56 46" fill="none" stroke="#7a4a26" stroke-width="2.4" stroke-linecap="round"/>
+        <ellipse cx="40" cy="52" rx="3.4" ry="4" fill="var(--ink)"/>
+        <ellipse cx="60" cy="52" rx="3.4" ry="4" fill="var(--ink)"/>
+        <circle cx="41.2" cy="50.4" r="0.9" fill="#fff"/>
+        <circle cx="61.2" cy="50.4" r="0.9" fill="#fff"/>
+        <ellipse cx="49" cy="31" rx="33" ry="8.5" transform="rotate(-7 49 31)" fill="var(--ink)"/>
+        <g transform="rotate(-4 50 20)">
+          <path d="M 26 30 C 27 15, 40 8, 51 8 C 63 8, 74 16, 73 30 C 73 33, 26 33, 26 30 Z" fill="var(--ink)"/>
+          <path d="M 25.5 27.5 C 30 30.5, 68 30.5, 73.5 27" fill="none" stroke="var(--gold-light)" stroke-width="4"/>
+          <rect x="27" y="19" width="46" height="19" rx="2" fill="var(--paper)" stroke="var(--ink)" stroke-width="2"/>
+          <text x="50" y="33" text-anchor="middle" font-family="'Courier Prime',monospace" font-size="11" font-weight="700" fill="var(--ink)" letter-spacing="0.5">SCOOP</text>
+        </g>
+      </g>
+    </defs>
+  </svg>
+
   <!-- MASTHEAD -->
   <div id="masthead">
     <div class="dateline" id="today-dateline"></div>
@@ -1924,6 +1953,9 @@
           <div class="label">pts each<br>Q6 · Bonus</div>
         </div>
       </div>
+      <p style="text-align:center;font-size:12px;color:var(--muted);font-family:'Courier Prime',monospace;max-width:420px;margin:4px auto 0;line-height:1.6;">
+        &#9998; Score a perfect 150 and earn a <strong>Byline</strong> for the day — <u>first play only</u>; a replay never earns one, even if your first attempt wasn't perfect. Land 10 Bylines in a calendar month and you become that month's <strong>Newshound</strong>.
+      </p>
       <div class="edition-rule">Enter Your Byline</div>
       <div id="reg-streak-display"
         style="display:none;margin:0 auto 16px;max-width:420px;text-align:center;font-family:'Courier Prime',monospace;font-size:13px;letter-spacing:1px;color:var(--gold);padding:8px 0;">
@@ -2297,6 +2329,7 @@
           <div>✦ &nbsp;Questions get harder as you go</div>
           <div>✦ &nbsp;Partial points for every answer, even wrong ones</div>
           <div>✦ &nbsp;Finish all 6 for a completion bonus</div>
+          <div>✦ &nbsp;Perfect 150 = a Byline (first play only)</div>
           <div>✦ &nbsp;Start your streak — best your friends</div>
         </div>
         <button onclick="dismissFirstTimeOverlay()" style="
@@ -5790,6 +5823,15 @@
 
     let rows = [];
 
+    // Bylines/Newshound: same for every tab (it's a fixed per-player,
+    // this-month fact), so fetched once regardless of which tab renders.
+    let bylinesByPlayer = {};
+    try {
+      const bylinesRes = await fetch('/api/bylines?month=' + monthPrefix);
+      const bylinesData = await bylinesRes.json();
+      if (bylinesData.ok) bylinesByPlayer = bylinesData.byPlayer || {};
+    } catch (e) { }
+
     if (tab === 'today') {
       try {
         const adminToken = lsGet('dnq_admin_token') || 'admin';
@@ -5824,7 +5866,10 @@
             score: Number(p.score) || 0,
             isMe: key === normPlayerKey(state.playerName),
             isSubscriber: !!subscriberEmails[key],
-            mugWon: !!mugWonMap[key]
+            mugWon: !!mugWonMap[key],
+            gotBylineToday: !!(p.completed && Number(p.score) === 150 && !p.synthetic),
+            bylineMonthCount: (bylinesByPlayer[key] || {}).monthCount || 0,
+            isNewshound: !!(bylinesByPlayer[key] || {}).isNewshoundThisMonth
          }));
      } catch (e) {
        rows = [];
@@ -5876,7 +5921,10 @@
           score,
           isMe: key === normPlayerKey(state.playerName),
           isSubscriber: !!subscriberKeys[key],
-          mugWon: !!mugWonKeys[key]
+          mugWon: !!mugWonKeys[key],
+          gotBylineToday: false, // only known from live "today" progress, not scores history
+          bylineMonthCount: (bylinesByPlayer[key] || {}).monthCount || 0,
+          isNewshound: !!(bylinesByPlayer[key] || {}).isNewshoundThisMonth
         };
       });
     }
@@ -5898,10 +5946,12 @@
           : 'All-Time';
 
       let html = `
-    <div style="font-family:'Courier Prime',monospace;font-size:11px;color:var(--muted);margin-bottom:12px;display:flex;gap:16px;flex-wrap:wrap;">
+    <div style="font-family:'Courier Prime',monospace;font-size:11px;color:var(--muted);margin-bottom:12px;display:flex;gap:16px;flex-wrap:wrap;align-items:center;">
       <span>☕ = mug eligible subscriber</span>
       <span>🏆 = mug winner</span>
       <span>— = subscribe to be eligible</span>
+      <span>✎ N = Bylines this month (perfect 150, first play) · bold = today</span>
+      <span style="display:inline-flex;align-items:center;gap:4px;"><svg width="13" height="13" viewBox="0 0 100 100" style="vertical-align:-2px;"><use href="#hound"></use></svg> = Newshound, 10+ this month</span>
     </div>
     <div style="font-family:'Courier Prime',monospace;font-size:11px;letter-spacing:2px;
                 color:var(--muted);text-transform:uppercase;margin-bottom:12px;">
@@ -5923,9 +5973,17 @@
           : r.mugWon
           ? ' <span style="color:var(--gold);font-family:\'Courier Prime\',monospace;font-size:10px;">🏆</span>'
           : ' <span style="color:var(--muted);font-family:\'Courier Prime\',monospace;font-size:10px;" title="Subscribe to be mug eligible">—</span>';
+        const bylineBadge = r.isNewshound
+          ? ` <span style="display:inline-flex;align-items:center;gap:4px;vertical-align:middle;">
+              <svg width="24" height="24" viewBox="0 0 100 100" style="vertical-align:-6px;"><use href="#hound"></use></svg>
+              <span style="font-family:'Courier Prime',monospace;font-size:10px;letter-spacing:1px;font-weight:700;color:var(--gold);">NEWSHOUND</span>
+            </span>`
+          : r.bylineMonthCount > 0
+          ? ` <span style="font-family:'Courier Prime',monospace;font-size:10px;padding:1px 6px;border-radius:3px;border:1px solid ${r.gotBylineToday ? 'var(--ink)' : 'var(--rule)'};color:${r.gotBylineToday ? 'var(--ink)' : 'var(--muted)'};font-weight:${r.gotBylineToday ? '700' : '400'};${r.gotBylineToday ? 'background:rgba(240,192,64,0.2);' : ''}">✎ ${r.bylineMonthCount}</span>`
+          : '';
         html += `<tr class="${r.isMe ? 'me' : ''}">
       <td><div class="rank ${rankCls}">${i + 1}</div></td>
-      <td style="font-weight:${r.isMe ? '700' : '400'}">${escHtml(r.name)}${r.isMe ? ' <span style="color:var(--red);font-family:\'Courier Prime\',monospace;font-size:11px;">◀ YOU</span>' : ''}${eligibleBadge}</td>
+      <td style="font-weight:${r.isMe || r.isNewshound ? '700' : '400'};${r.isNewshound ? 'color:var(--gold);' : ''}">${escHtml(r.name)}${r.isMe ? ' <span style="color:var(--red);font-family:\'Courier Prime\',monospace;font-size:11px;">◀ YOU</span>' : ''}${eligibleBadge}${bylineBadge}</td>
       <td style="text-align:right"><span class="score-val">${r.score}</span></td>
     </tr>`;
       });
@@ -9278,6 +9336,10 @@
         <div style="background:white;border:1px solid var(--rule);padding:12px;text-align:center;">
           <div style="font-size:22px;font-weight:bold;color:var(--ink);">${avgScore}</div>
           <div style="font-size:10px;letter-spacing:1px;color:var(--muted);margin-top:2px;">AVG SCORE</div>
+        </div>
+        <div style="background:white;border:1px solid var(--rule);padding:12px;text-align:center;">
+          <div style="font-size:22px;font-weight:bold;color:var(--ink);">${players.filter(p => p.completed && Number(p.score) === 150 && !p.synthetic).length}</div>
+          <div style="font-size:10px;letter-spacing:1px;color:var(--muted);margin-top:2px;">BYLINES TODAY</div>
         </div>
       </div>
       <table style="width:100%;border-collapse:collapse;font-size:12px;">${qRows}</table>
