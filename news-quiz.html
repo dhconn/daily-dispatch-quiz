@@ -2249,6 +2249,10 @@
           <button onclick="shareOnBluesky()"
             style="font-family:monospace;font-size:12px;padding:8px 16px;background:#0085ff;color:#fff;border:none;cursor:pointer;border-radius:2px;">Share
             on Bluesky</button>
+          <button onclick="shareOnWhatsApp()"
+            style="font-family:monospace;font-size:12px;padding:8px 16px;background:#25d366;color:#fff;border:none;cursor:pointer;border-radius:2px;">WhatsApp</button>
+          <button onclick="shareOnSMS()" class="share-btn-sms"
+            style="font-family:monospace;font-size:12px;padding:8px 16px;background:#34c759;color:#fff;border:none;cursor:pointer;border-radius:2px;">Text</button>
           <button onclick="copyShareText()"
             style="font-family:monospace;font-size:12px;padding:8px 16px;background:none;border:1px solid var(--rule);color:var(--ink);cursor:pointer;border-radius:2px;">Copy</button>
         </div>
@@ -2367,6 +2371,10 @@
           <button onclick="shareOnBluesky()"
             style="font-family:monospace;font-size:12px;padding:8px 16px;background:#0085ff;color:#fff;border:none;cursor:pointer;border-radius:2px;">Share
             on Bluesky</button>
+          <button onclick="shareOnWhatsApp()"
+            style="font-family:monospace;font-size:12px;padding:8px 16px;background:#25d366;color:#fff;border:none;cursor:pointer;border-radius:2px;">WhatsApp</button>
+          <button onclick="shareOnSMS()" class="share-btn-sms"
+            style="font-family:monospace;font-size:12px;padding:8px 16px;background:#34c759;color:#fff;border:none;cursor:pointer;border-radius:2px;">Text</button>
           <button onclick="copyShareText()"
             style="font-family:monospace;font-size:12px;padding:8px 16px;background:none;border:1px solid var(--rule);color:var(--ink);cursor:pointer;border-radius:2px;">Copy</button>
         </div>
@@ -4429,8 +4437,14 @@
       const rankLine = totalPlayers > 0
         ? `${state.sessionScore} pts · #${state.shareRank} of ${totalPlayers} today`
         : `${state.sessionScore} pts`;
-      const siteUrl = 'https://dailydispatchquiz.com';
-      return `Daily Dispatch Quiz — ${dateLabel}\n\n${grid}\n\n${rankLine}\n\n${siteUrl}`;
+      // Referral code (set once the subscriber's code loads, below) turns
+      // this into a trackable invite link, same as the emailed "Send an
+      // invite" link — falls back to the bare URL for non-subscribers or
+      // while the code is still loading.
+      const siteUrl = state.referralCode
+        ? `https://dailydispatchquiz.com/?ref=${state.referralCode}`
+        : 'https://dailydispatchquiz.com';
+      return `Daily Dispatch Quiz — ${dateLabel}\n\n${grid}\n\n${rankLine}\n\nThis was my score today — try it yourself:\n${siteUrl}`;
     }
 
     // Colored HTML preview of the same grid — emoji can't vary in shade, so
@@ -4477,6 +4491,28 @@
       logShareClick('bluesky');
       const text = encodeURIComponent(buildShareText());
       window.open('https://bsky.app/intent/compose?text=' + text, '_blank');
+    }
+
+    function shareOnWhatsApp() {
+      logShareClick('whatsapp');
+      const text = encodeURIComponent(buildShareText());
+      window.open('https://wa.me/?text=' + text, '_blank');
+    }
+
+    function shareOnSMS() {
+      logShareClick('sms');
+      const text = encodeURIComponent(buildShareText());
+      // iOS and Android use different separators before the body param on
+      // the sms: scheme (iOS: "&body=", Android: "?body="); there's no
+      // single syntax both accept.
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      window.location.href = 'sms:' + (isIOS ? '&' : '?') + 'body=' + text;
+    }
+
+    // No sms: handler on desktop — hide the button rather than let it
+    // silently do nothing when clicked.
+    if (!/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+      document.querySelectorAll('.share-btn-sms').forEach(el => el.style.display = 'none');
     }
 
     function dismissMugTease() {
@@ -4568,10 +4604,18 @@
         const refCount = document.getElementById('referral-count');
 
         if (refLink) {
-          refLink.value = refUrl;        
+          refLink.value = refUrl;
         }
         if (refLinkWrap) refLinkWrap.style.display = 'block';
         if (nudge) nudge.style.display = 'none';
+
+        // Subscribing mid-results — make sure a share right after this
+        // picks up the new referral link instead of the bare-URL fallback.
+        state.referralCode = codeData.referralCode;
+        const sharePreviewEl = document.getElementById('share-text-preview');
+        if (sharePreviewEl) sharePreviewEl.textContent = buildShareText();
+        const popupTextEl = document.getElementById('share-popup-text');
+        if (popupTextEl && popupTextEl.textContent) popupTextEl.textContent = buildShareText();
      
         if (refCount) {
           refCount.textContent = '✓ Subscribed! No referrals yet — share your link to get started.';
@@ -5599,6 +5643,15 @@
               if (refSection) refSection.style.display = 'block';
               if (refLink) refLink.value = refUrl;
               if (refSubscribeNudge) refSubscribeNudge.style.display = 'none';
+
+              // Share text may already be rendered (popup shows immediately
+              // on results) using the bare URL fallback — refresh it now
+              // that the referral link is available.
+              state.referralCode = d.referralCode;
+              const sharePreviewEl = document.getElementById('share-text-preview');
+              if (sharePreviewEl) sharePreviewEl.textContent = buildShareText();
+              const popupTextEl = document.getElementById('share-popup-text');
+              if (popupTextEl && popupTextEl.textContent) popupTextEl.textContent = buildShareText();
               if (refCount) {
                 const c = d.confirmedReferrals || 0;
                 if (d.mugWon) {
@@ -9246,37 +9299,25 @@
         const data = await res.json();
         if (!data.ok) { el.innerHTML = '<p style="color:var(--muted);">Could not load share clicks.</p>'; return; }
 
+        const PLATFORM_LABELS = { x: 'X', bluesky: 'Bluesky', whatsapp: 'WhatsApp', sms: 'Text (SMS)', copy: 'Copy' };
+        const platformOrder = ['x', 'bluesky', 'whatsapp', 'sms', 'copy'];
+
+        const totalsRows = platformOrder.map(p => `
+          <tr>
+            <td style="padding:4px 8px;">${PLATFORM_LABELS[p]}</td>
+            <td style="text-align:right;padding:4px 8px;">${data.todayTotals[p] || 0}</td>
+            <td style="text-align:right;padding:4px 8px;font-weight:bold;">${data.totals[p] || 0}</td>
+          </tr>`).join('');
+
         const recentRows = data.recent.map(c =>
-          `<tr><td style="padding:3px 8px;">${c.date || '—'}</td><td style="padding:3px 8px;text-transform:capitalize;">${c.platform}</td><td style="padding:3px 8px;">${c.playerName || '—'}</td></tr>`
+          `<tr><td style="padding:3px 8px;">${c.date || '—'}</td><td style="padding:3px 8px;">${PLATFORM_LABELS[c.platform] || c.platform}</td><td style="padding:3px 8px;">${c.playerName || '—'}</td></tr>`
         ).join('');
 
         el.innerHTML = `
-          <div style="display:flex;gap:16px;margin-bottom:14px;">
-            <div style="background:white;border:1px solid var(--rule);padding:12px;text-align:center;flex:1;">
-              <div style="font-size:22px;font-weight:bold;color:var(--ink);">${data.todayTotals.x}</div>
-              <div style="font-size:10px;letter-spacing:1px;color:var(--muted);margin-top:2px;">X TODAY</div>
-            </div>
-            <div style="background:white;border:1px solid var(--rule);padding:12px;text-align:center;flex:1;">
-              <div style="font-size:22px;font-weight:bold;color:var(--ink);">${data.todayTotals.bluesky}</div>
-              <div style="font-size:10px;letter-spacing:1px;color:var(--muted);margin-top:2px;">BLUESKY TODAY</div>
-            </div>
-            <div style="background:white;border:1px solid var(--rule);padding:12px;text-align:center;flex:1;">
-              <div style="font-size:22px;font-weight:bold;color:var(--ink);">${data.todayTotals.copy}</div>
-              <div style="font-size:10px;letter-spacing:1px;color:var(--muted);margin-top:2px;">COPY TODAY</div>
-            </div>
-            <div style="background:white;border:1px solid var(--rule);padding:12px;text-align:center;flex:1;">
-              <div style="font-size:22px;font-weight:bold;color:var(--ink);">${data.totals.x}</div>
-              <div style="font-size:10px;letter-spacing:1px;color:var(--muted);margin-top:2px;">X ALL-TIME</div>
-            </div>
-            <div style="background:white;border:1px solid var(--rule);padding:12px;text-align:center;flex:1;">
-              <div style="font-size:22px;font-weight:bold;color:var(--ink);">${data.totals.bluesky}</div>
-              <div style="font-size:10px;letter-spacing:1px;color:var(--muted);margin-top:2px;">BLUESKY ALL-TIME</div>
-            </div>
-            <div style="background:white;border:1px solid var(--rule);padding:12px;text-align:center;flex:1;">
-              <div style="font-size:22px;font-weight:bold;color:var(--ink);">${data.totals.copy}</div>
-              <div style="font-size:10px;letter-spacing:1px;color:var(--muted);margin-top:2px;">COPY ALL-TIME</div>
-            </div>
-          </div>
+          <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:16px;max-width:360px;">
+            <tr style="text-align:left;color:var(--muted);"><th style="padding:4px 8px;">Platform</th><th style="text-align:right;padding:4px 8px;">Today</th><th style="text-align:right;padding:4px 8px;">All-Time</th></tr>
+            ${totalsRows}
+          </table>
           ${data.recent.length ? `<table style="width:100%;border-collapse:collapse;font-size:12px;"><tr style="text-align:left;color:var(--muted);"><th style="padding:3px 8px;">Date</th><th style="padding:3px 8px;">Platform</th><th style="padding:3px 8px;">Player</th></tr>${recentRows}</table>` : '<p style="color:var(--muted);">No share clicks yet.</p>'}
         `;
       } catch (e) {

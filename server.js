@@ -1038,15 +1038,17 @@ app.post('/api/admin/blocklist', async (req, res) => {
   }
 });
 
-// ── POST /api/share-click — fired when a player opens the X/Bluesky share
-// intent, or successfully copies their share text. The X/Bluesky cases can't
-// confirm an actual post (that happens on the platform's own site, with no
-// callback to us) — those are a proxy signal. 'copy' is a real confirmation,
-// since the clipboard write either succeeds or the client never calls this.
+// ── POST /api/share-click — fired when a player opens a share intent (X,
+// Bluesky, WhatsApp, SMS), or successfully copies their share text. The
+// intent-based platforms can't confirm an actual post/send (that happens on
+// the platform's own site/app, with no callback to us) — those are a proxy
+// signal. 'copy' is a real confirmation, since the clipboard write either
+// succeeds or the client never calls this.
+const SHARE_PLATFORMS = ['x', 'bluesky', 'whatsapp', 'sms', 'copy'];
 app.post('/api/share-click', async (req, res) => {
   const { platform, date, playerName } = req.body || {};
-  if (platform !== 'x' && platform !== 'bluesky' && platform !== 'copy') {
-    return res.status(400).json({ error: 'platform must be x, bluesky, or copy' });
+  if (!SHARE_PLATFORMS.includes(platform)) {
+    return res.status(400).json({ error: 'platform must be one of: ' + SHARE_PLATFORMS.join(', ') });
   }
   try {
     const clicks = (await getKey('shareClicks')) || [];
@@ -1072,8 +1074,8 @@ app.get('/api/admin/share-clicks', async (req, res) => {
   try {
     const clicks = (await getKey('shareClicks')) || [];
     const today = easternToday();
-    const totals = { x: 0, bluesky: 0, copy: 0 };
-    const todayTotals = { x: 0, bluesky: 0, copy: 0 };
+    const totals = Object.fromEntries(SHARE_PLATFORMS.map(p => [p, 0]));
+    const todayTotals = Object.fromEntries(SHARE_PLATFORMS.map(p => [p, 0]));
     for (const c of clicks) {
       if (totals[c.platform] === undefined) continue;
       totals[c.platform]++;
