@@ -2745,9 +2745,12 @@
         <h3>Step 2 — Review Questions</h3>
         <div id="q-preview-list"></div>
 
-        <div style="margin:16px 0 8px;">
+        <div style="margin:16px 0 8px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
           <button class="btn-secondary" onclick="previewEmail()"
             style="background:#f5f0e8;border:1px solid var(--border);color:var(--ink);">📧 Preview Email</button>
+          <label style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);display:flex;align-items:center;gap:6px;">
+            <input type="checkbox" id="preview-group-b"> Preview as Group B (Q1 embedded)
+          </label>
         </div>
         <div id="email-preview-panel"
           style="display:none;margin-bottom:16px;border:2px solid var(--gold,#c8a84b);border-radius:4px;overflow:hidden;">
@@ -2861,6 +2864,9 @@
         </div>
    <div style="margin-top:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
           <button onclick="sendTestEmail()" style="font-family:monospace;font-size:11px;letter-spacing:1px;padding:6px 16px;background:none;border:1px solid var(--blue);color:var(--blue);cursor:pointer;border-radius:2px;">📧 Send Test Email</button>
+          <label style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);display:flex;align-items:center;gap:6px;">
+            <input type="checkbox" id="test-email-use-draft"> Use current draft, force Group B
+          </label>
           <span id="test-email-status" style="font-family:monospace;font-size:11px;color:var(--muted);"></span>
         </div>
         <div style="margin-top:16px;padding:14px;background:var(--cream);border:1px solid var(--rule);">
@@ -8355,10 +8361,11 @@
       try {
         const draft = getDraftQuiz();
         const isJ4Preview = new URLSearchParams(window.location.search).has('j4');
+        const group = document.getElementById('preview-group-b').checked ? 'B' : 'A';
         const fetchOpts = draft && draft.questions && draft.questions.length
-          ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ questions: draft.questions, previewDate: isJ4Preview ? '2026-07-04' : undefined }) }
-          : {};
-        const previewUrl = '/api/quiz/preview-email' + (isJ4Preview && !fetchOpts.body ? '?previewDate=2026-07-04' : '');
+          ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ questions: draft.questions, previewDate: isJ4Preview ? '2026-07-04' : undefined, group }) }
+          : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ group }) };
+        const previewUrl = '/api/quiz/preview-email' + (isJ4Preview && !draft?.questions?.length ? '?previewDate=2026-07-04' : '');
         const res = await fetch(previewUrl, fetchOpts);
         const data = await res.json();
         inner.innerHTML = data.html;
@@ -9714,13 +9721,19 @@ async function submitEditorPost() {
       statusEl.style.color = 'var(--muted)';
       try {
         const adminToken = lsGet('dnq_admin_token') || 'admin';
+        const useDraft = document.getElementById('test-email-use-draft').checked;
+        const draft = useDraft ? getDraftQuiz() : null;
+        const body = useDraft && draft && draft.questions && draft.questions.length
+          ? { questions: draft.questions, group: 'B' }
+          : {};
         const res = await fetch('/api/quiz/test-email', {
           method: 'POST',
-          headers: { 'x-admin-token': adminToken }
+          headers: { 'x-admin-token': adminToken, 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
         });
         const data = await res.json();
         if (data.ok) {
-          statusEl.textContent = '✓ Test email sent to ' + data.sentTo;
+          statusEl.textContent = '✓ Test email sent to ' + data.sentTo + ' (Group ' + data.group + ')';
           statusEl.style.color = 'var(--green)';
         } else {
           statusEl.textContent = '✗ ' + (data.error || 'Send failed');

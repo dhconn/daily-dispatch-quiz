@@ -2360,6 +2360,14 @@ app.all('/api/quiz/preview-email', async (req, res) => {
   const dateOverride = ((req.query.previewDate || req.body?.previewDate) || '').match(/^\d{4}-\d{2}-\d{2}$/)?.[0];
   if (dateOverride) dateLabel = dateOverride;
 
+  // Allow ?group=B (or in POST body) to preview the Group B (Q1-embedded) style instead of Group A
+  const previewGroup = ((req.query.group || req.body?.group) || 'A').toUpperCase() === 'B' ? 'B' : 'A';
+  const q1 = questions && questions[0];
+  const buildPreviewHtml = (siteUrl, dateLabel, teaserHtmlToUse, unsubUrl) =>
+    (previewGroup === 'B' && q1)
+      ? buildEmailHtmlWithQ1(siteUrl, dateLabel, 'Subscriber', teaserHtmlToUse, unsubUrl, q1, 'preview-token')
+      : buildEmailHtml(siteUrl, dateLabel, 'Subscriber', teaserHtmlToUse, unsubUrl);
+
   const previewData = await readData();
 
   // Draft previews (e.g. prepping tomorrow's quiz to Schedule) are cached by a fingerprint of
@@ -2369,13 +2377,13 @@ app.all('/api/quiz/preview-email', async (req, res) => {
     const fingerprint = fingerprintQuestions(questions);
     if (previewData.draftTeaserHtml && previewData.draftTeaserFingerprint === fingerprint) {
       console.log('[PreviewEmail] Returning existing cached teasers for this draft');
-      const html = buildEmailHtml(siteUrl, dateLabel, 'Subscriber', previewData.draftTeaserHtml, siteUrl + '/api/unsubscribe?email=example');
+      const html = buildPreviewHtml(siteUrl, dateLabel, previewData.draftTeaserHtml, siteUrl + '/api/unsubscribe?email=example');
       const teaserMatches = [...previewData.draftTeaserHtml.matchAll(/·\s*([^<]+)<\/div>/g)].map(m => m[1].trim());
       return res.json({ html, teasers: teaserMatches });
     }
     const teasers = await generateTeasers(questions);
     const teaserHtml = buildTeaserHtml(teasers);
-    const html = buildEmailHtml(siteUrl, dateLabel, 'Subscriber', teaserHtml, siteUrl + '/api/unsubscribe?email=example');
+    const html = buildPreviewHtml(siteUrl, dateLabel, teaserHtml, siteUrl + '/api/unsubscribe?email=example');
     previewData.draftTeaserHtml = teaserHtml;
     previewData.draftTeaserFingerprint = fingerprint;
     await writeData(previewData);
@@ -2385,7 +2393,7 @@ app.all('/api/quiz/preview-email', async (req, res) => {
   // If user has already saved edited teasers for today, use those — don't overwrite with a fresh generation
   if (previewData.cachedTeaserHtml && previewData.cachedTeaserDate === dateLabel) {
     console.log('[PreviewEmail] Returning existing cached teasers for', dateLabel);
-    const html = buildEmailHtml(siteUrl, dateLabel, 'Subscriber', previewData.cachedTeaserHtml, siteUrl + '/api/unsubscribe?email=example');
+    const html = buildPreviewHtml(siteUrl, dateLabel, previewData.cachedTeaserHtml, siteUrl + '/api/unsubscribe?email=example');
     // Extract plain text teasers from cached html so the editor fields populate correctly
     const teaserMatches = [...previewData.cachedTeaserHtml.matchAll(/·\s*([^<]+)<\/div>/g)].map(m => m[1].trim());
     return res.json({ html, teasers: teaserMatches });
@@ -2394,7 +2402,7 @@ app.all('/api/quiz/preview-email', async (req, res) => {
   // No cache yet — generate fresh teasers and cache them
   const teasers = await generateTeasers(questions);
   const teaserHtml = buildTeaserHtml(teasers);
-  const html = buildEmailHtml(siteUrl, dateLabel, 'Subscriber', teaserHtml, siteUrl + '/api/unsubscribe?email=example');
+  const html = buildPreviewHtml(siteUrl, dateLabel, teaserHtml, siteUrl + '/api/unsubscribe?email=example');
   previewData.cachedTeaserHtml = teaserHtml;
   previewData.cachedTeaserDate = dateLabel;
   await writeData(previewData);
@@ -2952,15 +2960,17 @@ app.post('/api/quiz/test-email', async (req, res) => {
 
   try {
     const data = await readData();
-    const quiz = data.quizzes && data.quizzes[date];
-    if (!quiz) return res.status(404).json({ error: 'No quiz published for today' });
+    const draftQuestions = Array.isArray(req.body?.questions) && req.body.questions.length ? req.body.questions : null;
+    const quiz = draftQuestions ? { questions: draftQuestions } : (data.quizzes && data.quizzes[date]);
+    if (!quiz) return res.status(404).json({ error: draftQuestions ? 'Draft has no questions' : 'No quiz published for today' });
 
     const q1 = quiz.questions && quiz.questions[0];
     if (!q1) return res.status(404).json({ error: 'No questions in today\'s quiz' });
 
-    // Look up abGroup from subscriber record
+    // Look up abGroup from subscriber record, unless the caller forces one (e.g. testing a draft)
     const subRecord = data.subscribers && data.subscribers[testEmail];
-    const group = (subRecord && subRecord.abGroup) || 'B';
+    const forcedGroup = (req.body?.group || '').toUpperCase();
+    const group = (forcedGroup === 'A' || forcedGroup === 'B') ? forcedGroup : ((subRecord && subRecord.abGroup) || 'B');
     const displayName = (subRecord && subRecord.name) || 'Player';
     const playerKey = normPlayerKey(displayName);
 
