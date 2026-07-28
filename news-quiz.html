@@ -448,6 +448,15 @@
       font-weight: 400;
     }
 
+    .q-image {
+      width: 100%;
+      max-height: 280px;
+      object-fit: cover;
+      border: 2px solid var(--ink);
+      margin-top: 14px;
+      display: block;
+    }
+
     /* Answer options */
     .options-grid {
       display: grid;
@@ -2707,6 +2716,10 @@
           <div class="q-edit-label">QUESTION TEXT</div>
           <textarea id="aq-question" placeholder="Write your question here…"
             style="width:100%;font-family:serif;font-size:14px;padding:8px;border:1px solid #ccc;min-height:64px;resize:vertical;box-sizing:border-box;margin-top:4px;"></textarea>
+
+          <div class="q-edit-label" style="margin-top:10px;">IMAGE URL (optional) — shown below the question, before the answers</div>
+          <input type="text" id="aq-image" placeholder="https://dailydispatchquiz.com/images/…"
+            style="width:100%;font-family:monospace;font-size:12px;padding:8px;border:1px solid #ccc;box-sizing:border-box;margin-top:4px;">
 
           <div class="q-edit-label" style="margin-top:10px;">OPTIONS — type each answer choice, then select the correct
             one</div>
@@ -5015,6 +5028,7 @@
       <div class="q-number">Question ${state.currentQ + 1} of 5</div>
       ${icymiHtml}
       <div class="q-text">${escHtml(q.question)}</div>
+      ${q.image ? `<img class="q-image" src="${escHtml(q.image)}" alt="">` : ''}
       <div class="options-grid">${optHtml}</div>
       <div id="feedback-area"></div>
     </div>
@@ -7583,7 +7597,7 @@
       document.getElementById('add-question-form').style.display = 'block';
       document.getElementById('add-q-btn').style.display = 'none';
       // Clear form
-      ['aq-question', 'aq-opt0', 'aq-opt1', 'aq-opt2', 'aq-opt3', 'aq-explanation', 'aq-url'].forEach(id => {
+      ['aq-question', 'aq-image', 'aq-opt0', 'aq-opt1', 'aq-opt2', 'aq-opt3', 'aq-explanation', 'aq-url'].forEach(id => {
         document.getElementById(id).value = '';
       });
       document.getElementById('aq-r0').checked = true;
@@ -7599,6 +7613,7 @@
 
     function addManualQuestion() {
       const question = document.getElementById('aq-question').value.trim();
+      const image = document.getElementById('aq-image').value.trim();
       const opts = ['aq-opt0', 'aq-opt1', 'aq-opt2', 'aq-opt3'].map(id => document.getElementById(id).value.trim());
       const correctIndex = parseInt(document.querySelector('input[name="aq-correct"]:checked').value);
       const explanation = document.getElementById('aq-explanation').value.trim();
@@ -7611,7 +7626,7 @@
       if (!explanation) { errEl.textContent = 'Please add an explanation.'; errEl.style.display = 'block'; return; }
       errEl.style.display = 'none';
 
-      const newQ = { question, options: opts, correctIndex, explanation, sourceUrl, difficulty };
+      const newQ = { question, image, options: opts, correctIndex, explanation, sourceUrl, difficulty };
 
       // Add to draft, or create a new draft if none exists
       let draft = getDraftQuiz() || { questions: [], generatedAt: new Date().toISOString(), urls: [] };
@@ -7672,6 +7687,11 @@
           '</div>' +
           '<div class="q-edit-label">QUESTION</div>' +
           '<textarea oninput="updateDraftQuestion(' + i + ', this.value)">' + escHtml(q.question) + '</textarea>' +
+          '<div class="q-edit-label">IMAGE URL (optional) — shown below the question, before the answers</div>' +
+          '<div style="display:flex;align-items:center;gap:8px;">' +
+          '<input type="text" value="' + escHtml(q.image || '') + '" oninput="updateDraftImageUrl(' + i + ', this.value)" style="flex:1;font-size:11px;" placeholder="https://dailydispatchquiz.com/images/…">' +
+          (q.image ? '<img src="' + escHtml(q.image) + '" style="height:36px;width:56px;object-fit:cover;border:1px solid var(--border);">' : '') +
+          '</div>' +
           '<div class="q-edit-label">OPTIONS — click radio button to mark correct answer</div>' +
           optionsHtml +
           '<div class="q-edit-label">EXPLANATION</div>' +
@@ -7972,6 +7992,10 @@
     function updateDraftSourceUrl(i, val) {
       const draft = getDraftQuiz();
       if (draft && draft.questions[i]) { draft.questions[i].sourceUrl = val; saveDraftQuiz(draft); }
+    }
+    function updateDraftImageUrl(i, val) {
+      const draft = getDraftQuiz();
+      if (draft && draft.questions[i]) { draft.questions[i].image = val; saveDraftQuiz(draft); }
     }
 
 
@@ -8410,6 +8434,7 @@
             const viewHtml = `
           <div id="${viewId}">
             <div class="admin-arc-qtext">Q${qi + 1}. ${escHtml(q.question)} <span style="font-family:monospace;font-size:10px;letter-spacing:1px;padding:1px 6px;border:1px solid var(--muted);border-radius:2px;color:var(--muted);font-weight:400;">${q.difficulty ? q.difficulty.toUpperCase() : ''} ${POINTS[q.difficulty] ? '· ' + POINTS[q.difficulty] + ' pts' : ''}</span></div>
+            ${q.image ? `<img src="${escHtml(q.image)}" style="max-height:80px;border:1px solid var(--border);margin:4px 0;display:block;">` : ''}
             ${q.options.map((opt, oi) => `
               <div class="admin-arc-opt ${oi === q.correctIndex ? 'correct' : ''}">
                 ${oi === q.correctIndex ? '✓' : '○'} ${optLetters[oi]}. ${escHtml(opt)}
@@ -8424,6 +8449,8 @@
             <div style="font-family:monospace;font-size:11px;color:var(--muted);margin-bottom:8px;">EDITING Q${qi + 1} — ${date}</div>
             <div class="q-edit-label">QUESTION</div>
             <textarea id="${editId}-q" style="width:100%;font-size:13px;padding:6px;border:1px solid var(--border);margin-bottom:8px;">${escHtml(q.question)}</textarea>
+            <div class="q-edit-label">IMAGE URL (optional)</div>
+            <input type="text" id="${editId}-image" value="${escHtml(q.image || '')}" style="width:100%;font-size:12px;padding:4px 6px;border:1px solid var(--border);margin-bottom:8px;">
             <div class="q-edit-label">OPTIONS — click radio to mark correct</div>
             ${q.options.map((opt, oi) => `
               <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
@@ -8482,6 +8509,7 @@
         const quiz = data.quiz;
         const q = quiz.questions[qi];
         q.question = document.getElementById(`${editId}-q`).value.trim();
+        q.image = document.getElementById(`${editId}-image`).value.trim();
         q.options = [0, 1, 2, 3].map(oi => document.getElementById(`${editId}-opt${oi}`).value.trim());
         const checkedRadio = document.querySelector(`input[name="${editId}-correct"]:checked`);
         q.correctIndex = checkedRadio ? parseInt(checkedRadio.value) : 0;

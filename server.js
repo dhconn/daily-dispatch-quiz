@@ -1896,6 +1896,7 @@ return `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;colo
       <div style="background:white;border:2px solid #1a1008;padding:20px 20px 10px;margin-bottom:20px;box-shadow:4px 4px 0 #1a1008;">
         <div style="font-family:monospace;font-size:11px;letter-spacing:2px;color:#6b5f4e;margin-bottom:12px;">QUESTION 1 OF 5 · STARTER</div>
         <div style="font-size:19px;line-height:1.5;color:#1a1008;font-weight:400;margin-bottom:16px;">${q1.question}</div>
+        ${q1.image ? `<img src="${q1.image}" alt="" style="width:100%;max-height:280px;object-fit:cover;border:2px solid #1a1008;display:block;margin-bottom:16px;">` : ''}
         ${answerButtons}
       </div>
       <p style="text-align:center;margin:12px 0 8px;font-family:monospace;font-size:11px;letter-spacing:1px;color:#6b5f4e;">
