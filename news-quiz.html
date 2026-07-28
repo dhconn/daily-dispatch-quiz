@@ -1891,6 +1891,35 @@
 
 <body>
 
+  <!-- Newshound badge mark — reused at every size via <use href="#hound">.
+       One asset for leaderboard chips, the "you're now a Newshound" popup,
+       and (server-side, separately) the daily email recap. -->
+  <svg width="0" height="0" style="position:absolute;">
+    <defs>
+      <g id="hound">
+        <path d="M 32 34 C 16 40, 8 58, 14 78 C 17 88, 26 90, 32 82 C 36 74, 34 50, 38 38 Z" fill="#7a4a26"/>
+        <path d="M 68 34 C 84 40, 92 58, 86 78 C 83 88, 74 90, 68 82 C 64 74, 66 50, 62 38 Z" fill="#7a4a26"/>
+        <ellipse cx="50" cy="54" rx="25" ry="23" fill="#a3673a"/>
+        <ellipse cx="50" cy="67" rx="15" ry="11.5" fill="#e3c39a"/>
+        <ellipse cx="50" cy="62" rx="4.2" ry="3.2" fill="var(--ink)"/>
+        <path d="M 50 65 L 50 70" stroke="var(--ink)" stroke-width="1.4" stroke-linecap="round"/>
+        <path d="M 33 47 Q 38 42, 44 46" fill="none" stroke="#7a4a26" stroke-width="2.4" stroke-linecap="round"/>
+        <path d="M 67 47 Q 62 42, 56 46" fill="none" stroke="#7a4a26" stroke-width="2.4" stroke-linecap="round"/>
+        <ellipse cx="40" cy="52" rx="3.4" ry="4" fill="var(--ink)"/>
+        <ellipse cx="60" cy="52" rx="3.4" ry="4" fill="var(--ink)"/>
+        <circle cx="41.2" cy="50.4" r="0.9" fill="#fff"/>
+        <circle cx="61.2" cy="50.4" r="0.9" fill="#fff"/>
+        <ellipse cx="49" cy="31" rx="33" ry="8.5" transform="rotate(-7 49 31)" fill="var(--ink)"/>
+        <g transform="rotate(-4 50 20)">
+          <path d="M 26 30 C 27 15, 40 8, 51 8 C 63 8, 74 16, 73 30 C 73 33, 26 33, 26 30 Z" fill="var(--ink)"/>
+          <path d="M 25.5 27.5 C 30 30.5, 68 30.5, 73.5 27" fill="none" stroke="var(--gold-light)" stroke-width="4"/>
+          <rect x="27" y="19" width="46" height="19" rx="2" fill="var(--paper)" stroke="var(--ink)" stroke-width="2"/>
+          <text x="50" y="33" text-anchor="middle" font-family="'Courier Prime',monospace" font-size="11" font-weight="700" fill="var(--ink)" letter-spacing="0.5">SCOOP</text>
+        </g>
+      </g>
+    </defs>
+  </svg>
+
   <!-- MASTHEAD -->
   <div id="masthead">
     <div class="dateline" id="today-dateline"></div>
@@ -1933,6 +1962,10 @@
           <div class="label">pts each<br>Q6 · Bonus</div>
         </div>
       </div>
+      <p style="text-align:center;font-size:12px;color:var(--muted);font-family:'Courier Prime',monospace;max-width:420px;margin:4px auto 0;line-height:1.6;">
+        &#9998; Score a perfect 150 and earn a <strong>Byline</strong> for the day — <u>first play only</u>. Land 10 Bylines in a calendar month and you become that month's <strong>Newshound</strong>
+        <svg width="20" height="20" viewBox="0 0 100 100" style="vertical-align:-6px;margin-left:2px;"><use href="#hound"></use></svg>.
+      </p>
       <div class="edition-rule">Enter Your Byline</div>
       <div id="reg-streak-display"
         style="display:none;margin:0 auto 16px;max-width:420px;text-align:center;font-family:'Courier Prime',monospace;font-size:13px;letter-spacing:1px;color:var(--gold);padding:8px 0;">
@@ -2185,6 +2218,45 @@
       </div>
     </div>
 
+    <!-- BYLINE / NEWSHOUND CELEBRATION — shown the instant a perfect 150
+         (first play only) finishes, before the auto-showing share popup.
+         Content is swapped by showBylineCelebration(type); see that
+         function for the 'byline' vs 'newshound' treatment. -->
+    <div id="byline-celebration-overlay" style="
+      display:none;
+      position:fixed;
+      inset:0;
+      z-index:3000;
+      background:rgba(26,16,8,0.9);
+      align-items:center;
+      justify-content:center;
+      pointer-events:auto;
+    " onclick="dismissBylineCelebration()">
+      <div style="
+        background:var(--paper);
+        color:var(--ink);
+        border-top:4px double var(--gold);
+        border-bottom:4px double var(--gold);
+        box-shadow:0 8px 30px rgba(0,0,0,0.5);
+        padding:32px 30px;
+        max-width:400px;
+        width:min(90vw,400px);
+        text-align:center;
+        position:relative;
+      " onclick="event.stopPropagation()">
+        <div id="byline-celebration-eyebrow" style="font-family:'Courier Prime',monospace;font-size:10px;letter-spacing:3px;color:var(--muted);margin-bottom:14px;"></div>
+        <div id="byline-celebration-mark" style="margin-bottom:14px;"></div>
+        <div id="byline-celebration-headline" style="font-family:'Playfair Display',serif;font-size:26px;font-weight:900;color:var(--gold);margin-bottom:10px;"></div>
+        <div style="width:40px;height:2px;background:var(--gold);margin:0 auto 14px;"></div>
+        <div id="byline-celebration-sub" style="font-size:14px;color:var(--muted);line-height:1.6;margin-bottom:22px;"></div>
+        <button onclick="dismissBylineCelebration()"
+          style="font-family:'Courier Prime',monospace;font-size:12px;letter-spacing:2px;padding:12px 28px;background:var(--ink);color:var(--paper);border:none;cursor:pointer;width:100%;">
+          Continue ▸
+        </button>
+        <div style="font-family:monospace;font-size:10px;color:var(--muted);margin-top:10px;">Tap anywhere to dismiss</div>
+      </div>
+    </div>
+
     <!-- SUBSCRIBE CONFIRM OVERLAY -->
     <div id="subscribe-confirm-overlay" style="
       display:none;
@@ -2258,6 +2330,10 @@
           <button onclick="shareOnBluesky()"
             style="font-family:monospace;font-size:12px;padding:8px 16px;background:#0085ff;color:#fff;border:none;cursor:pointer;border-radius:2px;">Share
             on Bluesky</button>
+          <button onclick="shareOnWhatsApp()"
+            style="font-family:monospace;font-size:12px;padding:8px 16px;background:#25d366;color:#fff;border:none;cursor:pointer;border-radius:2px;">WhatsApp</button>
+          <button onclick="shareOnSMS()" class="share-btn-sms"
+            style="font-family:monospace;font-size:12px;padding:8px 16px;background:#34c759;color:#fff;border:none;cursor:pointer;border-radius:2px;">Text</button>
           <button onclick="copyShareText()"
             style="font-family:monospace;font-size:12px;padding:8px 16px;background:none;border:1px solid var(--rule);color:var(--ink);cursor:pointer;border-radius:2px;">Copy</button>
         </div>
@@ -2302,6 +2378,7 @@
           <div>✦ &nbsp;Questions get harder as you go</div>
           <div>✦ &nbsp;Partial points for every answer, even wrong ones</div>
           <div>✦ &nbsp;Finish all 6 for a completion bonus</div>
+          <div>✦ &nbsp;Perfect 150 = a Byline (first play only)</div>
           <div>✦ &nbsp;Start your streak — best your friends</div>
         </div>
         <button onclick="dismissFirstTimeOverlay()" style="
@@ -2376,6 +2453,10 @@
           <button onclick="shareOnBluesky()"
             style="font-family:monospace;font-size:12px;padding:8px 16px;background:#0085ff;color:#fff;border:none;cursor:pointer;border-radius:2px;">Share
             on Bluesky</button>
+          <button onclick="shareOnWhatsApp()"
+            style="font-family:monospace;font-size:12px;padding:8px 16px;background:#25d366;color:#fff;border:none;cursor:pointer;border-radius:2px;">WhatsApp</button>
+          <button onclick="shareOnSMS()" class="share-btn-sms"
+            style="font-family:monospace;font-size:12px;padding:8px 16px;background:#34c759;color:#fff;border:none;cursor:pointer;border-radius:2px;">Text</button>
           <button onclick="copyShareText()"
             style="font-family:monospace;font-size:12px;padding:8px 16px;background:none;border:1px solid var(--rule);color:var(--ink);cursor:pointer;border-radius:2px;">Copy</button>
         </div>
@@ -2564,6 +2645,7 @@
         <a href="#anc-subscribers">Subscribers</a>
         <a href="#anc-quiz-archive">Quiz Archive</a>
         <a href="#anc-engagement">Engagement</a>
+        <a href="#anc-share-clicks">Share Clicks</a>
         <a href="#anc-leaderboard">Leaderboard</a>
         <a href="#anc-players">Players</a>
         <a href="#anc-message">Message</a>
@@ -2992,6 +3074,14 @@
         <h3>Today's Engagement <span id="stats-date-label"
             style="font-family:monospace;font-size:12px;color:var(--muted);font-weight:400;"></span></h3>
         <div id="admin-stats" style="font-family:monospace;font-size:13px;color:var(--muted);">
+          <p>Loading…</p>
+        </div>
+      </div>
+
+      <div class="admin-section" style="margin-top:20px;" id="anc-share-clicks">
+        <h3>Share Clicks</h3>
+        <p style="font-family:monospace;font-size:12px;color:var(--muted);margin-bottom:8px;">X/Bluesky counts when the share window opens — not confirmation they actually posted. Copy counts a confirmed clipboard write.</p>
+        <div id="share-clicks-stats" style="font-family:monospace;font-size:13px;color:var(--muted);">
           <p>Loading…</p>
         </div>
       </div>
@@ -3900,9 +3990,12 @@
         if (!res.ok) {
           const text = await res.text();
           console.error('saveProgressToServer failed:', res.status, text);
+          return null;
         }
+        return await res.json(); // { ok, validatedScore } — validatedScore is server-computed, not just echoed
       } catch (e) {
         console.error('saveProgressToServer error:', e);
+        return null;
       }
     }
     let progressSaveChain = Promise.resolve(); function showResumeOverlay() {
@@ -4433,8 +4526,14 @@
       const rankLine = totalPlayers > 0
         ? `${state.sessionScore} pts · #${state.shareRank} of ${totalPlayers} today`
         : `${state.sessionScore} pts`;
-      const siteUrl = 'https://dailydispatchquiz.com';
-      return `Daily Dispatch Quiz — ${dateLabel}\n\n${grid}\n\n${rankLine}\n\n${siteUrl}`;
+      // Referral code (set once the subscriber's code loads, below) turns
+      // this into a trackable invite link, same as the emailed "Send an
+      // invite" link — falls back to the bare URL for non-subscribers or
+      // while the code is still loading.
+      const siteUrl = state.referralCode
+        ? `https://dailydispatchquiz.com/?ref=${state.referralCode}`
+        : 'https://dailydispatchquiz.com';
+      return `Daily Dispatch Quiz — ${dateLabel}\n\n${grid}\n\n${rankLine}\n\nThis was my score today — try it yourself:\n${siteUrl}`;
     }
 
     // Colored HTML preview of the same grid — emoji can't vary in shade, so
@@ -4457,14 +4556,52 @@
       el.innerHTML = html;
     }
 
+    // Fire-and-forget: records that the share intent was opened, not that a
+    // post was actually completed — X/Bluesky give no callback for that.
+    // keepalive lets the request survive the tab losing focus to window.open.
+    function logShareClick(platform) {
+      try {
+        fetch('/api/share-click', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          keepalive: true,
+          body: JSON.stringify({ platform, date: state.todayKey, playerName: state.playerName || '' })
+        }).catch(() => {});
+      } catch (e) { }
+    }
+
     function shareOnX() {
+      logShareClick('x');
       const text = encodeURIComponent(buildShareText());
       window.open('https://x.com/intent/tweet?text=' + text, '_blank');
     }
 
     function shareOnBluesky() {
+      logShareClick('bluesky');
       const text = encodeURIComponent(buildShareText());
       window.open('https://bsky.app/intent/compose?text=' + text, '_blank');
+    }
+
+    function shareOnWhatsApp() {
+      logShareClick('whatsapp');
+      const text = encodeURIComponent(buildShareText());
+      window.open('https://wa.me/?text=' + text, '_blank');
+    }
+
+    function shareOnSMS() {
+      logShareClick('sms');
+      const text = encodeURIComponent(buildShareText());
+      // iOS and Android use different separators before the body param on
+      // the sms: scheme (iOS: "&body=", Android: "?body="); there's no
+      // single syntax both accept.
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      window.location.href = 'sms:' + (isIOS ? '&' : '?') + 'body=' + text;
+    }
+
+    // No sms: handler on desktop — hide the button rather than let it
+    // silently do nothing when clicked.
+    if (!/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+      document.querySelectorAll('.share-btn-sms').forEach(el => el.style.display = 'none');
     }
 
     function dismissMugTease() {
@@ -4556,10 +4693,18 @@
         const refCount = document.getElementById('referral-count');
 
         if (refLink) {
-          refLink.value = refUrl;        
+          refLink.value = refUrl;
         }
         if (refLinkWrap) refLinkWrap.style.display = 'block';
         if (nudge) nudge.style.display = 'none';
+
+        // Subscribing mid-results — make sure a share right after this
+        // picks up the new referral link instead of the bare-URL fallback.
+        state.referralCode = codeData.referralCode;
+        const sharePreviewEl = document.getElementById('share-text-preview');
+        if (sharePreviewEl) sharePreviewEl.textContent = buildShareText();
+        const popupTextEl = document.getElementById('share-popup-text');
+        if (popupTextEl && popupTextEl.textContent) popupTextEl.textContent = buildShareText();
      
         if (refCount) {
           refCount.textContent = '✓ Subscribed! No referrals yet — share your link to get started.';
@@ -4583,6 +4728,9 @@
 
     function copyShareText() {
       navigator.clipboard.writeText(buildShareText()).then(() => {
+        // Only logged on actual success — unlike the X/Bluesky intents, a
+        // resolved clipboard write is a real confirmation, not just a click.
+        logShareClick('copy');
         // Updates every confirm element (inline card + popup, if present)
         // so the message shows wherever the player actually clicked from.
         document.querySelectorAll('.share-copy-confirm').forEach(el => {
@@ -4598,6 +4746,40 @@
     // auto-dismisses after 3s. Reuses the same buildShareText()/
     // renderShareGridPreview() the inline share card uses, just targeting
     // the popup's own elements.
+    // Shown once, right when a perfect 150 (first play only) finishes —
+    // before the share popup, which fires on dismiss so the moment doesn't
+    // just vanish into the ordinary results screen. 'newshound' is the
+    // rarer, bigger version for the exact day a player's 10th Byline of
+    // the month lands; every other perfect day gets the plain 'byline' one.
+    function showBylineCelebration(type) {
+      const overlay = document.getElementById('byline-celebration-overlay');
+      if (!overlay) return;
+      const eyebrow = document.getElementById('byline-celebration-eyebrow');
+      const mark = document.getElementById('byline-celebration-mark');
+      const headline = document.getElementById('byline-celebration-headline');
+      const sub = document.getElementById('byline-celebration-sub');
+
+      if (type === 'newshound') {
+        eyebrow.textContent = 'MONTHLY MILESTONE';
+        mark.innerHTML = '<svg width="110" height="110" viewBox="0 0 100 100"><use href="#hound"></use></svg>';
+        headline.textContent = "You're a Newshound!";
+        sub.innerHTML = "10 perfect scores this month — <strong>Byline #10</strong>, right here. The badge is yours on the leaderboard for the rest of the month.";
+      } else {
+        eyebrow.textContent = 'PERFECT SCORE';
+        mark.innerHTML = `<div style="font-size:28px;letter-spacing:4px;">${buildShareGridEmoji()}</div><div style="font-size:38px;margin-top:8px;">✎</div>`;
+        headline.textContent = 'You earned a Byline!';
+        sub.textContent = '150 out of 150 — a perfect score, first play only.';
+      }
+
+      overlay.style.display = 'flex';
+    }
+
+    function dismissBylineCelebration() {
+      const overlay = document.getElementById('byline-celebration-overlay');
+      if (overlay) overlay.style.display = 'none';
+      if (!archiveMode) showSharePopup();
+    }
+
     function showSharePopup() {
       const overlay = document.getElementById('share-popup-overlay');
       if (!overlay) return;
@@ -5419,9 +5601,28 @@
       }
 
       state.phase = 'done';
+      let bylineCelebrationType = null;
       if (!state.isReplay) {
-        await saveProgressToServer(true);
+        const saveResult = await saveProgressToServer(true);
         updatePlayerScore(state.playerName, state.sessionScore);
+
+        // Byline check — server-validated score, not the client's own
+        // sessionScore, so this can only celebrate what actually got
+        // recorded as a first-play perfect 150.
+        if (!archiveMode && saveResult && saveResult.validatedScore === 150) {
+          bylineCelebrationType = 'byline';
+          try {
+            const monthPrefix = state.todayKey.slice(0, 7);
+            const bylinesRes = await fetch('/api/bylines?month=' + monthPrefix);
+            const bylinesData = await bylinesRes.json();
+            const myCount = bylinesData.ok
+              ? ((bylinesData.byPlayer[normPlayerKey(state.playerName)] || {}).monthCount || 0)
+              : 0;
+            // Exactly 10, not >=10 — the celebration is for the day the
+            // threshold is crossed, not every perfect day after it.
+            if (myCount === 10) bylineCelebrationType = 'newshound';
+          } catch (e) { }
+        }
       }
 
       const playerKey = normPlayerKey(state.playerName);
@@ -5564,7 +5765,10 @@
         }
       }
       showScreen('screen-results');
-      if (!archiveMode) showSharePopup();
+      if (!archiveMode) {
+        if (bylineCelebrationType) showBylineCelebration(bylineCelebrationType);
+        else showSharePopup();
+      }
       if (!archiveMode && isJuly4()) launchFireworks();
       checkPwaPrompt();
       subscribeToPush();
@@ -5585,6 +5789,15 @@
               if (refSection) refSection.style.display = 'block';
               if (refLink) refLink.value = refUrl;
               if (refSubscribeNudge) refSubscribeNudge.style.display = 'none';
+
+              // Share text may already be rendered (popup shows immediately
+              // on results) using the bare URL fallback — refresh it now
+              // that the referral link is available.
+              state.referralCode = d.referralCode;
+              const sharePreviewEl = document.getElementById('share-text-preview');
+              if (sharePreviewEl) sharePreviewEl.textContent = buildShareText();
+              const popupTextEl = document.getElementById('share-popup-text');
+              if (popupTextEl && popupTextEl.textContent) popupTextEl.textContent = buildShareText();
               if (refCount) {
                 const c = d.confirmedReferrals || 0;
                 if (d.mugWon) {
@@ -5723,6 +5936,15 @@
 
     let rows = [];
 
+    // Bylines/Newshound: same for every tab (it's a fixed per-player,
+    // this-month fact), so fetched once regardless of which tab renders.
+    let bylinesByPlayer = {};
+    try {
+      const bylinesRes = await fetch('/api/bylines?month=' + monthPrefix);
+      const bylinesData = await bylinesRes.json();
+      if (bylinesData.ok) bylinesByPlayer = bylinesData.byPlayer || {};
+    } catch (e) { }
+
     if (tab === 'today') {
       try {
         const adminToken = lsGet('dnq_admin_token') || 'admin';
@@ -5757,7 +5979,10 @@
             score: Number(p.score) || 0,
             isMe: key === normPlayerKey(state.playerName),
             isSubscriber: !!subscriberEmails[key],
-            mugWon: !!mugWonMap[key]
+            mugWon: !!mugWonMap[key],
+            gotBylineToday: !!(p.completed && Number(p.score) === 150 && !p.synthetic),
+            bylineMonthCount: (bylinesByPlayer[key] || {}).monthCount || 0,
+            isNewshound: !!(bylinesByPlayer[key] || {}).isNewshoundThisMonth
          }));
      } catch (e) {
        rows = [];
@@ -5809,7 +6034,10 @@
           score,
           isMe: key === normPlayerKey(state.playerName),
           isSubscriber: !!subscriberKeys[key],
-          mugWon: !!mugWonKeys[key]
+          mugWon: !!mugWonKeys[key],
+          gotBylineToday: false, // only known from live "today" progress, not scores history
+          bylineMonthCount: (bylinesByPlayer[key] || {}).monthCount || 0,
+          isNewshound: !!(bylinesByPlayer[key] || {}).isNewshoundThisMonth
         };
       });
     }
@@ -5831,10 +6059,12 @@
           : 'All-Time';
 
       let html = `
-    <div style="font-family:'Courier Prime',monospace;font-size:11px;color:var(--muted);margin-bottom:12px;display:flex;gap:16px;flex-wrap:wrap;">
+    <div style="font-family:'Courier Prime',monospace;font-size:11px;color:var(--muted);margin-bottom:12px;display:flex;gap:16px;flex-wrap:wrap;align-items:center;">
       <span>☕ = mug eligible subscriber</span>
       <span>🏆 = mug winner</span>
       <span>— = subscribe to be eligible</span>
+      <span>✎ N = Bylines this month (perfect 150, first play) · bold = today</span>
+      <span style="display:inline-flex;align-items:center;gap:4px;"><svg width="13" height="13" viewBox="0 0 100 100" style="vertical-align:-2px;"><use href="#hound"></use></svg> = Newshound, 10+ this month</span>
     </div>
     <div style="font-family:'Courier Prime',monospace;font-size:11px;letter-spacing:2px;
                 color:var(--muted);text-transform:uppercase;margin-bottom:12px;">
@@ -5856,9 +6086,17 @@
           : r.mugWon
           ? ' <span style="color:var(--gold);font-family:\'Courier Prime\',monospace;font-size:10px;">🏆</span>'
           : ' <span style="color:var(--muted);font-family:\'Courier Prime\',monospace;font-size:10px;" title="Subscribe to be mug eligible">—</span>';
+        const bylineBadge = r.isNewshound
+          ? ` <span style="display:inline-flex;align-items:center;gap:4px;vertical-align:middle;">
+              <svg width="24" height="24" viewBox="0 0 100 100" style="vertical-align:-6px;"><use href="#hound"></use></svg>
+              <span style="font-family:'Courier Prime',monospace;font-size:10px;letter-spacing:1px;font-weight:700;color:var(--gold);">NEWSHOUND</span>
+            </span>`
+          : r.bylineMonthCount > 0
+          ? ` <span style="font-family:'Courier Prime',monospace;font-size:10px;padding:1px 6px;border-radius:3px;border:1px solid ${r.gotBylineToday ? 'var(--ink)' : 'var(--rule)'};color:${r.gotBylineToday ? 'var(--ink)' : 'var(--muted)'};font-weight:${r.gotBylineToday ? '700' : '400'};${r.gotBylineToday ? 'background:rgba(240,192,64,0.2);' : ''}">✎ ${r.bylineMonthCount}</span>`
+          : '';
         html += `<tr class="${r.isMe ? 'me' : ''}">
       <td><div class="rank ${rankCls}">${i + 1}</div></td>
-      <td style="font-weight:${r.isMe ? '700' : '400'}">${escHtml(r.name)}${r.isMe ? ' <span style="color:var(--red);font-family:\'Courier Prime\',monospace;font-size:11px;">◀ YOU</span>' : ''}${eligibleBadge}</td>
+      <td style="font-weight:${r.isMe || r.isNewshound ? '700' : '400'};${r.isNewshound ? 'color:var(--gold);' : ''}">${escHtml(r.name)}${r.isMe ? ' <span style="color:var(--red);font-family:\'Courier Prime\',monospace;font-size:11px;">◀ YOU</span>' : ''}${eligibleBadge}${bylineBadge}</td>
       <td style="text-align:right"><span class="score-val">${r.score}</span></td>
     </tr>`;
       });
@@ -5895,6 +6133,7 @@
       loadSubscribers();
       loadAdminArchive();
       loadAdminStats();
+      loadShareClicks();
       loadTodayQuestions();
       loadPlayerList();
       loadBlocklist();
@@ -9225,12 +9464,53 @@
           <div style="font-size:22px;font-weight:bold;color:var(--ink);">${avgScore}</div>
           <div style="font-size:10px;letter-spacing:1px;color:var(--muted);margin-top:2px;">AVG SCORE</div>
         </div>
+        <div style="background:white;border:1px solid var(--rule);padding:12px;text-align:center;">
+          <div style="font-size:22px;font-weight:bold;color:var(--ink);">${players.filter(p => p.completed && Number(p.score) === 150 && !p.synthetic).length}</div>
+          <div style="font-size:10px;letter-spacing:1px;color:var(--muted);margin-top:2px;">BYLINES TODAY</div>
+        </div>
       </div>
       <table style="width:100%;border-collapse:collapse;font-size:12px;">${qRows}</table>
       ${playerGridHtml}
     `;
       } catch (e) {
         el.innerHTML = '<p style="color:var(--muted);">Could not load stats.</p>';
+      }
+    }
+
+    async function loadShareClicks() {
+      const el = document.getElementById('share-clicks-stats');
+      if (!el) return;
+      try {
+        const adminToken = lsGet('dnq_admin_token') || 'admin';
+        const res = await fetch('/api/admin/share-clicks', {
+          headers: { 'x-admin-token': adminToken }
+        });
+        const data = await res.json();
+        if (!data.ok) { el.innerHTML = '<p style="color:var(--muted);">Could not load share clicks.</p>'; return; }
+
+        const PLATFORM_LABELS = { x: 'X', bluesky: 'Bluesky', whatsapp: 'WhatsApp', sms: 'Text (SMS)', copy: 'Copy' };
+        const platformOrder = ['x', 'bluesky', 'whatsapp', 'sms', 'copy'];
+
+        const totalsRows = platformOrder.map(p => `
+          <tr>
+            <td style="padding:4px 8px;">${PLATFORM_LABELS[p]}</td>
+            <td style="text-align:right;padding:4px 8px;">${data.todayTotals[p] || 0}</td>
+            <td style="text-align:right;padding:4px 8px;font-weight:bold;">${data.totals[p] || 0}</td>
+          </tr>`).join('');
+
+        const recentRows = data.recent.map(c =>
+          `<tr><td style="padding:3px 8px;">${c.date || '—'}</td><td style="padding:3px 8px;">${PLATFORM_LABELS[c.platform] || c.platform}</td><td style="padding:3px 8px;">${c.playerName || '—'}</td></tr>`
+        ).join('');
+
+        el.innerHTML = `
+          <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:16px;max-width:360px;">
+            <tr style="text-align:left;color:var(--muted);"><th style="padding:4px 8px;">Platform</th><th style="text-align:right;padding:4px 8px;">Today</th><th style="text-align:right;padding:4px 8px;">All-Time</th></tr>
+            ${totalsRows}
+          </table>
+          ${data.recent.length ? `<table style="width:100%;border-collapse:collapse;font-size:12px;"><tr style="text-align:left;color:var(--muted);"><th style="padding:3px 8px;">Date</th><th style="padding:3px 8px;">Platform</th><th style="padding:3px 8px;">Player</th></tr>${recentRows}</table>` : '<p style="color:var(--muted);">No share clicks yet.</p>'}
+        `;
+      } catch (e) {
+        el.innerHTML = '<p style="color:var(--muted);">Could not load share clicks.</p>';
       }
     }
 
