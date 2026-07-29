@@ -3818,40 +3818,14 @@ app.post('/api/admin/message/bulk', async (req, res) => {
 
 // ── GET /subscribe — one-click subscribe from email link ─────
 // Usage: /subscribe?email=jane@example.com&name=Jane
-app.get('/subscribe', async (req, res) => {
-  const email = (req.query.email || '').toLowerCase().trim();
-  const name  = (req.query.name  || '').trim().slice(0, 40);
-  const siteUrl = process.env.SITE_URL || 'https://dailydispatchquiz.com';
-
-  if (!email || !email.includes('@')) return res.status(400).send('Invalid email address.');
-
-  try {
-    const data = await readData();
-    if (!data.subscribers) data.subscribers = {};
-    const wasAlready = data.subscribers[email]?.active === true;
-    data.subscribers[email] = {
-      name,
-      email,
-      subscribedAt: data.subscribers[email]?.subscribedAt || new Date().toISOString(),
-      active: true
-    };
-    // Remove from prospects if present
-    if (data.prospects) {
-      const pk = email.toLowerCase().trim();
-      if (data.prospects[pk]) data.prospects[pk].active = false;
-    }
-    await writeData(data);
-    console.log(`[Subscribe] ${name} <${email}> subscribed via one-click link`);
-
-    const headline = wasAlready ? `You're already subscribed${name ? ', ' + name : ''}!` : `You're subscribed${name ? ', ' + name : ''}!`;
-    const subline  = wasAlready ? `You'll continue to receive The Daily Dispatch Quiz every morning.` : `You'll receive The Daily Dispatch Quiz in your inbox every morning, starting tomorrow.`;
-
-    res.send(`<!DOCTYPE html>
+// Shared card shell for the /subscribe landing page (both the pre-confirm and success states)
+function buildSubscribePageHtml({ eyebrowNote, iconHtml, headline, subline, actionHtml }) {
+  return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Subscribed — The Daily Dispatch Quiz</title>
+  <title>Subscribe — The Daily Dispatch Quiz</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Source+Serif+4:wght@300;400;600&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
   <style>
@@ -3865,29 +3839,111 @@ app.get('/subscribe', async (req, res) => {
     .checkmark{font-size:52px;margin-bottom:16px}
     .card-body h2{font-family:'Playfair Display',serif;font-size:24px;font-weight:700;margin-bottom:12px}
     .card-body p{font-size:15px;color:#6b5f4e;line-height:1.7;margin-bottom:28px}
-    .play-btn{display:inline-block;background:#1a1008;color:#f5f0e8;padding:14px 32px;font-family:'Courier Prime',monospace;font-size:12px;letter-spacing:2px;text-transform:uppercase;text-decoration:none}
+    .play-btn{display:inline-block;background:#1a1008;color:#f5f0e8;padding:14px 32px;font-family:'Courier Prime',monospace;font-size:12px;letter-spacing:2px;text-transform:uppercase;text-decoration:none;border:none;cursor:pointer}
     .card-footer{padding:16px;border-top:1px solid #ede8da;font-family:'Courier Prime',monospace;font-size:11px;color:#aaa}
   </style>
 </head>
 <body>
   <div class="card">
     <div class="card-header">
-      <div class="eyebrow">BALTIMORE &middot; DAILY DISPATCH</div>
+      <div class="eyebrow">${eyebrowNote || 'BALTIMORE &middot; DAILY DISPATCH'}</div>
       <h1>The Daily Dispatch Quiz</h1>
     </div>
     <div class="card-body">
-      <div class="checkmark">&#10003;</div>
+      ${iconHtml || ''}
       <h2>${headline}</h2>
       <p>${subline}</p>
-      <a href="${siteUrl}" class="play-btn">Play Today&#39;s Quiz &#9658;</a>
+      ${actionHtml || ''}
     </div>
     <div class="card-footer">dailydispatchquiz.com</div>
   </div>
 </body>
-</html>`);
-  } catch(e) {
+</html>`;
+}
+
+// GET /subscribe — read-only landing page. Never mutates data itself (so link-scanning
+// email security software that prefetches this URL can't silently subscribe anyone) —
+// the actual subscribe only happens via the confirm button's POST to /subscribe/confirm.
+app.get('/subscribe', async (req, res) => {
+  const email = (req.query.email || '').toLowerCase().trim();
+  const name  = (req.query.name  || '').trim().slice(0, 40);
+  const siteUrl = process.env.SITE_URL || 'https://dailydispatchquiz.com';
+
+  if (!email || !email.includes('@')) return res.status(400).send('Invalid email address.');
+
+  try {
+    const data = await readData();
+    const alreadyActive = data.subscribers && data.subscribers[email]?.active === true;
+
+    if (alreadyActive) {
+      return res.send(buildSubscribePageHtml({
+        iconHtml: `<div class="checkmark">&#10003;</div>`,
+        headline: `You're already subscribed${name ? ', ' + name : ''}!`,
+        subline: `You'll continue to receive The Daily Dispatch Quiz every morning.`,
+        actionHtml: `<a href="${siteUrl}" class="play-btn" style="display:inline-block;margin-top:8px;">Play Today&#39;s Quiz &#9658;</a>`
+      }));
+    }
+
+    // Safe to embed: JSON.stringify escapes quotes/backslashes, and stripping "<" prevents
+    // a prospect-supplied name from breaking out of the inline <script> block.
+    const payload = JSON.stringify({ email, name }).replace(/</g, '\\u003c');
+
+    res.send(buildSubscribePageHtml({
+      headline: `Subscribe${name ? ', ' + name : ''}?`,
+      subline: `Confirm below to get The Daily Dispatch Quiz in your inbox every morning.`,
+      actionHtml: `
+        <button class="play-btn" id="confirm-subscribe-btn" onclick="confirmSubscribe()">Yes, Subscribe Me &#9658;</button>
+        <p id="confirm-subscribe-status" style="margin-top:14px;font-family:'Courier Prime',monospace;font-size:11px;color:#6b5f4e;"></p>
+        <script>
+          async function confirmSubscribe() {
+            const btn = document.getElementById('confirm-subscribe-btn');
+            const statusEl = document.getElementById('confirm-subscribe-status');
+            btn.disabled = true;
+            statusEl.textContent = 'Subscribing…';
+            try {
+              const res = await fetch('/subscribe/confirm', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(${payload})
+              });
+              if (!res.ok) throw new Error('Server error');
+              location.reload();
+            } catch (e) {
+              statusEl.textContent = 'Something went wrong — please try again.';
+              btn.disabled = false;
+            }
+          }
+        </script>`
+    }));
+  } catch (e) {
     console.error('[Subscribe] Error:', e.message);
     res.status(500).send('Something went wrong. Please try again.');
+  }
+});
+
+// POST /subscribe/confirm — the actual state-changing action, only ever reached via a
+// real click on the confirm button above (never triggered by a GET-only link prefetch/scan).
+app.post('/subscribe/confirm', async (req, res) => {
+  const email = (req.body?.email || '').toLowerCase().trim();
+  const name  = (req.body?.name  || '').trim().slice(0, 40);
+  if (!email || !email.includes('@')) return res.status(400).json({ error: 'Invalid email address.' });
+
+  try {
+    const data = await readData();
+    if (!data.subscribers) data.subscribers = {};
+    data.subscribers[email] = {
+      name,
+      email,
+      subscribedAt: data.subscribers[email]?.subscribedAt || new Date().toISOString(),
+      active: true
+    };
+    if (data.prospects && data.prospects[email]) data.prospects[email].active = false;
+    await writeData(data);
+    console.log(`[Subscribe] ${name} <${email}> subscribed via confirmed one-click link`);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[Subscribe] Confirm error:', e.message);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
 });
 
