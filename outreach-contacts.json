@@ -24,6 +24,7 @@
   {"name": "Mary Rose Madden", "email": "mmadden@wypr.org", "outlet": "WYPR", "beat": "senior news producer", "emailVerified": false},
   {"name": "Emily Hofstaedter", "email": "ehofstaedter@wypr.org", "outlet": "WYPR", "beat": "community & general assignment", "emailVerified": false},
   {"name": "Michelle Basch", "email": "mbasch@wtop.com", "outlet": "WTOP", "beat": "Southern Maryland", "emailVerified": false}, 
+  {"name": "John Domen", "email": "jdomen@wtop.com", "outlet": "WTOP", "beat": "unknown", "emailVerified": false},
   {"name": "Steve Crane", "email": "scrane@marylandmatters.org", "outlet": "Maryland Matters", "beat": "editor", "emailVerified": false},
   {"name": "Danielle J. Brown", "email": "dbrown@marylandmatters.org", "outlet": "Maryland Matters", "beat": "health care & equity", "emailVerified": false},
   {"name": "William Ford", "email": "wford@marylandmatters.org", "outlet": "Maryland Matters", "beat": "state government", "emailVerified": true},
