@@ -1386,11 +1386,67 @@ app.delete('/api/archive', async (req, res) => {
 // ── Subscribers ───────────────────────────────────────────────
 // Stored as data.subscribers = { email: { name, subscribedAt, active } }
 
-// ── GET /api/prospect-invite — auto-subscribes prospect, redirects to pre-filled mailto ──
+// GET /api/prospect-invite — read-only landing page. Never mutates data itself (so link-scanning
+// email security software that prefetches this URL can't silently subscribe anyone) — the actual
+// subscribe move only happens via the confirm button's POST to /api/prospect-invite/confirm.
 app.get('/api/prospect-invite', async (req, res) => {
   const { code } = req.query;
-  const siteUrl = process.env.SITE_URL || 'https://dailydispatchquiz.com';
   if (!code) return res.status(400).send('Missing invite code.');
+  try {
+    const data = await readData();
+    const prospectKey = Object.keys(data.prospects || {}).find(k => (data.prospects[k].referralCode === code));
+    const alreadySubscribed = Object.values(data.subscribers || {}).some(s => s.referralCode === code);
+
+    if (!prospectKey && !alreadySubscribed) {
+      return res.status(404).send(buildSubscribePageHtml({
+        headline: 'Invite link not found',
+        subline: 'This invite link has expired or is no longer valid.',
+        actionHtml: ''
+      }));
+    }
+
+    const payload = JSON.stringify({ code }).replace(/</g, '\\u003c');
+
+    res.send(buildSubscribePageHtml({
+      headline: 'Send an invite to a friend?',
+      subline: `Confirm below and we'll open an email you can send — this also subscribes you to The Daily Dispatch Quiz so we can track your referrals.`,
+      actionHtml: `
+        <button class="play-btn" id="confirm-invite-btn" onclick="confirmInvite()">Yes, Continue &#9658;</button>
+        <p id="confirm-invite-status" style="margin-top:14px;font-family:'Courier Prime',monospace;font-size:11px;color:#6b5f4e;"></p>
+        <script>
+          async function confirmInvite() {
+            const btn = document.getElementById('confirm-invite-btn');
+            const statusEl = document.getElementById('confirm-invite-status');
+            btn.disabled = true;
+            statusEl.textContent = 'One moment…';
+            try {
+              const res = await fetch('/api/prospect-invite/confirm', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(${payload})
+              });
+              if (!res.ok) throw new Error('Server error');
+              const data = await res.json();
+              location.href = data.mailto;
+            } catch (e) {
+              statusEl.textContent = 'Something went wrong — please try again.';
+              btn.disabled = false;
+            }
+          }
+        </script>`
+    }));
+  } catch (e) {
+    console.error('[ProspectInvite] Error:', e.message);
+    res.status(500).send('Something went wrong — please try again.');
+  }
+});
+
+// POST /api/prospect-invite/confirm — the actual state-changing action, only ever reached
+// via a real click on the confirm button above (never triggered by a GET-only link prefetch/scan).
+app.post('/api/prospect-invite/confirm', async (req, res) => {
+  const code = req.body?.code;
+  const siteUrl = process.env.SITE_URL || 'https://dailydispatchquiz.com';
+  if (!code) return res.status(400).json({ error: 'Missing invite code.' });
   try {
     const data = await readData();
     const prospectKey = Object.keys(data.prospects || {}).find(k => (data.prospects[k].referralCode === code));
@@ -1411,10 +1467,10 @@ app.get('/api/prospect-invite', async (req, res) => {
         console.log(`[ProspectInvite] Auto-subscribed ${prospectKey} via referral invite`);
       }
     }
-    res.redirect(buildReferralMailto(siteUrl, code));
+    res.json({ ok: true, mailto: buildReferralMailto(siteUrl, code) });
   } catch (e) {
-    console.error('[ProspectInvite] Error:', e.message);
-    res.status(500).send('Something went wrong — please try again.');
+    console.error('[ProspectInvite] Confirm error:', e.message);
+    res.status(500).json({ error: 'Something went wrong — please try again.' });
   }
 });
 
