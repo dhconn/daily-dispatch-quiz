@@ -1,6 +1,7 @@
 [
   {"name": "Kevin Lynch", "email": "Kevin@InceptMM.com", "outlet": "Incept MM", "beat": "unknown", "emailVerified": true},
   {"name": "J. Cox", "email": "jcox@bayjournal.com", "outlet": "Bay Journal", "beat": "environment", "emailVerified": true},
+  {"name": "Karl Blankenship", "email": "kblankenship@bayjournal.com", "outlet": "Bay Journal", "beat": "environment", "emailVerified": true},
   {"name": "P. Gilbert", "email": "pgilbert@hearst.com", "outlet": "Hearst", "beat": "unknown", "emailVerified": true},
   {"name": "Tori Yorgey", "email": "tori.yorgey@hearst.com", "outlet": "Hearst", "beat": "general assignment", "emailVerified": true},
   {"name": "Adam Thompson", "email": "adam.thompson@paramount.com", "outlet": "Paramount/CBS", "beat": "unknown", "emailVerified": true},
