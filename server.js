@@ -1546,22 +1546,82 @@ app.post('/api/subscribe', async (req, res) => {
   res.json({ ok: true, alreadySubscribed: !isNew });
 });
 
+// GET /api/unsubscribe — read-only landing page. Never mutates data itself (so link-scanning
+// email security software — which prefetches every link, including the footer Unsubscribe
+// link present on literally every outgoing email — can't silently unsubscribe anyone). The
+// actual unsubscribe only happens via the confirm button's POST to /api/unsubscribe/confirm.
 app.get('/api/unsubscribe', async (req, res) => {
   const { email } = req.query;
   if (!email) return res.status(400).send('Missing email.');
-  const data = await readData();
   const key = decodeURIComponent(email).toLowerCase().trim();
-  if (data.subscribers && data.subscribers[key]) {
-    data.subscribers[key].active = false;
-    await writeData(data);
+
+  try {
+    const data = await readData();
+    const alreadyInactive = !data.subscribers || !data.subscribers[key] || data.subscribers[key].active === false;
+
+    if (alreadyInactive) {
+      return res.send(buildSubscribePageHtml({
+        pageTitle: 'Unsubscribe',
+        headline: `You're not subscribed`,
+        subline: `${key} isn't currently receiving The Daily Dispatch Quiz.`,
+        actionHtml: `<a href="/" class="play-btn" style="display:inline-block;margin-top:8px;">Play Today&#39;s Quiz &#9658;</a>`
+      }));
+    }
+
+    // Safe to embed: JSON.stringify escapes quotes/backslashes.
+    const payload = JSON.stringify({ email: key }).replace(/</g, '\\u003c');
+
+    res.send(buildSubscribePageHtml({
+      pageTitle: 'Unsubscribe',
+      headline: `Unsubscribe?`,
+      subline: `Confirm below and you won't receive any more quiz notifications at ${key}.`,
+      actionHtml: `
+        <button class="play-btn" id="confirm-unsub-btn" onclick="confirmUnsub()">Yes, Unsubscribe Me &#9658;</button>
+        <p id="confirm-unsub-status" style="margin-top:14px;font-family:'Courier Prime',monospace;font-size:11px;color:#6b5f4e;"></p>
+        <script>
+          async function confirmUnsub() {
+            const btn = document.getElementById('confirm-unsub-btn');
+            const statusEl = document.getElementById('confirm-unsub-status');
+            btn.disabled = true;
+            statusEl.textContent = 'One moment…';
+            try {
+              const res = await fetch('/api/unsubscribe/confirm', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(${payload})
+              });
+              if (!res.ok) throw new Error('Server error');
+              location.reload();
+            } catch (e) {
+              statusEl.textContent = 'Something went wrong — please try again.';
+              btn.disabled = false;
+            }
+          }
+        </script>`
+    }));
+  } catch (e) {
+    console.error('[Unsubscribe] Error:', e.message);
+    res.status(500).send('Something went wrong. Please try again.');
   }
-  res.send(`
-    <html><body style="font-family:Georgia,serif;max-width:500px;margin:60px auto;text-align:center;">
-      <h2>You've been unsubscribed.</h2>
-      <p style="color:#666;">You won't receive any more quiz notifications at ${key}.</p>
-      <p><a href="/">Return to the quiz</a></p>
-    </body></html>
-  `);
+});
+
+// POST /api/unsubscribe/confirm — the actual state-changing action, only ever reached via a
+// real click on the confirm button above (never triggered by a GET-only link prefetch/scan).
+app.post('/api/unsubscribe/confirm', async (req, res) => {
+  const email = (req.body?.email || '').toLowerCase().trim();
+  if (!email) return res.status(400).json({ error: 'Missing email.' });
+  try {
+    const data = await readData();
+    if (data.subscribers && data.subscribers[email]) {
+      data.subscribers[email].active = false;
+      await writeData(data);
+    }
+    console.log(`[Unsubscribe] ${email} unsubscribed via confirmed link`);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[Unsubscribe] Confirm error:', e.message);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
 });
 
 // Helper: get today's date in Eastern time (quiz is Baltimore-based)
@@ -3875,13 +3935,13 @@ app.post('/api/admin/message/bulk', async (req, res) => {
 // ── GET /subscribe — one-click subscribe from email link ─────
 // Usage: /subscribe?email=jane@example.com&name=Jane
 // Shared card shell for the /subscribe landing page (both the pre-confirm and success states)
-function buildSubscribePageHtml({ eyebrowNote, iconHtml, headline, subline, actionHtml }) {
+function buildSubscribePageHtml({ eyebrowNote, iconHtml, headline, subline, actionHtml, pageTitle }) {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Subscribe — The Daily Dispatch Quiz</title>
+  <title>${pageTitle || 'Subscribe'} — The Daily Dispatch Quiz</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Source+Serif+4:wght@300;400;600&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
   <style>
