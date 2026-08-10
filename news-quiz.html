@@ -524,6 +524,17 @@
       border-color: var(--green);
     }
 
+    /* Answer picked from an email link — visually flagged, not auto-
+       submitted. See the note by option-preselected in renderQuestion(). */
+    .option-btn.option-preselected {
+      border-color: var(--gold);
+      box-shadow: 0 0 0 2px var(--gold-light);
+    }
+
+    .option-btn.option-preselected .opt-letter {
+      color: var(--gold);
+    }
+
     /* Feedback */
     .feedback-box {
       margin-top: 16px;
@@ -5144,10 +5155,17 @@
         showResumeOverlay();
       }
 
-      // ── Auto-answer Q1 if arriving from email link ───────────
+      // ── Arriving from a Q1 answer link in the email ───────────
+      // Deliberately does NOT auto-submit the answer anymore — it used to,
+      // via a setTimeout calling selectAnswer() right on page load. Email
+      // security scanners (Microsoft Safe Links, Proofpoint, Mimecast, etc.)
+      // fetch every link in an email — and often run its JS — before the
+      // recipient ever opens the message, so that timer was quietly
+      // "playing" Q1 on real subscribers' behalf before they'd seen the
+      // email at all. window._emailQ1Answer is left set here so
+      // renderQuestion() can visually flag that option instead — actually
+      // answering still requires a real click from the player.
       if (!resumed && window._emailQ1Answer !== null && window._emailQ1Answer !== undefined && state.currentQ === 0) {
-        const q1AnswerIdx = window._emailQ1Answer;
-        window._emailQ1Answer = null;
         if (window._emailToken && !window._emailTokenAlreadyUsed) {
           // Mark token used and log the click event — only on first use
           fetch('/api/email-token/use', {
@@ -5157,7 +5175,6 @@
           }).catch(() => {});
         }
         window._emailToken = null;
-        setTimeout(() => selectAnswer(q1AnswerIdx), 600);
       }
     }
 
@@ -5188,14 +5205,28 @@
       const diff = getDifficultyLabel(state.currentQ);
       quizAnswered = false;
 
+      // Option tapped in the email's Q1 link, if any — highlighted, not
+      // auto-submitted (see the note in startQuiz()). Consumed here so it
+      // only ever flags the one render of Q1.
+      let preselectedIdx = null;
+      if (state.currentQ === 0 && window._emailQ1Answer !== null && window._emailQ1Answer !== undefined) {
+        preselectedIdx = window._emailQ1Answer;
+        window._emailQ1Answer = null;
+      }
+
       const optLetters = ['A', 'B', 'C', 'D'];
       let optHtml = '';
       q.options.forEach((opt, i) => {
-        optHtml += `<button class="option-btn" onclick="selectAnswer(${i})" id="opt-${i}">
+        const preselected = i === preselectedIdx;
+        optHtml += `<button class="option-btn${preselected ? ' option-preselected' : ''}" onclick="selectAnswer(${i})" id="opt-${i}">
       <span class="opt-letter">${optLetters[i]}</span>
       <span>${escHtml(opt)}</span>
     </button>`;
       });
+
+      const preselectedHint = preselectedIdx !== null
+        ? `<div style="font-size:11px;letter-spacing:1px;font-family:monospace;color:var(--gold);margin-bottom:6px;text-transform:uppercase;">✎ You picked this in the email — tap it to lock it in</div>`
+        : '';
 
       // ICYMI label for stories older than 36 hours
       let icymiHtml = '';
@@ -5215,6 +5246,7 @@
     <div class="question-card">
       <div class="q-number">Question ${state.currentQ + 1} of 5</div>
       ${icymiHtml}
+      ${preselectedHint}
       <div class="q-text">${escHtml(q.question)}</div>
       ${q.image ? `<img class="q-image" src="${escHtml(q.image)}" alt="">` : ''}
       <div class="options-grid">${optHtml}</div>
