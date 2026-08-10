@@ -3,6 +3,9 @@ Dispatch images/
 Old news_quiz files/
 Old server.js files/
 node_modules/
+
+# Browser "Save Page As" companion folder — not real content
+public/images/DDQ Instagram_files/
 .env
 outreach-config.json
 outreach-today-cache.json

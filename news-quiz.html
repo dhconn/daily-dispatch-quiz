@@ -6902,11 +6902,16 @@
       localStorage.setItem('dnq_locked_qs', JSON.stringify([...set]));
     }
     function toggleLock(idx) {
+      const draft = getDraftQuiz();
+      if (!draft || !draft.questions) {
+        setStatus('No draft found in this browser\'s storage — try regenerating, or check that local storage isn\'t blocked.', 'error');
+        return;
+      }
       const locked = getLockedQuestions();
       if (locked.has(idx)) locked.delete(idx);
       else locked.add(idx);
       setLockedQuestions(locked);
-      showDraftPreview(getDraftQuiz().questions);
+      showDraftPreview(draft.questions);
     }
     function clearAllLocks() {
       localStorage.removeItem('dnq_locked_qs');
@@ -8218,7 +8223,10 @@
 
     function holdQuestion(i) {
       const draft = getDraftQuiz();
-      if (!draft || !draft.questions || !draft.questions[i]) return;
+      if (!draft || !draft.questions || !draft.questions[i]) {
+        setStatus('No draft found in this browser\'s storage — try regenerating, or check that local storage isn\'t blocked.', 'error');
+        return;
+      }
       if (!draft.heldQuestions) draft.heldQuestions = [];
       const [q] = draft.questions.splice(i, 1);
       draft.heldQuestions.push(q);
