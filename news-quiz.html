@@ -524,17 +524,6 @@
       border-color: var(--green);
     }
 
-    /* Answer picked from an email link — visually flagged, not auto-
-       submitted. See the note by option-preselected in renderQuestion(). */
-    .option-btn.option-preselected {
-      border-color: var(--gold);
-      box-shadow: 0 0 0 2px var(--gold-light);
-    }
-
-    .option-btn.option-preselected .opt-letter {
-      color: var(--gold);
-    }
-
     /* Feedback */
     .feedback-box {
       margin-top: 16px;
@@ -2759,9 +2748,6 @@
         <div style="margin:16px 0 8px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
           <button class="btn-secondary" onclick="previewEmail()"
             style="background:#f5f0e8;border:1px solid var(--border);color:var(--ink);">📧 Preview Email</button>
-          <label style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);display:flex;align-items:center;gap:6px;">
-            <input type="checkbox" id="preview-group-b"> Preview as Group B (Q1 embedded)
-          </label>
         </div>
         <div id="email-preview-panel"
           style="display:none;margin-bottom:16px;border:2px solid var(--gold,#c8a84b);border-radius:4px;overflow:hidden;">
@@ -2876,7 +2862,7 @@
    <div style="margin-top:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
           <button onclick="sendTestEmail()" style="font-family:monospace;font-size:11px;letter-spacing:1px;padding:6px 16px;background:none;border:1px solid var(--blue);color:var(--blue);cursor:pointer;border-radius:2px;">📧 Send Test Email</button>
           <label style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);display:flex;align-items:center;gap:6px;">
-            <input type="checkbox" id="test-email-use-draft"> Use current draft, force Group B
+            <input type="checkbox" id="test-email-use-draft"> Use current draft
           </label>
           <span id="test-email-status" style="font-family:monospace;font-size:11px;color:var(--muted);"></span>
         </div>
@@ -4259,75 +4245,11 @@
         if (mh) mh.style.borderBottom = '4px double #b22234';
       }
 
-      // ── Email Q1 token handling ──────────────────────────────
+      // ── Email token handling — pre-fill name for tok-bearing links ──
       const _urlParams = new URLSearchParams(window.location.search);
-      const _emailQ1Answer = _urlParams.get('q1');
       const _emailToken = _urlParams.get('tok');
-      const _emailGroup = _urlParams.get('group');
 
-      // Group A click tracking — token present but no Q1 answer
-      if (_emailToken && _emailGroup === 'A') {
-        window.history.replaceState({}, '', window.location.pathname);
-        fetch('/api/email-token/use', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token: _emailToken, date: todayStr() })
-        }).catch(() => {});
-      }
-
-      if (_emailQ1Answer !== null && _emailToken && _emailGroup !== 'A') {
-        window._emailQ1Answer = parseInt(_emailQ1Answer, 10);
-        window._emailToken = _emailToken;
-        window.history.replaceState({}, '', window.location.pathname);
-
-        setTimeout(async () => {
-          try {
-            const tokRes = await fetch('/api/email-token/validate', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                token: window._emailToken,
-                date: todayStr()
-              })
-            });
-
-            const tokData = await tokRes.json();
-
-            if (!tokData.valid) {
-              window._emailQ1Answer = null;
-              window._emailToken = null;
-              return;
-            }
-            window._emailTokenAlreadyUsed = !!tokData.alreadyUsed;
-
-            const displayName =
-              (tokData.displayName || tokData.playerKey || tokData.email || 'Player')
-                .split('@')[0]
-                .trim();
-
-            const nameEl = document.getElementById('player-input');
-            const emailEl = document.getElementById('email-input');
-
-            if (nameEl) nameEl.value = displayName;
-            if (emailEl && tokData.email) emailEl.value = tokData.email;
-
-            state.playerName = displayName;
-            lsSet('dnq_current_player', displayName);
-
-            registerPlayer();
-          } catch (e) {
-            console.warn('[EmailToken] launch validation failed:', e.message);
-            window._emailQ1Answer = null;
-            window._emailToken = null;
-          }
-        }, 250);
-      }
-
-      // ── Subscriber name pre-fill (Group A + plain tok links) ────
-      // Group B already validates its token and calls registerPlayer() above.
-      // For all other tok-bearing links, look up the name and pre-fill if
-      // the player-input is still empty after the localStorage restore.
-      if (_emailToken && (_emailQ1Answer === null || _emailGroup === 'A')) {
+      if (_emailToken) {
         (async () => {
           try {
             const res = await fetch(`/api/subscriber-name?tok=${encodeURIComponent(_emailToken)}`);
@@ -4918,28 +4840,6 @@
       lsSet('dnq_current_player', name);
       getOrCreatePlayer(name);
 
-      // ── Validate email token if arriving from email link ─────
-      if (window._emailToken) {
-        try {
-          const tokRes = await fetch('/api/email-token/validate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ token: window._emailToken, date: state.todayKey })
-          });
-          const tokData = await tokRes.json();
-          if (!tokData.valid) {
-            // Invalid, expired, or already used — clear and proceed normally
-            window._emailToken = null;
-            window._emailQ1Answer = null;
-          }
-          // If valid, token stays set and will be consumed in startQuiz
-        } catch (e) {
-          console.warn('[EmailToken] validation failed:', e.message);
-          window._emailToken = null;
-          window._emailQ1Answer = null;
-        }
-      }
-
       // // Server is authoritative — always fetch today's quiz from server first
       let quiz = null;
       let quizDate = todayStr();
@@ -5154,28 +5054,6 @@
       if (resumed) {
         showResumeOverlay();
       }
-
-      // ── Arriving from a Q1 answer link in the email ───────────
-      // Deliberately does NOT auto-submit the answer anymore — it used to,
-      // via a setTimeout calling selectAnswer() right on page load. Email
-      // security scanners (Microsoft Safe Links, Proofpoint, Mimecast, etc.)
-      // fetch every link in an email — and often run its JS — before the
-      // recipient ever opens the message, so that timer was quietly
-      // "playing" Q1 on real subscribers' behalf before they'd seen the
-      // email at all. window._emailQ1Answer is left set here so
-      // renderQuestion() can visually flag that option instead — actually
-      // answering still requires a real click from the player.
-      if (!resumed && window._emailQ1Answer !== null && window._emailQ1Answer !== undefined && state.currentQ === 0) {
-        if (window._emailToken && !window._emailTokenAlreadyUsed) {
-          // Mark token used and log the click event — only on first use
-          fetch('/api/email-token/use', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ token: window._emailToken, date: state.todayKey })
-          }).catch(() => {});
-        }
-        window._emailToken = null;
-      }
     }
 
     function buildProgressTrack(qs) {
@@ -5205,28 +5083,14 @@
       const diff = getDifficultyLabel(state.currentQ);
       quizAnswered = false;
 
-      // Option tapped in the email's Q1 link, if any — highlighted, not
-      // auto-submitted (see the note in startQuiz()). Consumed here so it
-      // only ever flags the one render of Q1.
-      let preselectedIdx = null;
-      if (state.currentQ === 0 && window._emailQ1Answer !== null && window._emailQ1Answer !== undefined) {
-        preselectedIdx = window._emailQ1Answer;
-        window._emailQ1Answer = null;
-      }
-
       const optLetters = ['A', 'B', 'C', 'D'];
       let optHtml = '';
       q.options.forEach((opt, i) => {
-        const preselected = i === preselectedIdx;
-        optHtml += `<button class="option-btn${preselected ? ' option-preselected' : ''}" onclick="selectAnswer(${i})" id="opt-${i}">
+        optHtml += `<button class="option-btn" onclick="selectAnswer(${i})" id="opt-${i}">
       <span class="opt-letter">${optLetters[i]}</span>
       <span>${escHtml(opt)}</span>
     </button>`;
       });
-
-      const preselectedHint = preselectedIdx !== null
-        ? `<div style="font-size:11px;letter-spacing:1px;font-family:monospace;color:var(--gold);margin-bottom:6px;text-transform:uppercase;">✎ You picked this in the email — tap it to lock it in</div>`
-        : '';
 
       // ICYMI label for stories older than 36 hours
       let icymiHtml = '';
@@ -5246,7 +5110,6 @@
     <div class="question-card">
       <div class="q-number">Question ${state.currentQ + 1} of 5</div>
       ${icymiHtml}
-      ${preselectedHint}
       <div class="q-text">${escHtml(q.question)}</div>
       ${q.image ? `<img class="q-image" src="${escHtml(q.image)}" alt="">` : ''}
       <div class="options-grid">${optHtml}</div>
@@ -8401,10 +8264,9 @@
       try {
         const draft = getDraftQuiz();
         const isJ4Preview = new URLSearchParams(window.location.search).has('j4');
-        const group = document.getElementById('preview-group-b').checked ? 'B' : 'A';
         const fetchOpts = draft && draft.questions && draft.questions.length
-          ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ questions: draft.questions, previewDate: isJ4Preview ? '2026-07-04' : undefined, group }) }
-          : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ group }) };
+          ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ questions: draft.questions, previewDate: isJ4Preview ? '2026-07-04' : undefined }) }
+          : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) };
         const previewUrl = '/api/quiz/preview-email' + (isJ4Preview && !draft?.questions?.length ? '?previewDate=2026-07-04' : '');
         const res = await fetch(previewUrl, fetchOpts);
         const data = await res.json();
@@ -8463,35 +8325,6 @@
         }
       } catch (e) {
         statusEl.textContent = 'Error: ' + e.message;
-      }
-    }
-
-    async function setAbOverride() {
-      const until = document.getElementById('ab-override-date').value;
-      if (!until) { alert('Pick a date first.'); return; }
-      const adminToken = lsGet('dnq_admin_token') || 'admin';
-      const res = await fetch('/api/ab-override', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
-        body: JSON.stringify({ until })
-      });
-      const data = await res.json();
-      if (data.ok) {
-        document.getElementById('ab-override-status').textContent = '✓ Set — all emails will use Group B through ' + until;
-      }
-    }
-
-    async function clearAbOverride() {
-      const adminToken = lsGet('dnq_admin_token') || 'admin';
-      const res = await fetch('/api/ab-override', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
-        body: JSON.stringify({ until: null })
-      });
-      const data = await res.json();
-      if (data.ok) {
-        document.getElementById('ab-override-status').textContent = '✓ Cleared — normal A/B split restored';
-        document.getElementById('ab-override-date').value = '';
       }
     }
 
@@ -9432,64 +9265,7 @@
           }
         });
 
-        // Load A/B override status + stats
-        let abHtml = '';
-        try {
-          const adminToken = lsGet('dnq_admin_token') || 'admin';
-          const overrideRes = await fetch('/api/ab-override', { headers: { 'x-admin-token': adminToken } });
-          const overrideData = overrideRes.ok ? await overrideRes.json() : {};
-          const currentOverride = overrideData.forceGroupBUntil || '';
-          const overrideActive = currentOverride && today <= currentOverride;
-          abHtml += `
-            <div style="margin-bottom:12px;padding:10px 14px;border:1px solid ${overrideActive ? 'var(--green)' : 'var(--rule)'};background:white;">
-              <div style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:8px;">FORCE ALL EMAILS → GROUP B</div>
-              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-                <span style="font-family:monospace;font-size:12px;color:${overrideActive ? 'var(--green)' : 'var(--muted)'};">${overrideActive ? '● Active until ' + currentOverride : '○ Off'}</span>
-                <input type="date" id="ab-override-date" value="${currentOverride}" min="${today}" style="font-family:monospace;font-size:12px;padding:3px 6px;border:1px solid var(--rule);">
-                <button onclick="setAbOverride()" style="font-family:monospace;font-size:11px;padding:3px 10px;background:none;border:1px solid var(--green);color:var(--green);cursor:pointer;">Set</button>
-                <button onclick="clearAbOverride()" style="font-family:monospace;font-size:11px;padding:3px 10px;background:none;border:1px solid var(--muted);color:var(--muted);cursor:pointer;">Clear</button>
-                <span id="ab-override-status" style="font-family:monospace;font-size:11px;color:var(--green);"></span>
-              </div>
-            </div>`;
-
-          const abRes = await fetch('/api/email-ab-stats?date=' + today, {
-            headers: { 'x-admin-token': adminToken }
-          });
-          if (abRes.ok) {
-            const abData = await abRes.json();
-            const g = abData.groups;
-            const pct = (n, d) => d > 0 ? Math.round(n / d * 100) + '%' : '—';
-            abHtml += `
-              <div style="margin-bottom:16px;padding:12px 14px;border:1px solid var(--rule);background:white;">
-                <div style="font-family:monospace;font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:10px;">EMAIL A/B TEST · ${today}</div>
-                <table style="width:100%;border-collapse:collapse;font-size:12px;font-family:monospace;">
-                  <tr style="border-bottom:1px solid var(--rule);">
-                    <th style="text-align:left;padding:4px 8px 4px 0;color:var(--muted);">GROUP</th>
-                    <th style="text-align:right;padding:4px 8px;color:var(--muted);">SENT</th>
-                    <th style="text-align:right;padding:4px 8px;color:var(--muted);">CLICKED</th>
-                    <th style="text-align:right;padding:4px 8px;color:var(--muted);">COMPLETED</th>
-                    <th style="text-align:right;padding:4px 0 4px 8px;color:var(--muted);">CONV %</th>
-                  </tr>
-                  <tr>
-                    <td style="padding:4px 8px 4px 0;">A — Standard</td>
-                    <td style="text-align:right;padding:4px 8px;">${g.A.sent}</td>
-                    <td style="text-align:right;padding:4px 8px;">${g.A.started}</td>
-                    <td style="text-align:right;padding:4px 8px;">${g.A.completed}</td>
-                    <td style="text-align:right;padding:4px 0 4px 8px;color:var(--ink);font-weight:bold;">${pct(g.A.completed, g.A.sent)}</td>
-                  </tr>
-                  <tr>
-                    <td style="padding:4px 8px 4px 0;">B — Teaser Q1</td>
-                    <td style="text-align:right;padding:4px 8px;">${g.B.sent}</td>
-                    <td style="text-align:right;padding:4px 8px;">${g.B.started}</td>
-                    <td style="text-align:right;padding:4px 8px;">${g.B.completed}</td>
-                    <td style="text-align:right;padding:4px 0 4px 8px;color:${g.B.completed / Math.max(g.B.sent,1) > g.A.completed / Math.max(g.A.sent,1) ? 'var(--green)' : 'var(--ink)'};font-weight:bold;">${pct(g.B.completed, g.B.sent)}</td>
-                  </tr>
-                </table>
-              </div>`;
-          }
-        } catch (e) { }
-
-        el.innerHTML = abHtml + `
+        el.innerHTML = `
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:16px;">
         <div style="background:white;border:1px solid var(--rule);padding:12px;text-align:center;">
           <div style="font-size:22px;font-weight:bold;color:var(--ink);">${starts}</div>
@@ -9764,7 +9540,7 @@ async function submitEditorPost() {
         const useDraft = document.getElementById('test-email-use-draft').checked;
         const draft = useDraft ? getDraftQuiz() : null;
         const body = useDraft && draft && draft.questions && draft.questions.length
-          ? { questions: draft.questions, group: 'B' }
+          ? { questions: draft.questions }
           : {};
         const res = await fetch('/api/quiz/test-email', {
           method: 'POST',
@@ -9773,7 +9549,7 @@ async function submitEditorPost() {
         });
         const data = await res.json();
         if (data.ok) {
-          statusEl.textContent = '✓ Test email sent to ' + data.sentTo + ' (Group ' + data.group + ')';
+          statusEl.textContent = '✓ Test email sent to ' + data.sentTo;
           statusEl.style.color = 'var(--green)';
         } else {
           statusEl.textContent = '✗ ' + (data.error || 'Send failed');
@@ -9859,7 +9635,6 @@ async function submitEditorPost() {
           <th style="text-align:left;padding:4px 8px;font-weight:600;">Name</th>
           <th style="text-align:left;padding:4px 8px;font-weight:600;">Subscribed</th>
           <th style="text-align:left;padding:4px 8px;font-weight:600;">Status</th>
-          <th style="text-align:left;padding:4px 8px;font-weight:600;">Group</th>
           <th style="padding:4px 8px;"></th>
         </tr>
         ${subscribers.map(s => `
@@ -9868,7 +9643,6 @@ async function submitEditorPost() {
             <td style="padding:4px 8px;">${s.name || '—'}</td>
             <td style="padding:4px 8px;">${s.subscribedAt ? s.subscribedAt.slice(0, 10) : '—'}</td>
             <td style="padding:4px 8px;color:${s.active ? 'var(--green)' : 'var(--muted)'};">${s.active ? 'Active' : 'Paused'}</td>
-            <td style="padding:4px 8px;font-family:monospace;font-size:11px;color:var(--muted);">${s.abGroup || '—'}</td>
             <td style="padding:4px 8px;display:flex;gap:6px;">
               <button onclick="toggleSubscriber('${s.email}', ${!s.active})"
                 style="font-family:monospace;font-size:10px;padding:2px 8px;cursor:pointer;border-radius:2px;letter-spacing:1px;background:none;border:1px solid ${s.active ? 'var(--muted)' : 'var(--green)'}; color:${s.active ? 'var(--muted)' : 'var(--green)'};">

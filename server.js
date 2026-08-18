@@ -112,7 +112,7 @@ async function setKey(key, value) {
 // All callers that used await readData()/await writeData() now use async versions below.
 async function readData() {
   const keys = ['sites','rssCache','scores','dist','quizzes','archiveUrls',
-                 'archiveQuestions','archiveSlugs','posts','messages','subscribers','emailPaused','emailPausedSnapshot','topicBlocklist','cachedTeaserHtml','cachedTeaserDate','draftTeaserHtml','draftTeaserFingerprint','emailSentDates','prospects','prospectsPaused','statsExclusions','editorNotes','starredQuestions','communityMessage','communityMessageLastSent','communityImageUrl','forceGroupBUntil'];
+                 'archiveQuestions','archiveSlugs','posts','messages','subscribers','emailPaused','emailPausedSnapshot','topicBlocklist','cachedTeaserHtml','cachedTeaserDate','draftTeaserHtml','draftTeaserFingerprint','emailSentDates','prospects','prospectsPaused','statsExclusions','editorNotes','starredQuestions','communityMessage','communityMessageLastSent','communityImageUrl'];
   const data = {};
   await Promise.all(keys.map(async k => {
     const v = await getKey(k);
@@ -123,7 +123,7 @@ async function readData() {
 
 async function writeData(data) {
   const keys = ['sites','rssCache','scores','dist','quizzes','archiveUrls',
-                 'archiveQuestions','archiveSlugs','posts','messages','subscribers','emailPaused','emailPausedSnapshot','topicBlocklist','cachedTeaserHtml','cachedTeaserDate','draftTeaserHtml','draftTeaserFingerprint','emailSentDates','prospects','prospectsPaused','statsExclusions','editorNotes','starredQuestions','communityMessage','communityMessageLastSent','communityImageUrl','forceGroupBUntil'];
+                 'archiveQuestions','archiveSlugs','posts','messages','subscribers','emailPaused','emailPausedSnapshot','topicBlocklist','cachedTeaserHtml','cachedTeaserDate','draftTeaserHtml','draftTeaserFingerprint','emailSentDates','prospects','prospectsPaused','statsExclusions','editorNotes','starredQuestions','communityMessage','communityMessageLastSent','communityImageUrl'];
   await Promise.all(keys.map(async k => {
     if (data[k] === null) await setKey(k, null);
     else if (data[k] !== undefined) await setKey(k, data[k]);
@@ -817,8 +817,6 @@ app.post('/api/scores', async (req, res) => {
     ts: new Date().toISOString()
   });
 
-  const { completed: isCompleted } = req.body;
-
   if (!playerName || !date || typeof score !== 'number') {
     console.error('[scores] bad request', req.body);
     return res.status(400).json({ error: 'playerName, date, and score required' });
@@ -871,17 +869,6 @@ try {
       newScore: score,
       allTime: data.scores[key].allTime
     });
-
-   // Log completion event for A/B analytics — only on final score post from finishQuiz
-    if (isCompleted) {
-      const subData = await readData();
-      const subRecord = subData.subscribers && Object.values(subData.subscribers).find(s =>
-        normPlayerKey(s.name) === key
-      );
-      if (subRecord && subRecord.abGroup) {
-        logEmailEvent('quiz_completed', subRecord.email, date, { group: subRecord.abGroup, score });
-      }
-    }
 
     // ── Increment referral playCount ──────────────────────────
     try {
@@ -2150,58 +2137,11 @@ function buildJuly4EmailParts(dateStr) {
   };
 }
 
-function buildEmailHtmlWithQ1(siteUrl, date, subscriberName, teaserHtml, unsubUrl, q1, token) {
-  const optLetters = ['A', 'B', 'C', 'D'];
-  const answerButtons = (q1.options || []).map((opt, i) => {
-  const url = `${siteUrl}/news-quiz.html?q1=${encodeURIComponent(String(i))}&tok=${encodeURIComponent(token)}`;
-  return `
-    <div style="margin-bottom:10px;">
-      <a href="${url}" target="_blank" style="display:block;padding:14px 16px;background:#ffffff;border:2px solid #2c1f0e;text-decoration:none;color:#1a1008;font-family:Georgia,serif;font-size:15px;text-align:left;">
-        <strong style="font-family:Courier New,monospace;font-size:13px;color:#6b5f4e;margin-right:10px;">${optLetters[i]}.</strong>
-        ${opt}
-      </a>
-    </div>`;
-}).join('');
-
-  const j4 = buildJuly4EmailParts(date);
-return `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1008;">
-    ${j4.stripe}
-    <div style="background:#1a1008;color:#f5f0e8;text-align:center;padding:24px;">
-      <div style="font-family:monospace;font-size:11px;letter-spacing:3px;color:#f0c040;margin-bottom:6px;">BALTIMORE · DAILY DISPATCH</div>
-      <div style="font-size:28px;font-weight:bold;">The Daily Dispatch Quiz</div>
-      <div style="font-family:monospace;font-size:10px;letter-spacing:2px;color:#aaa;margin-top:6px;">${date}</div>
-      ${j4.mastheadLine}
-    </div>
-    <div style="padding:32px 24px;background:#f5f0e8;">
-<!--REFERRAL_STRIP_INSERT_POINT-->
-      <p style="font-size:18px;margin:0 0 16px;">Hi${subscriberName ? ' ' + subscriberName : ''} — start today's quiz by clicking your answer here:</p>
-<!--BYLINES_TEASER_INSERT_POINT-->
-      <div style="background:white;border:2px solid #1a1008;padding:20px 20px 10px;margin-bottom:20px;box-shadow:4px 4px 0 #1a1008;">
-        <div style="font-family:monospace;font-size:11px;letter-spacing:2px;color:#6b5f4e;margin-bottom:12px;">QUESTION 1 OF 5 · STARTER</div>
-        <div style="font-size:19px;line-height:1.5;color:#1a1008;font-weight:400;margin-bottom:16px;">${q1.question}</div>
-        ${q1.image ? `<img src="${q1.image}" alt="" style="width:100%;max-height:280px;object-fit:cover;border:2px solid #1a1008;display:block;margin-bottom:16px;">` : ''}
-        ${answerButtons}
-      </div>
-      <p style="text-align:center;margin:12px 0 8px;font-family:monospace;font-size:11px;letter-spacing:1px;color:#6b5f4e;">
-        — or — <a href="${siteUrl}" style="color:#1a1008;font-weight:700;">go straight to today's quiz →</a>
-      </p>
-<!--EDITOR_MESSAGE_INSERT_POINT-->
-<!--YESTERDAY_INSERT_POINT-->
-<!--SUBSCRIBE_INSERT_POINT-->
-<!--BYLINES_SECTION_INSERT_POINT-->
-    </div>
-    ${j4.signoff}
-    <div style="padding:16px 24px;text-align:center;font-size:11px;color:#999;font-family:monospace;border-top:1px solid #e0d8cc;">
-      <a href="${unsubUrl}" style="color:#999;">Unsubscribe</a>
-    </div>
-  </div>`;
-}
-
 function buildEmailHtml(siteUrl, date, subscriberName, teaserHtml, unsubUrl, trackingToken) {
   const j4 = buildJuly4EmailParts(date);
   return `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1008;">
     ${j4.stripe}
-    <a href="${siteUrl}/news-quiz.html${trackingToken ? '?tok=' + encodeURIComponent(trackingToken) + '&group=A' : ''}" style="display:block;text-decoration:none;color:inherit;">
+    <a href="${siteUrl}/news-quiz.html${trackingToken ? '?tok=' + encodeURIComponent(trackingToken) : ''}" style="display:block;text-decoration:none;color:inherit;">
     <div style="background:#1a1008;color:#f5f0e8;text-align:center;padding:24px;">
       <div style="font-family:monospace;font-size:11px;letter-spacing:3px;color:#f0c040;margin-bottom:6px;">BALTIMORE · DAILY DISPATCH</div>
       <div style="font-size:28px;font-weight:bold;">The Daily Dispatch Quiz</div>
@@ -2217,7 +2157,7 @@ function buildEmailHtml(siteUrl, date, subscriberName, teaserHtml, unsubUrl, tra
       <p style="font-size:16px;color:#444;margin:0 0 24px;">How closely are you following the news?</p>
       ${teaserHtml}
 <!--EDITOR_MESSAGE_INSERT_POINT-->
-      <a href="${siteUrl}/news-quiz.html${trackingToken ? '?tok=' + encodeURIComponent(trackingToken) + '&group=A' : ''}" style="display:inline-block;background:#1a1008;color:#f5f0e8;padding:16px 36px;font-family:monospace;font-size:13px;letter-spacing:2px;text-decoration:none;text-transform:uppercase;">Play Today's Quiz ▸</a>
+      <a href="${siteUrl}/news-quiz.html${trackingToken ? '?tok=' + encodeURIComponent(trackingToken) : ''}" style="display:inline-block;background:#1a1008;color:#f5f0e8;padding:16px 36px;font-family:monospace;font-size:13px;letter-spacing:2px;text-decoration:none;text-transform:uppercase;">Play Today's Quiz ▸</a>
 
 <!--SUBSCRIBE_INSERT_POINT-->
 <!--BYLINES_SECTION_INSERT_POINT-->
@@ -2476,13 +2416,8 @@ app.all('/api/quiz/preview-email', async (req, res) => {
   const dateOverride = ((req.query.previewDate || req.body?.previewDate) || '').match(/^\d{4}-\d{2}-\d{2}$/)?.[0];
   if (dateOverride) dateLabel = dateOverride;
 
-  // Allow ?group=B (or in POST body) to preview the Group B (Q1-embedded) style instead of Group A
-  const previewGroup = ((req.query.group || req.body?.group) || 'A').toUpperCase() === 'B' ? 'B' : 'A';
-  const q1 = questions && questions[0];
   const buildPreviewHtml = (siteUrl, dateLabel, teaserHtmlToUse, unsubUrl) =>
-    (previewGroup === 'B' && q1)
-      ? buildEmailHtmlWithQ1(siteUrl, dateLabel, 'Subscriber', teaserHtmlToUse, unsubUrl, q1, 'preview-token')
-      : buildEmailHtml(siteUrl, dateLabel, 'Subscriber', teaserHtmlToUse, unsubUrl);
+    buildEmailHtml(siteUrl, dateLabel, 'Subscriber', teaserHtmlToUse, unsubUrl);
 
   const previewData = await readData();
 
@@ -2642,8 +2577,6 @@ app.post('/api/quiz', async (req, res) => {
       }
 
     let sentAnyEmails = false;
-    const forceB = freshData.forceGroupBUntil && easternToday() <= freshData.forceGroupBUntil;
-    if (forceB) console.log('[Email] Force Group B active until', freshData.forceGroupBUntil);
 
     const communityMessage = (freshData.communityMessage || '').trim();
     const communityMessageLastSent = (freshData.communityMessageLastSent || '').trim();
@@ -2670,14 +2603,9 @@ app.post('/api/quiz', async (req, res) => {
         if (new Date(tokens[t].date + 'T12:00:00') < tokenCutoff) delete tokens[t];
       });
 
-      const q1 = quiz.questions && quiz.questions[0];
-
-      // Assign A/B groups and build emails
       const updatedSubscribers = [];
       const emails = [];
       for (const sub of subscribers) {
-        // Assign A/B group if not yet assigned
-        if (!sub.abGroup) sub.abGroup = Math.random() < 0.5 ? 'A' : 'B';
         // Ensure subscriber has a referral code
         if (!sub.referralCode) {
           sub.referralCode = Buffer.from(sub.email + Math.random()).toString('base64')
@@ -2690,36 +2618,10 @@ app.post('/api/quiz', async (req, res) => {
         const playerProgress = yesterdayProgress[playerKey] || null;
         const resultsHtml = buildResultsHtml(playerProgress, yesterdayQuiz);
 
-        let baseHtml;
-        if ((sub.abGroup === 'B' || forceB) && q1) {
-          // Group B: teaser email with Q1 embedded
-          const token = Buffer.from(sub.email + date + Math.random()).toString('base64')
-            .replace(/[^a-zA-Z0-9]/g, '').slice(0, 32);
-          tokens[token] = {
-            email: sub.email,
-            playerKey,
-            displayName: sub.name || '',
-            date,
-            group: 'B',
-            usedAt: null
-          };
-          baseHtml = buildEmailHtmlWithQ1(siteUrl, date, sub.name, teaserHtml, unsubUrl, q1, token);
-          await logEmailEvent('email_sent', sub.email, date, { group: 'B' });
-        } else {
-          // Group A: standard email with click tracking token
-          const tokenA = Buffer.from(sub.email + date + Math.random()).toString('base64')
-            .replace(/[^a-zA-Z0-9]/g, '').slice(0, 32);
-          tokens[tokenA] = {
-            email: sub.email,
-            playerKey,
-            displayName: sub.name || '',
-            date,
-            group: 'A',
-            usedAt: null
-          };
-          baseHtml = buildEmailHtml(siteUrl, date, sub.name, teaserHtml, unsubUrl, tokenA);
-          await logEmailEvent('email_sent', sub.email, date, { group: 'A' });
-        }
+        const token = Buffer.from(sub.email + date + Math.random()).toString('base64')
+          .replace(/[^a-zA-Z0-9]/g, '').slice(0, 32);
+        tokens[token] = { email: sub.email, playerKey, displayName: sub.name || '', date, usedAt: null };
+        let baseHtml = buildEmailHtml(siteUrl, date, sub.name, teaserHtml, unsubUrl, token);
 
         baseHtml = baseHtml.replace('<!--EDITOR_MESSAGE_INSERT_POINT-->', editorMessageHtml);
         baseHtml = baseHtml.replace('<!--BYLINES_TEASER_INSERT_POINT-->', bylinesTeaserHtml);
@@ -2739,14 +2641,13 @@ app.post('/api/quiz', async (req, res) => {
         });
       }
 
-      // Save updated tokens and subscriber abGroup assignments
+      // Save updated tokens and subscriber referral codes
       await setKey('emailTokens', tokens);
       const subData = await readData();
       if (subData.subscribers) {
         updatedSubscribers.forEach(sub => {
-          if (subData.subscribers[sub.email]) {
-            subData.subscribers[sub.email].abGroup = sub.abGroup;
-            if (sub.referralCode) subData.subscribers[sub.email].referralCode = sub.referralCode;
+          if (subData.subscribers[sub.email] && sub.referralCode) {
+            subData.subscribers[sub.email].referralCode = sub.referralCode;
           }
         });
         await writeData(subData);
@@ -2765,7 +2666,6 @@ app.post('/api/quiz', async (req, res) => {
       console.log(`[Prospects] Sending quiz email to ${activeProspects.length} prospect(s)…`);
 
       const tokens = (await getKey('emailTokens')) || {};
-      const q1 = quiz.questions && quiz.questions[0];
       const updatedProspects = [];
 
 const prospectEmails = [];
@@ -2774,8 +2674,6 @@ const prospectEmails = [];
         const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(p.email)}`;
         const playerKey = normPlayerKey(p.name);
 
-        // Assign A/B group if not yet assigned
-        if (!p.abGroup) p.abGroup = Math.random() < 0.5 ? 'A' : 'B';
         // Ensure prospect has a referral code
         if (!p.referralCode) {
           p.referralCode = Buffer.from(p.email + Math.random()).toString('base64')
@@ -2783,34 +2681,10 @@ const prospectEmails = [];
         }
         updatedProspects.push(p);
 
-        let baseHtml;
-        if ((p.abGroup === 'B' || forceB) && q1) {
-          const token = Buffer.from(p.email + date + Math.random()).toString('base64')
-            .replace(/[^a-zA-Z0-9]/g, '').slice(0, 32);
-          tokens[token] = {
-            email: p.email,
-            playerKey,
-            displayName: p.name || '',
-            date,
-            group: 'B',
-            usedAt: null
-          };
-          baseHtml = buildEmailHtmlWithQ1(siteUrl, date, p.name, teaserHtml, unsubUrl, q1, token);
-          await logEmailEvent('email_sent', p.email, date, { group: 'B' });
-        } else {
-          const tokenA = Buffer.from(p.email + date + Math.random()).toString('base64')
-            .replace(/[^a-zA-Z0-9]/g, '').slice(0, 32);
-          tokens[tokenA] = {
-            email: p.email,
-            playerKey,
-            displayName: p.name || '',
-            date,
-            group: 'A',
-            usedAt: null
-          };
-          baseHtml = buildEmailHtml(siteUrl, date, p.name, teaserHtml, unsubUrl, tokenA);
-          await logEmailEvent('email_sent', p.email, date, { group: 'A' });
-        }
+        const token = Buffer.from(p.email + date + Math.random()).toString('base64')
+          .replace(/[^a-zA-Z0-9]/g, '').slice(0, 32);
+        tokens[token] = { email: p.email, playerKey, displayName: p.name || '', date, usedAt: null };
+        let baseHtml = buildEmailHtml(siteUrl, date, p.name, teaserHtml, unsubUrl, token);
 
         baseHtml = baseHtml.replace('<!--EDITOR_MESSAGE_INSERT_POINT-->', editorMessageHtml);
         baseHtml = baseHtml.replace('<!--BYLINES_TEASER_INSERT_POINT-->', bylinesTeaserHtml);
@@ -2838,16 +2712,15 @@ const prospectEmails = [];
     // Save final token state including prospect tokens
     await setKey('emailTokens', tokens);
 
-    // Save prospect abGroup assignments
+    // Save prospect referral codes
     const prospectData = await readData();
 
     if (prospectData.prospects) {
        updatedProspects.forEach(p => {
         const key = (p.email || '').toLowerCase().trim();
 
-        if (prospectData.prospects[key]) {
-          prospectData.prospects[key].abGroup = p.abGroup;
-          if (p.referralCode) prospectData.prospects[key].referralCode = p.referralCode;
+        if (prospectData.prospects[key] && p.referralCode) {
+          prospectData.prospects[key].referralCode = p.referralCode;
        }
      });
 
@@ -2973,99 +2846,9 @@ app.get('/api/subscriber-name', async (req, res) => {
   }
 });
 
-// Stored as emailTokens = { token: { email, playerKey, date, usedAt } }
+// Stored as emailTokens = { token: { email, playerKey, date } }
 
-app.post('/api/email-token/validate', async (req, res) => {
-  const { token, date } = req.body || {};
-  if (!token || !date) return res.status(400).json({ error: 'token and date required' });
-  try {
-    const tokens = (await getKey('emailTokens')) || {};
-    const record = tokens[token];
-    if (!record) return res.json({ valid: false, reason: 'invalid' });
-    if (record.date !== date) return res.json({ valid: false, reason: 'wrong_date' });
-    if (record.usedAt) return res.json({ valid: true, email: record.email, playerKey: record.playerKey, displayName: record.displayName, alreadyUsed: true });
-    res.json({ valid: true, email: record.email, playerKey: record.playerKey, displayName: record.displayName, alreadyUsed: false });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-app.post('/api/email-token/use', async (req, res) => {
-  const { token, date } = req.body || {};
-  if (!token || !date) return res.status(400).json({ error: 'token and date required' });
-  try {
-    const tokens = (await getKey('emailTokens')) || {};
-    if (!tokens[token]) return res.status(404).json({ error: 'token not found' });
-    const record = tokens[token];
-    const alreadyUsed = !!record.usedAt;
-    tokens[token].usedAt = new Date().toISOString();
-    await setKey('emailTokens', tokens);
-    // Log q1_click only on first use
-    if (!alreadyUsed && record.group) {
-      await logEmailEvent('q1_click', record.email, date, { group: record.group });
-    }
-    res.json({ ok: true });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// ── Email event logging ───────────────────────────────────────
-async function logEmailEvent(event, email, date, meta = {}) {
-  try {
-const events = (await getKey('emailEvents')) || [];
-    events.push({ event, email, date, ts: new Date().toISOString(), ...meta });
-    // Keep only last 30 days
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - 30);
-    const pruned = events.filter(e => new Date(e.date + 'T12:00:00') >= cutoff);
-    await setKey('emailEvents', pruned);
-  } catch (e) {
-    console.warn('[EmailEvent] log failed:', e.message);
-  }
-}
-
-// ── GET /api/email-ab-stats — A/B results for admin panel ────
-app.get('/api/email-ab-stats', async (req, res) => {
-  const adminToken = process.env.ADMIN_TOKEN || 'admin';
-  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
-  const { date } = req.query;
-  if (!date) return res.status(400).json({ error: 'date required' });
-  try {
-    const allEvents = (await getKey('emailEvents')) || [];
-    const events = allEvents.filter(e => e.date === date);
-    const groups = { A: { sent: 0, started: 0, completed: 0 }, B: { sent: 0, started: 0, completed: 0 } };
-    events.forEach(e => {
-      const g = e.group;
-      if (!g || !groups[g]) return;
-      if (e.event === 'email_sent') groups[g].sent++;
-      if (e.event === 'q1_click') groups[g].started++;
-      if (e.event === 'quiz_completed') groups[g].completed++;
-    });
-    res.json({ date, groups });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// ── GET/POST /api/ab-override — force all emails to Group B until a given date ──
-app.get('/api/ab-override', async (req, res) => {
-  const adminToken = process.env.ADMIN_TOKEN || 'admin';
-  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
-  const until = await getKey('forceGroupBUntil');
-  res.json({ forceGroupBUntil: until || null });
-});
-
-app.post('/api/ab-override', async (req, res) => {
-  const adminToken = process.env.ADMIN_TOKEN || 'admin';
-  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
-  const { until } = req.body;
-  await setKey('forceGroupBUntil', until || null);
-  console.log('[Admin] forceGroupBUntil set to', until || 'null (cleared)');
-  res.json({ ok: true, forceGroupBUntil: until || null });
-});
-
-// ── POST /api/quiz/test-email — send test email to admin, respecting abGroup ───
+// ── POST /api/quiz/test-email — send test email to admin ───
 app.post('/api/quiz/test-email', async (req, res) => {
   const adminToken = process.env.ADMIN_TOKEN || 'admin';
   if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
@@ -3080,38 +2863,20 @@ app.post('/api/quiz/test-email', async (req, res) => {
     const quiz = draftQuestions ? { questions: draftQuestions } : (data.quizzes && data.quizzes[date]);
     if (!quiz) return res.status(404).json({ error: draftQuestions ? 'Draft has no questions' : 'No quiz published for today' });
 
-    const q1 = quiz.questions && quiz.questions[0];
-    if (!q1) return res.status(404).json({ error: 'No questions in today\'s quiz' });
-
-    // Look up abGroup from subscriber record, unless the caller forces one (e.g. testing a draft)
     const subRecord = data.subscribers && data.subscribers[testEmail];
-    const forcedGroup = (req.body?.group || '').toUpperCase();
-    const group = (forcedGroup === 'A' || forcedGroup === 'B') ? forcedGroup : ((subRecord && subRecord.abGroup) || 'B');
     const displayName = (subRecord && subRecord.name) || 'Player';
     const playerKey = normPlayerKey(displayName);
 
     const tokens = (await getKey('emailTokens')) || {};
     const token = Buffer.from(testEmail + date + Math.random()).toString('base64')
       .replace(/[^a-zA-Z0-9]/g, '').slice(0, 32);
-    tokens[token] = {
-      email: testEmail,
-      playerKey,
-      displayName,
-      date,
-      group,
-      usedAt: null
-    };
+    tokens[token] = { email: testEmail, playerKey, displayName, date, usedAt: null };
     await setKey('emailTokens', tokens);
 
     const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(testEmail)}`;
     const teaserHtml = data.cachedTeaserHtml || '';
 
-    let html;
-    if (group === 'B') {
-      html = buildEmailHtmlWithQ1(siteUrl, date, displayName, teaserHtml, unsubUrl, q1, token);
-    } else {
-      html = buildEmailHtml(siteUrl, date, displayName, teaserHtml, unsubUrl, token);
-    }
+    let html = buildEmailHtml(siteUrl, date, displayName, teaserHtml, unsubUrl, token);
 
     html = html.replace('<!--EDITOR_MESSAGE_INSERT_POINT-->', '');
     html = html.replace('<!--YESTERDAY_INSERT_POINT-->', '');
@@ -3129,9 +2894,9 @@ app.post('/api/quiz/test-email', async (req, res) => {
     html = html.replace('<!--REFERRAL_STRIP_INSERT_POINT-->', testReferralStrip);
     html = html.replace('<!--SUBSCRIBE_INSERT_POINT-->', '');
 
-    await sendEmail(testEmail, `[TEST - Group ${group}] Today's Daily Dispatch Quiz — ${date}`, html);
-    console.log(`[TestEmail] Sent Group ${group} email to ${testEmail}`);
-    res.json({ ok: true, sentTo: testEmail, group });
+    await sendEmail(testEmail, `[TEST] Today's Daily Dispatch Quiz — ${date}`, html);
+    console.log(`[TestEmail] Sent test email to ${testEmail}`);
+    res.json({ ok: true, sentTo: testEmail });
   } catch (e) {
     console.error('[TestEmail] error:', e.message);
     res.status(500).json({ error: e.message });
@@ -4448,8 +4213,6 @@ async function checkScheduledPublish() {
     }
 
     let sentAnyEmails = false;
-    const forceB = freshData.forceGroupBUntil && easternToday() <= freshData.forceGroupBUntil;
-    if (forceB) console.log('[Schedule] Force Group B active until', freshData.forceGroupBUntil);
 
     const communityMessage = (freshData.communityMessage || '').trim();
     const communityMessageLastSent = (freshData.communityMessageLastSent || '').trim();
@@ -4472,12 +4235,10 @@ async function checkScheduledPublish() {
         if (new Date(tokens[t].date + 'T12:00:00') < tokenCutoff) delete tokens[t];
       });
 
-      const q1 = quiz.questions && quiz.questions[0];
       const updatedSubscribers = [];
       const emails = [];
 
       for (const sub of subscribers) {
-        if (!sub.abGroup) sub.abGroup = Math.random() < 0.5 ? 'A' : 'B';
         if (!sub.referralCode) {
           sub.referralCode = Buffer.from(sub.email + Math.random()).toString('base64')
             .replace(/[^a-zA-Z0-9]/g, '').slice(0, 10);
@@ -4489,20 +4250,10 @@ async function checkScheduledPublish() {
         const playerProgress = yesterdayProgress[playerKey] || null;
         const resultsHtml = buildResultsHtml(playerProgress, yesterdayQuiz);
 
-        let baseHtml;
-        if ((sub.abGroup === 'B' || forceB) && q1) {
-          const token = Buffer.from(sub.email + date + Math.random()).toString('base64')
-            .replace(/[^a-zA-Z0-9]/g, '').slice(0, 32);
-          tokens[token] = { email: sub.email, playerKey, displayName: sub.name || '', date, group: 'B', usedAt: null };
-          baseHtml = buildEmailHtmlWithQ1(siteUrl, date, sub.name, teaserHtml, unsubUrl, q1, token);
-          await logEmailEvent('email_sent', sub.email, date, { group: 'B' });
-        } else {
-          const tokenA = Buffer.from(sub.email + date + Math.random()).toString('base64')
-            .replace(/[^a-zA-Z0-9]/g, '').slice(0, 32);
-          tokens[tokenA] = { email: sub.email, playerKey, displayName: sub.name || '', date, group: 'A', usedAt: null };
-          baseHtml = buildEmailHtml(siteUrl, date, sub.name, teaserHtml, unsubUrl, tokenA);
-          await logEmailEvent('email_sent', sub.email, date, { group: 'A' });
-        }
+        const token = Buffer.from(sub.email + date + Math.random()).toString('base64')
+          .replace(/[^a-zA-Z0-9]/g, '').slice(0, 32);
+        tokens[token] = { email: sub.email, playerKey, displayName: sub.name || '', date, usedAt: null };
+        let baseHtml = buildEmailHtml(siteUrl, date, sub.name, teaserHtml, unsubUrl, token);
 
         baseHtml = baseHtml.replace('<!--EDITOR_MESSAGE_INSERT_POINT-->', editorMessageHtml);
         baseHtml = baseHtml.replace('<!--BYLINES_TEASER_INSERT_POINT-->', bylinesTeaserHtml);
@@ -4524,9 +4275,8 @@ async function checkScheduledPublish() {
       const subData = await readData();
       if (subData.subscribers) {
         updatedSubscribers.forEach(sub => {
-          if (subData.subscribers[sub.email]) {
-            subData.subscribers[sub.email].abGroup = sub.abGroup;
-            if (sub.referralCode) subData.subscribers[sub.email].referralCode = sub.referralCode;
+          if (subData.subscribers[sub.email] && sub.referralCode) {
+            subData.subscribers[sub.email].referralCode = sub.referralCode;
           }
         });
         await writeData(subData);
@@ -4541,7 +4291,6 @@ async function checkScheduledPublish() {
 
     if (activeProspects.length > 0) {
       const tokens = (await getKey('emailTokens')) || {};
-      const q1 = quiz.questions && quiz.questions[0];
       const updatedProspects = [];
       const prospectEmails = [];
 
@@ -4549,27 +4298,16 @@ async function checkScheduledPublish() {
         const subscribeUrl = `${siteUrl}/subscribe?email=${encodeURIComponent(p.email)}&name=${encodeURIComponent(p.name || '')}`;
         const unsubUrl = `${siteUrl}/api/unsubscribe?email=${encodeURIComponent(p.email)}`;
         const playerKey = normPlayerKey(p.name);
-        if (!p.abGroup) p.abGroup = Math.random() < 0.5 ? 'A' : 'B';
         if (!p.referralCode) {
           p.referralCode = Buffer.from(p.email + Math.random()).toString('base64')
             .replace(/[^a-zA-Z0-9]/g, '').slice(0, 10);
         }
         updatedProspects.push(p);
 
-        let baseHtml;
-        if ((p.abGroup === 'B' || forceB) && q1) {
-          const token = Buffer.from(p.email + date + Math.random()).toString('base64')
-            .replace(/[^a-zA-Z0-9]/g, '').slice(0, 32);
-          tokens[token] = { email: p.email, playerKey, displayName: p.name || '', date, group: 'B', usedAt: null };
-          baseHtml = buildEmailHtmlWithQ1(siteUrl, date, p.name, teaserHtml, unsubUrl, q1, token);
-          await logEmailEvent('email_sent', p.email, date, { group: 'B' });
-        } else {
-          const tokenA = Buffer.from(p.email + date + Math.random()).toString('base64')
-            .replace(/[^a-zA-Z0-9]/g, '').slice(0, 32);
-          tokens[tokenA] = { email: p.email, playerKey, displayName: p.name || '', date, group: 'A', usedAt: null };
-          baseHtml = buildEmailHtml(siteUrl, date, p.name, teaserHtml, unsubUrl, tokenA);
-          await logEmailEvent('email_sent', p.email, date, { group: 'A' });
-        }
+        const token = Buffer.from(p.email + date + Math.random()).toString('base64')
+          .replace(/[^a-zA-Z0-9]/g, '').slice(0, 32);
+        tokens[token] = { email: p.email, playerKey, displayName: p.name || '', date, usedAt: null };
+        let baseHtml = buildEmailHtml(siteUrl, date, p.name, teaserHtml, unsubUrl, token);
 
         baseHtml = baseHtml.replace('<!--EDITOR_MESSAGE_INSERT_POINT-->', editorMessageHtml);
         baseHtml = baseHtml.replace('<!--BYLINES_TEASER_INSERT_POINT-->', bylinesTeaserHtml);
@@ -4595,7 +4333,7 @@ async function checkScheduledPublish() {
       if (prospectData.prospects) {
         updatedProspects.forEach(p => {
           const k = (p.email || '').toLowerCase().trim();
-          if (prospectData.prospects[k]) prospectData.prospects[k].abGroup = p.abGroup;
+          if (prospectData.prospects[k] && p.referralCode) prospectData.prospects[k].referralCode = p.referralCode;
         });
         await writeData(prospectData);
       }
