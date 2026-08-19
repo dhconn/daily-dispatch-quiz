@@ -9443,6 +9443,14 @@
       const adminToken = lsGet('dnq_admin_token') || 'admin';
       errorEl.textContent = '';
 
+      // Re-save the teaser cache right before scheduling so its fingerprint matches
+      // this exact draft — otherwise any edit made after the last preview (even one
+      // unrelated to teasers, like reordering a question) silently breaks the match,
+      // and the scheduled email falls back to freshly-generated teasers at send time.
+      if (document.getElementById('teaser-0')) {
+        await saveTeasers();
+      }
+
       try {
         const res = await fetch('/api/quiz/schedule', {
           method: 'POST',
