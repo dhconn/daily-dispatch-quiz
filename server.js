@@ -1617,6 +1617,25 @@ function easternToday() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
 }
 
+// Permanent, never-pruned mirror of published quizzes — data.quizzes itself
+// is capped at 14 days for the live app, so anything older is otherwise
+// gone for good once it rolls off. Kept out of the readData()/writeData()
+// key list deliberately: that list gets fetched on nearly every request in
+// this file, and this archive only grows, so folding it in would mean every
+// unrelated request pays to fetch a blob it never uses. Scoped getKey/setKey
+// keeps it read only by the two places that write a quiz and the one place
+// that looks one up by date.
+async function archiveQuizPermanently(date, quiz) {
+  if (!date || !quiz) return;
+  try {
+    const archive = (await getKey('quizArchive')) || {};
+    archive[date] = quiz;
+    await setKey('quizArchive', archive);
+  } catch (e) {
+    console.warn('[quizArchive] write failed (non-fatal):', e.message);
+  }
+}
+
 // ── Bylines & Newshound designations ────────────────────────────
 // A "Byline" is a perfect 150 on the live daily quiz, first play only.
 // Reuses the same first-play guarantee /api/progress already relies on:
@@ -2464,7 +2483,11 @@ app.all('/api/quiz/preview-email', async (req, res) => {
 
 app.get('/api/quiz/all', async (req, res) => {
   const data = await readData();
-  res.json({ quizzes: data.quizzes || {} });
+  const archive = (await getKey('quizArchive')) || {};
+  // Archive first, live 14-day store layered on top — both should agree for
+  // any overlapping date, but the live store is the more recently written
+  // of the two if they ever drift.
+  res.json({ quizzes: { ...archive, ...(data.quizzes || {}) } });
 });
 
 // ── GET /api/quiz/archive — return list of available past quiz dates ──
@@ -2535,6 +2558,11 @@ app.post('/api/quiz', async (req, res) => {
   const keys = Object.keys(data.quizzes).sort();
   if (keys.length > 14) keys.slice(0, keys.length - 14).forEach(k => delete data.quizzes[k]);
   await writeData(data);
+  // Archive the incoming `quiz` directly, not data.quizzes[date] — this
+  // endpoint is also how the admin archive editor saves edits to dates
+  // well outside the 14-day window, and the prune step above would have
+  // already deleted an old date from data.quizzes before this line ran.
+  await archiveQuizPermanently(date, quiz);
 
   // Send notification emails — skipped for silent saves (emergency save, edits, fixes)
   // Also skipped if emails were already sent for this date (prevents double-send on re-publish)
@@ -2747,15 +2775,24 @@ const prospectEmails = [];
 app.get('/api/quiz', async (req, res) => {
   const { date } = req.query;
   const data = await readData();
+
+  // Exact date match in the live 14-day store
+  if (date && data.quizzes && data.quizzes[date]) {
+    return res.json({ quiz: data.quizzes[date], date });
+  }
+
+  // Rolled off the 14-day live window — check the permanent archive before
+  // giving up. Only relevant when a specific date was asked for; the
+  // "today/most-recent" fallback logic below never wants archived data.
+  if (date) {
+    const archive = (await getKey('quizArchive')) || {};
+    if (archive[date]) return res.json({ quiz: archive[date], date, archived: true });
+  }
+
   if (!data.quizzes) return res.json({ quiz: null });
 
   const dates = Object.keys(data.quizzes).sort();
   if (dates.length === 0) return res.json({ quiz: null });
-
-  // Exact date match
-  if (date && data.quizzes[date]) {
-    return res.json({ quiz: data.quizzes[date], date });
-  }
 
   // Never serve a previous day's quiz as a fallback — return null so the client shows "not yet published"
   const todayEastern = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
@@ -4178,6 +4215,7 @@ async function checkScheduledPublish() {
     const keys = Object.keys(data.quizzes).sort();
     if (keys.length > 14) keys.slice(0, keys.length - 14).forEach(k => delete data.quizzes[k]);
     await writeData(data);
+    await archiveQuizPermanently(date, data.quizzes[date]);
 
     const siteUrl = process.env.SITE_URL || 'https://dailydispatchquiz.com';
     const freshData = await readData();
