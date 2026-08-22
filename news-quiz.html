@@ -2082,8 +2082,8 @@
         </div>
         <!-- Subscribe nudge for non-subscribers -->
         <div id="referral-subscribe-nudge" style="display:none;margin-top:12px;padding:14px;background:var(--cream);border:1px solid var(--rule);text-align:center;">
-          <p style="font-family:'Courier Prime',monospace;font-size:12px;color:var(--ink);margin:0 0 4px;letter-spacing:1px;font-weight:700;">WANT TO WIN A MUG?</p>
-          <p style="font-size:13px;color:var(--muted);margin:0 0 12px;line-height:1.5;">Subscribe free to get your personal referral link.</p>
+          <p id="referral-nudge-header" style="font-family:'Courier Prime',monospace;font-size:12px;color:var(--ink);margin:0 0 4px;letter-spacing:1px;font-weight:700;">WANT TO WIN A MUG?</p>
+          <p id="referral-nudge-body" style="font-size:13px;color:var(--muted);margin:0 0 12px;line-height:1.5;">Subscribe free to get your personal referral link.</p>
           <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
             <input id="referral-sub-email" type="email" placeholder="your@email.com"
               style="flex:1;min-width:180px;max-width:240px;font-family:serif;font-size:14px;padding:8px 10px;border:1px solid #ccc;box-sizing:border-box;">
@@ -3737,6 +3737,32 @@
     // Point values
     const POINTS = { easy: 10, medium: 20, hard: 30, bonus: 50 };
     const COMPLETION_BONUS = 10;
+
+    // Regular non-subscribed players who get a personal subscribe nudge
+    // (instead of the generic "WANT TO WIN A MUG?" box) — edit this list
+    // directly to add/remove names. Keys are normPlayerKey'd (trim,
+    // collapse whitespace, lowercase).
+    const LOYAL_PLAYER_KEYS = ['rnr', 'ttdt', 'dotmatrix', 'lschatz113', 'mongo', 'mojo', 'harvey c'];
+
+    // Each player's daysPlayed count as of when this feature shipped (2026-08-
+    // 22) — the reference point "the very next time they play" counts from.
+    // Shown 3 times total: at baseline+1, baseline+4 (3 plays later), and
+    // baseline+7 (3 more after that), then goes quiet until asked to pick
+    // this back up again with new copy and a new baseline.
+    const LOYAL_PLAYER_BASELINE = {
+      'rnr': 131, 'ttdt': 63, 'dotmatrix': 68, 'lschatz113': 36,
+      'mongo': 63, 'mojo': 56, 'harvey c': 84
+    };
+
+    function buildLoyalPlayerNudgeText(displayName, checkpoint) {
+      if (checkpoint === 2) {
+        return `Hi ${displayName} — I asked before, but you're still one of my best and most loyal players, and I still have no way to reach you or award you a DDQ mug if you win. Please consider subscribing below. No charge — just benefits. Thanks!`;
+      }
+      if (checkpoint === 3) {
+        return `Hi ${displayName} — last ask for a while, promise. You're one of my best and most loyal players, and I'd really love a way to actually reach you. Please consider subscribing below. No charge — just benefits. Thanks!`;
+      }
+      return `Hi ${displayName} — you're one of my best and most loyal players, but you're not subscribed, so I don't have a way to contact you or award you a DDQ mug if you win. Please consider subscribing below. No charge — just benefits. Thanks!`;
+    }
 
     function isJuly4() {
       if (new URLSearchParams(window.location.search).has('j4')) return true;
@@ -5537,6 +5563,7 @@
       let allTime = state.sessionScore;
       let dayStreak = 0;
       let maxStreak = 0;
+      let daysPlayed = 0;
       let todayProgress = null;
       if (!archiveMode && !state.isReplay) {
         try {
@@ -5554,6 +5581,7 @@
           if (typeof scoreData.allTime === 'number') allTime = scoreData.allTime;
           if (typeof scoreData.currentStreak === 'number') dayStreak = scoreData.currentStreak;
           if (typeof scoreData.maxStreak === 'number') maxStreak = scoreData.maxStreak;
+          if (typeof scoreData.daysPlayed === 'number') daysPlayed = scoreData.daysPlayed;
         } catch (e) { }
 
         // Batch-submit all answer distribution data in one reliable POST at completion
@@ -5719,6 +5747,34 @@
         if (refSubscribeNudge) refSubscribeNudge.style.display = 'block';
         const refLinkWrap = document.getElementById('referral-link-wrap');
         if (refLinkWrap) refLinkWrap.style.display = 'none';
+
+        // A handful of known regulars who've never subscribed get a
+        // personal note instead of the generic mug pitch, at three specific
+        // checkpoints — see LOYAL_PLAYER_KEYS/BASELINE above to edit.
+        const loyalKey = normPlayerKey(state.playerName);
+        if (LOYAL_PLAYER_KEYS.includes(loyalKey) && daysPlayed > 0) {
+          const baseline = LOYAL_PLAYER_BASELINE[loyalKey] || 0;
+          const offset = daysPlayed - baseline;
+          const checkpoint = offset === 1 ? 1 : offset === 4 ? 2 : offset === 7 ? 3 : 0;
+          if (checkpoint > 0) {
+            // Double-check they haven't already subscribed some other way
+            // (e.g. a different browser/device than this one) before asking
+            // again — dnq_subscribed_email above only reflects this browser.
+            fetch('/api/subscribers').then(r => r.json()).then(d => {
+              const alreadySubscribed = (d.subscribers || []).some(s =>
+                normPlayerKey(s.name) === loyalKey && s.active
+              );
+              if (alreadySubscribed) {
+                if (refSubscribeNudge) refSubscribeNudge.style.display = 'none';
+                return;
+              }
+              const headerEl = document.getElementById('referral-nudge-header');
+              const bodyEl = document.getElementById('referral-nudge-body');
+              if (headerEl) headerEl.textContent = 'A NOTE FROM DAVID';
+              if (bodyEl) bodyEl.textContent = buildLoyalPlayerNudgeText(state.playerName, checkpoint);
+            }).catch(() => {});
+          }
+        }
       }
 
       // ── Load monthly winner banner ────────────────────────────

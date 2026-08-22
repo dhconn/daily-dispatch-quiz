@@ -921,7 +921,8 @@ try {
       ok: true,
       allTime: data.scores[key].allTime,
       currentStreak,
-      maxStreak: data.scores[key].maxStreak
+      maxStreak: data.scores[key].maxStreak,
+      daysPlayed: Object.keys(data.scores[key].dailyScores || {}).length
     });
 
   } catch (e) {
