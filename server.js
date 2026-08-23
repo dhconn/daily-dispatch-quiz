@@ -3079,9 +3079,22 @@ app.post('/api/quiz/schedule', async (req, res) => {
     // cachedTeaserHtml, since those are for a different quiz (today's, already sent/publishing).
     const schedData = await readData();
     const fingerprint = fingerprintQuestions(quiz.questions);
-    const snapshotTeaserHtml = schedData.draftTeaserFingerprint === fingerprint
+    let snapshotTeaserHtml = schedData.draftTeaserFingerprint === fingerprint
       ? (schedData.draftTeaserHtml || null)
       : null;
+
+    // Never leave this null and defer to a second, independent generation at
+    // publish time — teasers come from an LLM call, and two separate calls
+    // for the same questions can (and repeatedly has) produced different
+    // wording, which is what "teasers changed overnight" actually was. If
+    // there's no matching reviewed draft, generate once, right now, and
+    // that's final — whatever's locked in at the moment of scheduling is
+    // what ships, full stop.
+    if (!snapshotTeaserHtml) {
+      const teasers = await generateTeasers(quiz.questions);
+      snapshotTeaserHtml = buildTeaserHtml(teasers);
+    }
+
     await setKey('scheduledQuiz', {
       date,
       quiz,
