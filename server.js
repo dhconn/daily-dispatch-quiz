@@ -2127,11 +2127,19 @@ function buildReferralMailto(siteUrl, referralCode) {
   return `mailto:?subject=${subject}&body=${body}`;
 }
 
-function buildReferralStripHtml(inviteUrl) {
+// referralUrl is an optional plain-text fallback shown below the "Send an
+// invite" link — mailto: links open whatever the recipient's device has
+// registered as its default mail handler, which is entirely outside our
+// control and sometimes surprises people (e.g. a Comcast/Xfinity default
+// they don't actually use). Email HTML can't run JS, so there's no "Copy"
+// button option here the way the in-app share card has one — showing the
+// plain link as visible, selectable text is the email-safe equivalent.
+function buildReferralStripHtml(inviteUrl, referralUrl) {
   return `
     <div style="margin:0 0 24px;padding:16px 20px;background:#fffbf0;border-left:4px solid #f0c040;border-top:1px solid #f0c040;border-bottom:1px solid #f0c040;text-align:left;">
       <div style="font-family:Georgia,serif;font-size:18px;font-weight:bold;color:#1a1008;margin-bottom:6px;">🏆 Refer 3 friends. Win a mug.</div>
       <div style="font-family:Georgia,serif;font-size:15px;color:#444;"><a href="${inviteUrl}" style="color:#1a3a6b;font-weight:bold;text-decoration:underline;">Send an invite →</a></div>
+      ${referralUrl ? `<div style="font-family:monospace;font-size:11px;color:#6b5f4e;margin-top:10px;">Link open somewhere unexpected? Copy this instead: <span style="color:#1a3a6b;">${referralUrl}</span></div>` : ''}
     </div>`;
 }
 
@@ -2654,7 +2662,7 @@ app.post('/api/quiz', async (req, res) => {
 
         baseHtml = baseHtml.replace('<!--EDITOR_MESSAGE_INSERT_POINT-->', editorMessageHtml);
         baseHtml = baseHtml.replace('<!--BYLINES_TEASER_INSERT_POINT-->', bylinesTeaserHtml);
-        const subReferralStrip = sub.referralCode ? buildReferralStripHtml(buildReferralMailto(siteUrl, sub.referralCode)) : '';
+        const subReferralStrip = sub.referralCode ? buildReferralStripHtml(buildReferralMailto(siteUrl, sub.referralCode), `${siteUrl}/?ref=${sub.referralCode}`) : '';
         baseHtml = baseHtml.replace('<!--REFERRAL_STRIP_INSERT_POINT-->', subReferralStrip);
         const withResults = resultsHtml
           ? baseHtml.replace('<!--YESTERDAY_INSERT_POINT-->', resultsHtml)
@@ -2718,7 +2726,8 @@ const prospectEmails = [];
         baseHtml = baseHtml.replace('<!--EDITOR_MESSAGE_INSERT_POINT-->', editorMessageHtml);
         baseHtml = baseHtml.replace('<!--BYLINES_TEASER_INSERT_POINT-->', bylinesTeaserHtml);
         const prospectInviteUrl = `${siteUrl}/api/prospect-invite?code=${p.referralCode}`;
-        const prospectReferralStrip = buildReferralStripHtml(prospectInviteUrl);
+        const prospectReferralUrl = `${siteUrl}/?ref=${p.referralCode}`;
+        const prospectReferralStrip = buildReferralStripHtml(prospectInviteUrl, prospectReferralUrl);
         baseHtml = baseHtml.replace('<!--REFERRAL_STRIP_INSERT_POINT-->', prospectReferralStrip);
         const subscribeBtn = `
           <div style="padding:24px;text-align:center;background:#f5f0e8;border-top:2px solid #1a1008;">
@@ -2928,7 +2937,7 @@ app.post('/api/quiz/test-email', async (req, res) => {
       data.subscribers[testEmail].referralCode = testReferralCode;
       await writeData(data);
     }
-    const testReferralStrip = testReferralCode ? buildReferralStripHtml(buildReferralMailto(siteUrl, testReferralCode)) : '';
+    const testReferralStrip = testReferralCode ? buildReferralStripHtml(buildReferralMailto(siteUrl, testReferralCode), `${siteUrl}/?ref=${testReferralCode}`) : '';
     html = html.replace('<!--REFERRAL_STRIP_INSERT_POINT-->', testReferralStrip);
     html = html.replace('<!--SUBSCRIBE_INSERT_POINT-->', '');
 
@@ -4309,7 +4318,7 @@ async function checkScheduledPublish() {
 
         baseHtml = baseHtml.replace('<!--EDITOR_MESSAGE_INSERT_POINT-->', editorMessageHtml);
         baseHtml = baseHtml.replace('<!--BYLINES_TEASER_INSERT_POINT-->', bylinesTeaserHtml);
-        const subReferralStrip = sub.referralCode ? buildReferralStripHtml(buildReferralMailto(siteUrl, sub.referralCode)) : '';
+        const subReferralStrip = sub.referralCode ? buildReferralStripHtml(buildReferralMailto(siteUrl, sub.referralCode), `${siteUrl}/?ref=${sub.referralCode}`) : '';
         baseHtml = baseHtml.replace('<!--REFERRAL_STRIP_INSERT_POINT-->', subReferralStrip);
         const withResults = resultsHtml
           ? baseHtml.replace('<!--YESTERDAY_INSERT_POINT-->', resultsHtml)
@@ -4364,7 +4373,8 @@ async function checkScheduledPublish() {
         baseHtml = baseHtml.replace('<!--EDITOR_MESSAGE_INSERT_POINT-->', editorMessageHtml);
         baseHtml = baseHtml.replace('<!--BYLINES_TEASER_INSERT_POINT-->', bylinesTeaserHtml);
         const prospectInviteUrl = `${siteUrl}/api/prospect-invite?code=${p.referralCode}`;
-        baseHtml = baseHtml.replace('<!--REFERRAL_STRIP_INSERT_POINT-->', buildReferralStripHtml(prospectInviteUrl));
+        const prospectReferralUrl = `${siteUrl}/?ref=${p.referralCode}`;
+        baseHtml = baseHtml.replace('<!--REFERRAL_STRIP_INSERT_POINT-->', buildReferralStripHtml(prospectInviteUrl, prospectReferralUrl));
         const subscribeBtn = `
           <div style="padding:24px;text-align:center;background:#f5f0e8;border-top:2px solid #1a1008;">
             <p style="font-family:monospace;font-size:11px;letter-spacing:1px;color:#6b5f4e;margin:0 0 14px;">GET THIS AUTOMATICALLY EVERY MORNING</p>
