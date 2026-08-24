@@ -2868,9 +2868,12 @@
         </div>
         <div style="margin-top:16px;padding:14px;background:var(--cream);border:1px solid var(--rule);">
           <div style="font-family:monospace;font-size:10px;letter-spacing:2px;color:var(--muted);margin-bottom:10px;">SCHEDULE PUBLISH</div>
-          <div id="schedule-status-bar" style="display:none;margin-bottom:10px;padding:10px 12px;background:white;border:1px solid var(--rule);font-family:monospace;font-size:12px;align-items:center;justify-content:space-between;gap:12px;">
-            <span id="schedule-status-text" style="color:var(--green);">⏱ Scheduled for <strong id="schedule-status-time"></strong></span>
-            <button onclick="cancelSchedule()" style="font-family:monospace;font-size:10px;letter-spacing:1px;padding:4px 10px;background:none;border:1px solid var(--red);color:var(--red);cursor:pointer;">Cancel</button>
+          <div id="schedule-status-bar" style="display:none;flex-direction:column;gap:6px;margin-bottom:10px;padding:10px 12px;background:white;border:1px solid var(--rule);font-family:monospace;font-size:12px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+              <span id="schedule-status-text" style="color:var(--green);">⏱ Scheduled for <strong id="schedule-status-time"></strong></span>
+              <button onclick="cancelSchedule()" style="font-family:monospace;font-size:10px;letter-spacing:1px;padding:4px 10px;background:none;border:1px solid var(--red);color:var(--red);cursor:pointer;">Cancel</button>
+            </div>
+            <div style="font-size:11px;color:var(--muted);">Teasers are locked in for this send — click <strong>Preview Email</strong> above to see or edit them.</div>
           </div>
           <div id="schedule-picker-wrap" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
             <div>
@@ -8327,9 +8330,29 @@
         const res = await fetch(previewUrl, fetchOpts);
         const data = await res.json();
         inner.innerHTML = data.html;
-        if (data.teasers && data.teasers.length) {
+
+        // If this draft is the one currently scheduled, edit the teasers
+        // actually locked in for that send — not a fresh, disconnected
+        // regeneration. Scheduling locks teasers in permanently
+        // (/api/quiz/schedule); this is the only place left to revise them
+        // before it fires, so it needs to show reality, not a guess.
+        let scheduledTeasers = null;
+        try {
+          const adminToken = lsGet('dnq_admin_token') || 'admin';
+          const schedRes = await fetch('/api/quiz/schedule', { headers: { 'x-admin-token': adminToken } });
+          const schedData = await schedRes.json();
+          const draftDate = window._currentDraftDate || todayStr();
+          if (schedData.scheduled && schedData.scheduled.date === draftDate) {
+            scheduledTeasers = schedData.teasers || [];
+          }
+        } catch (e) { }
+
+        window._editingScheduledTeasers = scheduledTeasers !== null;
+        const teasersToShow = scheduledTeasers !== null ? scheduledTeasers : data.teasers;
+
+        if (teasersToShow && teasersToShow.length) {
           const fieldsEl = document.getElementById('teaser-fields');
-          fieldsEl.innerHTML = data.teasers.map((t, i) =>
+          fieldsEl.innerHTML = teasersToShow.map((t, i) =>
             '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">' +
             '<span style="font-family:monospace;font-size:11px;color:var(--muted);width:16px;">·</span>' +
             '<input type="text" id="teaser-' + i + '" value="' + escHtml(t) + '" ' +
@@ -8337,7 +8360,13 @@
             '</div>'
           ).join('');
           document.getElementById('teaser-editor').style.display = 'block';
-          document.getElementById('teaser-save-status').textContent = '';
+          const statusEl = document.getElementById('teaser-save-status');
+          if (window._editingScheduledTeasers) {
+            statusEl.textContent = '📌 These are locked in for your scheduled publish — Save updates that send directly.';
+            statusEl.style.color = 'var(--gold,#c8a84b)';
+          } else {
+            statusEl.textContent = '';
+          }
         }
       } catch (e) {
         inner.innerHTML = '<p style="font-family:monospace;font-size:12px;color:red;">Preview failed: ' + e.message + '</p>';
@@ -8352,13 +8381,40 @@
         teasers.push(document.getElementById('teaser-' + i).value.trim());
         i++;
       }
+      const adminToken = lsGet('dnq_admin_token') || 'admin';
+
+      // If we loaded these from an active schedule (see previewEmail()),
+      // update that schedule directly — the draft-cache save below would
+      // silently go nowhere near it, since nothing re-reads the draft cache
+      // once a quiz is scheduled.
+      if (window._editingScheduledTeasers) {
+        try {
+          const res = await fetch('/api/quiz/schedule/teasers', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+            body: JSON.stringify({ teasers: teasers.filter(Boolean) })
+          });
+          const data = await res.json();
+          if (data.ok) {
+            statusEl.textContent = '✓ Updated — this is what your scheduled publish will send.';
+            statusEl.style.color = 'var(--green)';
+          } else {
+            statusEl.textContent = 'Save failed: ' + (data.error || 'unknown error');
+            statusEl.style.color = 'red';
+          }
+        } catch (e) {
+          statusEl.textContent = 'Error: ' + e.message;
+          statusEl.style.color = 'red';
+        }
+        return;
+      }
+
       // Build updated teaserHtml and cache it on the server
       const teaserHtml = teasers.filter(Boolean).map(t =>
         `<div style="font-family:Georgia,serif;font-size:15px;color:#1a1008;padding:6px 0;border-bottom:1px solid #f0ebe0;">· ${t}</div>`
       ).join('');
       const wrappedHtml = `<div style="margin:0 0 28px;padding:20px;background:#fff;border:1px solid #e0d8cc;text-align:left;"><div style="font-family:monospace;font-size:10px;letter-spacing:2px;color:#999;margin-bottom:12px;">TODAY'S TOPICS INCLUDE…</div>${teaserHtml}</div>`;
       try {
-        const adminToken = lsGet('dnq_admin_token') || 'admin';
         // A draft (e.g. tomorrow's quiz prepped for Schedule) caches by its own questions,
         // not by date, so it can't collide with the live day's teaser cache.
         const draft = getDraftQuiz();
@@ -8373,14 +8429,17 @@
         const data = await res.json();
         if (data.ok) {
           statusEl.textContent = '✓ Saved — these teasers will be used on publish.';
+          statusEl.style.color = 'var(--green)';
           // Refresh the preview to show updated teasers
           const inner = document.getElementById('email-preview-inner');
           inner.innerHTML = inner.innerHTML; // force repaint hint
         } else {
           statusEl.textContent = 'Save failed.';
+          statusEl.style.color = 'red';
         }
       } catch (e) {
         statusEl.textContent = 'Error: ' + e.message;
+        statusEl.style.color = 'red';
       }
     }
 

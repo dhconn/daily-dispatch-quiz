@@ -3062,7 +3062,32 @@ app.get('/api/quiz/schedule', async (req, res) => {
   if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
   try {
     const scheduled = await getKey('scheduledQuiz');
-    res.json({ scheduled: scheduled || null });
+    // Parsed out for the admin UI to edit directly — same extraction pattern
+    // used elsewhere to round-trip cached teaser HTML back into plain lines.
+    const teasers = scheduled && scheduled.cachedTeaserHtml
+      ? [...scheduled.cachedTeaserHtml.matchAll(/·\s*([^<]+)<\/div>/g)].map(m => m[1].trim())
+      : [];
+    res.json({ scheduled: scheduled || null, teasers });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /api/quiz/schedule/teasers — revise the teasers already locked into
+// a scheduled publish, without touching anything else about it (questions,
+// send time). This is the only way to change a scheduled send's teasers
+// once /api/quiz/schedule has locked them in — see the comment there.
+app.post('/api/quiz/schedule/teasers', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  const { teasers } = req.body || {};
+  if (!Array.isArray(teasers)) return res.status(400).json({ error: 'teasers array required' });
+  try {
+    const scheduled = await getKey('scheduledQuiz');
+    if (!scheduled) return res.status(404).json({ error: 'Nothing is currently scheduled.' });
+    scheduled.cachedTeaserHtml = buildTeaserHtml(teasers.filter(Boolean));
+    await setKey('scheduledQuiz', scheduled);
+    res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
