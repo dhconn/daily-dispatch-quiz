@@ -1205,60 +1205,6 @@ app.post('/api/admin/repair-progress', async (req, res) => {
   }
 });
 
-// ── ONE-TIME: POST /api/admin/fix-answer-credit — retroactively re-credit an
-// answer that was scored against a wrong correctIndex. Adds the given point
-// delta to the named players' per-question record, their daily score, and
-// their all-time total. Remove this endpoint once run.
-app.post('/api/admin/fix-answer-credit', async (req, res) => {
-  const adminToken = process.env.ADMIN_TOKEN || 'admin';
-  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
-  const { date, qKey, playerKeys, correctedPts, delta } = req.body || {};
-  if (!date || !qKey || !Array.isArray(playerKeys) || typeof correctedPts !== 'number' || typeof delta !== 'number') {
-    return res.status(400).json({ error: 'date, qKey, playerKeys[], correctedPts, and delta required' });
-  }
-  try {
-    const allProgress = (await getKey('progress')) || {};
-    const scores = (await getKey('scores')) || {};
-    const day = allProgress[date] || {};
-    const results = [];
-
-    for (const rawKey of playerKeys) {
-      const key = normPlayerKey(rawKey);
-      const rec = day[key];
-      if (!rec || !rec.answers || !rec.answers[qKey]) { results.push({ key, skipped: 'no matching progress record' }); continue; }
-
-      const before = {
-        answer: rec.answers[qKey],
-        progressScore: rec.score,
-        dailyScore: scores[key]?.dailyScores?.[date],
-        allTime: scores[key]?.allTime
-      };
-
-      rec.answers[qKey] = { ...rec.answers[qKey], correct: true, pts: correctedPts };
-      rec.score = (rec.score || 0) + delta;
-
-      if (scores[key] && scores[key].dailyScores && typeof scores[key].dailyScores[date] === 'number') {
-        scores[key].dailyScores[date] += delta;
-        scores[key].allTime = Object.values(scores[key].dailyScores).reduce((a, b) => a + b, 0);
-      }
-
-      results.push({
-        key,
-        before,
-        after: { answer: rec.answers[qKey], progressScore: rec.score, dailyScore: scores[key]?.dailyScores?.[date], allTime: scores[key]?.allTime }
-      });
-    }
-
-    await setKey('progress', allProgress);
-    await setKey('scores', scores);
-    console.log('[FixAnswerCredit] Applied:', { date, qKey, delta, results });
-    res.json({ ok: true, results });
-  } catch (e) {
-    console.error('[FixAnswerCredit] error:', e.message);
-    res.status(500).json({ error: e.message });
-  }
-});
-
 // ── Admin stats exclusions ────────────────────────────────────
 
 app.get('/api/admin/stats-exclusions', async (req, res) => {
