@@ -7159,7 +7159,13 @@
             const fetchData = await fetchRes.json();
             if (fetchData.ok && fetchData.excerpt && fetchData.excerpt.length > 200) {
               console.log(`[ArticleFetch] Full text retrieved: ${articleUrl.slice(0, 60)}`);
-              // Replace SUMMARY but preserve ARTICLE_URL and DATE lines
+              // Replace SUMMARY but preserve the ARTICLE N: label plus ARTICLE_URL and DATE lines —
+              // dropping the ARTICLE N: label here zeroes out the article-pool guard's count below,
+              // since it looks for that exact pattern (found the hard way: a generation with 6 or
+              // fewer accepted articles that all successfully fetched full text falsely aborted with
+              // "Article pool is empty" even though rssContent had 6 perfectly good articles in it).
+              const articleMatch = block.match(/ARTICLE \d+:/);
+              const articleLine = articleMatch ? articleMatch[0] : '';
               const articleUrlLine = `ARTICLE_URL: ${articleUrl}`;
               const dateMatch = block.match(/DATE: .+/);
               const dateLine = dateMatch ? dateMatch[0] : '';
@@ -7167,7 +7173,7 @@
               const headlineLine = headlineMatch ? headlineMatch[0] : '';
               const sourceMatch = block.match(/SOURCE: .+/);
               const sourceLine = sourceMatch ? sourceMatch[0] : '';
-              return [sourceLine, headlineLine, articleUrlLine, dateLine, 'FULL TEXT:', fetchData.excerpt]
+              return [articleLine, sourceLine, headlineLine, articleUrlLine, dateLine, 'FULL TEXT:', fetchData.excerpt]
                 .filter(Boolean).join('\n');
             } else {
               console.log(`[ArticleFetch] Paywall/failed (${fetchData.reason}): ${articleUrl.slice(0, 60)}`);
