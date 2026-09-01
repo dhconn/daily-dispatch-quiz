@@ -1205,26 +1205,6 @@ app.post('/api/admin/repair-progress', async (req, res) => {
   }
 });
 
-// ── ONE-TIME: POST /api/admin/restore-scores — write a full scores object
-// into production. Reused here to write the Aug 23-27 gap-day estimates
-// (play-rate x avg-score model, with exact bylines/screenshot-derived totals
-// where known) on top of the already-recovered history. Remove after running.
-app.post('/api/admin/restore-scores', async (req, res) => {
-  const adminToken = process.env.ADMIN_TOKEN || 'admin';
-  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
-  const { scores } = req.body || {};
-  if (!scores || typeof scores !== 'object') return res.status(400).json({ error: 'scores object required' });
-  try {
-    const before = (await getKey('scores')) || {};
-    await setKey('scores', scores);
-    console.log('[RestoreScores] Wrote scores:', { beforeCount: Object.keys(before).length, afterCount: Object.keys(scores).length });
-    res.json({ ok: true, beforeCount: Object.keys(before).length, afterCount: Object.keys(scores).length });
-  } catch (e) {
-    console.error('[RestoreScores] error:', e.message);
-    res.status(500).json({ error: e.message });
-  }
-});
-
 // ── Admin stats exclusions ────────────────────────────────────
 
 app.get('/api/admin/stats-exclusions', async (req, res) => {
