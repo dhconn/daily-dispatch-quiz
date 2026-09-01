@@ -1205,25 +1205,6 @@ app.post('/api/admin/repair-progress', async (req, res) => {
   }
 });
 
-// ── ONE-TIME: POST /api/admin/restore-scores — write the recovered scores
-// object (Aug 22 volume backup merged with live Aug 28+ data, after the
-// Aug 27-28 data loss incident) into production. Remove after running once.
-app.post('/api/admin/restore-scores', async (req, res) => {
-  const adminToken = process.env.ADMIN_TOKEN || 'admin';
-  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
-  const { scores } = req.body || {};
-  if (!scores || typeof scores !== 'object') return res.status(400).json({ error: 'scores object required' });
-  try {
-    const before = (await getKey('scores')) || {};
-    await setKey('scores', scores);
-    console.log('[RestoreScores] Wrote merged scores:', { beforeCount: Object.keys(before).length, afterCount: Object.keys(scores).length });
-    res.json({ ok: true, beforeCount: Object.keys(before).length, afterCount: Object.keys(scores).length });
-  } catch (e) {
-    console.error('[RestoreScores] error:', e.message);
-    res.status(500).json({ error: e.message });
-  }
-});
-
 // ── Admin stats exclusions ────────────────────────────────────
 
 app.get('/api/admin/stats-exclusions', async (req, res) => {
