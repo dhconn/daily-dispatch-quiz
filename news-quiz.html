@@ -5894,13 +5894,19 @@
     const today = todayStr();
     const monthPrefix = today.slice(0, 7);
 
+    const lastMonthDate = new Date();
+    lastMonthDate.setDate(1);
+    lastMonthDate.setMonth(lastMonthDate.getMonth() - 1);
+    const lastMonthPrefix = lastMonthDate.toISOString().slice(0, 7);
+
     let rows = [];
 
-    // Bylines/Newshound: same for every tab (it's a fixed per-player,
-    // this-month fact), so fetched once regardless of which tab renders.
+    // Bylines/Newshound are a per-calendar-month fact, so request whichever
+    // month this tab is actually displaying (not always the current month).
     let bylinesByPlayer = {};
     try {
-      const bylinesRes = await fetch('/api/bylines?month=' + monthPrefix);
+      const bylinesMonth = tab === 'lastmonth' ? lastMonthPrefix : monthPrefix;
+      const bylinesRes = await fetch('/api/bylines?month=' + bylinesMonth);
       const bylinesData = await bylinesRes.json();
       if (bylinesData.ok) bylinesByPlayer = bylinesData.byPlayer || {};
     } catch (e) { }
@@ -5972,11 +5978,6 @@
       rows = Object.entries(players).map(([key, p]) => {
         let score = 0;
 
-        const lastMonthDate = new Date();
-        lastMonthDate.setDate(1);
-        lastMonthDate.setMonth(lastMonthDate.getMonth() - 1);
-        const lastMonthPrefix = lastMonthDate.toISOString().slice(0, 7);
-
         if (tab === 'monthly') {
           score = Object.entries(p.dailyScores || {})
             .filter(([date]) => date.startsWith(monthPrefix))
@@ -6007,10 +6008,6 @@
 
       // Tab header label
       const monthLabel = new Date(monthPrefix + '-15').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-      const lastMonthDate = new Date();
-      lastMonthDate.setDate(1);
-      lastMonthDate.setMonth(lastMonthDate.getMonth() - 1);
-      const lastMonthPrefix = lastMonthDate.toISOString().slice(0, 7);
       const lastMonthLabel = new Date(lastMonthPrefix + '-15').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
       const tabLabel = tab === 'today' ? today
@@ -6023,8 +6020,8 @@
       <span>☕ = mug eligible subscriber</span>
       <span>🏆 = mug winner</span>
       <span>— = subscribe to be eligible</span>
-      <span>✎ N = Bylines this month (perfect 150, first play) · bold = today</span>
-      <span style="display:inline-flex;align-items:center;gap:4px;"><svg width="13" height="13" viewBox="0 0 100 100" style="vertical-align:-2px;"><use href="#hound"></use></svg> = Newshound, 10+ this month</span>
+      <span>✎ N = Bylines ${tab === 'lastmonth' ? 'in ' + lastMonthLabel : 'this month'} (perfect 150, first play) · bold = today</span>
+      <span style="display:inline-flex;align-items:center;gap:4px;"><svg width="13" height="13" viewBox="0 0 100 100" style="vertical-align:-2px;"><use href="#hound"></use></svg> = Newshound, 10+ ${tab === 'lastmonth' ? 'in ' + lastMonthLabel : 'this month'}</span>
     </div>
     <div style="font-family:'Courier Prime',monospace;font-size:11px;letter-spacing:2px;
                 color:var(--muted);text-transform:uppercase;margin-bottom:12px;">
