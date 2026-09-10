@@ -1788,7 +1788,12 @@ app.post('/api/admin/rebuild-bylines', async (req, res) => {
 
     for (const date of allDates) {
       if (date >= today) continue; // never touch today or the future
-      if (bylines[date]) continue; // already has a real record — don't overwrite
+      // Gap dates are force-overwritten with the confirmed list regardless
+      // of what's there — the automatic catch-up job ran against these
+      // dates while progress was still missing and left behind an empty
+      // {} placeholder, which the normal "skip if already exists" check
+      // would otherwise wrongly treat as a real, already-correct record.
+      if (bylines[date] && !GAP_DATES.has(date)) continue;
 
       const awarded = {};
       if (GAP_DATES.has(date)) {
