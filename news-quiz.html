@@ -7849,6 +7849,9 @@
       const diffMap = { easy: 'easy', medium: 'medium', hard: 'hard', bonus: 'bonus' };
       const heldQuestions = (getDraftQuiz() || {}).heldQuestions || [];
       let html = '';
+      if (questions.length === 0 && heldQuestions.length === 0) {
+        html += '<p style="font-family:monospace;font-size:13px;color:var(--muted);padding:8px 0;">No draft questions. Click "Generate Questions" to start tomorrow\'s quiz.</p>';
+      }
       questions.forEach((q, i) => {
         const diff = q.difficulty || (i < 4 ? 'easy' : i < 7 ? 'medium' : i < 10 ? 'hard' : 'bonus');
         const optLetters = ['A', 'B', 'C', 'D'];
@@ -8306,6 +8309,10 @@
             body: JSON.stringify({ quiz: cleanedDraft })
           });
         } catch (e) { console.warn('[Publish] Could not reset server draft:', e.message); }
+        // Refresh the on-screen editor to match the now-cleared draft —
+        // the state was reset above, but the visible cards otherwise stay
+        // put until something re-renders them.
+        showDraftPreview(cleanedDraft.questions);
 
         if (pubBtn) { pubBtn.textContent = '✓ Published!'; pubBtn.disabled = false; setTimeout(() => { pubBtn.textContent = pubOrigText; }, 4000); }
         setStatus('✓ Quiz published for ' + todayStr() + ' — emails sent to subscribers and prospects.', 'success');
