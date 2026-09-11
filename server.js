@@ -1856,6 +1856,28 @@ function longestStreakFromDailyScores(dailyScores) {
 }
 
 // ── GET /api/monthly-winners — return recent monthly winners ──
+// ── GET /api/admin/backup-export — full raw dump of the store table ──
+// Unlike readData() (above), which only returns a deliberately partial
+// whitelist of keys for performance, this returns every single key/value
+// pair in the table — a backup that silently skips data isn't a real
+// backup. Called daily by an external GitHub Actions workflow living in a
+// separate private repo, decoupled entirely from Railway's own plan-tier
+// backup features (this is the independent safety net for whatever those
+// do or don't cover).
+app.get('/api/admin/backup-export', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const result = await pool.query('SELECT key, value FROM store');
+    const data = {};
+    for (const row of result.rows) data[row.key] = row.value;
+    res.json({ ok: true, exportedAt: new Date().toISOString(), data });
+  } catch (e) {
+    console.error('[BackupExport] error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/api/monthly-winners', async (req, res) => {
   try {
     const data = await readData();
