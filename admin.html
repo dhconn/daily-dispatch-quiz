@@ -3069,11 +3069,26 @@
 
     // ── Bootstrap: this page's only job is to show either the login
     // overlay or the admin screen, based on prior auth state ──────
-    if (lsGet('dnq_admin_authed') === '1') {
-      showAdminScreen();
-    } else {
+    // Anyone who used the OLD single-page app has 'dnq_admin_authed'='1'
+    // already sitting in localStorage from before the token was ever real
+    // (it used to be a client-side-only flag with no real token behind
+    // it) - trusting that flag alone would silently log them in with a
+    // stale/missing token, and every admin API call would then fail
+    // against the now-enforced server-side check. Validate the stored
+    // token actually works before trusting it; if not, clear the stale
+    // state and fall through to a real login.
+    async function bootstrapAdmin() {
+      if (lsGet('dnq_admin_authed') === '1') {
+        try {
+          const res = await fetch('/api/draft', { headers: { 'x-admin-token': lsGet('dnq_admin_token') || 'admin' } });
+          if (res.ok) { showAdminScreen(); return; }
+        } catch (e) { /* fall through to login */ }
+        localStorage.removeItem('dnq_admin_authed');
+        localStorage.removeItem('dnq_admin_token');
+      }
       showAdminLogin();
     }
+    bootstrapAdmin();
 
     function showAdminTab(tab) {
       document.querySelectorAll('#screen-admin [data-admin-tab]').forEach(el => {
@@ -3086,7 +3101,11 @@
 
     async function showAdminScreen() {
       showAdminTab('today');
-      await refreshAdminPreviews();
+      // Each of these loaders is independent - one failing (auth hiccup,
+      // network blip, etc) shouldn't prevent the rest of the panel from
+      // loading. refreshAdminPreviews() used to be able to silently take
+      // the whole chain down with it since it's the only awaited call here.
+      try { await refreshAdminPreviews(); } catch (e) { console.error('[Admin] refreshAdminPreviews failed:', e); }
       loadAdminPosts();
       loadArticleUrls();
       loadSubscribers();
