@@ -1948,6 +1948,19 @@ app.post('/api/admin/backup-restore', async (req, res) => {
   }
 });
 
+// ── ONE-TIME: remove the throwaway key used to test backup-restore's
+// write path (__restore_test_key__) — harmless, but tidiness.
+app.post('/api/admin/cleanup-test-key', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  try {
+    await pool.query('DELETE FROM store WHERE key = $1', ['__restore_test_key__']);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/api/monthly-winners', async (req, res) => {
   try {
     const data = await readData();
