@@ -3091,11 +3091,25 @@ app.get('/api/draft', async (req, res) => {
 });
 
 // ── POST /api/draft — save draft quiz ──
+// quiz.version is a client-captured Date.now(), taken at the moment the
+// edit was committed client-side (not when the request happens to be
+// sent) — every draft write, including the "authoritative" ones
+// (publish's post-publish reset, discard), carries one the same way, with
+// no bypass path. Rejecting anything older than what's already stored
+// makes ordering depend on logical edit time rather than network arrival
+// order, so a slow in-flight write from an earlier edit can never
+// clobber a newer one that already landed - including an authoritative
+// reset, since it's always logically later than whatever preceded it.
 app.post('/api/draft', async (req, res) => {
   const adminToken = process.env.ADMIN_TOKEN || 'admin';
   if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
   const { quiz } = req.body;
   if (!quiz) return res.status(400).json({ error: 'quiz required' });
+  const incomingVersion = typeof quiz.version === 'number' ? quiz.version : 0;
+  const existing = await getKey('draftQuiz');
+  if (existing && typeof existing.version === 'number' && incomingVersion < existing.version) {
+    return res.status(409).json({ ok: false, stale: true, serverDraft: existing });
+  }
   await setKey('draftQuiz', { ...quiz, savedAt: new Date().toISOString() });
   res.json({ ok: true });
 });

@@ -1987,12 +1987,17 @@
         </div>
       </div>
 
-      <div style="margin:0 0 12px;text-align:right;">
-        <button class="btn-secondary" onclick="loadDraftFromServer()" style="border-color:var(--yellow);color:var(--yellow);" title="Load draft saved on another device">📂 Load Draft</button>
+      <div id="draft-recovery-banner" data-admin-tab="today" style="display:none;background:#fff3cd;border:1px solid #f0ad4e;border-radius:4px;padding:14px 16px;margin:0 0 16px;">
+        <p id="draft-recovery-message" style="margin:0 0 10px;font-size:13px;"></p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button id="draft-recovery-retry-btn" class="btn-secondary" onclick="retryDraftRecovery()">Retry</button>
+          <button id="draft-recovery-keep-mine-btn" class="btn-secondary" onclick="keepMineDraftRecovery()" style="display:none;">Keep mine (overwrite theirs)</button>
+          <button class="btn-secondary" onclick="discardMineDraftRecovery()" style="border-color:var(--red);color:var(--red);">Discard mine, use server's</button>
+        </div>
       </div>
 
       <div class="admin-section" data-admin-tab="today" id="preview-section" style="display:none;">
-        <h3>Step 2 — Review Questions</h3>
+        <h3>Step 2 — Review Questions <span id="draft-sync-status" style="font-family:monospace;font-size:11px;font-weight:400;color:var(--muted);margin-left:10px;"></span></h3>
         <div id="q-preview-list"></div>
 
         <div style="margin:16px 0 8px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
@@ -2034,8 +2039,6 @@
             title="Immediately hide the live quiz from all players without deleting it">⊘ Retract Live Quiz</button>
           <button class="btn-secondary" onclick="restoreQuiz()" style="border-color:var(--green);color:var(--green);"
             title="Make the retracted quiz visible to players again">↺ Restore Quiz</button>
-          <button class="btn-secondary" onclick="saveDraftToServer()" style="border-color:var(--yellow);color:var(--yellow);" title="Save draft to server without publishing">💾 Save Draft</button>
-          <button class="btn-secondary" onclick="loadDraftFromServer()" style="border-color:var(--yellow);color:var(--yellow);" title="Load draft saved on another device">📂 Load Draft</button>
         </div>
 
         <!-- Manual question entry form -->
@@ -2607,9 +2610,200 @@
 
     const CLAUDE_MODEL = 'claude-sonnet-4-6';
 
+    // ── Server-first draft sync ─────────────────────────────────
+    // localStorage is a fast local display cache, not the source of
+    // truth — the server is. Every write carries a version (Date.now()
+    // at the moment the edit is committed client-side, not when the
+    // request happens to be sent), and the server rejects anything
+    // older than what it already has stored — see POST /api/draft in
+    // server.js. This makes correctness depend on logical edit order,
+    // not network arrival order. Authoritative resets (publish,
+    // discard) use the exact same versioning as a regular edit — no
+    // bypass path — since the whole scheme only works if an
+    // authoritative write is guaranteed to carry a version newer than
+    // whatever preceded it.
+    let draftSyncTimer = null;
+
     function getDraftQuiz() { return lsGet('dnq_draft'); }
-    function saveDraftQuiz(q) { lsSet('dnq_draft', q); }
-    function clearDraftQuiz() { localStorage.removeItem('dnq_draft'); }
+
+    // Pure cache write — mirrors server-fetched content into the local
+    // display cache without marking it dirty or scheduling a write-back.
+    // Distinct from saveDraftQuiz() on purpose: this path is for "the
+    // server told us this is current," not "the editor just made a new
+    // change" — using saveDraftQuiz() here would falsely mark freshly
+    // server-fetched content as an unsynced local edit and immediately
+    // schedule a pointless write of the same content straight back.
+    function cacheDraftLocally(q) { lsSet('dnq_draft', q); }
+
+    function markDraftDirty() { lsSet('dnq_draft_dirty', '1'); }
+    function clearDraftDirty() { localStorage.removeItem('dnq_draft_dirty'); }
+    function isDraftDirty() { return localStorage.getItem('dnq_draft_dirty') === '1'; }
+
+    function setDraftSyncStatus(status) {
+      const el = document.getElementById('draft-sync-status');
+      if (!el) return;
+      if (status === 'saving') { el.textContent = 'Saving…'; el.style.color = 'var(--muted)'; }
+      else if (status === 'saved') { el.textContent = 'All changes saved ✓'; el.style.color = 'var(--green)'; }
+      else if (status === 'failed') { el.textContent = '⚠ Save failed — will retry'; el.style.color = 'var(--red)'; }
+    }
+
+    // The actual network write, shared by both the debounced path and
+    // the immediate (authoritative) path. Returns a result object
+    // rather than throwing, since callers need to distinguish an
+    // ordinary network failure from a genuine version conflict (the
+    // server rejected this write because something newer already
+    // landed) to show the right recovery message.
+    async function pushDraftToServer(q) {
+      setDraftSyncStatus('saving');
+      try {
+        const res = await fetch('/api/draft', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-admin-token': lsGet('dnq_admin_token') || 'admin' },
+          body: JSON.stringify({ quiz: q })
+        });
+        if (res.ok) {
+          clearDraftDirty();
+          setDraftSyncStatus('saved');
+          return { ok: true };
+        }
+        if (res.status === 409) {
+          const data = await res.json().catch(() => ({}));
+          setDraftSyncStatus('failed');
+          return { ok: false, conflict: true, serverDraft: data.serverDraft || null };
+        }
+        setDraftSyncStatus('failed');
+        return { ok: false, conflict: false };
+      } catch (e) {
+        setDraftSyncStatus('failed');
+        return { ok: false, conflict: false };
+      }
+    }
+
+    // Regular edit path — used by all draft-modifying call sites (~25
+    // of them) with no change to their own code. Debounces so rapid
+    // successive edits (e.g. every keystroke in a text field) coalesce
+    // into one write after the user pauses, instead of one per
+    // keystroke.
+    function saveDraftQuiz(q) {
+      q.version = Date.now();
+      lsSet('dnq_draft', q);
+      markDraftDirty();
+      setDraftSyncStatus('saving');
+      clearTimeout(draftSyncTimer);
+      draftSyncTimer = setTimeout(() => { pushDraftToServer(q); }, 1000);
+    }
+
+    // Authoritative path — used by publish's post-publish reset and by
+    // discard, where the write needs to land right away rather than
+    // after a debounce delay. Same versioning as saveDraftQuiz, just
+    // sent immediately instead of scheduled.
+    async function saveDraftQuizImmediate(q) {
+      q.version = Date.now();
+      lsSet('dnq_draft', q);
+      clearTimeout(draftSyncTimer);
+      return await pushDraftToServer(q);
+    }
+
+    function clearDraftQuiz() {
+      clearTimeout(draftSyncTimer);
+      clearDraftDirty();
+      localStorage.removeItem('dnq_draft');
+    }
+
+    // ── Reload-recovery: called before refreshAdminPreviews()'s normal
+    // auto-load-from-server, so an unsynced local edit can never be
+    // silently clobbered by that unconditional load (the exact bug
+    // shape this whole feature exists to prevent, just inverted — here
+    // the LOCAL copy is the good one). If a local edit never made it to
+    // the server before the page reloaded, attempt to push it now; if
+    // that also fails, show the editor an explicit choice instead of
+    // silently picking a side.
+    let draftRecoveryState = null; // { local, conflict, serverDraft } while the banner is showing
+
+    // Returns true if an unresolved recovery choice is now showing — the
+    // caller (refreshAdminPreviews) needs this to skip its own normal
+    // auto-load-from-server immediately afterward, otherwise that load
+    // would overwrite the preview with the server's content right out
+    // from under the "keep mine or take theirs" choice being presented.
+    async function recoverDirtyDraftIfNeeded() {
+      if (!isDraftDirty()) return false;
+      const local = getDraftQuiz();
+      if (!local) { clearDraftDirty(); return false; }
+      const result = await pushDraftToServer(local);
+      if (result.ok) return false; // recovered silently — local and server now agree
+      draftRecoveryState = { local, conflict: !!result.conflict, serverDraft: result.serverDraft || null };
+      showDraftRecoveryBanner();
+      return true;
+    }
+
+    function showDraftRecoveryBanner() {
+      const banner = document.getElementById('draft-recovery-banner');
+      const msg = document.getElementById('draft-recovery-message');
+      const keepMineBtn = document.getElementById('draft-recovery-keep-mine-btn');
+      const retryBtn = document.getElementById('draft-recovery-retry-btn');
+      if (!banner || !draftRecoveryState) return;
+      if (draftRecoveryState.conflict) {
+        msg.textContent = 'Someone (or another session) has since changed the draft on the server. Keep your unsaved local edit (overwrite theirs), or take theirs (discard your local edit)?';
+        keepMineBtn.style.display = '';
+        retryBtn.style.display = 'none';
+      } else {
+        msg.textContent = "Couldn't reach the server to save an earlier edit. Retry, or discard it and use the server's version?";
+        keepMineBtn.style.display = 'none';
+        retryBtn.style.display = '';
+      }
+      banner.style.display = 'block';
+    }
+
+    function hideDraftRecoveryBanner() {
+      const banner = document.getElementById('draft-recovery-banner');
+      if (banner) banner.style.display = 'none';
+      draftRecoveryState = null;
+    }
+
+    async function retryDraftRecovery() {
+      if (!draftRecoveryState) return;
+      const localQuestions = draftRecoveryState.local.questions || [];
+      const result = await pushDraftToServer(draftRecoveryState.local);
+      if (result.ok) { hideDraftRecoveryBanner(); showDraftPreview(localQuestions); return; }
+      draftRecoveryState = { local: draftRecoveryState.local, conflict: !!result.conflict, serverDraft: result.serverDraft || null };
+      showDraftRecoveryBanner();
+    }
+
+    async function keepMineDraftRecovery() {
+      if (!draftRecoveryState) return;
+      // Force this write to win regardless of the server's current version
+      // by claiming a version newer than the server's rejected-against one.
+      const local = draftRecoveryState.local;
+      local.version = Date.now();
+      const result = await pushDraftToServer(local);
+      hideDraftRecoveryBanner();
+      if (!result.ok) { setStatus('Could not save your version — please try again.', 'error'); return; }
+      showDraftPreview(local.questions || []);
+    }
+
+    function discardMineDraftRecovery() {
+      const serverDraft = draftRecoveryState ? draftRecoveryState.serverDraft : null;
+      clearDraftQuiz();
+      hideDraftRecoveryBanner();
+      if (serverDraft) {
+        lsSet('dnq_draft', serverDraft);
+        showDraftPreview(serverDraft.questions || []);
+      } else {
+        // No serverDraft available (ordinary network-failure case) — fetch fresh.
+        loadDraftFromServerSilently();
+      }
+    }
+
+    async function loadDraftFromServerSilently() {
+      try {
+        const res = await fetch('/api/draft', { headers: { 'x-admin-token': lsGet('dnq_admin_token') || 'admin' } });
+        const data = await res.json();
+        if (data.ok && data.draft) {
+          lsSet('dnq_draft', data.draft);
+          showDraftPreview(data.draft.questions || []);
+        }
+      } catch (e) { /* give up quietly — the panel will just show whatever's already rendered */ }
+    }
 
     // ─── Archive ───
 
@@ -3470,6 +3664,15 @@
     let starredQuestionTexts = new Set();
 
     async function refreshAdminPreviews() {
+      // Must run before anything below loads the draft from the server —
+      // this is what stops an unsynced local edit from being silently
+      // overwritten by the server's still-stale copy on open/reload. If it
+      // leaves an unresolved recovery choice showing, the normal
+      // auto-load-from-server further down must be skipped, or it would
+      // immediately overwrite the preview with the server's content right
+      // out from under the "keep mine or take theirs" choice being shown.
+      const recoveryPending = await recoverDirtyDraftIfNeeded();
+
       // Load saved news sites from server
       await loadSavedSites();
       loadRSSStatus();
@@ -3551,20 +3754,25 @@
       // Draft — pulled from the server, not just localStorage, so a stale
       // local draft left over on this device/browser (e.g. from before a
       // publish that happened elsewhere) can't make an already-published
-      // quiz look like it's still an active draft.
-      try {
-        const draftRes = await fetch('/api/draft', {
-          headers: { 'x-admin-token': lsGet('dnq_admin_token') || 'admin' }
-        });
-        const draftData = await draftRes.json();
-        if (draftData.ok && draftData.draft) {
-          saveDraftQuiz(draftData.draft);
-          showDraftPreview(draftData.draft.questions || []);
+      // quiz look like it's still an active draft. Skipped entirely if the
+      // recovery banner above is showing an unresolved choice — loading
+      // the server's copy now would silently overwrite the preview out
+      // from under that choice.
+      if (!recoveryPending) {
+        try {
+          const draftRes = await fetch('/api/draft', {
+            headers: { 'x-admin-token': lsGet('dnq_admin_token') || 'admin' }
+          });
+          const draftData = await draftRes.json();
+          if (draftData.ok && draftData.draft) {
+            cacheDraftLocally(draftData.draft);
+            showDraftPreview(draftData.draft.questions || []);
+          }
+        } catch (e) {
+          // Server unavailable — fall back to whatever's in localStorage
+          const draft = getDraftQuiz();
+          if (draft && draft.questions) showDraftPreview(draft.questions);
         }
-      } catch (e) {
-        // Server unavailable — fall back to whatever's in localStorage
-        const draft = getDraftQuiz();
-        if (draft && draft.questions) showDraftPreview(draft.questions);
       }
     }
 
@@ -5193,16 +5401,13 @@
         const heldAfterPublish = draft.heldQuestions || [];
         clearDraftQuiz();
         clearAllLocks();
-        // Reset server draft to held questions only — published questions no longer belong in the draft
-        const cleanedDraft = { questions: [], heldQuestions: heldAfterPublish, savedAt: new Date().toISOString() };
-        saveDraftQuiz(cleanedDraft);
-        try {
-          await fetch('/api/draft', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-admin-token': lsGet('dnq_admin_token') || 'admin' },
-            body: JSON.stringify({ quiz: cleanedDraft })
-          });
-        } catch (e) { console.warn('[Publish] Could not reset server draft:', e.message); }
+        // Reset the draft to held questions only — published questions no
+        // longer belong in it. Immediate (not debounced) authoritative
+        // write — this is exactly the write the version-check scheme
+        // depends on landing with a version newer than anything that
+        // preceded it, so it always wins regardless of network timing.
+        const cleanedDraft = { questions: [], heldQuestions: heldAfterPublish };
+        await saveDraftQuizImmediate(cleanedDraft);
         // Refresh the on-screen editor to match the now-cleared draft —
         // the state was reset above, but the visible cards otherwise stay
         // put until something re-renders them.
@@ -5423,64 +5628,17 @@
       }
     }
 
-    async function saveDraftToServer() {
-      const draft = getDraftQuiz();
-      const activeCount = draft && draft.questions ? draft.questions.length : 0;
-      const heldCount = draft && draft.heldQuestions ? draft.heldQuestions.length : 0;
-      if (!draft || (activeCount === 0 && heldCount === 0)) { alert('No questions to save.'); return; }
-      // Re-normalize position-based difficulties before saving
-      const diffs = ['easy', 'easy', 'medium', 'medium', 'hard', 'bonus'];
-      if (draft.questions) draft.questions.forEach((q, i) => { q.difficulty = diffs[i] || q.difficulty; });
-      const btn = document.querySelector('button[onclick="saveDraftToServer()"]');
-      const origText = btn ? btn.textContent : '';
-      if (btn) { btn.textContent = 'Saving…'; btn.disabled = true; }
-      try {
-        const res = await fetch('/api/draft', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-admin-token': lsGet('dnq_admin_token') || 'admin' },
-          body: JSON.stringify({ quiz: { ...draft, savedAt: new Date().toISOString() } })
-        });
-        const data = await res.json();
-        if (data.ok) {
-          const heldNote = heldCount ? ', ' + heldCount + ' held' : '';
-          if (btn) { btn.textContent = '✓ Saved!'; btn.disabled = false; setTimeout(() => { btn.textContent = origText; }, 2500); }
-          setStatus('💾 Draft saved — ' + activeCount + ' active' + heldNote + '. Resume on any device.', 'success');
-        } else {
-          if (btn) { btn.textContent = origText; btn.disabled = false; }
-          setStatus('Draft save failed.', 'error');
-        }
-      } catch (e) {
-        if (btn) { btn.textContent = origText; btn.disabled = false; }
-        setStatus('Draft save failed: ' + e.message, 'error');
-      }
-    }
-    
-  async function loadDraftFromServer() {
-    if (!confirm('Load draft from server? This will replace your current draft.')) return;
-    try {
-      const res = await fetch('/api/draft', {
-        headers: { 'x-admin-token': lsGet('dnq_admin_token') || 'admin' }
-      });
-      const data = await res.json();
-      if (!data.ok || !data.draft) {
-        setStatus('No server draft found.', 'error');
-        return;
-      }
-      saveDraftQuiz(data.draft);
-      const heldCount = (data.draft.heldQuestions || []).length;
-      const heldNote = heldCount ? ', ' + heldCount + ' held' : '';
-      setStatus('📂 Draft loaded — ' + data.draft.questions.length + ' active' + heldNote + '.', 'success');
-      showDraftPreview(data.draft.questions);
-    } catch (e) {
-      setStatus('Failed to load draft: ' + e.message, 'error');
-    }
-  }
-
-
-    function discardDraft() {
+    async function discardDraft() {
+      // Preserves held questions — only the active generated batch is
+      // discarded. Pushed immediately (not debounced) and explicitly told
+      // to the server, since previously this only cleared localStorage —
+      // the server's copy was untouched, silently masked by the fact that
+      // reopening the panel used to just restore it right back.
+      const heldQuestions = (getDraftQuiz() || {}).heldQuestions || [];
       clearDraftQuiz();
       document.getElementById('preview-section').style.display = 'none';
       document.getElementById('q-preview-list').innerHTML = '';
+      await saveDraftQuizImmediate({ questions: [], heldQuestions });
       setStatus('Draft discarded.', 'info');
     }
 
