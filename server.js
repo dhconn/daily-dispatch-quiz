@@ -4264,6 +4264,14 @@ async function checkScheduledPublish() {
     await writeData(data);
     await archiveQuizPermanently(date, data.quizzes[date]);
 
+    // Clear the active draft now that its questions are published — mirrors
+    // what the manual "Publish" button does client-side (publishQuestions()
+    // in news-quiz.html), which this scheduled path bypasses entirely since
+    // it never goes through the browser. Held questions carry over.
+    const draftNow = await getKey('draftQuiz');
+    const heldQuestions = (draftNow && draftNow.heldQuestions) || [];
+    await setKey('draftQuiz', { questions: [], heldQuestions, savedAt: new Date().toISOString() });
+
     const siteUrl = process.env.SITE_URL || 'https://dailydispatchquiz.com';
     const freshData = await readData();
 
