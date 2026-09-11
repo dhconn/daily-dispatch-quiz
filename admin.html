@@ -3464,6 +3464,11 @@
       if (local) document.getElementById('urls-input').value = local;
     }
 
+    // Tracks which question texts are already starred, so the star icon on
+    // "Today's Published Quiz" and elsewhere shows filled vs. outline
+    // correctly. Populated by loadStarredQuestions().
+    let starredQuestionTexts = new Set();
+
     async function refreshAdminPreviews() {
       // Load saved news sites from server
       await loadSavedSites();
