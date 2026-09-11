@@ -438,6 +438,8 @@ app.get('/', async (req, res) => {
 
 // ── Save/load news sites ──────────────────────────────────────
 app.post('/api/sites', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
   const { sites } = req.body || {};
   if (typeof sites !== 'string') return res.status(400).json({ error: 'sites must be a string' });
   const data = await readData();
@@ -447,6 +449,8 @@ app.post('/api/sites', async (req, res) => {
 });
 
 app.get('/api/sites', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
   const data = await readData();
   res.json({ sites: data.sites || '' });
 });
@@ -589,6 +593,8 @@ app.get('/api/quiz-starts', async (req, res) => {
 // Fetches full article text for a given URL, stripping HTML tags.
 // Used to give Claude full article content instead of just RSS snippets.
 app.post('/api/fetch-article', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
   const { url } = req.body  || {};
   if (!url) return res.status(400).json({ error: 'url required' });
 
@@ -2018,6 +2024,8 @@ app.get('/api/quiz/latest', async (req, res) => {
 
 // ── POST /api/quiz/fix-date — copy most recent quiz to today's Eastern date ──
 app.post('/api/quiz/fix-date', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
   const data = await readData();
   if (!data.quizzes) return res.status(404).json({ error: 'No quizzes found' });
   const dates = Object.keys(data.quizzes).sort();
@@ -2534,12 +2542,21 @@ app.get('/api/referral-code', async (req, res) => {
   }
 });
 
-// ── GET /api/subscribers — return subscriber list for admin ───
+// ── GET /api/subscribers — subscriber list ─────────────────────
+// Player-facing code (leaderboard badges, loyal-player nudge check) calls
+// this with no token to know who's subscribed — that's legitimate and
+// stays public. But the full records include email addresses, which must
+// never go out unauthenticated. Admin callers (message composer, subscriber
+// management) send the real token and get full records back.
 app.get('/api/subscribers', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  const isAdmin = req.headers['x-admin-token'] === adminToken;
   const data = await readData();
   const subs = Object.values(data.subscribers || {})
     .sort((a, b) => new Date(b.subscribedAt) - new Date(a.subscribedAt));
-  res.json({ subscribers: subs });
+  if (isAdmin) return res.json({ subscribers: subs });
+  const publicSubs = subs.map(s => ({ name: s.name, active: s.active, mugWon: s.mugWon }));
+  res.json({ subscribers: publicSubs });
 });
 
 // ── PATCH /api/subscribers/:email — toggle active status ──────
@@ -2557,6 +2574,8 @@ app.patch('/api/subscribers/:email', async (req, res) => {
 // ── Quiz persistence ──────────────────────────────────────────
 // Save published quiz to server so it survives browser/device changes
 app.post('/api/quiz', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
   const { date, quiz, silent } = req.body;
   if (!date || !quiz) return res.status(400).json({ error: 'date and quiz required' });
   const data = await readData();
@@ -2818,6 +2837,8 @@ app.get('/api/quiz', async (req, res) => {
 
 // ── Anthropic API proxy ───────────────────────────────────────
 app.post('/api/claude', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return res.status(500).json({
@@ -4548,6 +4569,8 @@ app.post('/api/posts', async (req, res) => {
 });
 
 app.delete('/api/posts/:id', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
   const data = await readData();
   const post = (data.posts || []).find(p => p.id === req.params.id);
   if (!post) return res.status(404).json({ error: 'Post not found.' });
@@ -4557,6 +4580,8 @@ app.delete('/api/posts/:id', async (req, res) => {
 });
 
 app.patch('/api/posts/:id', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
   const { text } = req.body;
   if (!text || !text.trim()) return res.status(400).json({ error: 'Text required.' });
   if (text.length > 500) return res.status(400).json({ error: 'Message too long.' });

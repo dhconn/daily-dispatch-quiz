@@ -6281,7 +6281,7 @@
       try {
         const res = await fetch('/api/posts/' + id, {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'x-admin-token': lsGet('dnq_admin_token') || 'admin' },
           body: JSON.stringify({ text })
         });
         const data = await res.json();
@@ -6337,7 +6337,7 @@
 
     async function deletePost(id) {
       if (!confirm('Delete this post?')) return;
-      await fetch('/api/posts/' + id, { method: 'DELETE' });
+      await fetch('/api/posts/' + id, { method: 'DELETE', headers: { 'x-admin-token': lsGet('dnq_admin_token') || 'admin' } });
       loadAdminPosts();
     }
     // ─── Community board ─────────────────────────────────────────────────────
@@ -6533,7 +6533,7 @@
       try {
         const res = await fetch('/api/sites', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'x-admin-token': lsGet('dnq_admin_token') || 'admin' },
           body: JSON.stringify({ sites: val })
         });
         if (res.ok) {
@@ -6552,7 +6552,7 @@
 
     async function loadSavedSites() {
       try {
-        const res = await fetch('/api/sites');
+        const res = await fetch('/api/sites', { headers: { 'x-admin-token': lsGet('dnq_admin_token') || 'admin' } });
         if (res.ok) {
           const data = await res.json();
           if (data.sites) {
@@ -7101,7 +7101,7 @@
           try {
             screenResponse = await fetch('/api/claude', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 'Content-Type': 'application/json', 'x-admin-token': lsGet('dnq_admin_token') || 'admin' },
               signal: screenController.signal,
               body: JSON.stringify({
                 model: CLAUDE_MODEL,
@@ -7170,7 +7170,7 @@
             const fetchRes = await Promise.race([
               fetch('/api/fetch-article', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'x-admin-token': lsGet('dnq_admin_token') || 'admin' },
                 body: JSON.stringify({ url: articleUrl })
               }),
               new Promise((_, reject) => setTimeout(() => reject(new Error('fetch-article timeout')), 8000))
@@ -7212,7 +7212,7 @@
         specificBlocks = await Promise.all(articleUrlList.map(async (url, i) => {
           try {
             const r = await Promise.race([
-              fetch('/api/fetch-article', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) }),
+              fetch('/api/fetch-article', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-token': lsGet('dnq_admin_token') || 'admin' }, body: JSON.stringify({ url }) }),
               new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 8000))
             ]);
             const d = await r.json();
@@ -7282,7 +7282,7 @@
         try {
           response = await fetch('/api/claude', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'x-admin-token': lsGet('dnq_admin_token') || 'admin' },
             signal: claudeController.signal,
             body: JSON.stringify({
               model: CLAUDE_MODEL,
@@ -7342,7 +7342,7 @@
           try {
             const retryRes = await fetch('/api/claude', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 'Content-Type': 'application/json', 'x-admin-token': lsGet('dnq_admin_token') || 'admin' },
               body: JSON.stringify({
                 model: 'claude-sonnet-4-6',
                 max_tokens: 2000,
@@ -8130,7 +8130,7 @@
       try {
         const res = await fetch('/api/claude', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'x-admin-token': lsGet('dnq_admin_token') || 'admin' },
           body: JSON.stringify({
             model: 'claude-sonnet-4-6',
             max_tokens: 600,
@@ -8536,7 +8536,7 @@
       try {
         const res = await fetch('/api/quiz', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'x-admin-token': lsGet('dnq_admin_token') || 'admin' },
           body: JSON.stringify({ date: key, quiz, silent: false })
         });
         const data = await res.json();
@@ -8784,7 +8784,7 @@
         q.sourceUrl = document.getElementById(`${editId}-url`).value.trim();
         const saveRes = await fetch('/api/quiz', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'x-admin-token': lsGet('dnq_admin_token') || 'admin' },
           body: JSON.stringify({ date, quiz })
         });
         const saveData = await saveRes.json();
@@ -9776,7 +9776,7 @@ async function submitEditorPost() {
       const countEl = document.getElementById('sub-count');
       if (!listEl) return;
       try {
-        const res = await fetch('/api/subscribers');
+        const res = await fetch('/api/subscribers', { headers: { 'x-admin-token': lsGet('dnq_admin_token') || 'admin' } });
         const { subscribers } = await res.json();
         const active = subscribers.filter(s => s.active);
         countEl.textContent = `(${active.length} active)`;
@@ -9854,7 +9854,7 @@ async function submitEditorPost() {
 
     async function loadMsgSubscribers() {
       try {
-        const res = await fetch('/api/subscribers');
+        const res = await fetch('/api/subscribers', { headers: { 'x-admin-token': lsGet('dnq_admin_token') || 'admin' } });
         const { subscribers } = await res.json();
         msgSubscriberList = (subscribers || []).filter(s => s.active);
       } catch (e) { msgSubscriberList = []; }
