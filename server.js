@@ -21,7 +21,10 @@ if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
   console.warn('[Push] VAPID keys not set — push notifications disabled.');
 }
 
-app.use(express.json({ limit: '2mb' }));
+// Bumped from 2mb: a full-database backup (POST /api/admin/backup-restore)
+// is already 1.5mb and will keep growing as scores/subscribers/progress
+// accumulate — needs real headroom, not just enough for today's size.
+app.use(express.json({ limit: '25mb' }));
 
 const escHtml = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 app.use('/images', express.static(path.join(__dirname, 'public', 'images')));
@@ -1874,6 +1877,73 @@ app.get('/api/admin/backup-export', async (req, res) => {
     res.json({ ok: true, exportedAt: new Date().toISOString(), data });
   } catch (e) {
     console.error('[BackupExport] error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+function summarizeStoreValue(v) {
+  if (v === null || v === undefined) return 'null/missing';
+  if (Array.isArray(v)) return `array (${v.length} item${v.length === 1 ? '' : 's'})`;
+  if (typeof v === 'object') return `object (${Object.keys(v).length} key${Object.keys(v).length === 1 ? '' : 's'})`;
+  return String(v).slice(0, 200);
+}
+
+// ── POST /api/admin/backup-restore — restore key(s) from a downloaded
+// backup file back into the live database ─────────────────────────
+// Deliberately requires two separate calls to actually write anything:
+// this ALWAYS runs as a safe, read-only preview (comparing the backup's
+// value against what's currently live, key by key) unless the request
+// explicitly includes `confirm: true` — there's no way to accidentally
+// trigger a real overwrite with a single request. `keys` is optional; if
+// omitted, every key present in the backup is included (a full restore) —
+// pass specific keys to restore a narrow slice instead (e.g. just
+// `scores` and `progress`), which is almost always the safer choice,
+// since a full restore also reverts every OTHER key back to the backup's
+// (older) state, silently discarding anything legitimate that changed
+// since — exactly the kind of mistake a from-scratch emergency recovery
+// under pressure could make. The backup content itself is passed in the
+// request body (not fetched by this server from GitHub) — this server
+// has no GitHub credentials at all, by design, so there's nothing here
+// that could itself be a new attack surface against the private backup
+// repo.
+app.post('/api/admin/backup-restore', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const { backup, keys, confirm } = req.body || {};
+    const backupData = backup && backup.data;
+    if (!backupData || typeof backupData !== 'object') {
+      return res.status(400).json({ error: 'backup.data required — pass the full JSON exported by /api/admin/backup-export' });
+    }
+    const targetKeys = Array.isArray(keys) && keys.length ? keys : Object.keys(backupData);
+
+    const preview = [];
+    for (const key of targetKeys) {
+      if (!(key in backupData)) { preview.push({ key, error: 'not present in this backup' }); continue; }
+      const current = await getKey(key);
+      const backupValue = backupData[key];
+      preview.push({
+        key,
+        changed: JSON.stringify(current) !== JSON.stringify(backupValue),
+        current: summarizeStoreValue(current),
+        backup: summarizeStoreValue(backupValue)
+      });
+    }
+
+    if (confirm !== true) {
+      return res.json({ ok: true, dryRun: true, preview });
+    }
+
+    const applied = [];
+    for (const key of targetKeys) {
+      if (!(key in backupData)) continue;
+      await setKey(key, backupData[key]);
+      applied.push(key);
+    }
+    console.log('[BackupRestore] Applied:', applied.join(', '));
+    res.json({ ok: true, dryRun: false, applied });
+  } catch (e) {
+    console.error('[BackupRestore] error:', e.message);
     res.status(500).json({ error: e.message });
   }
 });
