@@ -1855,49 +1855,6 @@ function longestStreakFromDailyScores(dailyScores) {
   return longest;
 }
 
-// ── ONE-TIME: claw back undeserved bonus credit for 2026-09-11 ──
-// Follow-up to the D-choosers fix: on reflection, players who chose the
-// old (wrong) A answer and were credited the full 50 pts should have that
-// corrected too, same flat 50-correct/13-wrong scoring confirmed earlier.
-app.post('/api/admin/clawback-bonus-credit', async (req, res) => {
-  const adminToken = process.env.ADMIN_TOKEN || 'admin';
-  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
-  try {
-    const date = '2026-09-11';
-    const POINT_DELTA = -37; // 13 - 50
-
-    const progress = (await getKey('progress')) || {};
-    const scores = (await getKey('scores')) || {};
-    const dayProgress = progress[date] || {};
-
-    const fixed = [];
-    for (const [key, p] of Object.entries(dayProgress)) {
-      const q5 = p.answers && p.answers.q5;
-      if (q5 && q5.chosen === 0 && q5.correct === true) {
-        q5.correct = false;
-        q5.pts = 13;
-        p.score = (p.score || 0) + POINT_DELTA;
-
-        if (scores[key]) {
-          scores[key].dailyScores = scores[key].dailyScores || {};
-          scores[key].dailyScores[date] = (scores[key].dailyScores[date] || 0) + POINT_DELTA;
-          scores[key].allTime = Object.values(scores[key].dailyScores).reduce((a, c) => a + c, 0);
-          scores[key].maxStreak = Math.max(scores[key].maxStreak || 0, longestStreakFromDailyScores(scores[key].dailyScores));
-        }
-        fixed.push({ key, newScore: p.score, newDailyScore: scores[key] ? scores[key].dailyScores[date] : null });
-      }
-    }
-
-    await setKey('progress', progress);
-    await setKey('scores', scores);
-    console.log('[ClawbackBonusCredit] Fixed players:', fixed.map(f => f.key).join(', '));
-    res.json({ ok: true, fixed });
-  } catch (e) {
-    console.error('[ClawbackBonusCredit] error:', e.message);
-    res.status(500).json({ error: e.message });
-  }
-});
-
 // ── GET /api/monthly-winners — return recent monthly winners ──
 app.get('/api/monthly-winners', async (req, res) => {
   try {
