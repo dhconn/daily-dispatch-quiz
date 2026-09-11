@@ -436,6 +436,29 @@ app.get('/', async (req, res) => {
   res.redirect('/news-quiz.html' + qs);
 });
 
+// ── Admin panel, served as its own page ───────────────────────
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'admin.html'));
+});
+
+// ── POST /api/admin/login — server-side password check ────────
+// Replaces the old client-side comparison (ADMIN_PASSWORD used to sit as a
+// literal string in the browser's JS, visible via View Source). The real
+// password now lives only in this env var; on success this hands back the
+// real x-admin-token, which every existing admin API call already reads
+// from localStorage.
+app.post('/api/admin/login', (req, res) => {
+  const { password } = req.body || {};
+  const realPassword = process.env.ADMIN_PASSWORD;
+  if (!realPassword) {
+    return res.status(500).json({ ok: false, error: 'ADMIN_PASSWORD is not set in Railway Variables.' });
+  }
+  if (password !== realPassword) {
+    return res.status(401).json({ ok: false });
+  }
+  res.json({ ok: true, token: process.env.ADMIN_TOKEN || 'admin' });
+});
+
 // ── Save/load news sites ──────────────────────────────────────
 app.post('/api/sites', async (req, res) => {
   const adminToken = process.env.ADMIN_TOKEN || 'admin';

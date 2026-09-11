@@ -1,7 +1,8 @@
-const CACHE_NAME = 'ddq-static-v1';
+const CACHE_NAME = 'ddq-static-v2';
 const STATIC_ASSETS = [
   '/',
   '/news-quiz.html',
+  '/common.js',
   '/manifest.webmanifest',
   '/images/icon-192.png',
   '/images/icon-512.png'
