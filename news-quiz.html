@@ -6646,10 +6646,23 @@
         document.getElementById('published-preview').innerHTML = `<p style="font-size:13px;color:var(--muted);font-style:italic;">No quiz published today.</p>`;
       }
 
-      // Draft
-      const draft = getDraftQuiz();
-      if (draft && draft.questions) {
-        showDraftPreview(draft.questions);
+      // Draft — pulled from the server, not just localStorage, so a stale
+      // local draft left over on this device/browser (e.g. from before a
+      // publish that happened elsewhere) can't make an already-published
+      // quiz look like it's still an active draft.
+      try {
+        const draftRes = await fetch('/api/draft', {
+          headers: { 'x-admin-token': lsGet('dnq_admin_token') || 'admin' }
+        });
+        const draftData = await draftRes.json();
+        if (draftData.ok && draftData.draft) {
+          saveDraftQuiz(draftData.draft);
+          showDraftPreview(draftData.draft.questions || []);
+        }
+      } catch (e) {
+        // Server unavailable — fall back to whatever's in localStorage
+        const draft = getDraftQuiz();
+        if (draft && draft.questions) showDraftPreview(draft.questions);
       }
     }
 
