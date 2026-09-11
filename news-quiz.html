@@ -1852,39 +1852,48 @@
       padding: 0 20px 20px;
     }
 
-    /* ── Sticky jump nav ── */
-    #admin-jump-nav {
+    /* ── Sticky tab nav ── */
+    #admin-tab-nav {
       position: sticky;
       top: 0;
       z-index: 100;
       background: var(--ink);
       border-bottom: 2px solid var(--gold);
-      padding: 8px 16px;
+      padding: 0 16px;
       display: flex;
       flex-wrap: wrap;
-      gap: 4px 12px;
+      gap: 4px;
       margin: 0 0 20px;
     }
 
-    #admin-jump-nav a {
+    .admin-tab-btn {
       font-family: 'Courier Prime', monospace;
-      font-size: 10px;
+      font-size: 11px;
       letter-spacing: 1.5px;
       text-transform: uppercase;
       color: var(--gold-light);
-      text-decoration: none;
-      padding: 3px 0;
+      background: none;
+      border: none;
+      border-bottom: 3px solid transparent;
+      cursor: pointer;
+      padding: 10px 14px;
       white-space: nowrap;
-      opacity: 0.8;
+      opacity: 0.75;
       transition: opacity .15s;
     }
 
-    #admin-jump-nav a:hover {
+    .admin-tab-btn:hover {
       opacity: 1;
     }
 
-    .admin-anchor {
-      scroll-margin-top: 48px;
+    .admin-tab-btn.active {
+      opacity: 1;
+      border-bottom-color: var(--gold);
+      font-weight: 700;
+    }
+
+    .admin-tab-hidden {
+      display: none !important;
     }
   </style>
 </head>
@@ -2636,25 +2645,15 @@
     <!-- ADMIN -->
     <div id="screen-admin" class="screen">
       <h2>Editor's Desk</h2>
-      <nav id="admin-jump-nav">
-        <a href="#anc-generate">Generate</a>
-        <a href="#anc-archive">Archive</a>
-        <a href="#anc-published">Published</a>
-        <a href="#anc-community">Community</a>
-        <a href="#anc-blocked">Blocked</a>
-        <a href="#anc-subscribers">Subscribers</a>
-        <a href="#anc-quiz-archive">Quiz Archive</a>
-        <a href="#anc-engagement">Engagement</a>
-        <a href="#anc-share-clicks">Share Clicks</a>
-        <a href="#anc-leaderboard">Leaderboard</a>
-        <a href="#anc-players">Players</a>
-        <a href="#anc-message">Message</a>
-        <a href="#anc-prospect-pause">Prospects</a>
-        <a href="#anc-referrals">Referrals</a>
-
+      <nav id="admin-tab-nav">
+        <button class="admin-tab-btn" data-tab="today" onclick="showAdminTab('today')">Today's Quiz</button>
+        <button class="admin-tab-btn" data-tab="archive" onclick="showAdminTab('archive')">Archive</button>
+        <button class="admin-tab-btn" data-tab="email" onclick="showAdminTab('email')">Email</button>
+        <button class="admin-tab-btn" data-tab="players" onclick="showAdminTab('players')">Players &amp; Scores</button>
+        <button class="admin-tab-btn" data-tab="settings" onclick="showAdminTab('settings')">Settings</button>
       </nav>
 
-      <div class="admin-section" id="anc-generate">
+      <div class="admin-section" data-admin-tab="today" id="anc-generate">
         <h3>Step 1 — Paste News Article URLs</h3>
         <div id="freshness-notice"
           style="background:#fff8e0;border:1px solid var(--gold);padding:10px 14px;margin-bottom:12px;font-family:monospace,monospace;font-size:12px;color:#7a5f00;line-height:1.6;">
@@ -2741,7 +2740,7 @@
         <button class="btn-secondary" onclick="loadDraftFromServer()" style="border-color:var(--yellow);color:var(--yellow);" title="Load draft saved on another device">📂 Load Draft</button>
       </div>
 
-      <div class="admin-section" id="preview-section" style="display:none;">
+      <div class="admin-section" data-admin-tab="today" id="preview-section" style="display:none;">
         <h3>Step 2 — Review Questions</h3>
         <div id="q-preview-list"></div>
 
@@ -2843,7 +2842,7 @@
         </div>
       </div>
 
-      <div class="admin-section" id="anc-archive">
+      <div class="admin-section" data-admin-tab="archive" id="anc-archive">
         <h3>Question Archive</h3>
         <p style="font-size:13px;color:var(--muted);margin-bottom:10px;">Questions in the archive will not be
           regenerated. <strong id="archive-count">0</strong> questions archived.</p>
@@ -2854,7 +2853,7 @@
         </div>
       </div>
 
-      <div class="admin-section" id="anc-published">
+      <div class="admin-section" data-admin-tab="today" id="anc-published">
         <h3 id="published-quiz-heading">Today's Published Quiz</h3>
         <div id="published-preview">
           <p style="font-size:13px;color:var(--muted);font-style:italic;">No quiz published today.</p>
@@ -2891,7 +2890,7 @@
           <div id="schedule-error" style="font-family:monospace;font-size:11px;color:var(--red);margin-top:8px;min-height:14px;"></div>
         </div>
       </div>
-      <div class="admin-collapsible" style="margin-top:20px;" id="anc-community">
+      <div class="admin-collapsible" data-admin-tab="players" style="margin-top:20px;" id="anc-community">
         <details>
           <summary>
             <span class="summary-left">Community Posts <span id="admin-posts-badge"
@@ -2916,7 +2915,7 @@
         </details>
       </div>
 
-      <div class="admin-collapsible" style="margin-top:20px;" id="anc-community-message">
+      <div class="admin-collapsible" data-admin-tab="email" style="margin-top:20px;" id="anc-community-message">
         <details>
           <summary>
             <span class="summary-left">Email Community Message <span id="community-message-status"
@@ -2945,7 +2944,7 @@
         </details>
       </div>
 
-      <div class="admin-collapsible" style="margin-top:20px;" id="anc-editor-notes">
+      <div class="admin-collapsible" data-admin-tab="settings" style="margin-top:20px;" id="anc-editor-notes">
         <details>
           <summary>
             <span class="summary-left">Editor Notes <span id="editor-notes-status"
@@ -2979,7 +2978,7 @@
       </div>
 
 
-      <div class="admin-collapsible" style="margin-top:20px;" id="anc-blocked">
+      <div class="admin-collapsible" data-admin-tab="settings" style="margin-top:20px;" id="anc-blocked">
         <details>
           <summary>
             <span class="summary-left">Blocked Topics <span id="blocklist-count"
@@ -2999,7 +2998,7 @@
         </details>
       </div>
 
-      <div class="admin-section" style="margin-top:20px;" id="anc-subscribers">
+      <div class="admin-section" data-admin-tab="email" style="margin-top:20px;" id="anc-subscribers">
         <div
           style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
           <h3 style="margin:0;">Email Subscribers <span id="sub-count"
@@ -3017,7 +3016,7 @@
         </div>
       </div>
 
-      <div class="admin-section" style="margin-top:20px;" id="anc-prospect-pause">
+      <div class="admin-section" data-admin-tab="email" style="margin-top:20px;" id="anc-prospect-pause">
         <div
           style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
           <h3 style="margin:0;">Prospect List</h3>
@@ -3030,7 +3029,7 @@
         </div>
       </div>
 
-      <div class="admin-collapsible" style="margin-top:20px;" id="anc-nudge">
+      <div class="admin-collapsible" data-admin-tab="email" style="margin-top:20px;" id="anc-nudge">
         <details>
           <summary>
             <span class="summary-left">Nudge Non-Players</span>
@@ -3059,7 +3058,7 @@
         </details>
       </div>
 
-      <div class="admin-collapsible" style="margin-top:20px;" id="anc-quiz-archive">
+      <div class="admin-collapsible" data-admin-tab="archive" style="margin-top:20px;" id="anc-quiz-archive">
         <details>
           <summary>
             <span class="summary-left">Published Quiz Archive <span id="archive-quiz-count"
@@ -3076,7 +3075,7 @@
         </details>
       </div>
 
-      <div class="admin-section" style="margin-top:20px;" id="anc-engagement">
+      <div class="admin-section" data-admin-tab="players" style="margin-top:20px;" id="anc-engagement">
         <h3>Today's Engagement <span id="stats-date-label"
             style="font-family:monospace;font-size:12px;color:var(--muted);font-weight:400;"></span></h3>
         <div id="admin-stats" style="font-family:monospace;font-size:13px;color:var(--muted);">
@@ -3084,7 +3083,7 @@
         </div>
       </div>
 
-      <div class="admin-section" style="margin-top:20px;" id="anc-share-clicks">
+      <div class="admin-section" data-admin-tab="players" style="margin-top:20px;" id="anc-share-clicks">
         <h3>Share Clicks</h3>
         <p style="font-family:monospace;font-size:12px;color:var(--muted);margin-bottom:8px;">X/Bluesky counts when the share window opens — not confirmation they actually posted. Copy counts a confirmed clipboard write.</p>
         <div id="share-clicks-stats" style="font-family:monospace;font-size:13px;color:var(--muted);">
@@ -3092,7 +3091,7 @@
         </div>
       </div>
 
-      <div class="admin-section" style="margin-top:20px;" id="anc-leaderboard">
+      <div class="admin-section" data-admin-tab="players" style="margin-top:20px;" id="anc-leaderboard">
         <h3>Leaderboard</h3>
         <p style="font-family:monospace;font-size:12px;color:var(--muted);margin-bottom:8px;">View without affecting
           scores.</p>
@@ -3127,7 +3126,7 @@
         </div>
       </div>
 
-      <div class="admin-collapsible" style="margin-top:20px;" id="anc-players">
+      <div class="admin-collapsible" data-admin-tab="players" style="margin-top:20px;" id="anc-players">
         <details>
           <summary>
             <span class="summary-left">Player Management</span>
@@ -3152,7 +3151,7 @@
         </details>
       </div>
 
-      <div class="admin-collapsible" style="margin-top:20px;" id="anc-message">
+      <div class="admin-collapsible" data-admin-tab="email" style="margin-top:20px;" id="anc-message">
         <details>
           <summary>
             <span class="summary-left">Message Players</span>
@@ -3272,7 +3271,7 @@
         </details>
       </div>
 
-      <div class="admin-collapsible" style="margin-top:20px;" id="anc-prospects">
+      <div class="admin-collapsible" data-admin-tab="email" style="margin-top:20px;" id="anc-prospects">
         <details>
           <summary>
             <span class="summary-left">Prospects <span id="prospects-count"
@@ -3314,7 +3313,7 @@
         </details>
       </div>
 
-      <div class="admin-collapsible" style="margin-top:20px;" id="anc-referrals">
+      <div class="admin-collapsible" data-admin-tab="players" style="margin-top:20px;" id="anc-referrals">
         <details>
           <summary>
             <span class="summary-left">Referrals &amp; Mug Winners <span id="referrals-eligible-count"
@@ -6082,8 +6081,18 @@
       }
     }
 
+    function showAdminTab(tab) {
+      document.querySelectorAll('#screen-admin [data-admin-tab]').forEach(el => {
+        el.classList.toggle('admin-tab-hidden', el.dataset.adminTab !== tab);
+      });
+      document.querySelectorAll('.admin-tab-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tab === tab);
+      });
+    }
+
     async function showAdminScreen() {
       showScreen('screen-admin');
+      showAdminTab('today');
       await refreshAdminPreviews();
       loadAdminPosts();
       loadArticleUrls();
@@ -8623,6 +8632,7 @@
     }
 
     function jumpToArchiveQuestion(date, qIndex) {
+      showAdminTab('archive');
       const archiveWrap = document.getElementById('anc-quiz-archive');
       if (archiveWrap) {
         const details = archiveWrap.querySelector('details');
