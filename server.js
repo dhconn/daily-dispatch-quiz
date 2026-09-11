@@ -1855,56 +1855,6 @@ function longestStreakFromDailyScores(dailyScores) {
   return longest;
 }
 
-// ── ONE-TIME: retroactive bonus-question credit for 2026-09-11 ──
-// Today's bonus question was published with correctIndex wrong (A instead
-// of D), since fixed in the live quiz data. Players who answered D before
-// the fix was made were scored as wrong (flat 13 pts) instead of correct
-// (flat 50 pts) - every wrong bonus answer gets exactly 13 regardless of
-// which option was chosen, every correct one gets exactly 50, confirmed
-// empirically across all 18 players today, so this is a simple swap, not a
-// partial-credit calculation. Per explicit instruction: only fix players
-// who chose D (index 3) - leave alone anyone who chose the old (wrong) A
-// and anyone who chose the other wrong option (C), since C is still wrong
-// under the corrected answer too.
-app.post('/api/admin/fix-bonus-credit', async (req, res) => {
-  const adminToken = process.env.ADMIN_TOKEN || 'admin';
-  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
-  try {
-    const date = '2026-09-11';
-    const POINT_DELTA = 37; // 50 - 13
-
-    const progress = (await getKey('progress')) || {};
-    const scores = (await getKey('scores')) || {};
-    const dayProgress = progress[date] || {};
-
-    const fixed = [];
-    for (const [key, p] of Object.entries(dayProgress)) {
-      const q5 = p.answers && p.answers.q5;
-      if (q5 && q5.chosen === 3 && q5.correct === false) {
-        q5.correct = true;
-        q5.pts = 50;
-        p.score = (p.score || 0) + POINT_DELTA;
-
-        if (scores[key]) {
-          scores[key].dailyScores = scores[key].dailyScores || {};
-          scores[key].dailyScores[date] = (scores[key].dailyScores[date] || 0) + POINT_DELTA;
-          scores[key].allTime = Object.values(scores[key].dailyScores).reduce((a, c) => a + c, 0);
-          scores[key].maxStreak = Math.max(scores[key].maxStreak || 0, longestStreakFromDailyScores(scores[key].dailyScores));
-        }
-        fixed.push({ key, newScore: p.score, newDailyScore: scores[key] ? scores[key].dailyScores[date] : null });
-      }
-    }
-
-    await setKey('progress', progress);
-    await setKey('scores', scores);
-    console.log('[FixBonusCredit] Fixed players:', fixed.map(f => f.key).join(', '));
-    res.json({ ok: true, fixed });
-  } catch (e) {
-    console.error('[FixBonusCredit] error:', e.message);
-    res.status(500).json({ error: e.message });
-  }
-});
-
 // ── GET /api/monthly-winners — return recent monthly winners ──
 app.get('/api/monthly-winners', async (req, res) => {
   try {
