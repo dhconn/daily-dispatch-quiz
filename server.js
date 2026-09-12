@@ -3184,27 +3184,33 @@ app.get('/api/draft', async (req, res) => {
 });
 
 // ── POST /api/draft — save draft quiz ──
-// quiz.version is a client-captured Date.now(), taken at the moment the
-// edit was committed client-side (not when the request happens to be
-// sent) — every draft write, including the "authoritative" ones
-// (publish's post-publish reset, discard), carries one the same way, with
-// no bypass path. Rejecting anything older than what's already stored
-// makes ordering depend on logical edit time rather than network arrival
-// order, so a slow in-flight write from an earlier edit can never
-// clobber a newer one that already landed - including an authoritative
-// reset, since it's always logically later than whatever preceded it.
+// Real optimistic concurrency control: baseVersion must equal the
+// version this store currently holds, or the write is rejected as a
+// conflict — regardless of timestamps. A prior version of this endpoint
+// only checked "is quiz.version newer than what's stored," which sounds
+// equivalent but isn't: a browser holding a stale draft from hours ago
+// can still edit it and save with a fresh Date.now(), which is always
+// "newer" by wall clock even though it was never built on the server's
+// actual current content. That silently overwrote real, newer work more
+// than once — this is what actually prevents it, by checking what the
+// write was based on, not when it happened to arrive.
+// force:true skips the check — reserved for the explicit "keep mine"
+// recovery choice, made only after the user has already been shown a
+// real conflict and chosen to overwrite it. Never set automatically.
 app.post('/api/draft', async (req, res) => {
   const adminToken = process.env.ADMIN_TOKEN || 'admin';
   if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
-  const { quiz } = req.body;
+  const { quiz, baseVersion, force } = req.body || {};
   if (!quiz) return res.status(400).json({ error: 'quiz required' });
-  const incomingVersion = typeof quiz.version === 'number' ? quiz.version : 0;
   const existing = await getKey('draftQuiz');
-  if (existing && typeof existing.version === 'number' && incomingVersion < existing.version) {
+  const existingVersion = existing && typeof existing.version === 'number' ? existing.version : null;
+  const incomingBase = typeof baseVersion === 'number' ? baseVersion : null;
+  if (!force && existingVersion !== null && incomingBase !== existingVersion) {
     return res.status(409).json({ ok: false, stale: true, serverDraft: existing });
   }
-  await setKey('draftQuiz', { ...quiz, savedAt: new Date().toISOString() });
-  res.json({ ok: true });
+  const newVersion = Date.now();
+  await setKey('draftQuiz', { ...quiz, version: newVersion, savedAt: new Date().toISOString() });
+  res.json({ ok: true, version: newVersion });
 });
 
 // ── GET /api/quiz/schedule — get current scheduled publish ───
@@ -4418,10 +4424,14 @@ async function checkScheduledPublish() {
     // Clear the active draft now that its questions are published — mirrors
     // what the manual "Publish" button does client-side (publishQuestions()
     // in news-quiz.html), which this scheduled path bypasses entirely since
-    // it never goes through the browser. Held questions carry over.
+    // it never goes through the browser. Held questions carry over. Sets
+    // an explicit new version like every other draftQuiz write, so the
+    // next client save's base-version check (see POST /api/draft) has
+    // something real to compare against instead of finding no version and
+    // skipping the check entirely right after a publish.
     const draftNow = await getKey('draftQuiz');
     const heldQuestions = (draftNow && draftNow.heldQuestions) || [];
-    await setKey('draftQuiz', { questions: [], heldQuestions, savedAt: new Date().toISOString() });
+    await setKey('draftQuiz', { questions: [], heldQuestions, version: Date.now(), savedAt: new Date().toISOString() });
 
     const siteUrl = process.env.SITE_URL || 'https://dailydispatchquiz.com';
     const freshData = await readData();

@@ -2626,14 +2626,38 @@
 
     function getDraftQuiz() { return lsGet('dnq_draft'); }
 
+    // The version this browser last *confirmed* the server has — from a
+    // successful GET, or a POST that landed. Deliberately separate from
+    // q.version (which just marks "when this local edit happened"): a
+    // save is only safe to accept if it was built on top of this exact
+    // confirmed version, regardless of what time it happens to land at.
+    // This is what actually prevents the lost-update bug a pure
+    // newer-timestamp-wins check can't catch — a stale local copy that
+    // gets a fresh Date.now() at save time looks "newer" by wall clock
+    // even though it was edited without ever seeing the real current
+    // state, and would otherwise silently overwrite it.
+    function getConfirmedDraftVersion() {
+      const v = lsGet('dnq_draft_confirmed_version');
+      return typeof v === 'number' ? v : null;
+    }
+    function setConfirmedDraftVersion(v) {
+      if (typeof v === 'number') lsSet('dnq_draft_confirmed_version', v);
+    }
+
     // Pure cache write — mirrors server-fetched content into the local
     // display cache without marking it dirty or scheduling a write-back.
     // Distinct from saveDraftQuiz() on purpose: this path is for "the
     // server told us this is current," not "the editor just made a new
     // change" — using saveDraftQuiz() here would falsely mark freshly
     // server-fetched content as an unsynced local edit and immediately
-    // schedule a pointless write of the same content straight back.
-    function cacheDraftLocally(q) { lsSet('dnq_draft', q); }
+    // schedule a pointless write of the same content straight back. Also
+    // the only place (besides a successful push) that updates the
+    // confirmed-version marker, since this is exactly "the server told us
+    // this is current."
+    function cacheDraftLocally(q) {
+      lsSet('dnq_draft', q);
+      if (q && typeof q.version === 'number') setConfirmedDraftVersion(q.version);
+    }
 
     function markDraftDirty() { lsSet('dnq_draft_dirty', '1'); }
     function clearDraftDirty() { localStorage.removeItem('dnq_draft_dirty'); }
@@ -2651,17 +2675,27 @@
     // the immediate (authoritative) path. Returns a result object
     // rather than throwing, since callers need to distinguish an
     // ordinary network failure from a genuine version conflict (the
-    // server rejected this write because something newer already
-    // landed) to show the right recovery message.
-    async function pushDraftToServer(q) {
+    // server rejected this write because it wasn't based on the current
+    // server state) to show the right recovery message.
+    //
+    // Sends baseVersion — the version this browser last confirmed the
+    // server had — so the server can reject a write that isn't actually
+    // built on current state, not just one that happens to arrive with an
+    // older timestamp. force:true (only ever used by the explicit "keep
+    // mine" recovery choice, after a real conflict was already shown to
+    // the user) skips that check entirely — a deliberate, informed
+    // override, never a silent one.
+    async function pushDraftToServer(q, { force = false } = {}) {
       setDraftSyncStatus('saving');
       try {
         const res = await fetch('/api/draft', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'x-admin-token': lsGet('dnq_admin_token') || 'admin' },
-          body: JSON.stringify({ quiz: q })
+          body: JSON.stringify({ quiz: q, baseVersion: getConfirmedDraftVersion(), force })
         });
         if (res.ok) {
+          const data = await res.json().catch(() => ({}));
+          if (typeof data.version === 'number') setConfirmedDraftVersion(data.version);
           clearDraftDirty();
           setDraftSyncStatus('saved');
           return { ok: true };
@@ -2697,11 +2731,19 @@
     // discard, where the write needs to land right away rather than
     // after a debounce delay. Same versioning as saveDraftQuiz, just
     // sent immediately instead of scheduled.
-    async function saveDraftQuizImmediate(q) {
+    // Immediate (not debounced) write, shared by post-publish cleanup and
+    // discard. force is an explicit per-caller choice, not a default:
+    // post-publish cleanup forces (there's nothing meaningful to conflict
+    // against right after this same browser's own successful publish),
+    // but discard does not — it also rewrites heldQuestions from this
+    // browser's local snapshot, and forcing that through could silently
+    // clobber a genuinely newer heldQuestions list from another machine,
+    // which is exactly the class of bug this whole scheme exists to stop.
+    async function saveDraftQuizImmediate(q, { force = false } = {}) {
       q.version = Date.now();
       lsSet('dnq_draft', q);
       clearTimeout(draftSyncTimer);
-      return await pushDraftToServer(q);
+      return await pushDraftToServer(q, { force });
     }
 
     function clearDraftQuiz() {
@@ -2771,11 +2813,14 @@
 
     async function keepMineDraftRecovery() {
       if (!draftRecoveryState) return;
-      // Force this write to win regardless of the server's current version
-      // by claiming a version newer than the server's rejected-against one.
+      // Explicit, informed override — the user has just been shown a real
+      // conflict (the server's content differs from what this browser
+      // based its edit on) and chose to overwrite it anyway. force:true
+      // is the only way past the base-version check now; it's never set
+      // automatically.
       const local = draftRecoveryState.local;
       local.version = Date.now();
-      const result = await pushDraftToServer(local);
+      const result = await pushDraftToServer(local, { force: true });
       hideDraftRecoveryBanner();
       if (!result.ok) { setStatus('Could not save your version — please try again.', 'error'); return; }
       showDraftPreview(local.questions || []);
@@ -2786,7 +2831,7 @@
       clearDraftQuiz();
       hideDraftRecoveryBanner();
       if (serverDraft) {
-        lsSet('dnq_draft', serverDraft);
+        cacheDraftLocally(serverDraft);
         showDraftPreview(serverDraft.questions || []);
       } else {
         // No serverDraft available (ordinary network-failure case) — fetch fresh.
@@ -2799,7 +2844,7 @@
         const res = await fetch('/api/draft', { headers: { 'x-admin-token': lsGet('dnq_admin_token') || 'admin' } });
         const data = await res.json();
         if (data.ok && data.draft) {
-          lsSet('dnq_draft', data.draft);
+          cacheDraftLocally(data.draft);
           showDraftPreview(data.draft.questions || []);
         }
       } catch (e) { /* give up quietly — the panel will just show whatever's already rendered */ }
@@ -5412,7 +5457,7 @@
         // depends on landing with a version newer than anything that
         // preceded it, so it always wins regardless of network timing.
         const cleanedDraft = { questions: [], heldQuestions: heldAfterPublish };
-        await saveDraftQuizImmediate(cleanedDraft);
+        await saveDraftQuizImmediate(cleanedDraft, { force: true });
         // Refresh the on-screen editor to match the now-cleared draft —
         // the state was reset above, but the visible cards otherwise stay
         // put until something re-renders them.
@@ -5643,8 +5688,19 @@
       clearDraftQuiz();
       document.getElementById('preview-section').style.display = 'none';
       document.getElementById('q-preview-list').innerHTML = '';
-      await saveDraftQuizImmediate({ questions: [], heldQuestions });
-      setStatus('Draft discarded.', 'info');
+      const result = await saveDraftQuizImmediate({ questions: [], heldQuestions });
+      if (result.ok) {
+        setStatus('Draft discarded.', 'info');
+      } else if (result.conflict) {
+        // Someone/something changed the server's draft since this browser
+        // last saw it (e.g. new held questions added elsewhere) — reload
+        // that instead of leaving this browser showing "discarded" while
+        // the server actually still has that newer content.
+        setStatus('The server draft had changed since this was loaded — reloaded the current version instead of discarding it.', 'info');
+        await loadDraftFromServerSilently();
+      } else {
+        setStatus('Could not reach the server to discard — please try again.', 'error');
+      }
     }
 
     async function clearArchive() {
