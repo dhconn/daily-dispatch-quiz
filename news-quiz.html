@@ -3202,6 +3202,15 @@
         window.history.replaceState({}, '', window.location.pathname);
       }
 
+      // ── Jump straight to the leaderboard if linked here for that ──
+      // Used by the admin panel's "View Leaderboard" button — admin.html
+      // is a separate page with no access to showLeaderboard() directly,
+      // so it links here with this param instead.
+      if (_urlParams.get('view') === 'leaderboard') {
+        window.history.replaceState({}, '', window.location.pathname);
+        showLeaderboard();
+      }
+
       // Retry any progress save that failed even after its own immediate
       // retry (see saveProgressToServer) — most often because the tab
       // closed before it could complete. Fire-and-forget: shouldn't block
