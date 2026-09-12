@@ -2860,6 +2860,82 @@
       return base + (completed ? 10 : 0);
     }
 
+    // One bare attempt at POST /api/progress — no retry, no queuing. Shared
+    // by saveProgressToServer (live session) and flushPendingProgressSaves
+    // (a save queued from a previous, failed session), so both retry paths
+    // exercise the exact same request shape.
+    async function postProgressOnce(playerName, date, progress) {
+      try {
+        const res = await fetch('/api/progress', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ playerName, date, progress })
+        });
+        if (!res.ok) {
+          const text = await res.text();
+          console.error('postProgressOnce failed:', res.status, text);
+          return null;
+        }
+        return await res.json(); // { ok, validatedScore } — validatedScore is server-computed, not just echoed
+      } catch (e) {
+        console.error('postProgressOnce error:', e);
+        return null;
+      }
+    }
+
+    // Queued failed saves live here, keyed by date so at most one pending
+    // save per day is ever held (a later attempt for the same date replaces
+    // an earlier one rather than stacking up). Each entry is fully
+    // self-contained (own playerName/date/progress) so flushing it later
+    // doesn't depend on anything about whatever session flushes it.
+    const PENDING_PROGRESS_KEY = 'dnq_pending_progress_saves';
+    // Matches the server's own ~5-day progress retention — no point retrying
+    // a save for a date the server would no longer meaningfully use it for.
+    const PENDING_PROGRESS_MAX_AGE_DAYS = 5;
+
+    function queuePendingProgressSave(playerName, date, progress) {
+      const pending = lsGet(PENDING_PROGRESS_KEY) || {};
+      pending[date] = { playerName, date, progress, queuedAt: new Date().toISOString() };
+      lsSet(PENDING_PROGRESS_KEY, pending);
+    }
+
+    function clearPendingProgressSave(date) {
+      const pending = lsGet(PENDING_PROGRESS_KEY);
+      if (!pending || !pending[date]) return;
+      delete pending[date];
+      lsSet(PENDING_PROGRESS_KEY, pending);
+    }
+
+    // Retries any progress save still stuck after saveProgressToServer's own
+    // immediate retry already failed — most commonly because the tab closed,
+    // or connectivity was out for longer than that retry's brief wait.
+    // Without this, that day is stuck for good showing as a bare "historical
+    // record" (the /api/scores safety-net mirror, with no per-question
+    // detail) since nothing else ever revisits a failed save. Runs once on
+    // page load; fire-and-forget from the caller's side.
+    async function flushPendingProgressSaves() {
+      const pending = lsGet(PENDING_PROGRESS_KEY);
+      if (!pending || !Object.keys(pending).length) return;
+
+      const cutoff = Date.now() - PENDING_PROGRESS_MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
+      let changed = false;
+
+      for (const [date, entry] of Object.entries(pending)) {
+        if (new Date(entry.queuedAt).getTime() < cutoff) {
+          delete pending[date]; // too old to matter now — drop rather than retry forever
+          changed = true;
+          continue;
+        }
+        const result = await postProgressOnce(entry.playerName, entry.date, entry.progress);
+        if (result) {
+          delete pending[date];
+          changed = true;
+        }
+      }
+
+      if (changed) lsSet(PENDING_PROGRESS_KEY, pending);
+    }
+
     async function saveProgressToServer(completedOverride = false) {
       console.log('DDQ saveProgressToServer called', {
         player: state.playerName,
@@ -2905,26 +2981,27 @@
 
       console.log('DDQ posting progress payload', progress);
 
-      try {
-        const res = await fetch('/api/progress', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            playerName: state.playerName,
-            date: state.todayKey,
-            progress
-          })
-        });
-        if (!res.ok) {
-          const text = await res.text();
-          console.error('saveProgressToServer failed:', res.status, text);
-          return null;
-        }
-        return await res.json(); // { ok, validatedScore } — validatedScore is server-computed, not just echoed
-      } catch (e) {
-        console.error('saveProgressToServer error:', e);
+      const playerName = state.playerName;
+      const date = state.todayKey;
+
+      // One immediate retry covers the common case — a single transient
+      // network blip. If that still fails (tab about to close, connectivity
+      // out for longer than the short wait below), queue it for
+      // flushPendingProgressSaves() to pick up on a later visit instead of
+      // losing this session's detail for good.
+      let result = await postProgressOnce(playerName, date, progress);
+      if (!result) {
+        await new Promise(r => setTimeout(r, 1500));
+        result = await postProgressOnce(playerName, date, progress);
+      }
+
+      if (!result) {
+        queuePendingProgressSave(playerName, date, progress);
         return null;
       }
+
+      clearPendingProgressSave(date);
+      return result;
     }
     let progressSaveChain = Promise.resolve(); function showResumeOverlay() {
       const overlay = document.getElementById('resume-overlay');
@@ -3124,6 +3201,13 @@
         lsSet('dnq_referral_code', _refCode);
         window.history.replaceState({}, '', window.location.pathname);
       }
+
+      // Retry any progress save that failed even after its own immediate
+      // retry (see saveProgressToServer) — most often because the tab
+      // closed before it could complete. Fire-and-forget: shouldn't block
+      // page render, and each entry carries its own playerName/date so it
+      // doesn't depend on anything about this particular visit.
+      flushPendingProgressSaves();
 
       // Ensure archive banner is hidden on fresh load
       const bannerEl = document.getElementById('archive-banner');
