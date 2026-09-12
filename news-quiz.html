@@ -2566,7 +2566,7 @@
       </div>
       <div id="lb-content"></div>
       <div class="lb-back">
-        <button class="btn-secondary" onclick="showScreen(previousScreen)">◂ Back</button>
+        <button class="btn-secondary" onclick="leaderboardBackToAdmin ? (window.location.href='/admin?tab=players') : showScreen(previousScreen)">◂ Back</button>
       </div>
     </div>
 
@@ -3208,6 +3208,7 @@
       // so it links here with this param instead.
       if (_urlParams.get('view') === 'leaderboard') {
         window.history.replaceState({}, '', window.location.pathname);
+        leaderboardBackToAdmin = true;
         showLeaderboard();
       }
 
@@ -4784,6 +4785,11 @@
     // ═══════════════════════════════════════════════════════
     let currentLbTab = 'alltime';
     let previousScreen = 'screen-register';
+    // True when this leaderboard view was reached via admin.html's "View
+    // Leaderboard" link (?view=leaderboard) rather than in-app navigation —
+    // admin.html is a separate page, so its own screen state doesn't exist
+    // here for showScreen(previousScreen) to return to.
+    let leaderboardBackToAdmin = false;
 
     function showLeaderboard() {
       currentLbTab = 'today';

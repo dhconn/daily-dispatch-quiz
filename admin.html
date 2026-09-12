@@ -2350,7 +2350,7 @@
         <p style="font-family:monospace;font-size:12px;color:var(--muted);margin-bottom:8px;">View without affecting
           scores.</p>
         <button class="btn-secondary"
-          onclick="window.open('/?view=leaderboard', '_blank')"
+          onclick="window.location.href='/?view=leaderboard'"
           style="font-size:12px;padding:6px 16px;">View Leaderboard ▸</button>
 
         <div style="margin-top:20px;padding:16px;background:white;border:1px solid var(--rule);">
@@ -3294,7 +3294,12 @@
     }
 
     async function showAdminScreen() {
-      showAdminTab('today');
+      // Lets another page link straight to a specific tab — e.g. the
+      // leaderboard screen's Back button returns here via ?tab=players.
+      const _urlParams = new URLSearchParams(window.location.search);
+      const _requestedTab = _urlParams.get('tab');
+      if (_requestedTab) window.history.replaceState({}, '', window.location.pathname);
+      showAdminTab(_requestedTab || 'today');
       // Each of these loaders is independent - one failing (auth hiccup,
       // network blip, etc) shouldn't prevent the rest of the panel from
       // loading. refreshAdminPreviews() used to be able to silently take
