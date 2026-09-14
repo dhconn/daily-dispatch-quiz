@@ -755,11 +755,30 @@ async function dualWriteDailyScoreCompletion(playerKey, displayName, date, point
 // monotonic extension of the stored answer sequence — existing answers can
 // never change, and none can go missing. Returns false on any divergence
 // (two devices that both started before either saw the other's progress).
+// Order-independent deep equality — deliberately NOT JSON.stringify
+// comparison. A value round-tripped through Postgres JSONB is not
+// guaranteed to come back with the same key order it was stored with, so
+// a naive JSON.stringify(a) !== JSON.stringify(b) check can flag two
+// genuinely identical answer objects as different purely because of key
+// ordering — which is exactly the bug this replaced (confirmed live: a
+// real player's second answer onward was silently rejected as a false
+// conflict, freezing the stored record at their first answer only).
+function deepEqual(a, b) {
+  if (a === b) return true;
+  if (typeof a !== typeof b || a === null || b === null) return a === b;
+  if (typeof a !== 'object') return a === b;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  if (Array.isArray(a)) return a.length === b.length && a.every((v, i) => deepEqual(v, b[i]));
+  const aKeys = Object.keys(a), bKeys = Object.keys(b);
+  return aKeys.length === bKeys.length &&
+    aKeys.every(k => Object.prototype.hasOwnProperty.call(b, k) && deepEqual(a[k], b[k]));
+}
+
 function isMonotonicExtension(existingAnswers, incomingAnswers) {
   if (!existingAnswers) return true;
   for (const qKey of Object.keys(existingAnswers)) {
     if (!(qKey in incomingAnswers)) return false;
-    if (JSON.stringify(existingAnswers[qKey]) !== JSON.stringify(incomingAnswers[qKey])) return false;
+    if (!deepEqual(existingAnswers[qKey], incomingAnswers[qKey])) return false;
   }
   return true;
 }
