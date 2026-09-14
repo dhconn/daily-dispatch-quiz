@@ -1859,7 +1859,25 @@ function longestStreakFromDailyScores(dailyScores) {
 }
 
 // ── GET /api/monthly-winners — return recent monthly winners ──
-// ── GET /api/admin/backup-export — full raw dump of the store table ──
+// ── Backup schema versioning (Postgres migration Phase 0) ────────────
+// BACKUP_SCHEMA_VERSION describes the *shape* a backup file can contain —
+// bump it whenever a migration phase adds a new real table to `tables`
+// below, alongside registering that table in BACKUP_TABLES (in FK-safe
+// restore order: parents before children). Version 1 is the pre-migration
+// state — store-table blobs only, no relational tables yet. A backup's
+// own schemaVersion travels with the file (stamped at export time) so a
+// restore attempted against a server that doesn't understand a newer
+// backup's shape fails loudly instead of silently writing partial data.
+const BACKUP_SCHEMA_VERSION = 1;
+// Registered here, in FK-safe order, as each migration phase adds a real
+// table — e.g. { name: 'players', columns: [...] }, { name: 'daily_scores', columns: [...] }.
+// Empty until Phase 2 starts creating tables; backup-export/backup-restore
+// below already loop over this so no further endpoint changes are needed
+// when a table is added, only a registration here.
+const BACKUP_TABLES = [];
+
+// ── GET /api/admin/backup-export — full raw dump of the store table,
+// plus (from Phase 0 on) any registered real tables ──────────────────
 // Unlike readData() (above), which only returns a deliberately partial
 // whitelist of keys for performance, this returns every single key/value
 // pair in the table — a backup that silently skips data isn't a real
@@ -1874,7 +1892,14 @@ app.get('/api/admin/backup-export', async (req, res) => {
     const result = await pool.query('SELECT key, value FROM store');
     const data = {};
     for (const row of result.rows) data[row.key] = row.value;
-    res.json({ ok: true, exportedAt: new Date().toISOString(), data });
+
+    const tables = {};
+    for (const t of BACKUP_TABLES) {
+      const r = await pool.query(`SELECT * FROM ${t.name}`);
+      tables[t.name] = r.rows;
+    }
+
+    res.json({ ok: true, exportedAt: new Date().toISOString(), schemaVersion: BACKUP_SCHEMA_VERSION, data, tables });
   } catch (e) {
     console.error('[BackupExport] error:', e.message);
     res.status(500).json({ error: e.message });
@@ -1888,34 +1913,61 @@ function summarizeStoreValue(v) {
   return String(v).slice(0, 200);
 }
 
-// ── POST /api/admin/backup-restore — restore key(s) from a downloaded
-// backup file back into the live database ─────────────────────────
+// ── POST /api/admin/backup-restore — restore key(s)/table(s) from a
+// downloaded backup file back into the live database ─────────────────
 // Deliberately requires two separate calls to actually write anything:
 // this ALWAYS runs as a safe, read-only preview (comparing the backup's
-// value against what's currently live, key by key) unless the request
-// explicitly includes `confirm: true` — there's no way to accidentally
-// trigger a real overwrite with a single request. `keys` is optional; if
-// omitted, every key present in the backup is included (a full restore) —
-// pass specific keys to restore a narrow slice instead (e.g. just
-// `scores` and `progress`), which is almost always the safer choice,
-// since a full restore also reverts every OTHER key back to the backup's
-// (older) state, silently discarding anything legitimate that changed
-// since — exactly the kind of mistake a from-scratch emergency recovery
-// under pressure could make. The backup content itself is passed in the
-// request body (not fetched by this server from GitHub) — this server
-// has no GitHub credentials at all, by design, so there's nothing here
-// that could itself be a new attack surface against the private backup
-// repo.
+// value against what's currently live, key by key and table by table)
+// unless the request explicitly includes `confirm: true` — there's no way
+// to accidentally trigger a real overwrite with a single request. `keys`
+// is optional; if omitted, every key present in the backup is included (a
+// full restore) — pass specific keys to restore a narrow slice instead
+// (e.g. just `scores` and `progress`), which is almost always the safer
+// choice, since a full restore also reverts every OTHER key back to the
+// backup's (older) state, silently discarding anything legitimate that
+// changed since — exactly the kind of mistake a from-scratch emergency
+// recovery under pressure could make. `tables` works the same way for any
+// registered real tables (BACKUP_TABLES, above) — omit for all of them,
+// or list specific table names.
+//
+// Schema-version check (Phase 0): a backup taken under a newer schema
+// than this server understands (i.e. it names tables this server hasn't
+// registered in BACKUP_TABLES yet) is refused outright rather than
+// partially applied — restoring only the columns/tables an older server
+// recognizes would silently corrupt data the newer schema depends on. A
+// backup with no schemaVersion at all predates this check and is treated
+// as version 1 (blob-store only), matching every backup taken before this
+// field existed.
+//
+// The actual write phase (both keys and tables) runs inside a single
+// database transaction, tables restored in BACKUP_TABLES' registered
+// order (parents before children) — so a failure partway through can't
+// leave foreign keys pointing at rows that never came back. The backup
+// content itself is passed in the request body (not fetched by this
+// server from GitHub) — this server has no GitHub credentials at all, by
+// design, so there's nothing here that could itself be a new attack
+// surface against the private backup repo.
 app.post('/api/admin/backup-restore', async (req, res) => {
   const adminToken = process.env.ADMIN_TOKEN || 'admin';
   if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
   try {
-    const { backup, keys, confirm } = req.body || {};
+    const { backup, keys, tables, confirm } = req.body || {};
     const backupData = backup && backup.data;
     if (!backupData || typeof backupData !== 'object') {
       return res.status(400).json({ error: 'backup.data required — pass the full JSON exported by /api/admin/backup-export' });
     }
+    const backupSchemaVersion = typeof backup.schemaVersion === 'number' ? backup.schemaVersion : 1;
+    if (backupSchemaVersion > BACKUP_SCHEMA_VERSION) {
+      return res.status(400).json({
+        error: `This backup was taken under schema version ${backupSchemaVersion}, newer than this server understands (${BACKUP_SCHEMA_VERSION}). Restoring it here would silently drop data belonging to tables this server hasn't been updated to know about. Deploy the matching server version before restoring this backup.`
+      });
+    }
+    const backupTables = backup.tables && typeof backup.tables === 'object' ? backup.tables : {};
+
     const targetKeys = Array.isArray(keys) && keys.length ? keys : Object.keys(backupData);
+    const targetTables = Array.isArray(tables) && tables.length
+      ? BACKUP_TABLES.filter(t => tables.includes(t.name))
+      : BACKUP_TABLES.filter(t => t.name in backupTables);
 
     const preview = [];
     for (const key of targetKeys) {
@@ -1929,19 +1981,57 @@ app.post('/api/admin/backup-restore', async (req, res) => {
         backup: summarizeStoreValue(backupValue)
       });
     }
+    const tablePreview = [];
+    for (const t of targetTables) {
+      const rows = backupTables[t.name] || [];
+      const currentCountRes = await pool.query(`SELECT COUNT(*) FROM ${t.name}`);
+      tablePreview.push({
+        table: t.name,
+        currentRowCount: Number(currentCountRes.rows[0].count),
+        backupRowCount: rows.length
+      });
+    }
 
     if (confirm !== true) {
-      return res.json({ ok: true, dryRun: true, preview });
+      return res.json({ ok: true, dryRun: true, schemaVersion: backupSchemaVersion, preview, tablePreview });
     }
 
+    const client = await pool.connect();
     const applied = [];
-    for (const key of targetKeys) {
-      if (!(key in backupData)) continue;
-      await setKey(key, backupData[key]);
-      applied.push(key);
+    const appliedTables = [];
+    try {
+      await client.query('BEGIN');
+      for (const key of targetKeys) {
+        if (!(key in backupData)) continue;
+        await client.query(
+          'INSERT INTO store(key,value) VALUES($1,$2) ON CONFLICT(key) DO UPDATE SET value=$2',
+          [key, JSON.stringify(backupData[key])]
+        );
+        applied.push(key);
+      }
+      for (const t of targetTables) {
+        const rows = backupTables[t.name] || [];
+        const updateCols = t.columns.filter(c => !t.primaryKey.includes(c));
+        const updateSet = updateCols.map(c => `${c}=EXCLUDED.${c}`).join(', ');
+        for (const row of rows) {
+          const placeholders = t.columns.map((_, i) => `$${i + 1}`).join(',');
+          const values = t.columns.map(c => row[c]);
+          await client.query(
+            `INSERT INTO ${t.name} (${t.columns.join(',')}) VALUES (${placeholders}) ON CONFLICT (${t.primaryKey.join(',')}) DO UPDATE SET ${updateSet}`,
+            values
+          );
+        }
+        appliedTables.push({ table: t.name, rows: rows.length });
+      }
+      await client.query('COMMIT');
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
     }
-    console.log('[BackupRestore] Applied:', applied.join(', '));
-    res.json({ ok: true, dryRun: false, applied });
+    console.log('[BackupRestore] Applied keys:', applied.join(', '), '| tables:', appliedTables.map(t => `${t.table} (${t.rows})`).join(', '));
+    res.json({ ok: true, dryRun: false, applied, appliedTables });
   } catch (e) {
     console.error('[BackupRestore] error:', e.message);
     res.status(500).json({ error: e.message });
