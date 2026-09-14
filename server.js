@@ -1868,7 +1868,7 @@ function longestStreakFromDailyScores(dailyScores) {
 // own schemaVersion travels with the file (stamped at export time) so a
 // restore attempted against a server that doesn't understand a newer
 // backup's shape fails loudly instead of silently writing partial data.
-const BACKUP_SCHEMA_VERSION = 1;
+const BACKUP_SCHEMA_VERSION = 2; // bumped: players/daily_scores/progress registered below (Phase 2 group 1)
 
 // ── Migration groups (Postgres migration Phase 2) ─────────────────────
 // One entry per Phase 2 priority group from item5_postgres_migration_plan.md
@@ -1964,11 +1964,17 @@ app.post('/api/admin/migrate-run', async (req, res) => {
 });
 
 // Registered here, in FK-safe order, as each migration phase adds a real
-// table — e.g. { name: 'players', columns: [...] }, { name: 'daily_scores', columns: [...] }.
-// Empty until Phase 2 starts creating tables; backup-export/backup-restore
-// below already loop over this so no further endpoint changes are needed
-// when a table is added, only a registration here.
-const BACKUP_TABLES = [];
+// table. backup-export/backup-restore below already loop over this so no
+// further endpoint changes are needed when a table is added, only a
+// registration here. Populated now that Phase 2 group 1's tables actually
+// exist in production (created via /api/admin/migrate-run) — registering
+// this any earlier would have made backup-export query tables that didn't
+// exist yet.
+const BACKUP_TABLES = [
+  { name: 'players', columns: ['key', 'display_name', 'max_streak'], primaryKey: ['key'] },
+  { name: 'daily_scores', columns: ['player_key', 'date', 'points', 'completed', 'updated_at'], primaryKey: ['player_key', 'date'] },
+  { name: 'progress', columns: ['date', 'player_key', 'answers', 'score', 'completed', 'current_q', 'synthetic', 'updated_at'], primaryKey: ['date', 'player_key'] }
+];
 
 // ── GET /api/admin/backup-export — full raw dump of the store table,
 // plus (from Phase 0 on) any registered real tables ──────────────────
