@@ -2124,9 +2124,13 @@
           <div id="schedule-status-bar" style="display:none;flex-direction:column;gap:6px;margin-bottom:10px;padding:10px 12px;background:white;border:1px solid var(--rule);font-family:monospace;font-size:12px;">
             <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
               <span id="schedule-status-text" style="color:var(--green);">⏱ Scheduled for <strong id="schedule-status-time"></strong></span>
-              <button onclick="cancelSchedule()" style="font-family:monospace;font-size:10px;letter-spacing:1px;padding:4px 10px;background:none;border:1px solid var(--red);color:var(--red);cursor:pointer;">Cancel</button>
+              <span style="display:flex;gap:8px;">
+                <button id="schedule-view-toggle-btn" onclick="toggleScheduledQuizPreview()" style="font-family:monospace;font-size:10px;letter-spacing:1px;padding:4px 10px;background:none;border:1px solid var(--blue);color:var(--blue);cursor:pointer;">👁 View Questions</button>
+                <button onclick="cancelSchedule()" style="font-family:monospace;font-size:10px;letter-spacing:1px;padding:4px 10px;background:none;border:1px solid var(--red);color:var(--red);cursor:pointer;">Cancel</button>
+              </span>
             </div>
-            <div style="font-size:11px;color:var(--muted);">Teasers are locked in for this send — click <strong>Preview Email</strong> above to see or edit them.</div>
+            <div style="font-size:11px;color:var(--muted);">Teasers are locked in for this send — click <strong>Preview Email</strong> above to see or edit them. To correct a question, click <strong>Cancel</strong> — it restores the scheduled questions to the editor below and keeps this date/time ready to re-schedule.</div>
+            <div id="schedule-quiz-preview" style="display:none;margin-top:4px;border-top:1px dashed var(--rule);padding-top:8px;"></div>
           </div>
           <div id="schedule-picker-wrap" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
             <div>
@@ -6553,6 +6557,12 @@
         const bar = document.getElementById('schedule-status-bar');
         const timeEl = document.getElementById('schedule-status-time');
         const pickerWrap = document.getElementById('schedule-picker-wrap');
+        // Reset any open questions preview from a previous schedule — its
+        // content would otherwise refer to whatever was scheduled before.
+        const previewBox = document.getElementById('schedule-quiz-preview');
+        const toggleBtn = document.getElementById('schedule-view-toggle-btn');
+        if (previewBox) { previewBox.style.display = 'none'; previewBox.innerHTML = ''; }
+        if (toggleBtn) toggleBtn.textContent = '👁 View Questions';
         if (data.scheduled) {
           const dt = new Date(data.scheduled.scheduledFor);
           const eastern = dt.toLocaleString('en-US', {
@@ -6569,6 +6579,53 @@
           if (pickerWrap) pickerWrap.style.opacity = '1';
         }
       } catch (e) { /* non-fatal */ }
+    }
+
+    // Read-only peek at what's actually locked into the pending scheduled
+    // send — separate from the draft editor above, since scheduling
+    // snapshots the draft into /api/quiz/schedule and further edits to the
+    // draft no longer reach that snapshot. This never touches the draft or
+    // its save machinery; it just renders what the server has stored.
+    async function toggleScheduledQuizPreview() {
+      const box = document.getElementById('schedule-quiz-preview');
+      const btn = document.getElementById('schedule-view-toggle-btn');
+      if (!box) return;
+      if (box.style.display !== 'none') {
+        box.style.display = 'none';
+        box.innerHTML = '';
+        if (btn) btn.textContent = '👁 View Questions';
+        return;
+      }
+      box.style.display = 'block';
+      box.innerHTML = '<p style="color:var(--muted);">Loading…</p>';
+      if (btn) btn.textContent = '👁 Hide Questions';
+      try {
+        const adminToken = lsGet('dnq_admin_token') || 'admin';
+        const res = await fetch('/api/quiz/schedule', { headers: { 'x-admin-token': adminToken } });
+        const data = await res.json();
+        const questions = data.scheduled && data.scheduled.quiz && data.scheduled.quiz.questions;
+        if (!questions || !questions.length) {
+          box.innerHTML = '<p style="color:var(--muted);">Nothing currently scheduled.</p>';
+          return;
+        }
+        box.innerHTML = questions.map((q, i) => {
+          const optLetters = ['A', 'B', 'C', 'D'];
+          const optionsHtml = (q.options || []).map((opt, oi) =>
+            '<div style="padding:2px 0;' + (oi === q.correctIndex ? 'color:var(--green);font-weight:bold;' : '') + '">' +
+            optLetters[oi] + '. ' + escHtml(opt) + (oi === q.correctIndex ? ' ✓' : '') + '</div>'
+          ).join('');
+          const diff = q.difficulty || '';
+          const pts = POINTS[diff] || '';
+          const diffLabel = diff ? diff.charAt(0).toUpperCase() + diff.slice(1) : '';
+          return '<div style="margin-bottom:10px;padding:8px 10px;background:var(--cream);border:1px solid var(--rule);">' +
+            '<div style="font-family:monospace;font-size:10px;color:var(--muted);margin-bottom:4px;">Q' + (i + 1) + (diffLabel ? ' · ' + diffLabel.toUpperCase() + (pts ? ' · ' + pts + ' pts' : '') : '') + '</div>' +
+            '<div style="font-size:13px;margin-bottom:6px;">' + escHtml(q.question) + '</div>' +
+            '<div style="font-size:12px;">' + optionsHtml + '</div>' +
+            '</div>';
+        }).join('');
+      } catch (e) {
+        box.innerHTML = '<p style="color:var(--red);">Failed to load: ' + e.message + '</p>';
+      }
     }
 
     async function schedulePublish() {
@@ -6646,13 +6703,14 @@
     }
 
     async function cancelSchedule() {
-      if (!confirm('Cancel the scheduled publish? The questions will be restored to your draft.')) return;
+      if (!confirm('Cancel the scheduled publish? The questions will be restored to the editor above so you can make corrections, and this date/time will stay filled in so you can re-schedule with one click.')) return;
       const adminToken = lsGet('dnq_admin_token') || 'admin';
       try {
         // Fetch scheduled quiz before deleting so we can restore it
         const schedRes = await fetch('/api/quiz/schedule', { headers: { 'x-admin-token': adminToken } });
         const schedData = await schedRes.json();
         const quiz = schedData.scheduled && schedData.scheduled.quiz;
+        const scheduledFor = schedData.scheduled && schedData.scheduled.scheduledFor;
 
         if (quiz && quiz.questions && quiz.questions.length) {
           saveDraftQuiz(quiz);
@@ -6667,8 +6725,20 @@
         await fetch('/api/quiz/schedule', { method: 'DELETE', headers: { 'x-admin-token': adminToken } });
         loadScheduleStatus();
 
+        // Pre-fill the picker with the time that was just cancelled, so fixing
+        // a typo doesn't also mean re-remembering and re-entering the send time.
+        if (scheduledFor) {
+          const dt = new Date(scheduledFor);
+          const dateFmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' });
+          const timeFmt = new Intl.DateTimeFormat('en-GB', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hour12: false });
+          const dateInput = document.getElementById('schedule-date');
+          const timeInput = document.getElementById('schedule-time');
+          if (dateInput) dateInput.value = dateFmt.format(dt);
+          if (timeInput) timeInput.value = timeFmt.format(dt);
+        }
+
         if (quiz && quiz.questions && quiz.questions.length) {
-          setStatus('✓ Schedule cancelled — questions restored to draft.', 'success');
+          setStatus('✓ Schedule cancelled — questions restored to the editor above. Fix them, then click Schedule (time is pre-filled) to re-send.', 'success');
         }
       } catch (e) {
         alert('Cancel failed: ' + e.message);
