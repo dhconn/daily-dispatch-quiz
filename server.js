@@ -667,6 +667,136 @@ app.post('/api/fetch-article', async (req, res) => {
   }
 });
 
+// ── Postgres migration Phase 2, Group 1 — dual-write helpers ──────────
+// These write to the new players/daily_scores/progress tables ALONGSIDE
+// the existing blob-store writes below, never instead of them. The blob
+// store remains the sole source of truth for every response this server
+// sends until Phase 3 explicitly switches reads over, one domain group at
+// a time, with its own validation window — that's deliberate, not an
+// oversight: this lets the new tables accumulate real traffic and get
+// compared against the blob store's data before anything depends on them.
+// Every function here is wrapped in try/catch by its caller and must never
+// throw past that boundary or change any existing response.
+//
+// This is explicitly a validation-phase implementation, not the final
+// Phase 3 shape — in particular the progress conflict check below reads
+// then writes as two separate queries (a small race window under truly
+// concurrent requests), which is acceptable ONLY because the blob store
+// stays authoritative through Phase 2. The final cutover implementation
+// should make this atomic.
+
+// Ensures a players row exists / stays current. Called before any
+// daily_scores or progress write, since both carry a FK to players(key).
+async function upsertPlayerShell(playerKey, displayName) {
+  await pool.query(
+    `INSERT INTO players (key, display_name, max_streak)
+     VALUES ($1, $2, 0)
+     ON CONFLICT (key) DO UPDATE SET display_name = EXCLUDED.display_name`,
+    [playerKey, displayName || playerKey]
+  );
+}
+
+// In-progress daily_scores save — fired on every answer, never touches
+// `completed`. Write rule per the plan (§3/§12/§13): a row is created on
+// the player's FIRST write of the day and updates freely while not yet
+// completed; once completed = true (see the completion function below),
+// this query's WHERE clause means it can no longer touch the row at all —
+// that's the replay lock. Returns whether THIS call was the one that
+// created the row (RETURNING (xmax = 0) AS was_inserted) — a referred
+// player's first engagement of a day, the signal Group 2's referral
+// play_count fix will consume once the referrals table exists. Group 1
+// only computes and logs this signal for now; nothing writes it anywhere
+// yet, since there is no referrals table to write to.
+async function dualWriteDailyScoreInProgress(playerKey, displayName, date, points) {
+  try {
+    await upsertPlayerShell(playerKey, displayName);
+    const r = await pool.query(
+      `INSERT INTO daily_scores (player_key, date, points, completed, updated_at)
+       VALUES ($1, $2, $3, false, now())
+       ON CONFLICT (player_key, date) DO UPDATE
+       SET points = EXCLUDED.points, updated_at = now()
+       WHERE daily_scores.completed = false
+       RETURNING (xmax = 0) AS was_inserted`,
+      [playerKey, date, points]
+    );
+    const wasFirstEngagementToday = r.rows.length > 0 && r.rows[0].was_inserted === true;
+    if (wasFirstEngagementToday) {
+      console.log(`[DualWrite] daily_scores: ${playerKey}/${date} first engagement today (referral play_count increment deferred to Group 2 — referrals table doesn't exist yet)`);
+    }
+    return wasFirstEngagementToday;
+  } catch (e) {
+    console.error('[DualWrite] daily_scores in-progress failed (non-fatal):', e.message);
+    return false;
+  }
+}
+
+// Completion write — fired once, at genuine finish. The ONLY place that
+// sets completed = true. Same WHERE-gated query shape as the in-progress
+// save, so a same-day replay (which never re-sends this once the client
+// already saw a completed result) can't re-open or overwrite a locked row
+// even if it somehow tried to.
+async function dualWriteDailyScoreCompletion(playerKey, displayName, date, points) {
+  try {
+    await upsertPlayerShell(playerKey, displayName);
+    await pool.query(
+      `INSERT INTO daily_scores (player_key, date, points, completed, updated_at)
+       VALUES ($1, $2, $3, true, now())
+       ON CONFLICT (player_key, date) DO UPDATE
+       SET points = EXCLUDED.points, completed = EXCLUDED.completed, updated_at = now()
+       WHERE daily_scores.completed = false`,
+      [playerKey, date, points]
+    );
+  } catch (e) {
+    console.error('[DualWrite] daily_scores completion failed (non-fatal):', e.message);
+  }
+}
+
+// Progress conflict rule (plan §3): an incoming update must be an EXACT
+// monotonic extension of the stored answer sequence — existing answers can
+// never change, and none can go missing. Returns false on any divergence
+// (two devices that both started before either saw the other's progress).
+function isMonotonicExtension(existingAnswers, incomingAnswers) {
+  if (!existingAnswers) return true;
+  for (const qKey of Object.keys(existingAnswers)) {
+    if (!(qKey in incomingAnswers)) return false;
+    if (JSON.stringify(existingAnswers[qKey]) !== JSON.stringify(incomingAnswers[qKey])) return false;
+  }
+  return true;
+}
+
+async function dualWriteProgress(date, playerKey, displayName, answers, score, completed, currentQ) {
+  try {
+    await upsertPlayerShell(playerKey, displayName);
+    const existingRes = await pool.query(
+      'SELECT answers, completed FROM progress WHERE date = $1 AND player_key = $2',
+      [date, playerKey]
+    );
+    const existing = existingRes.rows[0];
+
+    if (existing) {
+      if (existing.completed) {
+        return; // locked — matches the replay-lock intent, nothing to do
+      }
+      if (!isMonotonicExtension(existing.answers, answers)) {
+        console.warn(`[DualWrite] progress CONFLICT: ${playerKey}/${date} incoming answers diverge from stored — skipping this write; new table keeps its last-good state (plan §3)`);
+        return;
+      }
+    }
+
+    await pool.query(
+      `INSERT INTO progress (date, player_key, answers, score, completed, current_q, synthetic, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, false, now())
+       ON CONFLICT (date, player_key) DO UPDATE
+       SET answers = EXCLUDED.answers, score = EXCLUDED.score, completed = EXCLUDED.completed,
+           current_q = EXCLUDED.current_q, updated_at = now()
+       WHERE progress.completed = false`,
+      [date, playerKey, JSON.stringify(answers || {}), score || 0, !!completed, currentQ || 0]
+    );
+  } catch (e) {
+    console.error('[DualWrite] progress failed (non-fatal):', e.message);
+  }
+}
+
 // ── Canonical per-player quiz progress ───────────────────────
 // Stored as progress = { [date]: { [playerKey]: { displayName, score, currentQ, completed, answers, startedAt, updatedAt } } }
 
@@ -824,6 +954,23 @@ app.post('/api/progress', async (req, res) => {
       console.warn('[progress] scores mirror failed (non-fatal):', e.message);
     }
 
+    // ── Dual-write to Postgres migration tables (Phase 2, Group 1) ──
+    // Shadow write only — never affects this response, never blocks it.
+    // See the "dual-write helpers" comment block above for why this
+    // exists alongside the blob writes above rather than replacing them.
+    (async () => {
+      try {
+        await dualWriteProgress(date, key, canonicalDisplayName, progress.answers, validatedScore, !!progress.completed, progress.currentQ);
+        if (progress.completed) {
+          await dualWriteDailyScoreCompletion(key, canonicalDisplayName, date, validatedScore);
+        } else {
+          await dualWriteDailyScoreInProgress(key, canonicalDisplayName, date, validatedScore);
+        }
+      } catch (e) {
+        console.error('[DualWrite] /api/progress block failed (non-fatal):', e.message);
+      }
+    })();
+
     res.json({ ok: true, validatedScore });
   } catch (e) {
     console.error('[progress] POST error:', e.message);
@@ -835,7 +982,12 @@ app.post('/api/progress', async (req, res) => {
 // Scores stored as data.scores = { playerKey: { displayName, allTime, dailyScores: {date: score} } }
 
 app.post('/api/scores', async (req, res) => {
-  const { playerName, date, score } = req.body  || {};
+  const { playerName, date, score, completed } = req.body  || {};
+  // `completed` is read here only for the Postgres dual-write below — the
+  // existing blob-store logic in this handler has never read it (confirmed
+  // during planning: the client sends it at finish, but nothing here used
+  // it), and that's intentionally left unchanged. Capturing it doesn't
+  // alter any existing behavior or response.
 
   if (playerName && await isBlocked(playerName)) {
     return res.status(400).json({ error: 'This player name is reserved. Please create a new name.', blocked: true });
@@ -948,6 +1100,21 @@ try {
     } catch (e) {
       console.warn('[scores] progress mirror failed (non-fatal):', e.message);
     }
+
+    // ── Dual-write to Postgres migration tables (Phase 2, Group 1) ──
+    // Shadow write only — never affects this response, never blocks it.
+    // See the "dual-write helpers" comment block above POST /api/progress.
+    (async () => {
+      try {
+        if (completed) {
+          await dualWriteDailyScoreCompletion(key, data.scores[key].displayName, date, score);
+        } else {
+          await dualWriteDailyScoreInProgress(key, data.scores[key].displayName, date, score);
+        }
+      } catch (e) {
+        console.error('[DualWrite] /api/scores block failed (non-fatal):', e.message);
+      }
+    })();
 
     res.json({
       ok: true,
