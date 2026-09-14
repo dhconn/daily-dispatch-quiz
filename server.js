@@ -1869,6 +1869,100 @@ function longestStreakFromDailyScores(dailyScores) {
 // restore attempted against a server that doesn't understand a newer
 // backup's shape fails loudly instead of silently writing partial data.
 const BACKUP_SCHEMA_VERSION = 1;
+
+// ── Migration groups (Postgres migration Phase 2) ─────────────────────
+// One entry per Phase 2 priority group from item5_postgres_migration_plan.md
+// §4. Each group's DDL matches phase1_schema.sql exactly — this is the
+// executable form of that reviewed file, not a re-derivation of it. All
+// CREATE TABLE statements are IF NOT EXISTS, so re-running a group's
+// migration is always a safe no-op against an already-migrated database.
+const MIGRATION_GROUPS = {
+  group1_scores_progress: {
+    tables: ['players', 'daily_scores', 'progress'],
+    ddl: `
+      CREATE TABLE IF NOT EXISTS players (
+        key          TEXT PRIMARY KEY,
+        display_name TEXT NOT NULL,
+        max_streak   INTEGER NOT NULL DEFAULT 0
+      );
+      CREATE TABLE IF NOT EXISTS daily_scores (
+        player_key TEXT NOT NULL REFERENCES players(key),
+        date       DATE NOT NULL,
+        points     INTEGER NOT NULL,
+        completed  BOOLEAN NOT NULL DEFAULT false,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        PRIMARY KEY (player_key, date)
+      );
+      CREATE TABLE IF NOT EXISTS progress (
+        date       DATE NOT NULL,
+        player_key TEXT NOT NULL REFERENCES players(key),
+        answers    JSONB NOT NULL DEFAULT '{}'::jsonb,
+        score      INTEGER NOT NULL DEFAULT 0,
+        completed  BOOLEAN NOT NULL DEFAULT false,
+        current_q  INTEGER NOT NULL DEFAULT 0,
+        synthetic  BOOLEAN NOT NULL DEFAULT false,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        PRIMARY KEY (date, player_key)
+      );
+    `
+  }
+};
+
+// ── POST /api/admin/migrate-run — create a migration group's tables ───
+// Same preview-then-confirm safety pattern as backup-restore: without
+// confirm:true this only reports which of the group's tables already
+// exist, never runs DDL. All statements are IF NOT EXISTS, so a confirmed
+// run is idempotent — safe to call again if a previous run partially
+// failed. Runs inside a transaction. This creates tables only; it never
+// backfills data or changes what any existing endpoint reads/writes —
+// that's Phase 3, deliberately kept separate so table creation itself
+// carries zero production risk to review and run ahead of any code that
+// actually depends on the new tables existing.
+app.post('/api/admin/migrate-run', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const { group, confirm } = req.body || {};
+    const def = MIGRATION_GROUPS[group];
+    if (!def) {
+      return res.status(400).json({ error: `Unknown group "${group}". Known groups: ${Object.keys(MIGRATION_GROUPS).join(', ')}` });
+    }
+
+    const existing = [];
+    for (const table of def.tables) {
+      const r = await pool.query('SELECT to_regclass($1) AS reg', [`public.${table}`]);
+      existing.push({ table, exists: r.rows[0].reg !== null });
+    }
+
+    if (confirm !== true) {
+      return res.json({ ok: true, dryRun: true, group, tables: existing });
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(def.ddl);
+      await client.query('COMMIT');
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+    }
+
+    const after = [];
+    for (const table of def.tables) {
+      const r = await pool.query('SELECT to_regclass($1) AS reg', [`public.${table}`]);
+      after.push({ table, exists: r.rows[0].reg !== null });
+    }
+    console.log('[MigrateRun] Group applied:', group, after.map(t => t.table).join(', '));
+    res.json({ ok: true, dryRun: false, group, tables: after });
+  } catch (e) {
+    console.error('[MigrateRun] error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Registered here, in FK-safe order, as each migration phase adds a real
 // table — e.g. { name: 'players', columns: [...] }, { name: 'daily_scores', columns: [...] }.
 // Empty until Phase 2 starts creating tables; backup-export/backup-restore
