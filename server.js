@@ -721,7 +721,9 @@ async function dualWriteDailyScoreInProgress(playerKey, displayName, date, point
     );
     const wasFirstEngagementToday = r.rows.length > 0 && r.rows[0].was_inserted === true;
     if (wasFirstEngagementToday) {
-      console.log(`[DualWrite] daily_scores: ${playerKey}/${date} first engagement today (referral play_count increment deferred to Group 2 — referrals table doesn't exist yet)`);
+      // Group 2: the referrals table now exists, so this actually writes,
+      // rather than just logging the signal as Group 1 originally did.
+      dualWriteReferralIncrementIfMatch(playerKey);
     }
     return wasFirstEngagementToday;
   } catch (e) {
@@ -1649,6 +1651,87 @@ app.get('/api/prospect-invite', async (req, res) => {
 
 // POST /api/prospect-invite/confirm — the actual state-changing action, only ever reached
 // via a real click on the confirm button above (never triggered by a GET-only link prefetch/scan).
+// ── Postgres migration Phase 2, Group 2 — dual-write helpers ──────────
+// Same validation-only shadow-write pattern as Group 1's helpers: these
+// run alongside the blob-store writes below, never instead of them. The
+// blob store stays authoritative until Phase 3 switches reads over.
+
+// Generic partial upsert — callers pass only the columns they're actually
+// setting; anything omitted falls back to the column's table default on a
+// fresh insert, or is left untouched on an existing row.
+async function dualWriteSubscriber(email, fields) {
+  try {
+    const cols = Object.keys(fields);
+    if (!cols.length) return;
+    const values = [email, ...cols.map(c => fields[c])];
+    const insertCols = ['email', ...cols];
+    const placeholders = insertCols.map((_, i) => `$${i + 1}`);
+    const updateSet = cols.map(c => `${c} = EXCLUDED.${c}`).join(', ');
+    await pool.query(
+      `INSERT INTO subscribers (${insertCols.join(', ')})
+       VALUES (${placeholders.join(', ')})
+       ON CONFLICT (email) DO UPDATE SET ${updateSet}`,
+      values
+    );
+  } catch (e) {
+    console.error('[DualWrite] subscribers failed (non-fatal):', e.message);
+  }
+}
+
+// Mirrors the blob store's own de-dup rule (match by referred email) so a
+// retried request can't create a duplicate row in the new table either.
+async function dualWriteReferralInsert(subscriberEmail, referredEmail, referredName) {
+  try {
+    const existing = await pool.query(
+      'SELECT id FROM referrals WHERE subscriber_email = $1 AND referred_email = $2',
+      [subscriberEmail, referredEmail || '']
+    );
+    if (existing.rows.length) return;
+    await pool.query(
+      `INSERT INTO referrals (subscriber_email, referred_email, referred_name, play_count, has_subscribed)
+       VALUES ($1, $2, $3, 0, false)`,
+      [subscriberEmail, referredEmail || '', referredName || '']
+    );
+  } catch (e) {
+    console.error('[DualWrite] referrals insert failed (non-fatal):', e.message);
+  }
+}
+
+async function dualWriteReferralMarkSubscribed(subscriberEmail, referredEmail) {
+  try {
+    await pool.query(
+      `UPDATE referrals SET has_subscribed = true
+       WHERE subscriber_email = $1 AND referred_email = $2 AND has_subscribed = false`,
+      [subscriberEmail, referredEmail]
+    );
+  } catch (e) {
+    console.error('[DualWrite] referrals mark-subscribed failed (non-fatal):', e.message);
+  }
+}
+
+// The deferred piece from Group 1: increment a referral's play_count
+// exactly once per referred player's first daily_scores row of a given
+// day (see dualWriteDailyScoreInProgress's wasFirstEngagementToday
+// signal). Mirrors the old matching rule (referred_email OR normalized
+// referred_name equals the player key), scoped correctly now that
+// referrals live in their own table instead of nested per-subscriber
+// arrays that had to be searched one subscriber at a time.
+async function dualWriteReferralIncrementIfMatch(playerKey) {
+  try {
+    await pool.query(
+      `UPDATE referrals SET play_count = play_count + 1
+       WHERE id = (
+         SELECT id FROM referrals
+         WHERE referred_email = $1 OR lower(trim(referred_name)) = $1
+         ORDER BY referred_at ASC LIMIT 1
+       )`,
+      [playerKey]
+    );
+  } catch (e) {
+    console.error('[DualWrite] referrals play_count increment failed (non-fatal):', e.message);
+  }
+}
+
 app.post('/api/prospect-invite/confirm', async (req, res) => {
   const code = req.body?.code;
   const siteUrl = process.env.SITE_URL || 'https://dailydispatchquiz.com';
@@ -1670,6 +1753,12 @@ app.post('/api/prospect-invite/confirm', async (req, res) => {
         };
         delete data.prospects[prospectKey];
         await writeData(data);
+        dualWriteSubscriber(prospectKey, {
+          name: prospect.name || '',
+          active: true,
+          referral_code: code,
+          subscribed_at: data.subscribers[prospectKey].subscribedAt
+        }).catch(() => {});
         console.log(`[ProspectInvite] Auto-subscribed ${prospectKey} via referral invite`);
       }
     }
@@ -1700,6 +1789,7 @@ app.post('/api/referral', async (req, res) => {
       hasSubscribed: false
     });
     await writeData(data);
+    dualWriteReferralInsert(referrer.email, newPlayerEmail, newPlayerName);
     console.log(`[Referral] ${referrer.email} referred ${newPlayerEmail}`);
     res.json({ ok: true, referralCount: referrer.referrals.length });
   } catch (e) {
@@ -1723,6 +1813,11 @@ app.post('/api/subscribe', async (req, res) => {
     active: true
   };
   await writeData(data);
+  dualWriteSubscriber(key, {
+    name: data.subscribers[key].name,
+    active: true,
+    subscribed_at: data.subscribers[key].subscribedAt
+  });
 
   // ── Mark referral as subscribed if this person was referred ──
   try {
@@ -1734,6 +1829,7 @@ app.post('/api/subscribe', async (req, res) => {
         if (ref && !ref.hasSubscribed) {
           ref.hasSubscribed = true;
           await writeData(refData);
+          dualWriteReferralMarkSubscribed(referrer.email, key);
           console.log(`[Referral] Marked ${key} as subscribed — referred by ${referrer.email}`);
         }
       }
@@ -1821,6 +1917,7 @@ app.post('/api/unsubscribe/confirm', async (req, res) => {
     if (data.subscribers && data.subscribers[email]) {
       data.subscribers[email].active = false;
       await writeData(data);
+      dualWriteSubscriber(email, { active: false });
     }
     console.log(`[Unsubscribe] ${email} unsubscribed via confirmed link`);
     res.json({ ok: true });
@@ -3544,6 +3641,11 @@ app.post('/api/admin/award-mug', async (req, res) => {
     data.subscribers[email].mugWonAt = new Date().toISOString();
     data.subscribers[email].mugWonReason = reason || 'manual';
     await writeData(data);
+    dualWriteSubscriber(email, {
+      mug_won: true,
+      mug_won_at: data.subscribers[email].mugWonAt,
+      mug_won_reason: data.subscribers[email].mugWonReason
+    });
     console.log(`[Mug] Awarded to ${email} — reason: ${reason || 'manual'}`);
     res.json({ ok: true });
   } catch (e) {
@@ -4475,6 +4577,11 @@ app.post('/subscribe/confirm', async (req, res) => {
     };
     if (data.prospects && data.prospects[email]) data.prospects[email].active = false;
     await writeData(data);
+    dualWriteSubscriber(email, {
+      name,
+      active: true,
+      subscribed_at: data.subscribers[email].subscribedAt
+    });
     console.log(`[Subscribe] ${name} <${email}> subscribed via confirmed one-click link`);
     res.json({ ok: true });
   } catch (e) {
