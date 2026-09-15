@@ -2054,7 +2054,7 @@ function longestStreakFromDailyScores(dailyScores) {
 // own schemaVersion travels with the file (stamped at export time) so a
 // restore attempted against a server that doesn't understand a newer
 // backup's shape fails loudly instead of silently writing partial data.
-const BACKUP_SCHEMA_VERSION = 2; // bumped: players/daily_scores/progress registered below (Phase 2 group 1)
+const BACKUP_SCHEMA_VERSION = 3; // bumped: subscribers/referrals/email_tokens registered below (Phase 2 group 2)
 
 // ── Migration groups (Postgres migration Phase 2) ─────────────────────
 // One entry per Phase 2 priority group from item5_postgres_migration_plan.md
@@ -2193,7 +2193,10 @@ app.post('/api/admin/migrate-run', async (req, res) => {
 const BACKUP_TABLES = [
   { name: 'players', columns: ['key', 'display_name', 'max_streak'], primaryKey: ['key'] },
   { name: 'daily_scores', columns: ['player_key', 'date', 'points', 'completed', 'updated_at'], primaryKey: ['player_key', 'date'] },
-  { name: 'progress', columns: ['date', 'player_key', 'answers', 'score', 'completed', 'current_q', 'synthetic', 'updated_at'], primaryKey: ['date', 'player_key'] }
+  { name: 'progress', columns: ['date', 'player_key', 'answers', 'score', 'completed', 'current_q', 'synthetic', 'updated_at'], primaryKey: ['date', 'player_key'] },
+  { name: 'subscribers', columns: ['email', 'name', 'active', 'mug_won', 'mug_won_at', 'mug_won_reason', 'subscribed_at', 'referral_code', 'status'], primaryKey: ['email'] },
+  { name: 'referrals', columns: ['id', 'subscriber_email', 'referred_email', 'referred_name', 'referred_at', 'play_count', 'has_subscribed'], primaryKey: ['id'] },
+  { name: 'email_tokens', columns: ['token', 'email', 'player_key', 'display_name', 'date', 'created_at', 'used_at'], primaryKey: ['token'] }
 ];
 
 // ── GET /api/admin/backup-export — full raw dump of the store table,
