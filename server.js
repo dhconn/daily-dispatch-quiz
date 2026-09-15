@@ -2091,6 +2091,40 @@ const MIGRATION_GROUPS = {
         PRIMARY KEY (date, player_key)
       );
     `
+  },
+  group2_subscribers_referrals: {
+    tables: ['subscribers', 'referrals', 'email_tokens'],
+    ddl: `
+      CREATE TABLE IF NOT EXISTS subscribers (
+        email          TEXT PRIMARY KEY,
+        name           TEXT,
+        active         BOOLEAN NOT NULL DEFAULT true,
+        mug_won        BOOLEAN NOT NULL DEFAULT false,
+        mug_won_at     TIMESTAMPTZ,
+        mug_won_reason TEXT,
+        subscribed_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+        referral_code  TEXT,
+        status         TEXT NOT NULL DEFAULT 'subscriber'
+      );
+      CREATE TABLE IF NOT EXISTS referrals (
+        id               BIGSERIAL PRIMARY KEY,
+        subscriber_email TEXT NOT NULL REFERENCES subscribers(email),
+        referred_email   TEXT,
+        referred_name    TEXT,
+        referred_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+        play_count       INTEGER NOT NULL DEFAULT 0,
+        has_subscribed   BOOLEAN NOT NULL DEFAULT false
+      );
+      CREATE TABLE IF NOT EXISTS email_tokens (
+        token        TEXT PRIMARY KEY,
+        email        TEXT NOT NULL,
+        player_key   TEXT REFERENCES players(key),
+        display_name TEXT,
+        date         DATE,
+        created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+        used_at      TIMESTAMPTZ
+      );
+    `
   }
 };
 
