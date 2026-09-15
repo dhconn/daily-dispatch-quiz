@@ -3160,6 +3160,7 @@ app.get('/api/referral-code', async (req, res) => {
       sub.referralCode = Buffer.from(email + Math.random()).toString('base64')
         .replace(/[^a-zA-Z0-9]/g, '').slice(0, 10);
       await writeData(data);
+      dualWriteSubscriber(email, { referral_code: sub.referralCode });
     }
     const confirmed = (sub.referrals || []).filter(r => r.playCount >= 1).length;
     res.json({ ok: true, referralCode: sub.referralCode, confirmedReferrals: confirmed, mugWon: !!sub.mugWon });
