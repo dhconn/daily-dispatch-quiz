@@ -2026,60 +2026,6 @@ async function awardBylinesForDate(date) {
   console.log(`[Bylines] Processed ${date} — ${Object.keys(awarded).length} Byline(s) awarded.`);
 }
 
-// ── ONE-TIME: correct impossible (>150) scores — 2026-09-18 ────────────
-// Investigated 2026-09-18: 150 is the confirmed true max (140 base + 10
-// completion bonus). Found 70 player-days across the app's whole history
-// exceeding that, traced mostly to two sources — an actively-being-
-// rewritten scoring codebase in March 2026 (see git history around
-// 2026-03-13/17/23/26), and Jeffrey specifically hitting a live,
-// still-occurring client double-submit bug repeatedly in September.
-// For Jeffrey's 4 most recent dates, the real value is still known from
-// progress (which hasn't pruned yet) — those get the exact correction.
-// Every other instance has no recoverable true value (progress for dates
-// that old is long gone), so those get capped at 149 rather than 150 —
-// deliberately NOT the real max, so a capped value can never later be
-// mistaken by anything (e.g. a future bylines recompute) for a confirmed
-// genuine perfect score.
-app.post('/api/admin/fix-impossible-scores', async (req, res) => {
-  const adminToken = process.env.ADMIN_TOKEN || 'admin';
-  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
-  try {
-    const { confirm } = req.body || {};
-    const PRECISE_FIXES = {
-      jeffrey: { '2026-09-14': 150, '2026-09-15': 121, '2026-09-16': 150, '2026-09-17': 135 }
-    };
-
-    const scores = (await getKey('scores')) || {};
-    const changes = [];
-
-    for (const [key, rec] of Object.entries(scores)) {
-      let changed = false;
-      for (const [date, val] of Object.entries(rec.dailyScores || {})) {
-        if (typeof val !== 'number' || val <= 150) continue;
-        const precise = (PRECISE_FIXES[key] || {})[date];
-        const newVal = precise !== undefined ? precise : 149;
-        changes.push({ key, date, before: val, after: newVal, method: precise !== undefined ? 'precise' : 'capped' });
-        if (confirm === true) {
-          rec.dailyScores[date] = newVal;
-          changed = true;
-        }
-      }
-      if (confirm === true && changed) {
-        rec.allTime = Object.values(rec.dailyScores).reduce((a, b) => a + b, 0);
-      }
-    }
-
-    if (confirm === true) {
-      await setKey('scores', scores);
-      console.log(`[FixImpossibleScores] Applied — ${changes.length} correction(s).`);
-    }
-
-    res.json({ ok: true, dryRun: confirm !== true, totalChanges: changes.length, changes });
-  } catch (e) {
-    console.error('[FixImpossibleScores] error:', e.message);
-    res.status(500).json({ error: e.message });
-  }
-});
 
 // Catches up on any unprocessed date within the progress-retention window
 // (5 days) — covers extended downtime — but never touches today, since
