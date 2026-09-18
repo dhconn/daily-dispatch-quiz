@@ -4230,6 +4230,13 @@ app.post('/api/reporter-email', async (req, res) => {
 (async () => {
   try {
     pool = await createPool();
+    // Without this, a Postgres-side connection drop on an idle pooled
+    // client (e.g. the database restarting) fires an unhandled 'error'
+    // event on the pool, which crashes the whole Node process instead of
+    // just failing whatever query was in flight.
+    pool.on('error', (err) => {
+      console.error('[pg pool] idle client error (non-fatal):', err.message);
+    });
     await initDb();
     app.listen(PORT, () => {
       console.log(`Daily Dispatch Quiz running on port ${PORT}`);
