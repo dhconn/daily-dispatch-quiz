@@ -2083,10 +2083,21 @@ app.post('/api/admin/recompute-bylines', async (req, res) => {
         }
       }
 
-      const existingKeys = Object.keys(bylines[date] || {}).sort().join(',');
-      const correctKeys = Object.keys(correct).sort().join(',');
-      if (existingKeys !== correctKeys) {
-        changes.push({ date, before: Object.keys(bylines[date] || {}), after: Object.keys(correct) });
+      // Only ever fill in a date that's currently empty/missing — never
+      // touch a date that already has a non-empty result. A non-empty
+      // result came from the normal, progress-based path, which is more
+      // reliable for a still-fresh date than scores alone (scores can
+      // independently be wrong for a given date — see the Jo Ann Robinson
+      // case found 2026-09-15 — so overwriting an already-correct
+      // progress-derived result with a scores-derived one risks *removing*
+      // a legitimately-earned Byline, confirmed against live data before
+      // this rule was added: "jeffrey" on 2026-09-14 and 2026-09-16 would
+      // have been silently dropped by a naive recompute-everything pass).
+      const existingKeys = Object.keys(bylines[date] || {});
+      if (existingKeys.length > 0) continue;
+      const correctKeys = Object.keys(correct);
+      if (correctKeys.length > 0) {
+        changes.push({ date, before: existingKeys, after: correctKeys });
         if (confirm === true) bylines[date] = correct;
       }
     }
