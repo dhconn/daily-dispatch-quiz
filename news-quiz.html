@@ -4073,19 +4073,15 @@
       state.sessionScore += pts;
       state.answers.push({ qIdx: state.currentQ, chosen: idx, correct, pts });
 
-      // Save running score to server after every answer
-      if (!state.isReplay) {
-        fetch('/api/scores', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            playerName: state.playerName,
-            date: state.todayKey,
-            score: state.sessionScore
-          })
-        }).catch(() => { });
-      }
-
+      // The running score used to also be POSTed to /api/scores here on
+      // every answer — removed 2026-09-18. /api/scores trusted this
+      // client-computed number with no validation and could be inflated
+      // by anything that double-counted an answer client-side (confirmed
+      // as the cause of a real, live leaderboard-inflation bug); the
+      // queueProgressSave() call below already persists progress, and the
+      // server independently recomputes the true score from the answers
+      // it receives — no functional loss, only the untrusted write goes
+      // away.
       if (!state.isReplay) {
         postAnswerDist(state.todayKey, state.currentQ, correct);
         queueProgressSave();
@@ -4446,8 +4442,9 @@
 
       state.phase = 'done';
       let bylineCelebrationType = null;
+      let saveResult = null;
       if (!state.isReplay) {
-        const saveResult = await saveProgressToServer(true);
+        saveResult = await saveProgressToServer(true);
         updatePlayerScore(state.playerName, state.sessionScore);
 
         // Byline check — server-validated score, not the client's own
@@ -4471,35 +4468,33 @@
 
       const playerKey = normPlayerKey(state.playerName);
 
-      // Submit score to server for shared leaderboard (not in archive mode),
-      // and fetch the real, cross-device canonical state — rank, all-time,
-      // and streak used to be computed from a local per-browser cache that,
-      // for any player who'd only ever typed one name into that browser,
-      // made "Today's Rank" always read #1 regardless of actual performance,
+      // Real, cross-device canonical state — rank, all-time, and streak
+      // used to be computed from a local per-browser cache that, for any
+      // player who'd only ever typed one name into that browser, made
+      // "Today's Rank" always read #1 regardless of actual performance,
       // and made streaks reset whenever they switched devices.
+      //
+      // This used to be a second POST here, to /api/scores, carrying the
+      // client's own sessionScore — removed 2026-09-18 alongside the
+      // per-answer removal above, for the same reason: that endpoint
+      // trusted this number with no validation. saveProgressToServer(true)
+      // above already POSTs to /api/progress, which independently
+      // recomputes the true score from the actual submitted answers and
+      // (as of the same change) now returns these same stats in its own
+      // response — reading them from saveResult instead is strictly a
+      // subset of what already happened, not a new request.
       let allTime = state.sessionScore;
       let dayStreak = 0;
       let maxStreak = 0;
       let daysPlayed = 0;
       let todayProgress = null;
       if (!archiveMode && !state.isReplay) {
-        try {
-          const scoreRes = await fetch('/api/scores', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              playerName: state.playerName,
-              date: state.todayKey,
-              score: state.sessionScore,
-              completed: true
-            })
-          });
-          const scoreData = await scoreRes.json();
-          if (typeof scoreData.allTime === 'number') allTime = scoreData.allTime;
-          if (typeof scoreData.currentStreak === 'number') dayStreak = scoreData.currentStreak;
-          if (typeof scoreData.maxStreak === 'number') maxStreak = scoreData.maxStreak;
-          if (typeof scoreData.daysPlayed === 'number') daysPlayed = scoreData.daysPlayed;
-        } catch (e) { }
+        if (saveResult) {
+          if (typeof saveResult.allTime === 'number') allTime = saveResult.allTime;
+          if (typeof saveResult.currentStreak === 'number') dayStreak = saveResult.currentStreak;
+          if (typeof saveResult.maxStreak === 'number') maxStreak = saveResult.maxStreak;
+          if (typeof saveResult.daysPlayed === 'number') daysPlayed = saveResult.daysPlayed;
+        }
 
         // Batch-submit all answer distribution data in one reliable POST at completion
         // (individual per-question posts during play are best-effort; this is the guarantee)
@@ -4866,6 +4861,7 @@
             mugWon: !!mugWonMap[key],
             gotBylineToday: !!(p.completed && Number(p.score) === 150 && !p.synthetic),
             bylineMonthCount: (bylinesByPlayer[key] || {}).monthCount || 0,
+            bylineLifetimeCount: (bylinesByPlayer[key] || {}).lifetimeCount || 0,
             isNewshound: !!(bylinesByPlayer[key] || {}).isNewshoundThisMonth
          }));
      } catch (e) {
@@ -4916,6 +4912,7 @@
           mugWon: !!mugWonKeys[key],
           gotBylineToday: false, // only known from live "today" progress, not scores history
           bylineMonthCount: (bylinesByPlayer[key] || {}).monthCount || 0,
+          bylineLifetimeCount: (bylinesByPlayer[key] || {}).lifetimeCount || 0,
           isNewshound: !!(bylinesByPlayer[key] || {}).isNewshoundThisMonth
         };
       });
@@ -4961,10 +4958,21 @@
           : r.mugWon
           ? ' <span style="color:var(--gold);font-family:\'Courier Prime\',monospace;font-size:10px;">🏆</span>'
           : ' <span style="color:var(--muted);font-family:\'Courier Prime\',monospace;font-size:10px;" title="Subscribe to be mug eligible">—</span>';
-        const bylineBadge = r.isNewshound
+        // All-time tab shows the lifetime Byline total instead — not
+        // gated by this-month's Newshound status, since a lifetime count
+        // isn't a monthly-threshold concept. Other tabs keep the existing
+        // Newshound/plain-count badge, now showing the extra count beyond
+        // the 10-Byline threshold once someone's a Newshound (added
+        // 2026-09-18 — the count used to be dropped entirely once the
+        // hound badge took over).
+        const bylineBadge = tab === 'alltime'
+          ? (r.bylineLifetimeCount > 0
+              ? ` <span style="font-family:'Courier Prime',monospace;font-size:10px;padding:1px 6px;border-radius:3px;border:1px solid var(--rule);color:var(--muted);">✎ ${r.bylineLifetimeCount} lifetime</span>`
+              : '')
+          : r.isNewshound
           ? ` <span style="display:inline-flex;align-items:center;gap:4px;vertical-align:middle;">
               <svg width="24" height="24" viewBox="0 0 100 100" style="vertical-align:-6px;"><use href="#hound"></use></svg>
-              <span style="font-family:'Courier Prime',monospace;font-size:10px;letter-spacing:1px;font-weight:700;color:var(--gold);">NEWSHOUND</span>
+              <span style="font-family:'Courier Prime',monospace;font-size:10px;letter-spacing:1px;font-weight:700;color:var(--gold);">NEWSHOUND${r.bylineMonthCount > 10 ? ' +' + (r.bylineMonthCount - 10) : ''}</span>
             </span>`
           : r.bylineMonthCount > 0
           ? ` <span style="font-family:'Courier Prime',monospace;font-size:10px;padding:1px 6px;border-radius:3px;border:1px solid ${r.gotBylineToday ? 'var(--ink)' : 'var(--rule)'};color:${r.gotBylineToday ? 'var(--ink)' : 'var(--muted)'};font-weight:${r.gotBylineToday ? '700' : '400'};${r.gotBylineToday ? 'background:rgba(240,192,64,0.2);' : ''}">✎ ${r.bylineMonthCount}</span>`

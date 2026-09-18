@@ -872,6 +872,13 @@ app.post('/api/progress', async (req, res) => {
   // Recalculate score server-side from stored per-answer points,
   // which already include full credit or partial credit as awarded.
   let validatedScore = 0;
+  // Populated inside the scores-mirror block below (2026-09-18 — moved
+  // here from /api/scores, which this endpoint is replacing as the
+  // leaderboard's source of truth). Stay undefined if that block doesn't
+  // fire (e.g. a low-score in-progress save); the client already treats
+  // "not a number" as "no update" for these, same as when /api/scores
+  // supplied them.
+  let allTime, currentStreak, maxStreak, daysPlayed;
 
   if (progress.answers && typeof progress.answers === 'object') {
     Object.values(progress.answers).forEach(answer => {
@@ -961,15 +968,67 @@ app.post('/api/progress', async (req, res) => {
         };
       }
       const prev = scores[key].dailyScores[date] || 0;
+      // Was this player already marked completed for this date *before*
+      // this write? Needed below to gate the referral increment on a
+      // genuine new completion, not a retried/duplicate completion POST —
+      // `existing` was captured before this request's data was applied.
+      const wasAlreadyCompleted = !!existing.completed;
 
       if (progress.completed || validatedScore >= prev) {
         scores[key].dailyScores[date] = validatedScore;
         scores[key].allTime = Object.values(
           scores[key].dailyScores
         ).reduce((a, b) => a + b, 0);
+        // Streak/all-time/days-played — same computation /api/scores used
+        // to do, moved here 2026-09-18 as part of retiring that endpoint
+        // as a leaderboard write path (it trusted the client's own score
+        // report with no validation; this endpoint's validatedScore is
+        // computed server-side from the actual submitted answers).
+        currentStreak = currentStreakFromDailyScores(scores[key].dailyScores, date);
+        scores[key].maxStreak = Math.max(
+          scores[key].maxStreak || 0,
+          longestStreakFromDailyScores(scores[key].dailyScores)
+        );
+        maxStreak = scores[key].maxStreak;
+        allTime = scores[key].allTime;
+        daysPlayed = Object.keys(scores[key].dailyScores || {}).length;
         // displayName intentionally not touched here — first-use casing is
         // canonical once set (see creation above and canonicalDisplayName).
         await setKey('scores', scores);
+
+        // ── Referral playCount + mug-eligibility, moved from /api/scores
+        // (2026-09-18) ──────────────────────────────────────────────────
+        // Gated on this being a genuine NEW completion (progress.completed
+        // is true now, and wasn't already true before this write) — a
+        // retried/duplicate completion POST for a day already marked
+        // completed must not double-increment a referral's playCount.
+        if (progress.completed && !wasAlreadyCompleted) {
+          try {
+            const allData = await readData();
+            for (const sub of Object.values(allData.subscribers || {})) {
+              if (!sub.referrals) continue;
+              const ref = sub.referrals.find(r =>
+                r.email === key || (r.name && normPlayerKey(r.name) === key)
+              );
+              if (ref) {
+                if (!ref.playCount) ref.playCount = 0;
+                ref.playCount++;
+                await writeData(allData);
+                console.log(`[Referral] ${key} play count: ${ref.playCount} — referred by ${sub.email}`);
+                // Check if this referrer just hit 3 confirmed referrals
+                if (!sub.mugWon) {
+                  const confirmed = sub.referrals.filter(r => r.playCount >= 1).length;
+                  if (confirmed >= 3) {
+                    console.log(`[Referral] 🏆 ${sub.email} is now MUG ELIGIBLE`);
+                  }
+                }
+                break;
+              }
+            }
+          } catch (e) {
+            console.warn('[Referral] playCount update failed (non-fatal):', e.message);
+          }
+        }
       }
     } catch (e) {
       console.warn('[progress] scores mirror failed (non-fatal):', e.message);
@@ -992,7 +1051,7 @@ app.post('/api/progress', async (req, res) => {
       }
     })();
 
-    res.json({ ok: true, validatedScore });
+    res.json({ ok: true, validatedScore, allTime, currentStreak, maxStreak, daysPlayed });
   } catch (e) {
     console.error('[progress] POST error:', e.message);
     res.status(500).json({ error: e.message });
