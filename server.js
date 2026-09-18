@@ -1989,6 +1989,21 @@ async function awardBylinesForDate(date) {
     }
   }
 
+  // Safety net, added 2026-09-18 after two confirmed incidents of the same
+  // failure: progress can be missing, incomplete, or transiently wrong for
+  // a date (e.g. right after a data-recovery event) — and because this
+  // date is marked done even when the result is empty, there's no second
+  // chance once that happens. scores never prunes, so cross-check it too:
+  // any player showing an exact 150 for this date who wasn't already
+  // credited via progress gets credited here, so a bad progress snapshot
+  // can no longer permanently zero out a real Byline.
+  const dayScores = (await getKey('scores')) || {};
+  for (const [key, p] of Object.entries(dayScores)) {
+    if (!awarded[key] && (p.dailyScores || {})[date] === 150) {
+      awarded[key] = { displayName: p.displayName || key, awardedAt: new Date().toISOString() };
+    }
+  }
+
   // Stored even when empty — that's the marker that prevents reprocessing.
   bylines[date] = awarded;
   await setKey('bylines', bylines);
@@ -2010,6 +2025,83 @@ async function awardBylinesForDate(date) {
 
   console.log(`[Bylines] Processed ${date} — ${Object.keys(awarded).length} Byline(s) awarded.`);
 }
+
+// ── ONE-TIME: recompute `bylines` for any date that disagrees with
+// `scores` — 2026-09-18 recovery ────────────────────────────────────────
+// A prior one-time rebuild (Sept 2026) already recovered this once after
+// the Aug 2026 incident, and was removed once it had run successfully.
+// That recovered history is gone again now, with no code-level change
+// found to explain it — most likely reverted by a database-level restore
+// to an earlier snapshot. Unlike the removed script (which only filled in
+// entirely-missing dates), this recomputes every date and OVERWRITES
+// wherever the stored result disagrees with scores — so it also catches a
+// date that was incorrectly marked "processed" with an empty result (the
+// exact bug just fixed above in awardBylinesForDate), not just dates that
+// were never touched at all.
+app.post('/api/admin/recompute-bylines', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const { confirm } = req.body || {};
+    // Aug 23-27: recovered-incident data contains estimated/placeholder
+    // scores (confirmed this session — small values like 1/2/3/7/11/19,
+    // not real quiz results), some of which coincidentally equal 150 for
+    // other players outside this sample — use the confirmed list from the
+    // original Sept 2026 recovery for just these five dates rather than
+    // trusting scores blindly.
+    const GAP_CONFIRMED = {
+      '2026-08-26': ['spencerg'],
+      '2026-08-27': ['rnr', 'detour54', 'spencerg', 'copper2019', 'coach chris', 'dj soulgiver']
+    };
+    const GAP_DATES = new Set(['2026-08-23', '2026-08-24', '2026-08-25', '2026-08-26', '2026-08-27']);
+
+    const bylines = (await getKey('bylines')) || {};
+    const scores = (await getKey('scores')) || {};
+
+    const allDates = new Set(GAP_DATES);
+    for (const p of Object.values(scores)) {
+      for (const d of Object.keys(p.dailyScores || {})) allDates.add(d);
+    }
+
+    const today = easternToday();
+    const changes = [];
+
+    for (const date of allDates) {
+      if (date >= today) continue; // never touch today or the future
+
+      const correct = {};
+      if (GAP_DATES.has(date)) {
+        for (const key of (GAP_CONFIRMED[date] || [])) {
+          const p = scores[key];
+          correct[key] = { displayName: (p && p.displayName) || key, awardedAt: `${date}T12:00:00.000Z`, backfilled: true };
+        }
+      } else {
+        for (const [key, p] of Object.entries(scores)) {
+          if ((p.dailyScores || {})[date] === 150) {
+            correct[key] = { displayName: p.displayName || key, awardedAt: `${date}T12:00:00.000Z`, backfilled: true };
+          }
+        }
+      }
+
+      const existingKeys = Object.keys(bylines[date] || {}).sort().join(',');
+      const correctKeys = Object.keys(correct).sort().join(',');
+      if (existingKeys !== correctKeys) {
+        changes.push({ date, before: Object.keys(bylines[date] || {}), after: Object.keys(correct) });
+        if (confirm === true) bylines[date] = correct;
+      }
+    }
+
+    if (confirm === true) {
+      await setKey('bylines', bylines);
+      console.log(`[RecomputeBylines] Applied — ${changes.length} date(s) changed.`);
+    }
+
+    res.json({ ok: true, dryRun: confirm !== true, changedDates: changes.length, changes });
+  } catch (e) {
+    console.error('[RecomputeBylines] error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
 
 // Catches up on any unprocessed date within the progress-retention window
 // (5 days) — covers extended downtime — but never touches today, since
