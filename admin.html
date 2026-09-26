@@ -4790,7 +4790,11 @@
         'Q4 (medium, 20pts): EFFECT. Ask what this means for a specific group, institution, or situation.\n' +
         'Q5 (hard, 30pts): IMPLICATION. Ask what this reveals or signals. A non-obvious takeaway requiring analysis.\n' +
         'Q6 (bonus, 50pts): THE MOST MEMORABLE STORY. Choose the article with the most surprising, distinctive, or shareable fact — something a reader would say "wait, really?" about. Frame the question around that hook. Do NOT make it hard by relying on obscure details or statistics. It should be the fact that makes the story stick.\n' +
-        'WRONG ANSWERS: Same category as correct answer. Plausible to someone who did NOT read the article. Never all dates/amounts/similar numbers.\n' +
+        'WRONG ANSWERS: Same category as correct answer. Never all dates/amounts/similar numbers.\n' +
+        'WRONG-ANSWER DIFFICULTY: scale how plausible the distractors are to the question\'s tier — this is the main lever for making the difficulty progression real, not just labeled.\n' +
+        'Q1/Q2 (easy): wrong answers should be clearly distinguishable to a reader who only knows the headline — obviously same category, but not deliberately tricky near-misses. This is the on-ramp; players should feel confident here.\n' +
+        'Q3/Q4 (medium): default level — plausible to someone who did NOT read the article, but a careful reader can rule them out.\n' +
+        'Q5 (hard): each wrong answer must be independently plausible even to someone who DID read the article — a subtly wrong takeaway sharing the same reasoning shape as the correct one, not a same-category name-swap. The reader should have to reason through which implication the story actually supports, not just spot the odd one out.\n' +
         'EXPLANATIONS: Q1/Q2 = plain fact only, no policy analysis. Q3/Q4 = one sentence of cause or effect. Q5/Q6 = analysis welcome.\n' +
         'EXPLANATION STYLE: Write explanations as short news-style summaries of the story — what happened, who was involved, what it means. Do NOT refer to "the article", "the headline", "the summary", or "according to the source". Write as if briefing someone who missed the news.\n' +
         'CRITICAL: Write explanation FIRST, then set correctIndex to match it exactly.\n' +
@@ -5260,6 +5264,9 @@
         'QUESTION FOCUS RULES:\n' +
         '- Ask about the WHO or WHAT that makes the story newsworthy, NOT dollar amounts, durations, or counts\n' +
         '- Wrong answers must be the same category as the correct answer (same type of company, person, place)\n' +
+        (difficulty === 'easy' ? '- Keep wrong answers clearly distinguishable to a reader who only knows the headline — this should feel like an easy, confidence-building question\n' :
+         difficulty === 'hard' ? '- Each wrong answer must be independently plausible even to someone who read the article — a subtly wrong takeaway sharing the same reasoning shape as the correct one, not a same-category name-swap\n' :
+         '') +
         '- Skip routine sports transactions, minor arts items, individual crime stories, and weather unless historic\n\n' +
         'Write exactly ONE question at difficulty: ' + difficulty + ' (' + points + ' pts).\n\n' +
         'OUTPUT: Respond with ONLY valid JSON. No preamble, no markdown.\n' +
