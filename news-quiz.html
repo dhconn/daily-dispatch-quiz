@@ -2254,10 +2254,10 @@
         position:relative;
       " onclick="event.stopPropagation()">
         <div style="font-family:'Courier Prime',monospace;font-size:10px;letter-spacing:3px;color:var(--muted);margin-bottom:10px;">DAILY DISPATCH QUIZ</div>
-        <img id="break-announcement-img" src="" alt="" style="width:100%;max-width:280px;height:auto;border-radius:6px;margin:0 auto 14px;display:block;">
-        <div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:700;margin-bottom:8px;">Taking a short break ✈️</div>
+        <img id="break-announcement-img" src="" alt="" style="width:100%;max-width:200px;height:auto;border-radius:6px;margin:0 auto 14px;display:block;">
+        <div style="font-family:'Playfair Display',serif;font-size:26px;font-weight:700;margin-bottom:8px;">Taking a short break ✈️</div>
         <div style="width:40px;height:2px;background:var(--gold);margin:0 auto 12px;"></div>
-        <p style="font-size:14px;color:var(--muted);line-height:1.6;margin-bottom:20px;">The quiz pauses Oct. 3–11 and returns Monday, October 12. Get today's in before we go!</p>
+        <p style="font-size:17px;color:var(--muted);line-height:1.6;margin-bottom:20px;">The quiz pauses Oct. 3–11 and returns Monday, October 12. Get today's in before we go!</p>
         <button onclick="dismissBreakAnnouncement()"
           style="font-family:'Courier Prime',monospace;font-size:12px;letter-spacing:2px;padding:12px 28px;background:var(--ink);color:var(--paper);border:none;cursor:pointer;width:100%;">
           Let's Play ▸
@@ -3995,7 +3995,7 @@
         const breakOverlay = document.getElementById('break-announcement-overlay');
         if (breakOverlay) {
           breakOverlay.style.display = 'flex';
-          setTimeout(() => dismissBreakAnnouncement(), 4000);
+          setTimeout(() => dismissBreakAnnouncement(), 5000);
           return;
         }
       }
