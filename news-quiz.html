@@ -2773,6 +2773,15 @@
     };
 
     function getBreakAnnouncementDay() {
+      // ?breakpreview=1 (or a specific date, e.g. ?breakpreview=2026-10-01)
+      // forces this on regardless of today's real date — for previewing
+      // before it's scheduled to appear. Remove alongside the rest of this
+      // feature after Oct 2, 2026.
+      const previewParam = new URLSearchParams(window.location.search).get('breakpreview');
+      if (previewParam !== null) {
+        const key = previewParam || '2026-09-27';
+        return BREAK_ANNOUNCEMENT_DAYS[key] || BREAK_ANNOUNCEMENT_DAYS['2026-09-27'];
+      }
       return BREAK_ANNOUNCEMENT_DAYS[todayStr()] || null;
     }
 
@@ -3972,12 +3981,13 @@
 
       // ── Show break-announcement overlay (takes priority over the mug
       // tease below on these days — see BREAK_ANNOUNCEMENT_DAYS) ────────
+      const _breakPreview = new URLSearchParams(window.location.search).get('breakpreview') !== null;
       const _breakDay = getBreakAnnouncementDay();
       const breakLastShown = lsGet('dnq_break_announce_last_shown');
-      const shouldShowBreakAnnouncement = !!_breakDay && !archiveMode && breakLastShown !== todayStr();
+      const shouldShowBreakAnnouncement = !!_breakDay && !archiveMode && (_breakPreview || breakLastShown !== todayStr());
 
       if (shouldShowBreakAnnouncement) {
-        lsSet('dnq_break_announce_last_shown', todayStr());
+        if (!_breakPreview) lsSet('dnq_break_announce_last_shown', todayStr());
         document.getElementById('break-announcement-img').src = '/images/' + _breakDay.img;
         document.getElementById('break-announcement-img').alt = _breakDay.title;
         window._pendingMugQuiz = quiz;
