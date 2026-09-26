@@ -2227,6 +2227,45 @@
       </div>
     </div>
 
+    <!-- BREAK ANNOUNCEMENT OVERLAY — one-time pre-vacation teaser, shown
+         in place of the mug-tease overlay on the specific dates in
+         BREAK_ANNOUNCEMENT_DAYS. Remove this whole block (and that table)
+         after Sept 30, 2026 — it's a one-off, not a recurring feature. -->
+    <div id="break-announcement-overlay" style="
+      display:none;
+      position:fixed;
+      inset:0;
+      z-index:3000;
+      background:rgba(26,16,8,0.85);
+      align-items:center;
+      justify-content:center;
+      pointer-events:auto;
+    " onclick="dismissBreakAnnouncement()">
+      <div style="
+        background:var(--paper);
+        color:var(--ink);
+        border-top:4px double var(--ink);
+        border-bottom:4px double var(--ink);
+        box-shadow:0 8px 24px rgba(0,0,0,0.4);
+        padding:28px 32px;
+        max-width:400px;
+        width:min(90vw,400px);
+        text-align:center;
+        position:relative;
+      " onclick="event.stopPropagation()">
+        <div style="font-family:'Courier Prime',monospace;font-size:10px;letter-spacing:3px;color:var(--muted);margin-bottom:10px;">DAILY DISPATCH QUIZ</div>
+        <img id="break-announcement-img" src="" alt="" style="width:100%;max-width:280px;height:auto;border-radius:6px;margin:0 auto 14px;display:block;">
+        <div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:700;margin-bottom:8px;">Taking a short break ✈️</div>
+        <div style="width:40px;height:2px;background:var(--gold);margin:0 auto 12px;"></div>
+        <p style="font-size:14px;color:var(--muted);line-height:1.6;margin-bottom:20px;">The quiz pauses Oct. 3–11 and returns Monday, October 12. Get today's in before we go!</p>
+        <button onclick="dismissBreakAnnouncement()"
+          style="font-family:'Courier Prime',monospace;font-size:12px;letter-spacing:2px;padding:12px 28px;background:var(--ink);color:var(--paper);border:none;cursor:pointer;width:100%;">
+          Let's Play ▸
+        </button>
+        <div style="font-family:monospace;font-size:10px;color:var(--muted);margin-top:10px;">Tap anywhere to dismiss</div>
+      </div>
+    </div>
+
     <!-- BYLINE / NEWSHOUND CELEBRATION — shown the instant a perfect 150
          (first play only) finishes, before the auto-showing share popup.
          Content is swapped by showBylineCelebration(type); see that
@@ -2720,6 +2759,21 @@
       const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
       const key = String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
       return VACATION_DAYS[key] || null;
+    }
+
+    // Pre-vacation teaser — see the BREAK ANNOUNCEMENT OVERLAY markup for
+    // removal instructions. Keyed by full YYYY-MM-DD (not MM-DD like
+    // VACATION_DAYS above) since these are one-off dates, not a pattern
+    // that should ever recur.
+    const BREAK_ANNOUNCEMENT_DAYS = {
+      '2026-09-26': { img: 'Gone-birdin.png',   title: "Gone birdin'" },
+      '2026-09-28': { img: 'Gone-whalin.png',   title: "Gone whalin'" },
+      '2026-09-29': { img: 'Gone-curlin.png',   title: "Gone curlin'" },
+      '2026-09-30': { img: 'Gone-summitin.png', title: "Gone summitin'" }
+    };
+
+    function getBreakAnnouncementDay() {
+      return BREAK_ANNOUNCEMENT_DAYS[todayStr()] || null;
     }
 
     function launchFireworks() {
@@ -3496,6 +3550,15 @@
       proceedAfterMugTease(window._pendingMugQuiz, window._pendingMugOptions || {});
     }
 
+    // Shares _pendingMugQuiz/_pendingMugOptions/proceedAfterMugTease with
+    // the mug-tease overlay above — the two are mutually exclusive per day
+    // (see shouldShowBreakAnnouncement), so there's never a conflict over
+    // that shared pending-quiz state.
+    function dismissBreakAnnouncement() {
+      document.getElementById('break-announcement-overlay').style.display = 'none';
+      proceedAfterMugTease(window._pendingMugQuiz, window._pendingMugOptions || {});
+    }
+
     function showSubscribeConfirmPopup(alreadySubscribed) {
       const overlay = document.getElementById('subscribe-confirm-overlay');
       const msgEl = document.getElementById('subscribe-confirm-message');
@@ -3906,6 +3969,26 @@
       const scoresData = await scoresRes.json().catch(() => ({}));
       const hasServerHistory = !!(scoresData.scores && scoresData.scores[pkey] && scoresData.scores[pkey].allTime > 0);
       if (hasServerHistory) lsSet(introKey, '1');
+
+      // ── Show break-announcement overlay (takes priority over the mug
+      // tease below on these days — see BREAK_ANNOUNCEMENT_DAYS) ────────
+      const _breakDay = getBreakAnnouncementDay();
+      const breakLastShown = lsGet('dnq_break_announce_last_shown');
+      const shouldShowBreakAnnouncement = !!_breakDay && !archiveMode && breakLastShown !== todayStr();
+
+      if (shouldShowBreakAnnouncement) {
+        lsSet('dnq_break_announce_last_shown', todayStr());
+        document.getElementById('break-announcement-img').src = '/images/' + _breakDay.img;
+        document.getElementById('break-announcement-img').alt = _breakDay.title;
+        window._pendingMugQuiz = quiz;
+        window._pendingMugOptions = { resumed };
+        const breakOverlay = document.getElementById('break-announcement-overlay');
+        if (breakOverlay) {
+          breakOverlay.style.display = 'flex';
+          setTimeout(() => dismissBreakAnnouncement(), 4000);
+          return;
+        }
+      }
 
       // ── Show mug tease overlay ───────────────────────────────
       const mugLastShown = lsGet('dnq_mug_tease_last_shown');
