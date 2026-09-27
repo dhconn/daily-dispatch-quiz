@@ -1220,6 +1220,19 @@ app.delete('/api/scores/:playerKey', async (req, res) => {
   const name = data.scores[key].displayName;
   delete data.scores[key];
   await writeData(data);
+
+  // Also clean up the Group 1 dual-write shadow tables (added 2026-09-27) —
+  // this delete previously only touched the old blob, leaving test/junk
+  // players (e.g. "zzz..."/"tester...") stranded in Postgres and requiring
+  // manual SQL to remove. FK-safe order: children before parent.
+  try {
+    await pool.query('DELETE FROM daily_scores WHERE player_key = $1', [key]);
+    await pool.query('DELETE FROM progress WHERE player_key = $1', [key]);
+    await pool.query('DELETE FROM players WHERE key = $1', [key]);
+  } catch (e) {
+    console.warn('[Admin] Postgres player cleanup failed (non-fatal):', e.message);
+  }
+
   console.log('[Admin] Deleted player:', key);
   res.json({ ok: true, deleted: name });
 });
