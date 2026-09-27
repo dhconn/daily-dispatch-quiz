@@ -1211,26 +1211,41 @@ try {
 });
 
 // ── DELETE /api/scores/:playerKey — admin delete a player ────
+// Checks/deletes both the old blob and the Group 1 dual-write shadow
+// tables (added 2026-09-27) — a player can exist in either or both (a
+// test player already removed from Admin once, for instance, may still
+// be orphaned in Postgres alone), so this only 404s if truly absent from
+// everywhere, and deletes from whichever store(s) actually have it.
 app.delete('/api/scores/:playerKey', async (req, res) => {
   const adminToken = process.env.ADMIN_TOKEN || 'admin';
   if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
   const key = normPlayerKey(req.params.playerKey);
   const data = await readData();
-  if (!data.scores || !data.scores[key]) return res.status(404).json({ error: 'Player not found' });
-  const name = data.scores[key].displayName;
-  delete data.scores[key];
-  await writeData(data);
+  const existsInBlob = !!(data.scores && data.scores[key]);
+  let name = existsInBlob ? data.scores[key].displayName : key;
 
-  // Also clean up the Group 1 dual-write shadow tables (added 2026-09-27) —
-  // this delete previously only touched the old blob, leaving test/junk
-  // players (e.g. "zzz..."/"tester...") stranded in Postgres and requiring
-  // manual SQL to remove. FK-safe order: children before parent.
+  if (existsInBlob) {
+    delete data.scores[key];
+    await writeData(data);
+  }
+
+  let existsInPostgres = false;
   try {
+    const r = await pool.query('SELECT display_name FROM players WHERE key = $1', [key]);
+    if (r.rows.length) {
+      existsInPostgres = true;
+      if (!existsInBlob) name = r.rows[0].display_name;
+    }
+    // FK-safe order: children before parent.
     await pool.query('DELETE FROM daily_scores WHERE player_key = $1', [key]);
     await pool.query('DELETE FROM progress WHERE player_key = $1', [key]);
     await pool.query('DELETE FROM players WHERE key = $1', [key]);
   } catch (e) {
     console.warn('[Admin] Postgres player cleanup failed (non-fatal):', e.message);
+  }
+
+  if (!existsInBlob && !existsInPostgres) {
+    return res.status(404).json({ error: 'Player not found' });
   }
 
   console.log('[Admin] Deleted player:', key);
