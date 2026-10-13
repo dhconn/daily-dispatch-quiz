@@ -6646,14 +6646,29 @@
       if (!dateVal || !timeVal) {
         errorEl.textContent = 'Please pick a date and time.'; return;
       }
-      // Validate not more than 2 days out
+      // Convert Eastern picker time to UTC
+      // Treat picked date+time as Eastern and find UTC equivalent. This
+      // round-trip (parse as local -> format in Eastern -> re-parse as
+      // local) cancels out whatever timezone the browser's OS is actually
+      // set to — it always resolves to the Eastern instant regardless,
+      // which matters since the admin isn't always physically in Eastern.
+      const easternStr = dateVal + 'T' + timeVal + ':00';
+      const tempDate = new Date(easternStr);
+      const easternOffset = new Date(tempDate.toLocaleString('en-US', { timeZone: 'America/New_York' })) - tempDate;
+      const scheduledForDate = new Date(tempDate.getTime() - easternOffset);
+      const scheduledForUTC = scheduledForDate.toISOString();
+
+      // Validate using that same Eastern-corrected instant — not a second,
+      // naive parse of dateVal/timeVal, which (bug fixed 2026-10-13) was
+      // silently off by whatever the gap is between Eastern and the
+      // admin's current local timezone, letting an already-past Eastern
+      // time slip through this check as if it were still in the future.
       const now = new Date();
-      const picked = new Date(dateVal + 'T' + timeVal);
       const twoDaysOut = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
-      if (picked > twoDaysOut) {
+      if (scheduledForDate > twoDaysOut) {
         errorEl.textContent = 'Cannot schedule more than 2 days out.'; return;
       }
-      if (picked <= now) {
+      if (scheduledForDate <= now) {
         errorEl.textContent = 'Scheduled time must be in the future.'; return;
       }
       // Get the current draft quiz
@@ -6662,12 +6677,6 @@
       if (!draft || !draft.questions || !draft.questions.length) {
         errorEl.textContent = 'No quiz draft found. Please generate a quiz first.'; return;
       }
-      // Convert Eastern picker time to UTC
-      // Treat picked date+time as Eastern and find UTC equivalent
-      const easternStr = dateVal + 'T' + timeVal + ':00';
-      const tempDate = new Date(easternStr);
-      const easternOffset = new Date(tempDate.toLocaleString('en-US', { timeZone: 'America/New_York' })) - tempDate;
-      const scheduledForUTC = new Date(tempDate.getTime() - easternOffset).toISOString();
 
       const adminToken = lsGet('dnq_admin_token') || 'admin';
       errorEl.textContent = '';
