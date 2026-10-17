@@ -1252,69 +1252,6 @@ app.delete('/api/scores/:playerKey', async (req, res) => {
   res.json({ ok: true, deleted: name });
 });
 
-// ── ONE-TIME: correct Q3 answer-key error for 2026-10-17 (Cj) ───────────
-// Same Q3 misconfiguration as the earlier fix for Coach Chris/Detour54/
-// loppers32spatial today — Cj reported separately. Confirmed via GET
-// /api/progress: q2 {pts:5, correct:false}, same signature. Today's
-// total is 76 before correction; +15 lands at 91, nowhere near the
-// 150-point Byline threshold, so no Byline consideration needed here.
-// Dry-run by default; writes only with {"confirm":true}. Remove once
-// run successfully.
-app.post('/api/admin/fix-q3-cj-20261017', async (req, res) => {
-  const adminToken = process.env.ADMIN_TOKEN || 'admin';
-  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
-  try {
-    const { confirm } = req.body || {};
-    const DATE = '2026-10-17';
-    const QKEY = 'q2';
-    const TARGET_PTS = 20;
-    const key = 'cj';
-
-    const allProgress = (await getKey('progress')) || {};
-    const dayProgress = allProgress[DATE] || {};
-    const scores = (await getKey('scores')) || {};
-
-    const p = dayProgress[key];
-    if (!p || !p.answers || !p.answers[QKEY]) {
-      return res.json({ ok: true, confirmed: !!confirm, changes: [{ key, skipped: true, reason: 'not found or missing ' + QKEY }] });
-    }
-    const oldAnswer = p.answers[QKEY];
-    if (oldAnswer.correct === true && oldAnswer.pts === TARGET_PTS) {
-      return res.json({ ok: true, confirmed: !!confirm, changes: [{ key, skipped: true, reason: 'already correct/' + TARGET_PTS + 'pts' }] });
-    }
-    const delta = TARGET_PTS - (oldAnswer.pts || 0);
-    const oldScore = p.score;
-    const newScore = oldScore + delta;
-    const oldDaily = (scores[key] && scores[key].dailyScores || {})[DATE];
-    const newDaily = (oldDaily || 0) + delta;
-    const change = { key, delta, oldAnswer, newScore, oldScore, oldDaily, newDaily, reachesByline: newDaily === 150 };
-
-    if (confirm) {
-      dayProgress[key].answers[QKEY] = { ...oldAnswer, pts: TARGET_PTS, correct: true };
-      dayProgress[key].score = newScore;
-      if (scores[key]) {
-        scores[key].dailyScores[DATE] = newDaily;
-        scores[key].allTime = Object.values(scores[key].dailyScores).reduce((a, b) => a + b, 0);
-      }
-      allProgress[DATE] = dayProgress;
-      await setKey('progress', allProgress);
-      await setKey('scores', scores);
-
-      try {
-        await pool.query('UPDATE daily_scores SET points = $1 WHERE player_key = $2 AND date = $3', [newScore, key, DATE]);
-        await pool.query('UPDATE progress SET answers = $1, score = $2 WHERE player_key = $3 AND date = $4',
-          [JSON.stringify(dayProgress[key].answers), newScore, key, DATE]);
-      } catch (e) {
-        console.warn('[Admin] Postgres mirror update failed for', key, e.message);
-      }
-    }
-
-    res.json({ ok: true, confirmed: !!confirm, changes: [change] });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
 // ── POST /api/admin/merge-players — merge two duplicate player records ──
 // For the near-duplicate-name case (case/whitespace variants that predate
 // key normalization, or genuine typos an admin has manually reviewed).
