@@ -1210,6 +1210,42 @@ try {
   }
 });
 
+// ── ONE-TIME: per-question accuracy report from Postgres 'progress' ────
+// Read-only aggregation for the "Question Accuracy" artifact update
+// (2026-10-20) — sources from the Group 1 dual-write 'progress' table,
+// which (unlike the old blob 'dist'/'progress' keys) is never pruned, so
+// this covers every day since dual-write went live (2026-09-14) without
+// needing backup archaeology like the original Sep 10-26 chart did.
+// Remove this endpoint once the report's been pulled.
+app.get('/api/admin/question-accuracy-report', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const START_DATE = '2026-09-14';
+    const r = await pool.query(
+      'SELECT date, answers FROM progress WHERE synthetic = false AND date >= $1',
+      [START_DATE]
+    );
+    const tally = {};
+    for (let i = 0; i < 6; i++) tally['q' + i] = { correct: 0, wrong: 0 };
+    let minDate = null, maxDate = null;
+    for (const row of r.rows) {
+      const d = row.date.toISOString().slice(0, 10);
+      if (!minDate || d < minDate) minDate = d;
+      if (!maxDate || d > maxDate) maxDate = d;
+      const answers = row.answers || {};
+      for (const [qKey, a] of Object.entries(answers)) {
+        if (!tally[qKey]) continue;
+        if (a && a.correct === true) tally[qKey].correct++;
+        else if (a) tally[qKey].wrong++;
+      }
+    }
+    res.json({ ok: true, rowCount: r.rows.length, minDate, maxDate, tally });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── DELETE /api/scores/:playerKey — admin delete a player ────
 // Checks/deletes both the old blob and the Group 1 dual-write shadow
 // tables (added 2026-09-27) — a player can exist in either or both (a
