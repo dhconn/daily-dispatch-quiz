@@ -1210,6 +1210,61 @@ try {
   }
 });
 
+// ── ONE-TIME: quietly mark Detour54 as September 2026 mug winner ───────
+// The monthly-winner process has never actually run (monthlyWinners was
+// completely empty, confirmed 2026-10-21) — auto-announce is disabled
+// and nobody triggered it manually, so the trophy icon (driven by the
+// subscriber's mugWon flag, not computed live) never appeared despite
+// Detour54 genuinely topping September (4270 pts, confirmed independently
+// by summing September dailyScores). Per explicit user choice, this sets
+// mugWon/monthlyWinners directly — no emails. Dry-run by default; writes
+// only with {"confirm":true}. Remove once run.
+app.post('/api/admin/fix-september-winner', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const { confirm } = req.body || {};
+    const MONTH_PREFIX = '2026-09';
+    const MONTH_NAME = 'September 2026';
+    const PLAYER_KEY = 'detour54';
+
+    const data = await readData();
+    const scores = data.scores || {};
+    const player = scores[PLAYER_KEY];
+    if (!player) return res.json({ ok: false, error: 'Player not found in scores' });
+
+    const monthlyScore = Object.entries(player.dailyScores || {})
+      .filter(([d]) => d.startsWith(MONTH_PREFIX))
+      .reduce((sum, [, s]) => sum + s, 0);
+
+    const sub = Object.values(data.subscribers || {}).find(s =>
+      s.active && normPlayerKey(s.name) === PLAYER_KEY
+    );
+    if (!sub) return res.json({ ok: false, error: 'No active subscriber record found for this player' });
+
+    const change = {
+      playerKey: PLAYER_KEY, displayName: player.displayName, monthlyScore,
+      email: sub.email, alreadyMugWon: !!sub.mugWon
+    };
+
+    if (confirm) {
+      data.subscribers[sub.email].mugWon = true;
+      data.subscribers[sub.email].mugWonAt = new Date().toISOString();
+      data.subscribers[sub.email].mugWonReason = `monthly_${MONTH_PREFIX}`;
+      if (!data.monthlyWinners) data.monthlyWinners = [];
+      data.monthlyWinners.push({
+        month: MONTH_PREFIX, monthName: MONTH_NAME, playerName: player.displayName,
+        score: monthlyScore, announcedAt: new Date().toISOString()
+      });
+      await writeData(data);
+    }
+
+    res.json({ ok: true, confirmed: !!confirm, change });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── ONE-TIME: per-question accuracy report from Postgres 'progress' ────
 // Read-only aggregation for the "Question Accuracy" artifact update
 // (2026-10-20) — sources from the Group 1 dual-write 'progress' table,
@@ -2655,12 +2710,20 @@ app.get('/api/admin/monthly-winner-preview', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── POST /api/admin/announce-monthly-winner — manual winner announcement ──
+// ── POST /api/admin/announce-monthly-winner — record the winner, no emails ──
+// Email sending was deliberately removed 2026-10-21 (both the personal
+// "you won" email and the mass "Champion announced" send to every
+// subscriber/prospect) per explicit user decision, after a bad prior
+// experience with this kind of automated mass mail — the user wants to
+// craft and send these themselves from here on. This endpoint still does
+// the part that actually matters for the site (marks mugWon so the
+// leaderboard trophy icon appears, records the monthlyWinners entry the
+// site's own banner reads), just without ever emailing anyone on its own.
 app.post('/api/admin/announce-monthly-winner', async (req, res) => {
   const adminToken = process.env.ADMIN_TOKEN || 'admin';
   if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
   try {
-    const { month, force, winnerMessage, announcementMessage } = req.body || {};
+    const { month, force } = req.body || {};
     const monthPrefix = month || (() => {
       const prev = new Date(); prev.setDate(1); prev.setMonth(prev.getMonth() - 1);
       return prev.toISOString().slice(0, 7);
@@ -2672,32 +2735,15 @@ app.post('/api/admin/announce-monthly-winner', async (req, res) => {
       return res.json({ ok: false, alreadyAnnounced: true, monthName });
     }
 
-    // Write the guard before sending — prevents double-fire if anything goes wrong mid-send
+    // Write the guard before recording — prevents double-fire if anything goes wrong mid-write
     await setKey('monthlyWinnerAnnounced_' + monthPrefix, true);
 
-    const { winners, topScore, data } = await getMonthlyWinnerCandidates(monthPrefix);
-    const siteUrl = process.env.SITE_URL || 'https://dailydispatchquiz.com';
+    const { winners, data } = await getMonthlyWinnerCandidates(monthPrefix);
 
     if (!winners.length) {
       return res.json({ ok: false, noWinners: true, monthName });
     }
 
-    const winnerNames = winners.map(w => w.displayName).join(' and ');
-    const currentMonth = new Date().toLocaleDateString('en-US', { month: 'long' });
-
-    // Use provided text or fall back to defaults; escape HTML then convert newlines to <br>.
-    // A literal "[MUG]" token in the message is swapped for the mug photo, so admins can
-    // place it inline instead of always getting it appended at the bottom.
-    const safeHtml = t => (t || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
-    const mugImgHtml = width => `<img src="${siteUrl}/images/mug.png" alt="Daily Dispatch Quiz Mug" style="width:${width}px;height:auto;margin:16px auto;display:block;">`;
-    const winnerMessageRaw = winnerMessage || `You finished ${monthName} at the top of the Daily Dispatch Quiz leaderboard with ${topScore} points.\n\nYour prize: a Daily Dispatch Quiz coffee mug, on us.\n\nJust reply to this email with your mailing address and we'll get it shipped to you.`;
-    const announcementMessageRaw = announcementMessage || `${winnerNames} topped the ${monthName} leaderboard with ${topScore} points and ${winners.length > 1 ? 'are' : 'is'} receiving a Daily Dispatch Quiz mug.\n\nThink you can beat them in ${currentMonth}? Play every day to climb the leaderboard.`;
-    const winnerHasMug = /\[MUG\]/i.test(winnerMessageRaw);
-    const announcementHasMug = /\[MUG\]/i.test(announcementMessageRaw);
-    const winnerBodyHtml = safeHtml(winnerMessageRaw).replace(/\[MUG\]/ig, mugImgHtml(200));
-    const announcementBodyHtml = safeHtml(announcementMessageRaw).replace(/\[MUG\]/ig, mugImgHtml(160));
-
-    // Mark mug won
     for (const winner of winners) {
       if (data.subscribers[winner.email]) {
         data.subscribers[winner.email].mugWon = true;
@@ -2711,64 +2757,11 @@ app.post('/api/admin/announce-monthly-winner', async (req, res) => {
     }
     await writeData(data);
 
-    // Winner email(s)
-    for (const winner of winners) {
-      const winnerHtml = `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1008;">
-        <div style="background:#1a1008;color:#f5f0e8;text-align:center;padding:24px;">
-          <div style="font-family:monospace;font-size:11px;letter-spacing:3px;color:#f0c040;margin-bottom:6px;">BALTIMORE · DAILY DISPATCH</div>
-          <div style="font-size:28px;font-weight:bold;">The Daily Dispatch Quiz</div>
-        </div>
-        <div style="padding:32px 24px;background:#f5f0e8;text-align:center;">
-          <div style="font-size:48px;margin-bottom:12px;">🏆</div>
-          <p style="font-family:Georgia,serif;font-size:24px;font-weight:700;margin:0 0 10px;">${winner.displayName} wins the ${monthName} mug!</p>
-          <p style="font-size:15px;color:#6b5f4e;margin:0 0 24px;line-height:1.7;">${winnerBodyHtml}</p>
-          ${winnerHasMug ? '' : `<img src="${siteUrl}/images/mug.png" alt="Daily Dispatch Quiz Mug" style="width:200px;height:auto;margin:0 auto 24px;display:block;">`}
-          <a href="${siteUrl}" style="display:inline-block;background:#1a1008;color:#f5f0e8;padding:16px 36px;font-family:monospace;font-size:13px;letter-spacing:2px;text-decoration:none;text-transform:uppercase;">Play Today's Quiz ▸</a>
-        </div>
-        <div style="padding:16px 24px;text-align:center;font-size:11px;color:#999;font-family:monospace;border-top:1px solid #e0d8cc;">
-          <a href="${siteUrl}/api/unsubscribe?email=${encodeURIComponent(winner.email)}" style="color:#999;">Unsubscribe</a>
-        </div>
-      </div>`;
-      await sendEmail(winner.email, `🏆 You won the ${monthName} Daily Dispatch Quiz mug!`, winnerHtml);
-    }
-
-    // Announcement to all subscribers and prospects
-    const announcementHtml = `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1008;">
-      <div style="background:#1a1008;color:#f5f0e8;text-align:center;padding:24px;">
-        <div style="font-family:monospace;font-size:11px;letter-spacing:3px;color:#f0c040;margin-bottom:6px;">BALTIMORE · DAILY DISPATCH</div>
-        <div style="font-size:28px;font-weight:bold;">The Daily Dispatch Quiz</div>
-      </div>
-      <div style="padding:32px 24px;background:#f5f0e8;text-align:center;">
-        <div style="font-size:48px;margin-bottom:12px;">🏆</div>
-        <p style="font-family:Georgia,serif;font-size:24px;font-weight:700;margin:0 0 10px;">${monthName} Champion${winners.length > 1 ? 's' : ''}</p>
-        <p style="font-size:20px;font-weight:700;color:#b8860b;margin:0 0 16px;">${winnerNames}</p>
-        <p style="font-size:15px;color:#6b5f4e;margin:0 0 24px;line-height:1.7;">${announcementBodyHtml}</p>
-        ${announcementHasMug ? '' : `<img src="${siteUrl}/images/mug.png" alt="Daily Dispatch Quiz Mug" style="width:160px;height:auto;margin:0 auto 24px;display:block;">`}
-        <a href="${siteUrl}" style="display:inline-block;background:#1a1008;color:#f5f0e8;padding:16px 36px;font-family:monospace;font-size:13px;letter-spacing:2px;text-decoration:none;text-transform:uppercase;">Play Today's Quiz ▸</a>
-      </div>
-      <div style="padding:16px 24px;text-align:center;font-size:11px;color:#999;font-family:monospace;border-top:1px solid #e0d8cc;">
-        Daily Dispatch Quiz · Baltimore
-      </div>
-    </div>`;
-
-    const allRecipients = [
-      ...Object.values(data.subscribers || {}).filter(s => s.active && !winners.find(w => w.email === s.email)),
-      ...Object.values(data.prospects || {}).filter(p => p.active !== false)
-    ];
-    const announcementEmails = allRecipients.map(r => ({
-      from: process.env.FROM_EMAIL || 'David @ Daily Dispatch Quiz <david@dailydispatchquiz.com>',
-      reply_to: 'dhconn@gmail.com',
-      to: [r.email],
-      subject: `🏆 ${monthName} Quiz Champion: ${winnerNames}`,
-      html: announcementHtml
-    }));
-    await sendEmailBatch(announcementEmails);
-
-    console.log(`[MonthlyWinner] Manual announcement sent for ${monthName} — ${winners.length} winner(s), ${announcementEmails.length} recipients.`);
-    res.json({ ok: true, monthName, recipientCount: announcementEmails.length,
+    console.log(`[MonthlyWinner] Recorded for ${monthName} — ${winners.length} winner(s). No emails sent (by design).`);
+    res.json({ ok: true, monthName,
       winners: winners.map(w => ({ displayName: w.displayName, email: w.email, score: w.monthlyScore })) });
   } catch (e) {
-    console.error('[MonthlyWinner] manual announce error:', e.message);
+    console.error('[MonthlyWinner] announce error:', e.message);
     res.status(500).json({ error: e.message });
   }
 });
@@ -4985,71 +4978,12 @@ async function announceMonthlyWinner() {
     }
     await writeData(data);
 
-    // Send winner email(s)
-    for (const winner of winners) {
-      const winnerHtml = `
-        <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1008;">
-          <div style="background:#1a1008;color:#f5f0e8;text-align:center;padding:24px;">
-            <div style="font-family:monospace;font-size:11px;letter-spacing:3px;color:#f0c040;margin-bottom:6px;">BALTIMORE · DAILY DISPATCH</div>
-            <div style="font-size:28px;font-weight:bold;">The Daily Dispatch Quiz</div>
-          </div>
-          <div style="padding:32px 24px;background:#f5f0e8;text-align:center;">
-            <div style="font-size:48px;margin-bottom:12px;">🏆</div>
-            <p style="font-family:'Playfair Display',Georgia,serif;font-size:24px;font-weight:700;margin:0 0 10px;">${winner.displayName} wins the ${monthName} mug!</p>
-            <p style="font-size:15px;color:#6b5f4e;margin:0 0 24px;line-height:1.7;">
-              You finished ${monthName} at the top of the Daily Dispatch Quiz leaderboard with <strong>${winner.monthlyScore} points</strong>.<br><br>
-              Your prize: a Daily Dispatch Quiz coffee mug, on us.<br><br>
-              Just reply to this email with your mailing address and we'll get it shipped to you.
-            </p>
-            <img src="${siteUrl}/images/mug.png" alt="Daily Dispatch Quiz Mug" style="width:200px;height:auto;margin:0 auto 24px;display:block;">
-            <a href="${siteUrl}" style="display:inline-block;background:#1a1008;color:#f5f0e8;padding:16px 36px;font-family:monospace;font-size:13px;letter-spacing:2px;text-decoration:none;text-transform:uppercase;">Play Today's Quiz ▸</a>
-          </div>
-          <div style="padding:16px 24px;text-align:center;font-size:11px;color:#999;font-family:monospace;border-top:1px solid #e0d8cc;">
-            <a href="${siteUrl}/api/unsubscribe?email=${encodeURIComponent(winner.email)}" style="color:#999;">Unsubscribe</a>
-          </div>
-        </div>`;
-      await sendEmail(winner.email, `🏆 You won the ${monthName} Daily Dispatch Quiz mug!`, winnerHtml);
-    }
-
-    // Send announcement to all subscribers and prospects
-    const winnerNames = winners.map(w => w.displayName).join(' and ');
-    const announcementHtml = `
-      <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1008;">
-        <div style="background:#1a1008;color:#f5f0e8;text-align:center;padding:24px;">
-          <div style="font-family:monospace;font-size:11px;letter-spacing:3px;color:#f0c040;margin-bottom:6px;">BALTIMORE · DAILY DISPATCH</div>
-          <div style="font-size:28px;font-weight:bold;">The Daily Dispatch Quiz</div>
-        </div>
-        <div style="padding:32px 24px;background:#f5f0e8;text-align:center;">
-          <div style="font-size:48px;margin-bottom:12px;">🏆</div>
-          <p style="font-family:'Playfair Display',Georgia,serif;font-size:24px;font-weight:700;margin:0 0 10px;">${monthName} Champion${winners.length > 1 ? 's' : ''}</p>
-          <p style="font-size:20px;font-weight:700;color:#b8860b;margin:0 0 16px;">${winnerNames}</p>
-          <p style="font-size:15px;color:#6b5f4e;margin:0 0 24px;line-height:1.7;">
-            ${winnerNames} topped the ${monthName} leaderboard with <strong>${topScore} points</strong> and ${winners.length > 1 ? 'are' : 'is'} receiving a Daily Dispatch Quiz mug.<br><br>
-            Think you can beat them in ${new Date().toLocaleDateString('en-US', { month: 'long' })}? Play every day to climb the leaderboard.
-          </p>
-          <img src="${siteUrl}/images/mug.png" alt="Daily Dispatch Quiz Mug" style="width:160px;height:auto;margin:0 auto 24px;display:block;">
-          <a href="${siteUrl}" style="display:inline-block;background:#1a1008;color:#f5f0e8;padding:16px 36px;font-family:monospace;font-size:13px;letter-spacing:2px;text-decoration:none;text-transform:uppercase;">Play Today's Quiz ▸</a>
-        </div>
-        <div style="padding:16px 24px;text-align:center;font-size:11px;color:#999;font-family:monospace;border-top:1px solid #e0d8cc;">
-          Daily Dispatch Quiz · Baltimore
-        </div>
-      </div>`;
-
-    const allRecipients = [
-      ...Object.values(data.subscribers || {}).filter(s => s.active && !winners.find(w => w.email === s.email)),
-      ...Object.values(data.prospects || {}).filter(p => p.active !== false)
-    ];
-
-    const announcementEmails = allRecipients.map(r => ({
-      from: process.env.FROM_EMAIL || 'David @ Daily Dispatch Quiz <david@dailydispatchquiz.com>',
-      reply_to: 'dhconn@gmail.com',
-      to: [r.email],
-      subject: `🏆 ${monthName} Quiz Champion: ${winnerNames}`,
-      html: announcementHtml
-    }));
-
-    await sendEmailBatch(announcementEmails);
-    console.log(`[MonthlyWinner] Announcement sent to ${announcementEmails.length} recipients.`);
+    // Emails deliberately removed 2026-10-21 (same change as the manual
+    // /api/admin/announce-monthly-winner endpoint) — user wants to craft
+    // and send mug-winner messaging themselves, not have it auto-sent.
+    // This function is unreachable anyway (early return above), but kept
+    // in sync so a future re-enable doesn't silently resurrect mass email.
+    console.log(`[MonthlyWinner] Recorded for ${monthName} — ${winners.length} winner(s). No emails sent (by design).`);
 
   } catch (e) {
     console.error('[MonthlyWinner] error:', e.message);
