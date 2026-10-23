@@ -5384,4 +5384,4 @@ app.post('/api/messages/:id/read', async (req, res) => {
   const msg = (data.messages || []).find(m => m.id === req.params.id);
   if (msg) { msg.read = true; await writeData(data); }
   res.json({ ok: true });
-});// github-integration-check: 20261023T150853Z
+});
