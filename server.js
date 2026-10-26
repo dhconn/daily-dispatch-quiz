@@ -3563,6 +3563,23 @@ app.get('/api/quiz', async (req, res) => {
   const { date } = req.query;
   const data = await readData();
 
+  // A retracted today's quiz must stay hidden from this exact-date lookup
+  // too — this is players' actual primary load path (news-quiz.html tries
+  // this before falling back to /api/quiz/latest, which already respected
+  // retraction), so retractQuiz() previously had no real effect on players
+  // at all. Bug found + fixed 2026-10-25. Admin requests (real token) still
+  // see the real content — Republish and the admin dashboard's "Today's
+  // Published Quiz" view both need it regardless of retraction.
+  const retractCheckDate = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  const adminToken = process.env.ADMIN_TOKEN || 'admin';
+  const isAdmin = req.headers['x-admin-token'] === adminToken;
+  if (date === retractCheckDate && !isAdmin) {
+    const scheduled = await getKey('scheduledQuiz');
+    if (scheduled && scheduled.retracted) {
+      return res.json({ quiz: null });
+    }
+  }
+
   // Exact date match in the live 14-day store
   if (date && data.quizzes && data.quizzes[date]) {
     return res.json({ quiz: data.quizzes[date], date });

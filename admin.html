@@ -3760,7 +3760,8 @@
       let today = null;
       let publishedDate = null;
       try {
-        const todayRes = await fetch('/api/quiz?date=' + todayStr());
+        const adminTokenHdr = { 'x-admin-token': lsGet('dnq_admin_token') || 'admin' };
+        const todayRes = await fetch('/api/quiz?date=' + todayStr(), { headers: adminTokenHdr });
         if (todayRes.ok) {
           const todayData = await todayRes.json();
           if (todayData.quiz && todayData.quiz.questions) {
@@ -3772,7 +3773,7 @@
         if (!today) {
           const d = new Date(); d.setDate(d.getDate() - 1);
           const yest = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-          const yestRes = await fetch('/api/quiz?date=' + yest);
+          const yestRes = await fetch('/api/quiz?date=' + yest, { headers: adminTokenHdr });
           if (yestRes.ok) {
             const yestData = await yestRes.json();
             if (yestData.quiz && yestData.quiz.questions) {
@@ -5873,7 +5874,7 @@
       statusEl.textContent = 'Saving…';
       statusEl.style.color = 'var(--muted)';
       try {
-        const res = await fetch(`/api/quiz?date=${date}`);
+        const res = await fetch(`/api/quiz?date=${date}`, { headers: { 'x-admin-token': lsGet('dnq_admin_token') || 'admin' } });
         const data = await res.json();
         const quiz = data.quiz;
         const q = quiz.questions[qi];
@@ -5914,7 +5915,7 @@
     async function republishQuiz(date) {
       if (!confirm(`Load the ${date} quiz into draft for editing and republishing?`)) return;
       try {
-        const res = await fetch(`/api/quiz?date=${date}`);
+        const res = await fetch(`/api/quiz?date=${date}`, { headers: { 'x-admin-token': lsGet('dnq_admin_token') || 'admin' } });
         const data = await res.json();
         if (!data.quiz || !data.quiz.questions) throw new Error('No questions found');
         saveDraftQuiz({ questions: data.quiz.questions });
@@ -6240,7 +6241,7 @@
         // Fetch today's quiz for answer text lookup
         let todayQuiz = null;
         try {
-          const quizRes = await fetch('/api/quiz?date=' + today);
+          const quizRes = await fetch('/api/quiz?date=' + today, { headers: { 'x-admin-token': lsGet('dnq_admin_token') || 'admin' } });
           const quizData = await quizRes.json();
           todayQuiz = quizData.quiz || null;
         } catch (e) { }
@@ -6517,7 +6518,7 @@
       const el = document.getElementById('admin-today-questions');
       if (!el) return;
       try {
-        const res = await fetch('/api/quiz?date=' + todayStr());
+        const res = await fetch('/api/quiz?date=' + todayStr(), { headers: { 'x-admin-token': lsGet('dnq_admin_token') || 'admin' } });
         const data = await res.json();
         const questions = data.quiz && data.quiz.questions ? data.quiz.questions : [];
         if (!questions.length) { el.innerHTML = '<p style="font-family:monospace;font-size:12px;color:var(--muted);">No quiz published yet today.</p>'; return; }
