@@ -4995,8 +4995,21 @@ async function checkScheduledPublish() {
   try {
     const scheduled = await getKey('scheduledQuiz');
     if (!scheduled) return;
+    // 'scheduledQuiz' is also where retractQuiz() stores its
+    // {retracted:true} marker to hide the live quiz (shares this key
+    // with real schedules so /api/quiz/latest's single truthy-check
+    // suppresses either case). That marker has no scheduledFor, so
+    // `new Date(undefined)` is Invalid Date — and `now < Invalid Date`
+    // evaluates to false (comparisons with NaN are never true), which
+    // used to fall through as if "time to publish" and silently clear
+    // the retraction within a minute. Bug found + fixed 2026-10-25.
+    if (scheduled.retracted) return;
     const now = new Date();
     const scheduledFor = new Date(scheduled.scheduledFor);
+    if (isNaN(scheduledFor.getTime())) {
+      console.error('[Schedule] scheduledQuiz has an invalid scheduledFor — ignoring rather than risking a wrong-time publish:', scheduled.scheduledFor);
+      return;
+    }
     if (now < scheduledFor) return; // not time yet
 
     console.log(`[Schedule] Time to publish! Scheduled for ${scheduled.scheduledFor}`);
