@@ -2777,6 +2777,10 @@ app.get('/api/quiz/latest', async (req, res) => {
   const mostRecent = dates[dates.length - 1];
   const todayEastern = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
   if (mostRecent !== todayEastern) return res.json({ quiz: null });
+  // Independent of 'scheduledQuiz' — see retractedDate's introduction
+  // 2026-10-25 for why these can't share one key.
+  const retractedDate = await getKey('retractedDate');
+  if (retractedDate && retractedDate === mostRecent) return res.json({ quiz: null });
   res.json({ quiz: data.quizzes[mostRecent], date: mostRecent });
 });
 
@@ -3563,19 +3567,18 @@ app.get('/api/quiz', async (req, res) => {
   const { date } = req.query;
   const data = await readData();
 
-  // A retracted today's quiz must stay hidden from this exact-date lookup
-  // too — this is players' actual primary load path (news-quiz.html tries
-  // this before falling back to /api/quiz/latest, which already respected
-  // retraction), so retractQuiz() previously had no real effect on players
-  // at all. Bug found + fixed 2026-10-25. Admin requests (real token) still
-  // see the real content — Republish and the admin dashboard's "Today's
-  // Published Quiz" view both need it regardless of retraction.
-  const retractCheckDate = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  // A retracted date must stay hidden from this exact-date lookup too —
+  // this is players' actual primary load path (news-quiz.html tries this
+  // before falling back to /api/quiz/latest), so retractQuiz() previously
+  // had no real effect on players at all. Bug found + fixed 2026-10-25.
+  // Admin requests (real token) still see the real content — Republish
+  // and the admin dashboard's "Today's Published Quiz" view both need it
+  // regardless of retraction.
   const adminToken = process.env.ADMIN_TOKEN || 'admin';
   const isAdmin = req.headers['x-admin-token'] === adminToken;
-  if (date === retractCheckDate && !isAdmin) {
-    const scheduled = await getKey('scheduledQuiz');
-    if (scheduled && scheduled.retracted) {
+  if (date && !isAdmin) {
+    const retractedDate = await getKey('retractedDate');
+    if (retractedDate && retractedDate === date) {
       return res.json({ quiz: null });
     }
   }
@@ -3970,8 +3973,15 @@ app.post('/api/admin/retract-quiz', async (req, res) => {
   const adminToken = process.env.ADMIN_TOKEN || 'admin';
   if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
   try {
-    await setKey('scheduledQuiz', { retracted: true, retractedAt: new Date().toISOString() });
-    console.log('[Admin] Quiz retracted — hidden from players');
+    // Stored as its own key, deliberately separate from 'scheduledQuiz' —
+    // fixed 2026-10-25 after finding live that the two sharing one slot
+    // meant retracting today and scheduling tomorrow (both real, common
+    // needs) couldn't coexist: scheduling tomorrow silently clobbered
+    // today's retraction (since both wrote to the same key), re-exposing
+    // the retracted quiz the moment a future quiz got scheduled.
+    const todayEastern = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+    await setKey('retractedDate', todayEastern);
+    console.log('[Admin] Quiz retracted for', todayEastern, '— hidden from players');
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -3983,7 +3993,7 @@ app.post('/api/admin/restore-quiz', async (req, res) => {
   const adminToken = process.env.ADMIN_TOKEN || 'admin';
   if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
   try {
-    await setKey('scheduledQuiz', null);
+    await setKey('retractedDate', null);
     console.log('[Admin] Quiz restored — visible to players');
     res.json({ ok: true });
   } catch (e) {
@@ -5012,17 +5022,15 @@ async function checkScheduledPublish() {
   try {
     const scheduled = await getKey('scheduledQuiz');
     if (!scheduled) return;
-    // 'scheduledQuiz' is also where retractQuiz() stores its
-    // {retracted:true} marker to hide the live quiz (shares this key
-    // with real schedules so /api/quiz/latest's single truthy-check
-    // suppresses either case). That marker has no scheduledFor, so
-    // `new Date(undefined)` is Invalid Date — and `now < Invalid Date`
-    // evaluates to false (comparisons with NaN are never true), which
-    // used to fall through as if "time to publish" and silently clear
-    // the retraction within a minute. Bug found + fixed 2026-10-25.
-    if (scheduled.retracted) return;
     const now = new Date();
     const scheduledFor = new Date(scheduled.scheduledFor);
+    // Defensive: a malformed/missing scheduledFor must never silently fall
+    // through as "time to publish" — new Date(undefined) is Invalid Date,
+    // and a comparison against NaN is always false, so `now < scheduledFor`
+    // alone can't be trusted to catch this case. (This guard caught a real
+    // bug 2026-10-25 when retractQuiz() briefly also wrote to this same
+    // key — that's since been moved to its own 'retractedDate' key, but
+    // the guard is good practice regardless of the current cause.)
     if (isNaN(scheduledFor.getTime())) {
       console.error('[Schedule] scheduledQuiz has an invalid scheduledFor — ignoring rather than risking a wrong-time publish:', scheduled.scheduledFor);
       return;
