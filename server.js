@@ -2949,12 +2949,12 @@ function buildEmailHtml(siteUrl, date, subscriberName, teaserHtml, unsubUrl, tra
     </a>
     <div style="padding:32px 24px;background:#f5f0e8;text-align:center;">
       <p style="font-size:18px;margin:0 0 8px;">Hi${subscriberName ? ' ' + subscriberName : ''},</p>
+<!--EDITOR_MESSAGE_INSERT_POINT-->
 <!--BYLINES_TEASER_INSERT_POINT-->
 <!--REFERRAL_STRIP_INSERT_POINT-->
       <p style="font-size:16px;color:#444;margin:0 0 8px;">6 questions. 90 seconds.</p>
       <p style="font-size:16px;color:#444;margin:0 0 24px;">How closely are you following the news?</p>
       ${teaserHtml}
-<!--EDITOR_MESSAGE_INSERT_POINT-->
       <a href="${siteUrl}/news-quiz.html${trackingToken ? '?tok=' + encodeURIComponent(trackingToken) : ''}" style="display:inline-block;background:#1a1008;color:#f5f0e8;padding:16px 36px;font-family:monospace;font-size:13px;letter-spacing:2px;text-decoration:none;text-transform:uppercase;">Play Today's Quiz ▸</a>
 
 <!--SUBSCRIBE_INSERT_POINT-->
