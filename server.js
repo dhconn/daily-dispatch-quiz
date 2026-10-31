@@ -1210,61 +1210,6 @@ try {
   }
 });
 
-// ── ONE-TIME: quietly mark Detour54 as September 2026 mug winner ───────
-// The monthly-winner process has never actually run (monthlyWinners was
-// completely empty, confirmed 2026-10-21) — auto-announce is disabled
-// and nobody triggered it manually, so the trophy icon (driven by the
-// subscriber's mugWon flag, not computed live) never appeared despite
-// Detour54 genuinely topping September (4270 pts, confirmed independently
-// by summing September dailyScores). Per explicit user choice, this sets
-// mugWon/monthlyWinners directly — no emails. Dry-run by default; writes
-// only with {"confirm":true}. Remove once run.
-app.post('/api/admin/fix-september-winner', async (req, res) => {
-  const adminToken = process.env.ADMIN_TOKEN || 'admin';
-  if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
-  try {
-    const { confirm } = req.body || {};
-    const MONTH_PREFIX = '2026-09';
-    const MONTH_NAME = 'September 2026';
-    const PLAYER_KEY = 'detour54';
-
-    const data = await readData();
-    const scores = data.scores || {};
-    const player = scores[PLAYER_KEY];
-    if (!player) return res.json({ ok: false, error: 'Player not found in scores' });
-
-    const monthlyScore = Object.entries(player.dailyScores || {})
-      .filter(([d]) => d.startsWith(MONTH_PREFIX))
-      .reduce((sum, [, s]) => sum + s, 0);
-
-    const sub = Object.values(data.subscribers || {}).find(s =>
-      s.active && normPlayerKey(s.name) === PLAYER_KEY
-    );
-    if (!sub) return res.json({ ok: false, error: 'No active subscriber record found for this player' });
-
-    const change = {
-      playerKey: PLAYER_KEY, displayName: player.displayName, monthlyScore,
-      email: sub.email, alreadyMugWon: !!sub.mugWon
-    };
-
-    if (confirm) {
-      data.subscribers[sub.email].mugWon = true;
-      data.subscribers[sub.email].mugWonAt = new Date().toISOString();
-      data.subscribers[sub.email].mugWonReason = `monthly_${MONTH_PREFIX}`;
-      if (!data.monthlyWinners) data.monthlyWinners = [];
-      data.monthlyWinners.push({
-        month: MONTH_PREFIX, monthName: MONTH_NAME, playerName: player.displayName,
-        score: monthlyScore, announcedAt: new Date().toISOString()
-      });
-      await writeData(data);
-    }
-
-    res.json({ ok: true, confirmed: !!confirm, change });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
 // ── ONE-TIME: per-question accuracy report from Postgres 'progress' ────
 // Read-only aggregation for the "Question Accuracy" artifact update
 // (2026-10-20) — sources from the Group 1 dual-write 'progress' table,
