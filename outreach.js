@@ -1383,8 +1383,38 @@ async function main() {
   console.log('[Outreach] Done. Marked today as processed.');
 }
 
+// --serve-pending — restart the local review server against whatever's
+// already in outreach-pending-emails.json, without re-running the full
+// research/draft/send-digest pipeline (which would also just no-op if
+// today's already been processed — see markRunDone()/getLastRun()).
+// Added 2026-11-02 after the server died early one morning (a Task
+// Scheduler setting killed it, since fixed) and the only way to get back
+// to already-drafted, already-paid-for Claude content was this.
+async function servePendingCommand() {
+  const cfg = loadConfig();
+  if (!fs.existsSync(PENDING_EMAILS_PATH)) {
+    console.error('[Outreach] No outreach-pending-emails.json found — nothing to serve.');
+    process.exit(1);
+  }
+  let pending;
+  try { pending = JSON.parse(fs.readFileSync(PENDING_EMAILS_PATH, 'utf8')); }
+  catch (e) {
+    console.error('[Outreach] Could not parse outreach-pending-emails.json:', e.message);
+    process.exit(1);
+  }
+  const count = Object.keys(pending).length;
+  if (!count) {
+    console.log('[Outreach] outreach-pending-emails.json is empty — nothing left to send.');
+    return;
+  }
+  console.log(`[Outreach] Re-serving ${count} pending reporter email(s) from today's draft.`);
+  startLocalSendServer(pending, cfg);
+}
+
 if (process.argv.includes('--log-today')) {
   logTodayCommand().catch(e => { console.error('[Outreach] Fatal:', e.message); process.exit(1); });
+} else if (process.argv.includes('--serve-pending')) {
+  servePendingCommand().catch(e => { console.error('[Outreach] Fatal:', e.message); process.exit(1); });
 } else {
   main().catch(e => { console.error('[Outreach] Fatal error:', e.message); process.exit(1); });
 }
