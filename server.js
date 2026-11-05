@@ -3279,6 +3279,33 @@ app.patch('/api/subscribers/:email', async (req, res) => {
   res.json({ ok: true, email, active });
 });
 
+// ── Required quiz structure ───────────────────────────────────
+// 6 questions, each at an exact difficulty by position — easy, easy,
+// medium, medium, hard, bonus (10/10/20/20/30/50 pts). This isn't just
+// labeling: it's the entire basis for "perfect score = 150" (Bylines),
+// and the Bonus Round screen always awards 50pts by array position
+// regardless of its tag (see news-quiz.html selectBonus()), so a wrong
+// tag there silently overpays too. Added 2026-11-05 after a quiz went
+// live with this array shifted by one (a dropped/swapped question let
+// 'hard' and 'bonus' slide an index early, with a stray 'easy' question
+// left where the real Bonus Round question should've been) — inflated
+// every perfect play to 180 and broke that day's Bylines for players who
+// genuinely earned them. See [[project_quiz_difficulty_safeguard]].
+const REQUIRED_QUIZ_DIFFICULTIES = ['easy', 'easy', 'medium', 'medium', 'hard', 'bonus'];
+function validateQuizDifficulties(questions) {
+  if (!Array.isArray(questions) || questions.length !== 6) {
+    return `Quiz must have exactly 6 questions (found ${questions ? questions.length : 0}).`;
+  }
+  const bad = [];
+  questions.forEach((q, i) => {
+    if (q.difficulty !== REQUIRED_QUIZ_DIFFICULTIES[i]) {
+      bad.push(`Q${i + 1} is "${q.difficulty || '(missing)'}", must be "${REQUIRED_QUIZ_DIFFICULTIES[i]}"`);
+    }
+  });
+  if (!bad.length) return null;
+  return `Cannot save — question difficulty/points are wrong (required order: easy/10, easy/10, medium/20, medium/20, hard/30, bonus/50): ${bad.join('; ')}`;
+}
+
 // ── Quiz persistence ──────────────────────────────────────────
 // Save published quiz to server so it survives browser/device changes
 app.post('/api/quiz', async (req, res) => {
@@ -3286,6 +3313,8 @@ app.post('/api/quiz', async (req, res) => {
   if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
   const { date, quiz, silent } = req.body;
   if (!date || !quiz) return res.status(400).json({ error: 'date and quiz required' });
+  const difficultyError = validateQuizDifficulties(quiz.questions);
+  if (difficultyError) return res.status(400).json({ error: difficultyError });
   const data = await readData();
   if (!data.quizzes) data.quizzes = {};
   data.quizzes[date] = quiz;
@@ -3869,6 +3898,8 @@ app.post('/api/quiz/schedule', async (req, res) => {
   if (req.headers['x-admin-token'] !== adminToken) return res.status(403).json({ error: 'Forbidden' });
   const { date, quiz, scheduledFor } = req.body;
   if (!date || !quiz || !scheduledFor) return res.status(400).json({ error: 'date, quiz, and scheduledFor required' });
+  const difficultyError = validateQuizDifficulties(quiz.questions);
+  if (difficultyError) return res.status(400).json({ error: difficultyError });
   try {
     // Check if something is already scheduled
     const existing = await getKey('scheduledQuiz');

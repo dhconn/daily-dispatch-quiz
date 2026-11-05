@@ -2078,13 +2078,11 @@
             style="width:100%;font-family:monospace;font-size:12px;padding:8px;border:1px solid #ccc;box-sizing:border-box;margin-top:4px;">
 
           <div class="q-edit-label" style="margin-top:10px;">DIFFICULTY</div>
-          <select id="aq-difficulty"
-            style="font-family:monospace;font-size:12px;padding:6px 10px;border:1px solid #ccc;margin-top:4px;">
-            <option value="easy">Easy (10 pts)</option>
-            <option value="medium">Medium (20 pts)</option>
-            <option value="hard">Hard (30 pts)</option>
-            <option value="bonus">Bonus (50 pts)</option>
-          </select>
+          <div style="font-family:monospace;font-size:12px;color:var(--muted);margin-top:4px;">
+            Assigned automatically by slot — easy(10), easy(10), medium(20), medium(20), hard(30), bonus(50).
+            This question will land at the end, so reorder it afterward (↑/↓) if it needs a different slot —
+            its difficulty/points update automatically when you do.
+          </div>
 
           <div style="display:flex;gap:10px;margin-top:14px;">
             <button class="btn-generate" onclick="addManualQuestion()" style="background:var(--green);">+ Add to
@@ -4973,7 +4971,6 @@
         document.getElementById(id).value = '';
       });
       document.getElementById('aq-r0').checked = true;
-      document.getElementById('aq-difficulty').value = 'easy';
       document.getElementById('aq-error').style.display = 'none';
       document.getElementById('aq-question').focus();
     }
@@ -4990,7 +4987,6 @@
       const correctIndex = parseInt(document.querySelector('input[name="aq-correct"]:checked').value);
       const explanation = document.getElementById('aq-explanation').value.trim();
       const sourceUrl = document.getElementById('aq-url').value.trim();
-      const difficulty = document.getElementById('aq-difficulty').value;
 
       const errEl = document.getElementById('aq-error');
       if (!question) { errEl.textContent = 'Please enter a question.'; errEl.style.display = 'block'; return; }
@@ -4998,11 +4994,24 @@
       if (!explanation) { errEl.textContent = 'Please add an explanation.'; errEl.style.display = 'block'; return; }
       errEl.style.display = 'none';
 
-      const newQ = { question, image, options: opts, correctIndex, explanation, sourceUrl, difficulty };
+      const newQ = { question, image, options: opts, correctIndex, explanation, sourceUrl };
 
       // Add to draft, or create a new draft if none exists
       let draft = getDraftQuiz() || { questions: [], generatedAt: new Date().toISOString(), urls: [] };
       draft.questions.push(newQ);
+      // Difficulty is never manually chosen — it's always derived from slot
+      // position (easy, easy, medium, medium, hard, bonus), same as every
+      // other function that touches question order (deleteQuestion,
+      // reorderQuestion, promoteHeldQuestion). This function used to be the
+      // one exception — it left whatever difficulty a form dropdown had
+      // defaulted to (always "easy"), landing on whatever slot the new
+      // question fell into (always the last one), with no reapply. That's
+      // confirmed as the real mechanism behind the 2026-11-05 scoring
+      // incident: an admin had to manually reorder a question down and back
+      // up just to force this same relabeling to run. Doing it here removes
+      // the need for that workaround entirely.
+      const diffs = ['easy', 'easy', 'medium', 'medium', 'hard', 'bonus'];
+      draft.questions.forEach((q, i) => { q.difficulty = diffs[i] || q.difficulty; });
       saveDraftQuiz(draft);
       showDraftPreview(draft.questions);
       hideAddQuestionForm();
@@ -5385,14 +5394,24 @@
       if (!questions || questions.length !== 6) {
         errors.push('Need exactly 6 questions, found ' + (questions ? questions.length : 0));
       }
+      // Difficulty must match slot position exactly — this is what makes a
+      // perfect score 150 (Bylines) and what the Bonus Round's hardcoded
+      // 50pts is actually paying out for (see news-quiz.html selectBonus()).
+      // A silent guess here (this used to default a missing difficulty to
+      // "easy"/"bonus" instead of flagging it) is exactly how a shifted
+      // array went live undetected on 2026-11-05 — never auto-fill, always
+      // require the real thing and let the server's own check catch
+      // anything this misses.
+      const REQUIRED_DIFFICULTIES = ['easy', 'easy', 'medium', 'medium', 'hard', 'bonus'];
       (questions || []).forEach((q, i) => {
         const label = 'Q' + (i + 1);
         if (!q.sourceUrl || q.sourceUrl.trim().length < 10) errors.push(label + ': sourceUrl missing or too short ("' + (q.sourceUrl || '') + '")');
         if (!Array.isArray(q.options) || q.options.length !== 4) errors.push(label + ': must have exactly 4 options');
         if (typeof q.correctIndex !== 'number' || q.correctIndex < 0 || q.correctIndex > 3) errors.push(label + ': correctIndex must be 0-3');
         if (!q.explanation || q.explanation.trim().length < 10) errors.push(label + ': explanation missing or too short');
-        if (!q.difficulty) {
-          q.difficulty = (i === 5) ? 'bonus' : 'easy';
+        const requiredDiff = REQUIRED_DIFFICULTIES[i];
+        if (requiredDiff && q.difficulty !== requiredDiff) {
+          errors.push(label + ': difficulty is "' + (q.difficulty || '(missing)') + '", must be "' + requiredDiff + '" — use ↑/↓ to reorder into the right slot rather than editing this by hand');
         }
       });
       return errors;
